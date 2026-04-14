@@ -45,7 +45,9 @@ class ApiClient {
     }
 
     if (res.status === 204) return null;
-    return res.json();
+    const json = await res.json();
+    console.log(`[API] ${method} ${path}`, json);
+    return json;
   }
 
   get(path, params) {
