@@ -81,7 +81,8 @@ export default function NotificationsPage() {
           )}
         </div>
         {unreadCount > 0 && (
-          <Button size="sm" variant="flat" startContent={<CheckCheck size={14} />} onPress={markAllRead}>
+          <Button size="sm" variant="secondary" onPress={markAllRead}>
+            <CheckCheck size={14} />
             Marcar todas como leídas
           </Button>
         )}

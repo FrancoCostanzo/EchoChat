@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Card, Input, Button, Separator } from '@heroui/react';
+import { Card, Input, Button, Separator, Spinner } from '@heroui/react';
 import { MessageCircle, Eye, EyeOff } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -46,31 +46,40 @@ export default function LoginPage() {
             <div className="rounded-lg bg-danger-50 p-3 text-sm text-danger">{error}</div>
           )}
 
-          <Input
-            label="Usuario"
-            placeholder="tu.usuario"
-            value={form.username}
-            onChange={updateField('username')}
-            isRequired
-            autoFocus
-          />
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium">Usuario</label>
+            <Input
+              placeholder="tu.usuario"
+              value={form.username}
+              onChange={updateField('username')}
+              required
+              autoFocus
+            />
+          </div>
 
-          <Input
-            label="Contraseña"
-            placeholder="••••••••"
-            type={showPassword ? 'text' : 'password'}
-            value={form.password}
-            onChange={updateField('password')}
-            isRequired
-            endContent={
-              <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-default-400">
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium">Contraseña</label>
+            <div className="relative">
+              <Input
+                placeholder="••••••••"
+                type={showPassword ? 'text' : 'password'}
+                value={form.password}
+                onChange={updateField('password')}
+                required
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-default-400"
+              >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
-            }
-          />
+            </div>
+          </div>
 
-          <Button type="submit" color="primary" isLoading={loading} className="mt-2">
-            Iniciar sesión
+          <Button type="submit" isPending={loading} className="mt-2">
+            {({isPending}) => isPending ? <><Spinner size="sm" /> Ingresando...</> : 'Iniciar sesión'}
           </Button>
         </form>
 

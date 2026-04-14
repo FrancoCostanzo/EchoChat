@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Card, Input, Button, Separator } from '@heroui/react';
+import { Card, Input, Button, Separator, Spinner } from '@heroui/react';
 import { MessageCircle, Eye, EyeOff } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -66,73 +66,90 @@ export default function RegisterPage() {
             <div className="rounded-lg bg-danger-50 p-3 text-sm text-danger">{error}</div>
           )}
 
-          <Input
-            label="Usuario"
-            placeholder="tu.usuario"
-            value={form.username}
-            onChange={updateField('username')}
-            isRequired
-            autoFocus
-          />
-
-          <Input
-            label="Nombre completo"
-            placeholder="Juan Pérez"
-            value={form.display_name}
-            onChange={updateField('display_name')}
-            isRequired
-          />
-
-          <Input
-            label="Email"
-            type="email"
-            placeholder="juan@empresa.com"
-            value={form.email}
-            onChange={updateField('email')}
-          />
-
-          <div className="flex gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium">Usuario</label>
             <Input
-              label="Departamento"
-              placeholder="IT"
-              value={form.department}
-              onChange={updateField('department')}
-              className="flex-1"
-            />
-            <Input
-              label="Cargo"
-              placeholder="Developer"
-              value={form.job_title}
-              onChange={updateField('job_title')}
-              className="flex-1"
+              placeholder="tu.usuario"
+              value={form.username}
+              onChange={updateField('username')}
+              required
+              autoFocus
             />
           </div>
 
-          <Input
-            label="Contraseña"
-            placeholder="••••••••"
-            type={showPassword ? 'text' : 'password'}
-            value={form.password}
-            onChange={updateField('password')}
-            isRequired
-            endContent={
-              <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-default-400">
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium">Nombre completo</label>
+            <Input
+              placeholder="Juan Pérez"
+              value={form.display_name}
+              onChange={updateField('display_name')}
+              required
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium">Email</label>
+            <Input
+              type="email"
+              placeholder="juan@empresa.com"
+              value={form.email}
+              onChange={updateField('email')}
+            />
+          </div>
+
+          <div className="flex gap-3">
+            <div className="flex flex-1 flex-col gap-1">
+              <label className="text-sm font-medium">Departamento</label>
+              <Input
+                placeholder="IT"
+                value={form.department}
+                onChange={updateField('department')}
+              />
+            </div>
+            <div className="flex flex-1 flex-col gap-1">
+              <label className="text-sm font-medium">Cargo</label>
+              <Input
+                placeholder="Developer"
+                value={form.job_title}
+                onChange={updateField('job_title')}
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium">Contraseña</label>
+            <div className="relative">
+              <Input
+                placeholder="••••••••"
+                type={showPassword ? 'text' : 'password'}
+                value={form.password}
+                onChange={updateField('password')}
+                required
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-default-400"
+              >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
-            }
-          />
+            </div>
+          </div>
 
-          <Input
-            label="Confirmar contraseña"
-            placeholder="••••••••"
-            type={showPassword ? 'text' : 'password'}
-            value={form.confirmPassword}
-            onChange={updateField('confirmPassword')}
-            isRequired
-          />
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium">Confirmar contraseña</label>
+            <Input
+              placeholder="••••••••"
+              type={showPassword ? 'text' : 'password'}
+              value={form.confirmPassword}
+              onChange={updateField('confirmPassword')}
+              required
+            />
+          </div>
 
-          <Button type="submit" color="primary" isLoading={loading} className="mt-2">
-            Crear cuenta
+          <Button type="submit" isPending={loading} className="mt-2">
+            {({isPending}) => isPending ? <><Spinner size="sm" /> Creando...</> : 'Crear cuenta'}
           </Button>
         </form>
 

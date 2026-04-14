@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Input, Button, Tabs, Tab, Spinner } from '@heroui/react';
+import { Input, Button, Tabs, Spinner } from '@heroui/react';
 import {
   Search,
   UserPlus,
@@ -26,9 +26,9 @@ function ContactCard({ user, type, onRemove, onToggleFavorite }) {
           <Button
             isIconOnly
             size="sm"
-            variant="light"
+            variant="ghost"
             onPress={() => onToggleFavorite(user)}
-            title={user.is_favorite ? 'Quitar favorito' : 'Agregar a favoritos'}
+            aria-label={user.is_favorite ? 'Quitar favorito' : 'Agregar a favoritos'}
           >
             {user.is_favorite ? <StarOff size={16} /> : <Star size={16} />}
           </Button>
@@ -36,8 +36,7 @@ function ContactCard({ user, type, onRemove, onToggleFavorite }) {
         <Button
           isIconOnly
           size="sm"
-          variant="light"
-          color="danger"
+          variant="danger"
           onPress={() => onRemove(user)}
         >
           {type === 'blocked' ? <Ban size={16} /> : <Trash2 size={16} />}
@@ -145,24 +144,28 @@ export default function ContactsPage() {
       </div>
 
       <div className="px-4 py-3">
-        <Tabs selectedKey={tab} onSelectionChange={setTab} size="sm">
-          <Tab key="contacts" title={`Contactos (${contacts.length})`} />
-          <Tab key="favorites" title={`Favoritos (${favorites.length})`} />
-          <Tab key="blocked" title={`Bloqueados (${blocked.length})`} />
-          <Tab key="add" title="Agregar" />
+        <Tabs selectedKey={tab} onSelectionChange={setTab}>
+          <Tabs.List aria-label="Secciones de contactos">
+            <Tabs.Tab id="contacts">{`Contactos (${contacts.length})`}</Tabs.Tab>
+            <Tabs.Tab id="favorites">{`Favoritos (${favorites.length})`}</Tabs.Tab>
+            <Tabs.Tab id="blocked">{`Bloqueados (${blocked.length})`}</Tabs.Tab>
+            <Tabs.Tab id="add">Agregar</Tabs.Tab>
+          </Tabs.List>
         </Tabs>
       </div>
 
       {tab === 'add' ? (
         <div className="flex flex-1 flex-col px-4">
-          <Input
-            placeholder="Buscar usuarios para agregar..."
-            size="sm"
-            startContent={<Search size={16} className="text-default-400" />}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            autoFocus
-          />
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-default-400 pointer-events-none" />
+            <Input
+              placeholder="Buscar usuarios para agregar..."
+              className="pl-9"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              autoFocus
+            />
+          </div>
           <div className="mt-2 flex-1 overflow-y-auto">
             {searching && (
               <div className="flex justify-center py-4">
@@ -178,11 +181,10 @@ export default function ContactsPage() {
                 </div>
                 <Button
                   size="sm"
-                  color="primary"
-                  variant="flat"
-                  startContent={<UserPlus size={14} />}
+                  variant="secondary"
                   onPress={() => addContact(u)}
                 >
+                  <UserPlus size={14} />
                   Agregar
                 </Button>
               </div>

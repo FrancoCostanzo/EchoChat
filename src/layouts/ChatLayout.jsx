@@ -59,7 +59,7 @@ function ConversationItem({ conversation, isActive, onClick }) {
           <div className="flex items-center justify-between">
             <p className="truncate text-xs text-default-500">{lastMsg}</p>
             {unread > 0 && (
-              <Badge color="primary" size="sm" className="ml-2">
+              <Badge color="accent" size="sm" className="ml-2">
                 {unread}
               </Badge>
             )}
@@ -107,23 +107,25 @@ function Sidebar() {
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <Tooltip content="Nuevo chat">
-            <Button isIconOnly size="sm" variant="light" onPress={() => navigate('/chat/new')}>
+          <Tooltip delay={0}>
+            <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/chat/new')}>
               <Plus size={18} />
             </Button>
+            <Tooltip.Content>
+              <p>Nuevo chat</p>
+            </Tooltip.Content>
           </Tooltip>
         </div>
       </div>
 
       {/* Search */}
-      <div className="px-3 py-2">
+      <div className="relative px-3 py-2">
+        <Search size={16} className="absolute left-6 top-1/2 -translate-y-1/2 text-default-400 pointer-events-none" />
         <Input
           placeholder="Buscar conversación..."
-          size="sm"
-          startContent={<Search size={16} className="text-default-400" />}
+          className="bg-default-100 pl-9"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          classNames={{ inputWrapper: 'bg-default-100' }}
         />
       </div>
 
@@ -147,30 +149,35 @@ function Sidebar() {
 
       {/* Bottom Nav */}
       <div className="flex items-center justify-around border-t border-divider px-2 py-2">
-        <Tooltip content="Chats">
-          <Button isIconOnly size="sm" variant="light" onPress={() => navigate('/chat')}>
+        <Tooltip delay={0}>
+          <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/chat')}>
             <MessageSquare size={18} />
           </Button>
+          <Tooltip.Content><p>Chats</p></Tooltip.Content>
         </Tooltip>
-        <Tooltip content="Contactos">
-          <Button isIconOnly size="sm" variant="light" onPress={() => navigate('/contacts')}>
+        <Tooltip delay={0}>
+          <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/contacts')}>
             <Users size={18} />
           </Button>
+          <Tooltip.Content><p>Contactos</p></Tooltip.Content>
         </Tooltip>
-        <Tooltip content="Notificaciones">
-          <Button isIconOnly size="sm" variant="light" onPress={() => navigate('/notifications')}>
+        <Tooltip delay={0}>
+          <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/notifications')}>
             <Bell size={18} />
           </Button>
+          <Tooltip.Content><p>Notificaciones</p></Tooltip.Content>
         </Tooltip>
-        <Tooltip content="Configuración">
-          <Button isIconOnly size="sm" variant="light" onPress={() => navigate('/settings')}>
+        <Tooltip delay={0}>
+          <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/settings')}>
             <Settings size={18} />
           </Button>
+          <Tooltip.Content><p>Configuración</p></Tooltip.Content>
         </Tooltip>
-        <Tooltip content="Cerrar sesión">
-          <Button isIconOnly size="sm" variant="light" color="danger" onPress={handleLogout}>
+        <Tooltip delay={0}>
+          <Button isIconOnly size="sm" variant="danger" onPress={handleLogout}>
             <LogOut size={18} />
           </Button>
+          <Tooltip.Content><p>Cerrar sesión</p></Tooltip.Content>
         </Tooltip>
       </div>
     </div>

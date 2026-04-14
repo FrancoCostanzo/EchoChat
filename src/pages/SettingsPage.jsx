@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Input, Button, Tabs, Tab, Separator, Select, ListBoxItem } from '@heroui/react';
+import { Input, Button, Tabs, Separator, Select, ListBox, Label, Spinner } from '@heroui/react';
 import {
   User,
   Shield,
@@ -54,36 +54,28 @@ function ProfileTab() {
 
       <Separator />
 
-      <Input
-        label="Nombre"
-        value={form.display_name}
-        onChange={updateField('display_name')}
-      />
-      <Input
-        label="Email"
-        type="email"
-        value={form.email}
-        onChange={updateField('email')}
-      />
-      <div className="flex gap-3">
-        <Input
-          label="Departamento"
-          value={form.department}
-          onChange={updateField('department')}
-          className="flex-1"
-        />
-        <Input
-          label="Cargo"
-          value={form.job_title}
-          onChange={updateField('job_title')}
-          className="flex-1"
-        />
+      <div className="flex flex-col gap-1">
+        <label className="text-sm text-default-600">Nombre</label>
+        <Input value={form.display_name} onChange={updateField('display_name')} />
       </div>
-      <Input
-        label="Extensión telefónica"
-        value={form.phone_extension}
-        onChange={updateField('phone_extension')}
-      />
+      <div className="flex flex-col gap-1">
+        <label className="text-sm text-default-600">Email</label>
+        <Input type="email" value={form.email} onChange={updateField('email')} />
+      </div>
+      <div className="flex gap-3">
+        <div className="flex flex-1 flex-col gap-1">
+          <label className="text-sm text-default-600">Departamento</label>
+          <Input value={form.department} onChange={updateField('department')} />
+        </div>
+        <div className="flex flex-1 flex-col gap-1">
+          <label className="text-sm text-default-600">Cargo</label>
+          <Input value={form.job_title} onChange={updateField('job_title')} />
+        </div>
+      </div>
+      <div className="flex flex-col gap-1">
+        <label className="text-sm text-default-600">Extensión telefónica</label>
+        <Input value={form.phone_extension} onChange={updateField('phone_extension')} />
+      </div>
 
       {success && (
         <div className="rounded-lg bg-success-50 p-3 text-sm text-success">
@@ -91,13 +83,8 @@ function ProfileTab() {
         </div>
       )}
 
-      <Button
-        color="primary"
-        startContent={<Save size={16} />}
-        isLoading={loading}
-        onPress={handleSave}
-      >
-        Guardar cambios
+      <Button isPending={loading} onPress={handleSave}>
+        {({ isPending }) => isPending ? <><Spinner size="sm" color="current" /> Guardando...</> : <><Save size={16} /> Guardar cambios</>}
       </Button>
     </div>
   );
@@ -154,28 +141,22 @@ function SecurityTab() {
       <div>
         <h3 className="mb-3 text-sm font-semibold">Cambiar contraseña</h3>
         <div className="flex flex-col gap-3">
-          <Input
-            label="Contraseña actual"
-            type="password"
-            value={form.current_password}
-            onChange={updateField('current_password')}
-          />
-          <Input
-            label="Nueva contraseña"
-            type="password"
-            value={form.new_password}
-            onChange={updateField('new_password')}
-          />
-          <Input
-            label="Confirmar nueva contraseña"
-            type="password"
-            value={form.confirm}
-            onChange={updateField('confirm')}
-          />
+          <div className="flex flex-col gap-1">
+            <label className="text-sm text-default-600">Contraseña actual</label>
+            <Input type="password" value={form.current_password} onChange={updateField('current_password')} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-sm text-default-600">Nueva contraseña</label>
+            <Input type="password" value={form.new_password} onChange={updateField('new_password')} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-sm text-default-600">Confirmar nueva contraseña</label>
+            <Input type="password" value={form.confirm} onChange={updateField('confirm')} />
+          </div>
           {error && <p className="text-sm text-danger">{error}</p>}
           {success && <p className="text-sm text-success">{success}</p>}
-          <Button color="primary" isLoading={loading} onPress={handleChangePassword}>
-            Actualizar contraseña
+          <Button isPending={loading} onPress={handleChangePassword}>
+            {({ isPending }) => isPending ? <><Spinner size="sm" color="current" /> Actualizando...</> : 'Actualizar contraseña'}
           </Button>
         </div>
       </div>
@@ -196,8 +177,7 @@ function SecurityTab() {
               </div>
               <Button
                 size="sm"
-                variant="flat"
-                color="danger"
+                variant="danger"
                 onPress={() => revokeSession(s.id)}
               >
                 Cerrar
@@ -239,14 +219,26 @@ function PresenceTab() {
     <div className="flex flex-col gap-4">
       <h3 className="text-sm font-semibold">Estado de presencia</h3>
       <Select
-        label="Estado"
-        selectedKeys={[presence]}
-        onSelectionChange={(keys) => handleUpdate([...keys][0])}
+        placeholder="Seleccionar estado"
         isDisabled={loading}
+        value={presence}
+        onChange={(value) => handleUpdate(value)}
       >
-        {presenceOptions.map((opt) => (
-          <ListBoxItem key={opt.key}>{opt.label}</ListBoxItem>
-        ))}
+        <Label>Estado</Label>
+        <Select.Trigger>
+          <Select.Value />
+          <Select.Indicator />
+        </Select.Trigger>
+        <Select.Popover>
+          <ListBox>
+            {presenceOptions.map((opt) => (
+              <ListBox.Item key={opt.key} id={opt.key} textValue={opt.label}>
+                {opt.label}
+                <ListBox.ItemIndicator />
+              </ListBox.Item>
+            ))}
+          </ListBox>
+        </Select.Popover>
       </Select>
     </div>
   );
@@ -264,34 +256,21 @@ export default function SettingsPage() {
 
       <div className="flex-1 overflow-y-auto px-4 py-4">
         <div className="mx-auto max-w-lg">
-          <Tabs selectedKey={tab} onSelectionChange={setTab} size="sm" className="mb-4">
-            <Tab
-              key="profile"
-              title={
-                <div className="flex items-center gap-2">
-                  <User size={14} />
-                  <span>Perfil</span>
-                </div>
-              }
-            />
-            <Tab
-              key="security"
-              title={
-                <div className="flex items-center gap-2">
-                  <Shield size={14} />
-                  <span>Seguridad</span>
-                </div>
-              }
-            />
-            <Tab
-              key="presence"
-              title={
-                <div className="flex items-center gap-2">
-                  <Monitor size={14} />
-                  <span>Estado</span>
-                </div>
-              }
-            />
+          <Tabs selectedKey={tab} onSelectionChange={setTab} className="mb-4">
+            <Tabs.List aria-label="Configuración">
+              <Tabs.Tab id="profile">
+                <User size={14} />
+                <span>Perfil</span>
+              </Tabs.Tab>
+              <Tabs.Tab id="security">
+                <Shield size={14} />
+                <span>Seguridad</span>
+              </Tabs.Tab>
+              <Tabs.Tab id="presence">
+                <Monitor size={14} />
+                <span>Estado</span>
+              </Tabs.Tab>
+            </Tabs.List>
           </Tabs>
 
           {tab === 'profile' && <ProfileTab />}

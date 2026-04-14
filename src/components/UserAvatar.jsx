@@ -18,12 +18,10 @@ export default function UserAvatar({ user, size = 'md', showStatus = false, clas
 
   return (
     <div className={`relative inline-flex ${className}`}>
-      <Avatar
-        name={initials}
-        src={user?.avatar_url}
-        size={size}
-        className="bg-primary/10 text-primary"
-      />
+      <Avatar size={size}>
+        {user?.avatar_url && <Avatar.Image src={user.avatar_url} alt={user?.display_name || ''} />}
+        <Avatar.Fallback>{initials}</Avatar.Fallback>
+      </Avatar>
       {showStatus && user?.presence && (
         <span
           className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background ${STATUS_COLORS[user.presence] || STATUS_COLORS.offline}`}

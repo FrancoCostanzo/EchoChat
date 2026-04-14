@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Input, Button, Tabs, Tab, Checkbox, Card } from '@heroui/react';
+import { Input, Button, Tabs, Checkbox, Spinner } from '@heroui/react';
 import { Search, ArrowLeft, Users, User, Hash } from 'lucide-react';
 import { usersApi } from '@/lib/endpoints';
 import { useChatStore } from '@/stores/chatStore';
@@ -60,61 +60,47 @@ export default function NewConversationPage() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-3 border-b border-divider px-4 py-3">
-        <Button isIconOnly size="sm" variant="light" onPress={() => navigate('/chat')}>
+        <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/chat')}>
           <ArrowLeft size={18} />
         </Button>
         <h2 className="text-base font-semibold">Nueva conversación</h2>
       </div>
 
       <div className="px-4 py-3">
-        <Tabs selectedKey={tab} onSelectionChange={setTab} size="sm">
-          <Tab
-            key="direct"
-            title={
-              <div className="flex items-center gap-2">
-                <User size={14} />
-                <span>Directo</span>
-              </div>
-            }
-          />
-          <Tab
-            key="group"
-            title={
-              <div className="flex items-center gap-2">
-                <Users size={14} />
-                <span>Grupo</span>
-              </div>
-            }
-          />
-          <Tab
-            key="channel"
-            title={
-              <div className="flex items-center gap-2">
-                <Hash size={14} />
-                <span>Canal</span>
-              </div>
-            }
-          />
+        <Tabs selectedKey={tab} onSelectionChange={setTab}>
+          <Tabs.List aria-label="Tipo de conversación">
+            <Tabs.Tab id="direct">
+              <User size={14} />
+              <span>Directo</span>
+            </Tabs.Tab>
+            <Tabs.Tab id="group">
+              <Users size={14} />
+              <span>Grupo</span>
+            </Tabs.Tab>
+            <Tabs.Tab id="channel">
+              <Hash size={14} />
+              <span>Canal</span>
+            </Tabs.Tab>
+          </Tabs.List>
         </Tabs>
       </div>
 
       {tab !== 'direct' && (
-        <div className="px-4 pb-2">
+        <div className="flex flex-col gap-1 px-4 pb-2">
+          <label className="text-sm text-default-600">Nombre del grupo/canal</label>
           <Input
-            label="Nombre del grupo/canal"
             placeholder="Ej: Equipo de desarrollo"
-            size="sm"
             value={groupName}
             onChange={(e) => setGroupName(e.target.value)}
           />
         </div>
       )}
 
-      <div className="px-4 pb-2">
+      <div className="relative px-4 pb-2">
+        <Search size={16} className="absolute left-7 top-1/2 -translate-y-1/2 text-default-400 pointer-events-none" />
         <Input
           placeholder="Buscar usuarios..."
-          size="sm"
-          startContent={<Search size={16} className="text-default-400" />}
+          className="pl-9"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           autoFocus
@@ -126,7 +112,7 @@ export default function NewConversationPage() {
           {selected.map((id) => {
             const u = users.find((usr) => usr.id === id);
             return u ? (
-              <Button key={id} size="sm" variant="flat" onPress={() => toggleUser(id)}>
+              <Button key={id} size="sm" variant="secondary" onPress={() => toggleUser(id)}>
                 {u.display_name} ✕
               </Button>
             ) : null;
@@ -148,7 +134,11 @@ export default function NewConversationPage() {
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2 hover:bg-default-100"
           >
             {tab !== 'direct' && (
-              <Checkbox isSelected={selected.includes(u.id)} size="sm" />
+              <Checkbox isSelected={selected.includes(u.id)}>
+                <Checkbox.Control>
+                  <Checkbox.Indicator />
+                </Checkbox.Control>
+              </Checkbox>
             )}
             <UserAvatar user={u} showStatus size="sm" />
             <div className="min-w-0 flex-1 text-left">
@@ -164,15 +154,18 @@ export default function NewConversationPage() {
 
       <div className="border-t border-divider px-4 py-3">
         <Button
-          color="primary"
           className="w-full"
           isDisabled={selected.length === 0}
-          isLoading={loading}
+          isPending={loading}
           onPress={handleCreate}
         >
-          {tab === 'direct'
-            ? 'Iniciar conversación'
-            : `Crear ${tab === 'group' ? 'grupo' : 'canal'} (${selected.length})`}
+          {({ isPending }) =>
+            isPending ? (
+              <><Spinner size="sm" color="current" /> Creando...</>
+            ) : tab === 'direct'
+              ? 'Iniciar conversación'
+              : `Crear ${tab === 'group' ? 'grupo' : 'canal'} (${selected.length})`
+          }
         </Button>
       </div>
     </div>

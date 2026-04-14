@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { Button, Input, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, Spinner } from '@heroui/react';
+import { Button, Input, Dropdown, Label, Spinner } from '@heroui/react';
 import {
   Send,
   Paperclip,
@@ -85,18 +85,18 @@ function MessageBubble({ message, isOwn, onEdit, onDelete, onReply, onReact }) {
 
       {hovering && (
         <div className="flex items-start gap-0.5 self-center">
-          <Button isIconOnly size="sm" variant="light" onPress={() => onReply(message)}>
+          <Button isIconOnly size="sm" variant="ghost" onPress={() => onReply(message)}>
             <Reply size={14} />
           </Button>
-          <Button isIconOnly size="sm" variant="light" onPress={() => onReact(message.id, '👍')}>
+          <Button isIconOnly size="sm" variant="ghost" onPress={() => onReact(message.id, '👍')}>
             <Smile size={14} />
           </Button>
           {isOwn && (
             <>
-              <Button isIconOnly size="sm" variant="light" onPress={() => onEdit(message)}>
+              <Button isIconOnly size="sm" variant="ghost" onPress={() => onEdit(message)}>
                 <Pencil size={14} />
               </Button>
-              <Button isIconOnly size="sm" variant="light" color="danger" onPress={() => onDelete(message.id)}>
+              <Button isIconOnly size="sm" variant="danger" onPress={() => onDelete(message.id)}>
                 <Trash2 size={14} />
               </Button>
             </>
@@ -277,26 +277,27 @@ export default function ConversationPage() {
         </div>
 
         <div className="flex items-center gap-1">
-          <Button isIconOnly size="sm" variant="light">
+          <Button isIconOnly size="sm" variant="ghost">
             <Phone size={18} />
           </Button>
-          <Button isIconOnly size="sm" variant="light">
+          <Button isIconOnly size="sm" variant="ghost">
             <Video size={18} />
           </Button>
-          <Button isIconOnly size="sm" variant="light">
+          <Button isIconOnly size="sm" variant="ghost">
             <Search size={18} />
           </Button>
           <Dropdown>
-            <DropdownTrigger>
-              <Button isIconOnly size="sm" variant="light">
-                <MoreVertical size={18} />
-              </Button>
-            </DropdownTrigger>
-            <DropdownMenu>
-              <DropdownItem key="pinned" startContent={<Pin size={16} />}>
-                Mensajes fijados
-              </DropdownItem>
-            </DropdownMenu>
+            <Button isIconOnly size="sm" variant="ghost">
+              <MoreVertical size={18} />
+            </Button>
+            <Dropdown.Popover>
+              <Dropdown.Menu>
+                <Dropdown.Item id="pinned" textValue="Mensajes fijados">
+                  <Pin size={16} />
+                  <Label>Mensajes fijados</Label>
+                </Dropdown.Item>
+              </Dropdown.Menu>
+            </Dropdown.Popover>
           </Dropdown>
         </div>
       </div>
@@ -336,7 +337,6 @@ export default function ConversationPage() {
           <Button
             isIconOnly
             size="sm"
-            color="primary"
             className="absolute bottom-4 right-4 shadow-lg"
             onPress={scrollToBottom}
           >
@@ -356,7 +356,7 @@ export default function ConversationPage() {
               {editing ? editing.body : replyTo.body}
             </p>
           </div>
-          <Button size="sm" variant="light" onPress={cancelAction}>
+          <Button size="sm" variant="ghost" onPress={cancelAction}>
             ✕
           </Button>
         </div>
@@ -374,7 +374,7 @@ export default function ConversationPage() {
           <Button
             isIconOnly
             size="sm"
-            variant="light"
+            variant="ghost"
             onPress={() => fileInputRef.current?.click()}
           >
             <Paperclip size={18} />
@@ -385,15 +385,11 @@ export default function ConversationPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            classNames={{
-              inputWrapper: 'bg-default-100',
-            }}
-            className="flex-1"
+            className="flex-1 bg-default-100"
           />
 
           <Button
             isIconOnly
-            color="primary"
             size="sm"
             onPress={handleSend}
             isDisabled={!input.trim()}
