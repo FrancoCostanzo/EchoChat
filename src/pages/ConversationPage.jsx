@@ -199,6 +199,16 @@ function MessageBubble({ message, isOwn, onEdit, onDelete, onReply, onReact }) {
         />
       )}
 
+      {/* Deleted message */}
+      {message.is_deleted ? (
+        <div className={`flex max-w-[68%] flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
+          <div className={`flex items-center gap-1.5 rounded-2xl border border-separator/50 px-3.5 py-2 text-sm italic text-muted ${isOwn ? 'rounded-tr-md' : 'rounded-tl-md'}`}>
+            <Trash2 size={13} className="shrink-0 opacity-50" />
+            <span>{t('chat.messageDeleted')}</span>
+          </div>
+          <span className="mt-0.5 px-1 text-[10px] text-muted">{formatMessageTime(message.sent_at)}</span>
+        </div>
+      ) : (<>
       <div className={`max-w-[68%] ${isOwn ? 'items-end' : 'items-start'} flex flex-col`}>
         {/* Sender name */}
         {!isOwn && (
@@ -208,10 +218,17 @@ function MessageBubble({ message, isOwn, onEdit, onDelete, onReply, onReact }) {
         )}
 
         {/* Reply preview */}
-        {message.reply_to_id && message.reply_to_body && (
+        {message.reply_to_id && (message.reply_to_body || message.reply_to_type) && (
           <div className={`mb-1 flex max-w-full items-start gap-1.5 rounded-xl border-l-[3px] border-accent bg-accent/10 px-2.5 py-1.5 text-xs ${isOwn ? 'mr-1' : 'ml-1'}`}>
             <Reply size={11} className="mt-0.5 shrink-0 text-accent" />
-            <span className="line-clamp-2 text-muted">{message.reply_to_body}</span>
+            <div className="min-w-0">
+              {message.reply_to_sender && (
+                <span className="block font-semibold text-accent">{message.reply_to_sender}</span>
+              )}
+              <span className="line-clamp-2 text-muted">
+                {message.reply_to_type === 'media' ? '📎 Archivo adjunto' : message.reply_to_body}
+              </span>
+            </div>
           </div>
         )}
 
@@ -345,6 +362,7 @@ function MessageBubble({ message, isOwn, onEdit, onDelete, onReply, onReact }) {
           </>
         )}
       </div>
+      </>)}
     </div>
   );
 }

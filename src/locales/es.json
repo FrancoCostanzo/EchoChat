@@ -92,7 +92,8 @@
     "replyingTo": "↩️ Respondiendo a {{name}}",
     "deleteMessage": "Eliminar mensaje",
     "deleteMessageWarning": "Esta acción es permanente y no se puede deshacer.",
-    "creating": "Creando..."
+    "creating": "Creando...",
+    "messageDeleted": "Mensaje eliminado"
   },
   "newConversation": {
     "title": "Nueva conversación",

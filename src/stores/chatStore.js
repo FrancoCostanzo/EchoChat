@@ -44,9 +44,11 @@ export const useChatStore = create((set, get) => ({
       }));
     });
 
-    socket.on('message:deleted', ({ id }) => {
+    socket.on('message:deleted', (message) => {
       set((state) => ({
-        messages: state.messages.filter((m) => m.id !== id),
+        messages: state.messages.map((m) =>
+          m.id === message.id ? { ...m, ...message } : m,
+        ),
       }));
     });
 

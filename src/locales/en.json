@@ -92,7 +92,8 @@
     "replyingTo": "↩️ Replying to {{name}}",
     "deleteMessage": "Delete message",
     "deleteMessageWarning": "This action is permanent and cannot be undone.",
-    "creating": "Creating..."
+    "creating": "Creating...",
+    "messageDeleted": "Message deleted"
   },
   "newConversation": {
     "title": "New conversation",
