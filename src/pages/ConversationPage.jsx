@@ -212,6 +212,8 @@ export default function ConversationPage() {
     addReaction,
     loadMoreMessages,
     getActiveConversation,
+    typingUsers,
+    emitTyping,
   } = useChatStore();
 
   const [input, setInput] = useState('');
@@ -222,14 +224,32 @@ export default function ConversationPage() {
   const messagesEndRef = useRef(null);
   const containerRef = useRef(null);
   const fileInputRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
 
   const conversation = getActiveConversation();
+
+  // Build typing text for this conversation
+  const currentTyping = typingUsers[conversationId] || {};
+  const typingNames = Object.entries(currentTyping)
+    .filter(([uid]) => uid !== user?.id)
+    .map(([, name]) => name);
+  const typingText =
+    typingNames.length === 1
+      ? `${typingNames[0]} está escribiendo...`
+      : typingNames.length > 1
+        ? `${typingNames.join(', ')} están escribiendo...`
+        : null;
 
   useEffect(() => {
     if (conversationId) {
       setActiveConversation(conversationId);
     }
-  }, [conversationId, setActiveConversation]);
+    return () => {
+      // Stop typing when leaving conversation
+      if (conversationId) emitTyping(conversationId, false);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    };
+  }, [conversationId, setActiveConversation, emitTyping]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -252,6 +272,10 @@ export default function ConversationPage() {
   const handleSend = async () => {
     const body = input.trim();
     if (!body) return;
+
+    // Stop typing indicator
+    emitTyping(conversationId, false);
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
 
     if (editing) {
       await editMessage(editing.id, body);
@@ -443,6 +467,13 @@ export default function ConversationPage() {
         )}
       </div>
 
+      {/* Typing indicator */}
+      {typingText && (
+        <div className="px-4 py-1">
+          <p className="animate-pulse text-xs text-muted">{typingText}</p>
+        </div>
+      )}
+
       {/* Reply / Edit indicator */}
       {(replyTo || editing) && (
         <div className="flex items-center gap-2 border-t border-separator bg-background-secondary px-4 py-2">
@@ -481,7 +512,15 @@ export default function ConversationPage() {
           <Input
             placeholder="Escribí un mensaje..."
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              setInput(e.target.value);
+              // Emit typing indicator
+              emitTyping(conversationId, true);
+              if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+              typingTimeoutRef.current = setTimeout(() => {
+                emitTyping(conversationId, false);
+              }, 2000);
+            }}
             onKeyDown={handleKeyDown}
             className="flex-1 bg-default"
           />

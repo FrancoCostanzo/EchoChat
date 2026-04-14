@@ -28,7 +28,10 @@ export default function App() {
   const init = useAuthStore((s) => s.init);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const loading = useAuthStore((s) => s.loading);
+  const token = useAuthStore((s) => s.token);
   const fetchConversations = useChatStore((s) => s.fetchConversations);
+  const initSocket = useChatStore((s) => s.initSocket);
+  const destroySocket = useChatStore((s) => s.destroySocket);
   const initTheme = useThemeStore((s) => s.init);
 
   useEffect(() => {
@@ -39,8 +42,10 @@ export default function App() {
   useEffect(() => {
     if (isAuthenticated && !loading) {
       fetchConversations();
+      if (token) initSocket(token);
+      return () => destroySocket();
     }
-  }, [isAuthenticated, loading, fetchConversations]);
+  }, [isAuthenticated, loading, fetchConversations, token, initSocket, destroySocket]);
 
   return (
     <Suspense fallback={<PageLoader />}>

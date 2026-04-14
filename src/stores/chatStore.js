@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { conversationsApi, messagesApi } from '@/lib/endpoints';
+import { connectSocket, disconnectSocket, getSocket } from '@/lib/socket';
 
 export const useChatStore = create((set, get) => ({
   conversations: [],
@@ -8,6 +9,100 @@ export const useChatStore = create((set, get) => ({
   loadingConversations: false,
   loadingMessages: false,
   hasMoreMessages: true,
+  typingUsers: {},      // { conversationId: { userId: displayName, ... } }
+  onlineUsers: {},      // { userId: presence }
+
+  // ── Socket lifecycle ────────────────────────────────────────────────
+  initSocket: (token) => {
+    const socket = connectSocket(token);
+
+    socket.on('message:new', (message) => {
+      const state = get();
+      // Add message if we're in the same conversation
+      if (message.conversation_id === state.activeConversationId) {
+        const exists = state.messages.some((m) => m.id === message.id);
+        if (!exists) {
+          set({ messages: [...state.messages, message] });
+        }
+      }
+      // Refresh conversation list for sidebar preview
+      get().fetchConversations();
+    });
+
+    socket.on('message:edited', (message) => {
+      set((state) => ({
+        messages: state.messages.map((m) =>
+          m.id === message.id ? { ...m, ...message } : m,
+        ),
+      }));
+    });
+
+    socket.on('message:deleted', ({ id }) => {
+      set((state) => ({
+        messages: state.messages.filter((m) => m.id !== id),
+      }));
+    });
+
+    socket.on('message:reaction', ({ messageId, reactions }) => {
+      set((state) => ({
+        messages: state.messages.map((m) =>
+          m.id === messageId ? { ...m, reactions } : m,
+        ),
+      }));
+    });
+
+    socket.on('typing:start', ({ conversationId, userId, displayName }) => {
+      set((state) => ({
+        typingUsers: {
+          ...state.typingUsers,
+          [conversationId]: {
+            ...state.typingUsers[conversationId],
+            [userId]: displayName,
+          },
+        },
+      }));
+    });
+
+    socket.on('typing:stop', ({ conversationId, userId }) => {
+      set((state) => {
+        const conv = { ...state.typingUsers[conversationId] };
+        delete conv[userId];
+        return {
+          typingUsers: {
+            ...state.typingUsers,
+            [conversationId]: conv,
+          },
+        };
+      });
+    });
+
+    socket.on('presence:changed', ({ userId, presence }) => {
+      set((state) => ({
+        onlineUsers: { ...state.onlineUsers, [userId]: presence },
+        conversations: state.conversations.map((c) =>
+          c.other_user_id === userId || c.member_user_id === userId
+            ? { ...c, member_presence: presence }
+            : c,
+        ),
+      }));
+    });
+  },
+
+  destroySocket: () => {
+    disconnectSocket();
+    set({ typingUsers: {}, onlineUsers: {} });
+  },
+
+  emitTyping: (conversationId, isTyping) => {
+    const socket = getSocket();
+    if (!socket) return;
+    socket.emit(isTyping ? 'typing:start' : 'typing:stop', { conversationId });
+  },
+
+  joinConversation: (conversationId) => {
+    const socket = getSocket();
+    if (socket) socket.emit('join:conversation', conversationId);
+  },
 
   fetchConversations: async () => {
     set({ loadingConversations: true });
@@ -56,9 +151,7 @@ export const useChatStore = create((set, get) => ({
 
   sendMessage: async (data) => {
     const res = await messagesApi.send(data);
-    set((state) => ({ messages: [...state.messages, res.data] }));
-    // refresh conversations to update last message
-    get().fetchConversations();
+    // Don't add locally — the socket 'message:new' event handles it for all users
     return res.data;
   },
 
