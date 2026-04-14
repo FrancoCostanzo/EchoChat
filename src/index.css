@@ -1,0 +1,8 @@
+@import "tailwindcss";
+@import "@heroui/styles";
+
+@layer base {
+  :root {
+    --echo-sidebar-width: 320px;
+  }
+}

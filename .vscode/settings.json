@@ -1,0 +1,12 @@
+{
+    "chat.mcp.serverSampling": {
+        "EchoChat-Frontend/.vscode/mcp.json: heroui-react": {
+            "allowedModels": [
+                "copilot/auto",
+                "copilotcli/claude-sonnet-4.6",
+                "copilotcli/claude-opus-4.6",
+                "claude-code/claude-opus-4.6"
+            ]
+        }
+    }
+}
