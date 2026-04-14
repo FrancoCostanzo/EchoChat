@@ -1,16 +1,21 @@
 import { useState } from 'react';
-import { Input, Button, Tabs, Separator, Select, ListBox, Label, Spinner } from '@heroui/react';
+import { Input, Button, Spinner } from '@heroui/react';
+import { useParams } from 'react-router-dom';
 import {
-  User,
-  Shield,
   Monitor,
   Save,
-  LogOut,
-  Trash2,
   Sun,
   Moon,
   Palette,
   Globe,
+  Check,
+  AlertCircle,
+  Lock,
+  Wifi,
+  WifiOff,
+  Clock,
+  MinusCircle,
+  BellOff,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
@@ -51,48 +56,69 @@ function ProfileTab() {
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-4">
-        <UserAvatar user={user} size="lg" />
-        <div>
-          <p className="font-semibold">{user?.display_name}</p>
-          <p className="text-sm text-muted">@{user?.username}</p>
+    <div className="flex flex-col gap-5">
+      {/* Avatar hero */}
+      <div className="relative overflow-hidden rounded-2xl border border-border bg-background-secondary">
+        <div className="h-20 bg-linear-to-br from-accent-soft to-transparent" />
+        <div className="-mt-8 flex items-end gap-4 px-5 pb-5">
+          <div className="rounded-full ring-4 ring-background">
+            <UserAvatar user={user} size="lg" showStatus />
+          </div>
+          <div className="pb-1">
+            <p className="font-semibold leading-tight">{user?.display_name}</p>
+            <p className="text-sm text-muted">@{user?.username}</p>
+          </div>
         </div>
       </div>
 
-      <Separator />
-
-      <div className="flex flex-col gap-1">
-        <label className="text-sm text-muted">{t('settings.name')}</label>
-        <Input value={form.display_name} onChange={updateField('display_name')} />
-      </div>
-      <div className="flex flex-col gap-1">
-        <label className="text-sm text-muted">{t('settings.email')}</label>
-        <Input type="email" value={form.email} onChange={updateField('email')} />
-      </div>
-      <div className="flex gap-3">
-        <div className="flex flex-1 flex-col gap-1">
-          <label className="text-sm text-muted">{t('settings.department')}</label>
-          <Input value={form.department} onChange={updateField('department')} />
+      {/* Form card */}
+      <div className="rounded-2xl border border-border bg-background-secondary p-5">
+        <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted">
+          {t('settings.profile')}
+        </h3>
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-muted">{t('settings.name')}</label>
+              <Input value={form.display_name} onChange={updateField('display_name')} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-muted">{t('settings.email')}</label>
+              <Input type="email" value={form.email} onChange={updateField('email')} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-muted">{t('settings.department')}</label>
+              <Input value={form.department} onChange={updateField('department')} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-muted">{t('settings.jobTitle')}</label>
+              <Input value={form.job_title} onChange={updateField('job_title')} />
+            </div>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted">{t('settings.phoneExtension')}</label>
+            <Input value={form.phone_extension} onChange={updateField('phone_extension')} />
+          </div>
         </div>
-        <div className="flex flex-1 flex-col gap-1">
-          <label className="text-sm text-muted">{t('settings.jobTitle')}</label>
-          <Input value={form.job_title} onChange={updateField('job_title')} />
-        </div>
-      </div>
-      <div className="flex flex-col gap-1">
-        <label className="text-sm text-muted">{t('settings.phoneExtension')}</label>
-        <Input value={form.phone_extension} onChange={updateField('phone_extension')} />
       </div>
 
       {success && (
-        <div className="rounded-lg bg-success-soft p-3 text-sm text-success">
+        <div className="flex items-center gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success">
+          <Check size={15} />
           {t('settings.profileUpdated')}
         </div>
       )}
 
       <Button isPending={loading} onPress={handleSave}>
-        {({ isPending }) => isPending ? <><Spinner size="sm" color="current" /> {t('settings.saving')}</> : <><Save size={16} /> {t('settings.saveChanges')}</>}
+        {({ isPending }) =>
+          isPending ? (
+            <><Spinner size="sm" color="current" /> {t('settings.saving')}</>
+          ) : (
+            <><Save size={15} /> {t('settings.saveChanges')}</>
+          )
+        }
       </Button>
     </div>
   );
@@ -146,49 +172,78 @@ function SecurityTab() {
   });
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h3 className="mb-3 text-sm font-semibold">{t('settings.changePassword')}</h3>
+    <div className="flex flex-col gap-5">
+      {/* Change password card */}
+      <div className="rounded-2xl border border-border bg-background-secondary p-5">
+        <div className="mb-4 flex items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft">
+            <Lock size={14} className="text-accent" />
+          </div>
+          <h3 className="text-sm font-semibold">{t('settings.changePassword')}</h3>
+        </div>
         <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1">
-            <label className="text-sm text-muted">{t('settings.currentPassword')}</label>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted">{t('settings.currentPassword')}</label>
             <Input type="password" value={form.current_password} onChange={updateField('current_password')} />
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-sm text-muted">{t('settings.newPassword')}</label>
-            <Input type="password" value={form.new_password} onChange={updateField('new_password')} />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-muted">{t('settings.newPassword')}</label>
+              <Input type="password" value={form.new_password} onChange={updateField('new_password')} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-muted">{t('settings.confirmNewPassword')}</label>
+              <Input type="password" value={form.confirm} onChange={updateField('confirm')} />
+            </div>
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-sm text-muted">{t('settings.confirmNewPassword')}</label>
-            <Input type="password" value={form.confirm} onChange={updateField('confirm')} />
-          </div>
-          {error && <p className="text-sm text-danger">{error}</p>}
-          {success && <p className="text-sm text-success">{success}</p>}
+          {error && (
+            <div className="flex items-center gap-2 rounded-lg bg-danger/10 px-3 py-2.5 text-sm text-danger">
+              <AlertCircle size={14} />
+              {error}
+            </div>
+          )}
+          {success && (
+            <div className="flex items-center gap-2 rounded-lg bg-success-soft px-3 py-2.5 text-sm text-success">
+              <Check size={14} />
+              {success}
+            </div>
+          )}
           <Button isPending={loading} onPress={handleChangePassword}>
-            {({ isPending }) => isPending ? <><Spinner size="sm" color="current" /> {t('settings.updating')}</> : t('settings.updatePassword')}
+            {({ isPending }) =>
+              isPending ? (
+                <><Spinner size="sm" color="current" /> {t('settings.updating')}</>
+              ) : (
+                t('settings.updatePassword')
+              )
+            }
           </Button>
         </div>
       </div>
 
-      <Separator />
-
-      <div>
-        <h3 className="mb-3 text-sm font-semibold">{t('settings.activeSessions')}</h3>
+      {/* Active sessions card */}
+      <div className="rounded-2xl border border-border bg-background-secondary p-5">
+        <div className="mb-4 flex items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft">
+            <Monitor size={14} className="text-accent" />
+          </div>
+          <h3 className="text-sm font-semibold">{t('settings.activeSessions')}</h3>
+        </div>
         <div className="flex flex-col gap-2">
           {sessions.map((s) => (
-            <div key={s.id} className="flex items-center gap-3 rounded-lg bg-background-secondary p-3">
-              <Monitor size={18} className="text-muted" />
+            <div
+              key={s.id}
+              className="flex items-center gap-3 rounded-xl border border-border bg-background p-3 transition-colors"
+            >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-background-secondary">
+                <Monitor size={16} className="text-muted" />
+              </div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">
                   {s.device_name || s.device_type || t('settings.device')}
                 </p>
                 <p className="text-xs text-muted">{s.ip_address}</p>
               </div>
-              <Button
-                size="sm"
-                variant="danger"
-                onPress={() => revokeSession(s.id)}
-              >
+              <Button size="sm" variant="danger" onPress={() => revokeSession(s.id)}>
                 {t('settings.closeSession')}
               </Button>
             </div>
@@ -210,20 +265,31 @@ function AppearanceTab() {
   const { mode, accent, setMode, setAccent } = useThemeStore();
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h3 className="mb-3 text-sm font-semibold">{t('settings.theme')}</h3>
+    <div className="flex flex-col gap-5">
+      {/* Theme mode card */}
+      <div className="rounded-2xl border border-border bg-background-secondary p-5">
+        <div className="mb-4 flex items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft">
+            <Sun size={14} className="text-accent" />
+          </div>
+          <h3 className="text-sm font-semibold">{t('settings.theme')}</h3>
+        </div>
         <div className="grid grid-cols-3 gap-3">
           {THEME_MODES.map(({ key, icon: Icon }) => (
             <button
               key={key}
               onClick={() => setMode(key)}
-              className={`flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-colors ${
+              className={`relative flex flex-col items-center gap-2.5 rounded-xl border-2 p-4 transition-all duration-150 ${
                 mode === key
-                  ? 'border-accent bg-accent-soft text-accent'
-                  : 'border-border hover:border-border-secondary'
+                  ? 'border-accent bg-accent-soft text-accent shadow-sm'
+                  : 'border-border text-muted hover:border-border-secondary hover:text-foreground'
               }`}
             >
+              {mode === key && (
+                <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-accent">
+                  <Check size={10} strokeWidth={3} className="text-accent-foreground" />
+                </span>
+              )}
               <Icon size={22} />
               <span className="text-xs font-medium">{t(`settings.${key}`)}</span>
             </button>
@@ -231,25 +297,31 @@ function AppearanceTab() {
         </div>
       </div>
 
-      <Separator />
-
-      <div>
-        <h3 className="mb-3 text-sm font-semibold">{t('settings.accentColor')}</h3>
+      {/* Accent color card */}
+      <div className="rounded-2xl border border-border bg-background-secondary p-5">
+        <div className="mb-4 flex items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft">
+            <Palette size={14} className="text-accent" />
+          </div>
+          <h3 className="text-sm font-semibold">{t('settings.accentColor')}</h3>
+        </div>
         <div className="grid grid-cols-3 gap-3">
           {ACCENT_COLORS.map(({ key, color }) => (
             <button
               key={key}
               onClick={() => setAccent(key)}
-              className={`flex items-center gap-3 rounded-xl border-2 p-3 transition-colors ${
+              className={`flex items-center gap-3 rounded-xl border-2 p-3 transition-all duration-150 ${
                 accent === key
-                  ? 'border-accent bg-accent-soft'
+                  ? 'border-accent bg-accent-soft shadow-sm'
                   : 'border-border hover:border-border-secondary'
               }`}
             >
               <span
-                className="h-5 w-5 shrink-0 rounded-full ring-2 ring-offset-2 ring-offset-background"
-                style={{ backgroundColor: color, ringColor: accent === key ? color : 'transparent' }}
-              />
+                className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full ring-2 ring-offset-2 ring-offset-background"
+                style={{ backgroundColor: color, ringColor: color }}
+              >
+                {accent === key && <Check size={12} strokeWidth={3} className="text-white" />}
+              </span>
               <span className="text-sm font-medium">{t(`settings.accentColors.${key}`)}</span>
             </button>
           ))}
@@ -258,6 +330,14 @@ function AppearanceTab() {
     </div>
   );
 }
+
+const PRESENCE_OPTIONS = [
+  { key: 'online',  dotClass: 'bg-success', icon: Wifi },
+  { key: 'away',    dotClass: 'bg-warning', icon: Clock },
+  { key: 'busy',    dotClass: 'bg-danger',  icon: MinusCircle },
+  { key: 'dnd',     dotClass: 'bg-danger',  icon: BellOff },
+  { key: 'offline', dotClass: 'bg-muted',   icon: WifiOff },
+];
 
 function PresenceTab() {
   const { t } = useTranslation();
@@ -277,69 +357,30 @@ function PresenceTab() {
     }
   };
 
-  const presenceOptions = [
-    { key: 'online', label: t('settings.presenceOptions.online') },
-    { key: 'away', label: t('settings.presenceOptions.away') },
-    { key: 'busy', label: t('settings.presenceOptions.busy') },
-    { key: 'dnd', label: t('settings.presenceOptions.dnd') },
-    { key: 'offline', label: t('settings.presenceOptions.offline') },
-  ];
-
   return (
-    <div className="flex flex-col gap-4">
-      <h3 className="text-sm font-semibold">{t('settings.presenceStatus')}</h3>
-      <Select
-        placeholder={t('settings.selectStatus')}
-        isDisabled={loading}
-        value={presence}
-        onChange={(value) => handleUpdate(value)}
-      >
-        <Label>{t('settings.status')}</Label>
-        <Select.Trigger>
-          <Select.Value />
-          <Select.Indicator />
-        </Select.Trigger>
-        <Select.Popover>
-          <ListBox>
-            {presenceOptions.map((opt) => (
-              <ListBox.Item key={opt.key} id={opt.key} textValue={opt.label}>
-                {opt.label}
-                <ListBox.ItemIndicator />
-              </ListBox.Item>
-            ))}
-          </ListBox>
-        </Select.Popover>
-      </Select>
-    </div>
-  );
-}
-
-const LANGUAGES = [
-  { key: 'es', label: 'Español', flag: '🇪🇸' },
-  { key: 'en', label: 'English', flag: '🇺🇸' },
-  { key: 'pt', label: 'Português', flag: '🇧🇷' },
-];
-
-function LanguageTab() {
-  const { t, i18n } = useTranslation();
-  const currentLang = i18n.language;
-
-  return (
-    <div className="flex flex-col gap-4">
-      <h3 className="text-sm font-semibold">{t('settings.language')}</h3>
-      <div className="grid grid-cols-1 gap-3">
-        {LANGUAGES.map(({ key, label, flag }) => (
+    <div className="rounded-2xl border border-border bg-background-secondary p-5">
+      <div className="mb-4 flex items-center gap-2.5">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft">
+          <Wifi size={14} className="text-accent" />
+        </div>
+        <h3 className="text-sm font-semibold">{t('settings.presenceStatus')}</h3>
+      </div>
+      <div className="flex flex-col gap-2">
+        {PRESENCE_OPTIONS.map(({ key, dotClass, icon: Icon }) => (
           <button
             key={key}
-            onClick={() => changeLanguage(key)}
-            className={`flex items-center gap-3 rounded-xl border-2 p-4 transition-colors ${
-              currentLang === key
-                ? 'border-accent bg-accent-soft text-accent'
+            disabled={loading}
+            onClick={() => handleUpdate(key)}
+            className={`flex items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all duration-150 disabled:opacity-60 ${
+              presence === key
+                ? 'border-accent bg-accent-soft'
                 : 'border-border hover:border-border-secondary'
             }`}
           >
-            <span className="text-xl">{flag}</span>
-            <span className="text-sm font-medium">{label}</span>
+            <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${dotClass}`} />
+            <Icon size={15} className="shrink-0 text-muted" />
+            <span className="flex-1 text-sm font-medium">{t(`settings.presenceOptions.${key}`)}</span>
+            {presence === key && <Check size={14} className="text-accent" />}
           </button>
         ))}
       </div>
@@ -347,51 +388,67 @@ function LanguageTab() {
   );
 }
 
-export default function SettingsPage() {
-  const { t } = useTranslation();
-  const [tab, setTab] = useState('profile');
-  const logout = useAuthStore((s) => s.logout);
+const LANGUAGES = [
+  { key: 'es', label: 'Español',    flag: '🇪🇸', region: 'Latinoamérica / España' },
+  { key: 'en', label: 'English',    flag: '🇺🇸', region: 'United States' },
+  { key: 'pt', label: 'Português',  flag: '🇧🇷', region: 'Brasil' },
+];
+
+function LanguageTab() {
+  const { t, i18n } = useTranslation();
+  const currentLang = i18n.language;
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="border-b border-separator px-4 py-3">
-        <h2 className="text-base font-semibold">{t('settings.title')}</h2>
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-4 py-4">
-        <div className="mx-auto max-w-lg">
-          <Tabs selectedKey={tab} onSelectionChange={setTab} className="mb-4">
-            <Tabs.List aria-label={t('settings.title')}>
-              <Tabs.Tab id="profile">
-                <User size={14} />
-                <span>{t('settings.tabs.profile')}</span>
-              </Tabs.Tab>
-              <Tabs.Tab id="appearance">
-                <Palette size={14} />
-                <span>{t('settings.tabs.appearance')}</span>
-              </Tabs.Tab>
-              <Tabs.Tab id="language">
-                <Globe size={14} />
-                <span>{t('settings.tabs.language')}</span>
-              </Tabs.Tab>
-              <Tabs.Tab id="security">
-                <Shield size={14} />
-                <span>{t('settings.tabs.security')}</span>
-              </Tabs.Tab>
-              <Tabs.Tab id="presence">
-                <Monitor size={14} />
-                <span>{t('settings.tabs.presence')}</span>
-              </Tabs.Tab>
-            </Tabs.List>
-          </Tabs>
-
-          {tab === 'profile' && <ProfileTab />}
-          {tab === 'appearance' && <AppearanceTab />}
-          {tab === 'language' && <LanguageTab />}
-          {tab === 'security' && <SecurityTab />}
-          {tab === 'presence' && <PresenceTab />}
+    <div className="rounded-2xl border border-border bg-background-secondary p-5">
+      <div className="mb-4 flex items-center gap-2.5">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft">
+          <Globe size={14} className="text-accent" />
         </div>
+        <h3 className="text-sm font-semibold">{t('settings.language')}</h3>
+      </div>
+      <div className="flex flex-col gap-2">
+        {LANGUAGES.map(({ key, label, flag, region }) => (
+          <button
+            key={key}
+            onClick={() => changeLanguage(key)}
+            className={`flex items-center gap-4 rounded-xl border-2 px-4 py-3 transition-all duration-150 ${
+              currentLang === key
+                ? 'border-accent bg-accent-soft'
+                : 'border-border hover:border-border-secondary'
+            }`}
+          >
+            <span className="text-2xl leading-none">{flag}</span>
+            <div className="flex-1 text-left">
+              <p className="text-sm font-medium">{label}</p>
+              <p className="text-xs text-muted">{region}</p>
+            </div>
+            {currentLang === key && <Check size={14} className="text-accent" />}
+          </button>
+        ))}
       </div>
     </div>
   );
 }
+
+const TAB_COMPONENTS = {
+  profile:    ProfileTab,
+  appearance: AppearanceTab,
+  language:   LanguageTab,
+  security:   SecurityTab,
+  presence:   PresenceTab,
+};
+
+export default function SettingsPage() {
+  const { tab = 'profile' } = useParams();
+  const TabContent = TAB_COMPONENTS[tab] || ProfileTab;
+
+  return (
+    <div className="flex h-full flex-col overflow-y-auto">
+      <div className="mx-auto w-full max-w-xl px-6 py-6">
+        <TabContent />
+      </div>
+    </div>
+  );
+}
+
+

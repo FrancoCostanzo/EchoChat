@@ -66,7 +66,8 @@ export default function App() {
           <Route path="/chat/:conversationId" element={<ConversationPage />} />
           <Route path="/contacts" element={<ContactsPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/settings" element={<Navigate to="/settings/profile" replace />} />
+          <Route path="/settings/:tab" element={<SettingsPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/chat" replace />} />

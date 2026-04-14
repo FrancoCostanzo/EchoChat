@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Button, Input, Tooltip } from '@heroui/react';
 import {
   MessageSquare,
@@ -11,6 +11,11 @@ import {
   Plus,
   Hash,
   User,
+  Palette,
+  Globe,
+  Shield,
+  Wifi,
+  ArrowLeft,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
@@ -69,7 +74,83 @@ function ConversationItem({ conversation, isActive, onClick, t }) {
   );
 }
 
-function Sidebar() {
+const SETTINGS_NAV = [
+  { id: 'profile',    icon: User    },
+  { id: 'appearance', icon: Palette },
+  { id: 'language',   icon: Globe   },
+  { id: 'security',   icon: Shield  },
+  { id: 'presence',   icon: Wifi    },
+];
+
+function SettingsSidebar() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
+
+  const activeTab = location.pathname.split('/settings/')[1] || 'profile';
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
+  return (
+    <div className="flex h-full w-80 flex-col border-r border-separator bg-surface">
+      {/* Header */}
+      <div className="flex items-center gap-2 border-b border-separator px-3 py-3">
+        <Tooltip delay={0}>
+          <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/chat')}>
+            <ArrowLeft size={16} />
+          </Button>
+          <Tooltip.Content><p>{t('common.back')}</p></Tooltip.Content>
+        </Tooltip>
+        <h2 className="text-sm font-semibold">{t('settings.title')}</h2>
+      </div>
+
+      {/* User card */}
+      <div className="mx-3 mt-3 flex items-center gap-3 rounded-xl border border-border bg-background-secondary px-3 py-2.5">
+        <UserAvatar user={user} size="sm" showStatus />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold">{user?.display_name}</p>
+          <p className="truncate text-xs text-muted">@{user?.username}</p>
+        </div>
+      </div>
+
+      {/* Nav */}
+      <nav className="mx-2 mt-2 flex flex-col gap-0.5 p-1">
+        {SETTINGS_NAV.map(({ id, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => navigate(`/settings/${id}`)}
+            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+              activeTab === id
+                ? 'bg-accent-soft text-accent'
+                : 'text-muted hover:bg-background-secondary hover:text-foreground'
+            }`}
+          >
+            <Icon size={15} />
+            {t(`settings.tabs.${id}`)}
+          </button>
+        ))}
+      </nav>
+
+      {/* Spacer + Logout */}
+      <div className="mt-auto border-t border-separator px-3 py-3">
+        <button
+          onClick={handleLogout}
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-danger transition-colors hover:bg-danger/10"
+        >
+          <LogOut size={15} />
+          {t('sidebar.logout')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ChatSidebar() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
@@ -183,6 +264,12 @@ function Sidebar() {
       </div>
     </div>
   );
+}
+
+function Sidebar() {
+  const location = useLocation();
+  const isSettings = location.pathname.startsWith('/settings');
+  return isSettings ? <SettingsSidebar /> : <ChatSidebar />;
 }
 
 export default function ChatLayout() {
