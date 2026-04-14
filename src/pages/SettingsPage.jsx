@@ -7,10 +7,14 @@ import {
   Save,
   LogOut,
   Trash2,
+  Sun,
+  Moon,
+  Palette,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { usersApi, authApi } from '@/lib/endpoints';
 import UserAvatar from '@/components/UserAvatar';
+import { useThemeStore, ACCENT_COLORS } from '@/stores/themeStore';
 
 function ProfileTab() {
   const user = useAuthStore((s) => s.user);
@@ -48,37 +52,37 @@ function ProfileTab() {
         <UserAvatar user={user} size="lg" />
         <div>
           <p className="font-semibold">{user?.display_name}</p>
-          <p className="text-sm text-default-500">@{user?.username}</p>
+          <p className="text-sm text-muted">@{user?.username}</p>
         </div>
       </div>
 
       <Separator />
 
       <div className="flex flex-col gap-1">
-        <label className="text-sm text-default-600">Nombre</label>
+        <label className="text-sm text-muted">Nombre</label>
         <Input value={form.display_name} onChange={updateField('display_name')} />
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-sm text-default-600">Email</label>
+        <label className="text-sm text-muted">Email</label>
         <Input type="email" value={form.email} onChange={updateField('email')} />
       </div>
       <div className="flex gap-3">
         <div className="flex flex-1 flex-col gap-1">
-          <label className="text-sm text-default-600">Departamento</label>
+          <label className="text-sm text-muted">Departamento</label>
           <Input value={form.department} onChange={updateField('department')} />
         </div>
         <div className="flex flex-1 flex-col gap-1">
-          <label className="text-sm text-default-600">Cargo</label>
+          <label className="text-sm text-muted">Cargo</label>
           <Input value={form.job_title} onChange={updateField('job_title')} />
         </div>
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-sm text-default-600">Extensión telefónica</label>
+        <label className="text-sm text-muted">Extensión telefónica</label>
         <Input value={form.phone_extension} onChange={updateField('phone_extension')} />
       </div>
 
       {success && (
-        <div className="rounded-lg bg-success-50 p-3 text-sm text-success">
+        <div className="rounded-lg bg-success-soft p-3 text-sm text-success">
           Perfil actualizado correctamente
         </div>
       )}
@@ -142,15 +146,15 @@ function SecurityTab() {
         <h3 className="mb-3 text-sm font-semibold">Cambiar contraseña</h3>
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1">
-            <label className="text-sm text-default-600">Contraseña actual</label>
+            <label className="text-sm text-muted">Contraseña actual</label>
             <Input type="password" value={form.current_password} onChange={updateField('current_password')} />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-sm text-default-600">Nueva contraseña</label>
+            <label className="text-sm text-muted">Nueva contraseña</label>
             <Input type="password" value={form.new_password} onChange={updateField('new_password')} />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-sm text-default-600">Confirmar nueva contraseña</label>
+            <label className="text-sm text-muted">Confirmar nueva contraseña</label>
             <Input type="password" value={form.confirm} onChange={updateField('confirm')} />
           </div>
           {error && <p className="text-sm text-danger">{error}</p>}
@@ -167,13 +171,13 @@ function SecurityTab() {
         <h3 className="mb-3 text-sm font-semibold">Sesiones activas</h3>
         <div className="flex flex-col gap-2">
           {sessions.map((s) => (
-            <div key={s.id} className="flex items-center gap-3 rounded-lg bg-default-50 p-3">
-              <Monitor size={18} className="text-default-500" />
+            <div key={s.id} className="flex items-center gap-3 rounded-lg bg-background-secondary p-3">
+              <Monitor size={18} className="text-muted" />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">
                   {s.device_name || s.device_type || 'Dispositivo'}
                 </p>
-                <p className="text-xs text-default-500">{s.ip_address}</p>
+                <p className="text-xs text-muted">{s.ip_address}</p>
               </div>
               <Button
                 size="sm"
@@ -183,6 +187,65 @@ function SecurityTab() {
                 Cerrar
               </Button>
             </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const THEME_MODES = [
+  { key: 'light', label: 'Claro', icon: Sun },
+  { key: 'dark', label: 'Oscuro', icon: Moon },
+  { key: 'system', label: 'Sistema', icon: Monitor },
+];
+
+function AppearanceTab() {
+  const { mode, accent, setMode, setAccent } = useThemeStore();
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <h3 className="mb-3 text-sm font-semibold">Tema</h3>
+        <div className="grid grid-cols-3 gap-3">
+          {THEME_MODES.map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              onClick={() => setMode(key)}
+              className={`flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-colors ${
+                mode === key
+                  ? 'border-accent bg-accent-soft text-accent'
+                  : 'border-border hover:border-border-secondary'
+              }`}
+            >
+              <Icon size={22} />
+              <span className="text-xs font-medium">{label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <Separator />
+
+      <div>
+        <h3 className="mb-3 text-sm font-semibold">Color de acento</h3>
+        <div className="grid grid-cols-3 gap-3">
+          {ACCENT_COLORS.map(({ key, label, color }) => (
+            <button
+              key={key}
+              onClick={() => setAccent(key)}
+              className={`flex items-center gap-3 rounded-xl border-2 p-3 transition-colors ${
+                accent === key
+                  ? 'border-accent bg-accent-soft'
+                  : 'border-border hover:border-border-secondary'
+              }`}
+            >
+              <span
+                className="h-5 w-5 shrink-0 rounded-full ring-2 ring-offset-2 ring-offset-background"
+                style={{ backgroundColor: color, ringColor: accent === key ? color : 'transparent' }}
+              />
+              <span className="text-sm font-medium">{label}</span>
+            </button>
           ))}
         </div>
       </div>
@@ -250,7 +313,7 @@ export default function SettingsPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b border-divider px-4 py-3">
+      <div className="border-b border-separator px-4 py-3">
         <h2 className="text-base font-semibold">Configuración</h2>
       </div>
 
@@ -261,6 +324,10 @@ export default function SettingsPage() {
               <Tabs.Tab id="profile">
                 <User size={14} />
                 <span>Perfil</span>
+              </Tabs.Tab>
+              <Tabs.Tab id="appearance">
+                <Palette size={14} />
+                <span>Apariencia</span>
               </Tabs.Tab>
               <Tabs.Tab id="security">
                 <Shield size={14} />
@@ -274,6 +341,7 @@ export default function SettingsPage() {
           </Tabs>
 
           {tab === 'profile' && <ProfileTab />}
+          {tab === 'appearance' && <AppearanceTab />}
           {tab === 'security' && <SecurityTab />}
           {tab === 'presence' && <PresenceTab />}
         </div>

@@ -35,17 +35,17 @@ function MessageBubble({ message, isOwn, onEdit, onDelete, onReply, onReact }) {
         <UserAvatar
           user={{ display_name: message.sender_name }}
           size="sm"
-          className="mt-1 flex-shrink-0"
+          className="mt-1 shrink-0"
         />
       )}
 
       <div className={`max-w-[70%] ${isOwn ? 'items-end' : 'items-start'} flex flex-col`}>
         {!isOwn && (
-          <span className="mb-0.5 text-xs font-medium text-primary">{message.sender_name}</span>
+          <span className="mb-0.5 text-xs font-medium text-accent">{message.sender_name}</span>
         )}
 
         {message.reply_to_id && message.reply_to_body && (
-          <div className="mb-1 rounded-md border-l-2 border-primary bg-default-100 px-2 py-1 text-xs text-default-500">
+          <div className="mb-1 rounded-md border-l-2 border-accent bg-default px-2 py-1 text-xs text-muted">
             {message.reply_to_body}
           </div>
         )}
@@ -53,14 +53,14 @@ function MessageBubble({ message, isOwn, onEdit, onDelete, onReply, onReact }) {
         <div
           className={`rounded-2xl px-3.5 py-2 text-sm ${
             isOwn
-              ? 'rounded-tr-sm bg-primary text-primary-foreground'
-              : 'rounded-tl-sm bg-default-100 text-foreground'
+              ? 'rounded-tr-sm bg-accent text-accent-foreground'
+              : 'rounded-tl-sm bg-default text-foreground'
           }`}
         >
-          <p className="whitespace-pre-wrap break-words">{message.body}</p>
+          <p className="whitespace-pre-wrap wrap-break-word">{message.body}</p>
           <div
             className={`mt-1 flex items-center gap-1 text-[10px] ${
-              isOwn ? 'text-primary-foreground/70 justify-end' : 'text-default-400'
+              isOwn ? 'text-accent-foreground/70 justify-end' : 'text-muted'
             }`}
           >
             {message.is_edited && <span>(editado)</span>}
@@ -74,7 +74,7 @@ function MessageBubble({ message, isOwn, onEdit, onDelete, onReply, onReact }) {
               <button
                 key={i}
                 onClick={() => onReact(message.id, r.emoji)}
-                className="rounded-full bg-default-100 px-1.5 py-0.5 text-xs hover:bg-default-200"
+                className="rounded-full bg-default px-1.5 py-0.5 text-xs hover:bg-default-hover"
               >
                 {r.emoji} {r.count}
               </button>
@@ -253,7 +253,7 @@ export default function ConversationPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-divider px-4 py-3">
+      <div className="flex items-center justify-between border-b border-separator px-4 py-3">
         <div className="flex items-center gap-3">
           {isDirect ? (
             <UserAvatar
@@ -261,17 +261,17 @@ export default function ConversationPage() {
               showStatus
             />
           ) : (
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-              <Hash size={18} className="text-primary" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft">
+              <Hash size={18} className="text-accent" />
             </div>
           )}
           <div>
             <h2 className="text-sm font-semibold">{convName}</h2>
             {isDirect && conversation.member_presence && (
-              <p className="text-xs text-default-500 capitalize">{conversation.member_presence}</p>
+              <p className="text-xs text-muted capitalize">{conversation.member_presence}</p>
             )}
             {!isDirect && conversation.member_count && (
-              <p className="text-xs text-default-500">{conversation.member_count} miembros</p>
+              <p className="text-xs text-muted">{conversation.member_count} miembros</p>
             )}
           </div>
         </div>
@@ -347,12 +347,12 @@ export default function ConversationPage() {
 
       {/* Reply / Edit indicator */}
       {(replyTo || editing) && (
-        <div className="flex items-center gap-2 border-t border-divider bg-default-50 px-4 py-2">
+        <div className="flex items-center gap-2 border-t border-separator bg-background-secondary px-4 py-2">
           <div className="flex-1">
-            <p className="text-xs font-medium text-primary">
+            <p className="text-xs font-medium text-accent">
               {editing ? 'Editando mensaje' : `Respondiendo a ${replyTo.sender_name}`}
             </p>
-            <p className="truncate text-xs text-default-500">
+            <p className="truncate text-xs text-muted">
               {editing ? editing.body : replyTo.body}
             </p>
           </div>
@@ -363,7 +363,7 @@ export default function ConversationPage() {
       )}
 
       {/* Input */}
-      <div className="border-t border-divider px-4 py-3">
+      <div className="border-t border-separator px-4 py-3">
         <div className="flex items-end gap-2">
           <input
             ref={fileInputRef}
@@ -385,7 +385,7 @@ export default function ConversationPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="flex-1 bg-default-100"
+            className="flex-1 bg-default"
           />
 
           <Button

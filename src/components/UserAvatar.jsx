@@ -5,7 +5,7 @@ const STATUS_COLORS = {
   away: 'bg-warning',
   busy: 'bg-danger',
   dnd: 'bg-danger',
-  offline: 'bg-default-300',
+  offline: 'bg-default',
 };
 
 export default function UserAvatar({ user, size = 'md', showStatus = false, className = '' }) {

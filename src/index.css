@@ -5,4 +5,35 @@
   :root {
     --echo-sidebar-width: 320px;
   }
+      /* Estilo del cursor para botones */
+  button:not(:disabled),
+    [role="button"]:not(:disabled) {
+      cursor: pointer;
+  }
+
+  /* ── Accent color palettes ── */
+  :root[data-accent="blue"] {
+    --accent: oklch(0.6204 0.195 253.83);
+    --accent-foreground: var(--snow);
+  }
+  :root[data-accent="violet"] {
+    --accent: oklch(0.49 0.218 296.78);
+    --accent-foreground: var(--snow);
+  }
+  :root[data-accent="green"] {
+    --accent: oklch(0.73 0.194 150.81);
+    --accent-foreground: var(--eclipse);
+  }
+  :root[data-accent="rose"] {
+    --accent: oklch(0.60 0.261 17.72);
+    --accent-foreground: var(--snow);
+  }
+  :root[data-accent="orange"] {
+    --accent: oklch(0.78 0.159 72.33);
+    --accent-foreground: var(--eclipse);
+  }
+  :root[data-accent="cyan"] {
+    --accent: oklch(0.70 0.136 220.49);
+    --accent-foreground: var(--eclipse);
+  }
 }

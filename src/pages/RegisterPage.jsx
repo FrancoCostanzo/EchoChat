@@ -33,7 +33,7 @@ function PasswordStrength({ password }) {
         {PASSWORD_RULES.map((_, i) => (
           <div
             key={i}
-            className={`h-1 flex-1 rounded-full transition-colors ${i < passed ? colors[passed - 1] : 'bg-default-200'}`}
+            className={`h-1 flex-1 rounded-full transition-colors ${i < passed ? colors[passed - 1] : 'bg-default'}`}
           />
         ))}
       </div>
@@ -44,7 +44,7 @@ function PasswordStrength({ password }) {
         {PASSWORD_RULES.map((rule) => {
           const ok = rule.test(password);
           return (
-            <p key={rule.label} className={`flex items-center gap-1 text-xs ${ok ? 'text-success' : 'text-default-400'}`}>
+            <p key={rule.label} className={`flex items-center gap-1 text-xs ${ok ? 'text-success' : 'text-muted'}`}>
               {ok ? <Check size={11} /> : <X size={11} />}
               {rule.label}
             </p>
@@ -138,24 +138,24 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-default-50 to-default-100 p-4">
+    <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-background to-background-secondary p-4">
       <div className="w-full max-w-sm">
         {/* Brand */}
         <div className="mb-8 flex flex-col items-center gap-3">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary shadow-lg shadow-primary/30">
-            <MessageCircle className="h-7 w-7 text-primary-foreground" />
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent shadow-lg shadow-accent/30">
+            <MessageCircle className="h-7 w-7 text-accent-foreground" />
           </div>
           <div className="text-center">
             <h1 className="text-2xl font-bold">EchoChat</h1>
-            <p className="mt-1 text-sm text-default-500">Creá tu cuenta</p>
+            <p className="mt-1 text-sm text-muted">Creá tu cuenta</p>
           </div>
         </div>
 
         <Card className="p-6 shadow-xl">
           <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
             {serverError && (
-              <div className="flex items-center gap-2 rounded-lg border border-danger-200 bg-danger-50 px-3 py-2.5 text-sm text-danger">
-                <AlertCircle size={16} className="flex-shrink-0" />
+              <div className="flex items-center gap-2 rounded-lg border border-danger-soft-hover bg-danger-soft px-3 py-2.5 text-sm text-danger">
+                <AlertCircle size={16} className="shrink-0" />
                 {serverError}
               </div>
             )}
@@ -176,7 +176,7 @@ export default function RegisterPage() {
               {touched.username && errors.username ? (
                 <FieldError message={errors.username} />
               ) : (
-                <p className="text-xs text-default-400">Letras, números, puntos y guiones bajos</p>
+                <p className="text-xs text-muted">Letras, números, puntos y guiones bajos</p>
               )}
             </div>
 
@@ -197,7 +197,7 @@ export default function RegisterPage() {
 
             {/* Email */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium">Email <span className="text-default-400 font-normal text-xs">(opcional)</span></label>
+              <label className="text-sm font-medium">Email <span className="text-muted font-normal text-xs">(opcional)</span></label>
               <Input
                 type="email"
                 placeholder="juan@empresa.com"
@@ -247,7 +247,7 @@ export default function RegisterPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-default-400 hover:text-default-600 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground transition-colors"
                   aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -293,9 +293,9 @@ export default function RegisterPage() {
           </form>
         </Card>
 
-        <p className="mt-6 text-center text-sm text-default-500">
+        <p className="mt-6 text-center text-sm text-muted">
           ¿Ya tenés cuenta?{' '}
-          <Link to="/login" className="font-medium text-primary hover:underline">
+          <Link to="/login" className="font-medium text-accent hover:underline">
             Iniciá sesión
           </Link>
         </p>

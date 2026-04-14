@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { Spinner } from '@heroui/react';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
+import { useThemeStore } from '@/stores/themeStore';
 import ProtectedRoute from '@/components/ProtectedRoute';
 
 const ChatLayout = lazy(() => import('@/layouts/ChatLayout'));
@@ -28,10 +29,12 @@ export default function App() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const loading = useAuthStore((s) => s.loading);
   const fetchConversations = useChatStore((s) => s.fetchConversations);
+  const initTheme = useThemeStore((s) => s.init);
 
   useEffect(() => {
     init();
-  }, [init]);
+    return initTheme();
+  }, [init, initTheme]);
 
   useEffect(() => {
     if (isAuthenticated && !loading) {

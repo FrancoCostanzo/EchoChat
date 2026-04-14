@@ -59,7 +59,7 @@ export default function NewConversationPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-3 border-b border-divider px-4 py-3">
+      <div className="flex items-center gap-3 border-b border-separator px-4 py-3">
         <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/chat')}>
           <ArrowLeft size={18} />
         </Button>
@@ -87,7 +87,7 @@ export default function NewConversationPage() {
 
       {tab !== 'direct' && (
         <div className="flex flex-col gap-1 px-4 pb-2">
-          <label className="text-sm text-default-600">Nombre del grupo/canal</label>
+          <label className="text-sm text-muted">Nombre del grupo/canal</label>
           <Input
             placeholder="Ej: Equipo de desarrollo"
             value={groupName}
@@ -97,7 +97,7 @@ export default function NewConversationPage() {
       )}
 
       <div className="relative px-4 pb-2">
-        <Search size={16} className="absolute left-7 top-1/2 -translate-y-1/2 text-default-400 pointer-events-none" />
+        <Search size={16} className="absolute left-7 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
         <Input
           placeholder="Buscar usuarios..."
           className="pl-9"
@@ -131,7 +131,7 @@ export default function NewConversationPage() {
                 toggleUser(u.id);
               }
             }}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 hover:bg-default-100"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 hover:bg-default"
           >
             {tab !== 'direct' && (
               <Checkbox isSelected={selected.includes(u.id)}>
@@ -143,16 +143,16 @@ export default function NewConversationPage() {
             <UserAvatar user={u} showStatus size="sm" />
             <div className="min-w-0 flex-1 text-left">
               <p className="truncate text-sm font-medium">{u.display_name}</p>
-              <p className="truncate text-xs text-default-500">@{u.username}</p>
+              <p className="truncate text-xs text-muted">@{u.username}</p>
             </div>
             {u.department && (
-              <span className="text-xs text-default-400">{u.department}</span>
+              <span className="text-xs text-muted">{u.department}</span>
             )}
           </button>
         ))}
       </div>
 
-      <div className="border-t border-divider px-4 py-3">
+      <div className="border-t border-separator px-4 py-3">
         <Button
           className="w-full"
           isDisabled={selected.length === 0}

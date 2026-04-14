@@ -13,12 +13,12 @@ import UserAvatar from '@/components/UserAvatar';
 
 function ContactCard({ user, type, onRemove, onToggleFavorite }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-default-100">
+    <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-default">
       <UserAvatar user={user} showStatus size="sm" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{user.display_name || user.username}</p>
         {user.department && (
-          <p className="truncate text-xs text-default-500">{user.department}</p>
+          <p className="truncate text-xs text-muted">{user.department}</p>
         )}
       </div>
       <div className="flex gap-1">
@@ -139,7 +139,7 @@ export default function ContactsPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b border-divider px-4 py-3">
+      <div className="border-b border-separator px-4 py-3">
         <h2 className="text-base font-semibold">Contactos</h2>
       </div>
 
@@ -157,7 +157,7 @@ export default function ContactsPage() {
       {tab === 'add' ? (
         <div className="flex flex-1 flex-col px-4">
           <div className="relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-default-400 pointer-events-none" />
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
             <Input
               placeholder="Buscar usuarios para agregar..."
               className="pl-9"
@@ -173,11 +173,11 @@ export default function ContactsPage() {
               </div>
             )}
             {searchResults.map((u) => (
-              <div key={u.id} className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-default-100">
+              <div key={u.id} className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-default">
                 <UserAvatar user={u} size="sm" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{u.display_name}</p>
-                  <p className="truncate text-xs text-default-500">@{u.username}</p>
+                  <p className="truncate text-xs text-muted">@{u.username}</p>
                 </div>
                 <Button
                   size="sm"
@@ -194,7 +194,7 @@ export default function ContactsPage() {
       ) : (
         <div className="flex-1 overflow-y-auto px-4">
           {getList().length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-8 text-default-400">
+            <div className="flex flex-col items-center gap-2 py-8 text-muted">
               <p className="text-sm">
                 {tab === 'contacts' && 'No tenés contactos aún'}
                 {tab === 'favorites' && 'No tenés favoritos aún'}

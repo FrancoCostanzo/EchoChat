@@ -8,24 +8,24 @@ function NotificationItem({ notification, onRead }) {
   return (
     <button
       onClick={() => !notification.read_at && onRead(notification.id)}
-      className={`flex w-full items-start gap-3 rounded-lg px-4 py-3 text-left transition-colors hover:bg-default-100 ${
-        !notification.read_at ? 'bg-primary-50/50' : ''
+      className={`flex w-full items-start gap-3 rounded-lg px-4 py-3 text-left transition-colors hover:bg-default ${
+        !notification.read_at ? 'bg-accent-soft' : ''
       }`}
     >
-      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary/10">
-        <Bell size={16} className="text-primary" />
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-soft">
+        <Bell size={16} className="text-accent" />
       </div>
       <div className="min-w-0 flex-1">
         <p className={`text-sm ${!notification.read_at ? 'font-semibold' : ''}`}>
           {notification.title || notification.event_type}
         </p>
         {notification.body && (
-          <p className="mt-0.5 text-xs text-default-500">{notification.body}</p>
+          <p className="mt-0.5 text-xs text-muted">{notification.body}</p>
         )}
-        <p className="mt-1 text-xs text-default-400">{formatRelative(notification.created_at)}</p>
+        <p className="mt-1 text-xs text-muted">{formatRelative(notification.created_at)}</p>
       </div>
       {!notification.read_at && (
-        <div className="h-2 w-2 flex-shrink-0 rounded-full bg-primary mt-2" />
+        <div className="h-2 w-2 shrink-0 rounded-full bg-accent mt-2" />
       )}
     </button>
   );
@@ -73,11 +73,11 @@ export default function NotificationsPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-divider px-4 py-3">
+      <div className="flex items-center justify-between border-b border-separator px-4 py-3">
         <div>
           <h2 className="text-base font-semibold">Notificaciones</h2>
           {unreadCount > 0 && (
-            <p className="text-xs text-default-500">{unreadCount} sin leer</p>
+            <p className="text-xs text-muted">{unreadCount} sin leer</p>
           )}
         </div>
         {unreadCount > 0 && (
@@ -90,7 +90,7 @@ export default function NotificationsPage() {
 
       <div className="flex-1 overflow-y-auto">
         {notifications.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-12 text-default-400">
+          <div className="flex flex-col items-center gap-2 py-12 text-muted">
             <BellOff size={40} />
             <p className="text-sm">Sin notificaciones</p>
           </div>

@@ -27,19 +27,19 @@ function ConversationItem({ conversation, isActive, onClick }) {
   return (
     <button
       onClick={onClick}
-      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-default-100 ${
-        isActive ? 'bg-default-100' : ''
+      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-default ${
+        isActive ? 'bg-default' : ''
       }`}
     >
-      <div className="relative flex-shrink-0">
+      <div className="relative shrink-0">
         {isDirect ? (
           <UserAvatar
             user={{ display_name: name, presence: conversation.member_presence }}
             showStatus
           />
         ) : (
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-            <Hash size={18} className="text-primary" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft">
+            <Hash size={18} className="text-accent" />
           </div>
         )}
       </div>
@@ -50,14 +50,14 @@ function ConversationItem({ conversation, isActive, onClick }) {
             {name}
           </span>
           {time && (
-            <span className="ml-2 flex-shrink-0 text-xs text-default-400">
+            <span className="ml-2 shrink-0 text-xs text-muted">
               {formatMessageTime(time)}
             </span>
           )}
         </div>
         {lastMsg && (
           <div className="flex items-center justify-between">
-            <p className="truncate text-xs text-default-500">{lastMsg}</p>
+            <p className="truncate text-xs text-muted">{lastMsg}</p>
             {unread > 0 && (
               <Badge color="accent" size="sm" className="ml-2">
                 {unread}
@@ -96,14 +96,14 @@ function Sidebar() {
   };
 
   return (
-    <div className="flex h-full w-80 flex-col border-r border-divider bg-content1">
+    <div className="flex h-full w-80 flex-col border-r border-separator bg-surface">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-divider px-4 py-3">
+      <div className="flex items-center justify-between border-b border-separator px-4 py-3">
         <div className="flex items-center gap-3">
           <UserAvatar user={user} showStatus size="sm" />
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold">{user?.display_name}</p>
-            <p className="truncate text-xs text-default-500">@{user?.username}</p>
+            <p className="truncate text-xs text-muted">@{user?.username}</p>
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -120,10 +120,10 @@ function Sidebar() {
 
       {/* Search */}
       <div className="relative px-3 py-2">
-        <Search size={16} className="absolute left-6 top-1/2 -translate-y-1/2 text-default-400 pointer-events-none" />
+        <Search size={16} className="absolute left-6 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
         <Input
           placeholder="Buscar conversación..."
-          className="bg-default-100 pl-9"
+          className="bg-default pl-9"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -132,7 +132,7 @@ function Sidebar() {
       {/* Conversation List */}
       <div className="flex-1 overflow-y-auto px-2">
         {filtered.length === 0 && (
-          <div className="flex flex-col items-center gap-2 py-8 text-default-400">
+          <div className="flex flex-col items-center gap-2 py-8 text-muted">
             <MessageSquare size={32} />
             <p className="text-sm">Sin conversaciones</p>
           </div>
@@ -148,7 +148,7 @@ function Sidebar() {
       </div>
 
       {/* Bottom Nav */}
-      <div className="flex items-center justify-around border-t border-divider px-2 py-2">
+      <div className="flex items-center justify-around border-t border-separator px-2 py-2">
         <Tooltip delay={0}>
           <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/chat')}>
             <MessageSquare size={18} />
