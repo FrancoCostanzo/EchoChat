@@ -35,8 +35,9 @@ export const useChatStore = create((set, get) => ({
       const params = { limit: 50 };
       if (cursor) params.cursor = cursor;
       const { data } = await messagesApi.getByConversation(conversationId, params);
+      const sorted = [...data].sort((a, b) => new Date(a.sent_at) - new Date(b.sent_at));
       set((state) => ({
-        messages: cursor ? [...data.reverse(), ...state.messages] : data.reverse(),
+        messages: cursor ? [...sorted, ...state.messages] : sorted,
         hasMoreMessages: data.length === 50,
       }));
     } finally {

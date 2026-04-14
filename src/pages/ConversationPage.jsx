@@ -15,12 +15,94 @@ import {
   Trash2,
   Hash,
   ArrowDown,
+  Download,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
 import UserAvatar from '@/components/UserAvatar';
+import ImageViewer from '@/components/ImageViewer';
 import { formatMessageTime, formatFullTime } from '@/lib/dates';
 import { storageApi } from '@/lib/endpoints';
+
+function downloadBlob(url, filename) {
+  fetch(url)
+    .then((r) => r.blob())
+    .then((blob) => {
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename || 'file';
+      a.click();
+      URL.revokeObjectURL(blobUrl);
+    })
+    .catch(() => window.open(url, '_blank'));
+}
+
+function AttachmentView({ attachment }) {
+  const [url, setUrl] = useState(null);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const isImage =
+    attachment.object_type === 'image' || attachment.mime_type?.startsWith('image/');
+
+  useEffect(() => {
+    storageApi.getUrl(attachment.id).then((res) => setUrl(res.data.url)).catch(() => {});
+  }, [attachment.id]);
+
+  if (!url) {
+    return (
+      <div
+        className={`animate-pulse rounded-lg bg-default ${
+          isImage ? 'h-32 w-48' : 'h-8 w-40'
+        }`}
+      />
+    );
+  }
+
+  if (isImage) {
+    return (
+      <>
+        <div
+          className="group relative inline-block cursor-zoom-in"
+          onClick={() => setViewerOpen(true)}
+        >
+          <img
+            src={url}
+            alt={attachment.original_filename}
+            className="max-h-64 max-w-xs rounded-lg object-cover"
+          />
+          <div className="pointer-events-none absolute inset-0 flex items-end justify-end gap-1 rounded-lg p-1.5 opacity-0 transition-opacity group-hover:opacity-100">
+            <button
+              onClick={(e) => { e.stopPropagation(); downloadBlob(url, attachment.original_filename); }}
+              className="pointer-events-auto rounded bg-black/60 p-1 text-white hover:bg-black/80"
+              title="Descargar"
+            >
+              <Download size={13} />
+            </button>
+          </div>
+        </div>
+        {viewerOpen && (
+          <ImageViewer
+            src={url}
+            filename={attachment.original_filename}
+            onClose={() => setViewerOpen(false)}
+          />
+        )}
+      </>
+    );
+  }
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-2 rounded-lg border border-separator px-3 py-2 text-xs hover:bg-default-hover"
+    >
+      <Paperclip size={14} />
+      <span className="max-w-45 truncate">{attachment.original_filename}</span>
+    </a>
+  );
+}
 
 function MessageBubble({ message, isOwn, onEdit, onDelete, onReply, onReact }) {
   const [hovering, setHovering] = useState(false);
@@ -33,7 +115,7 @@ function MessageBubble({ message, isOwn, onEdit, onDelete, onReply, onReact }) {
     >
       {!isOwn && (
         <UserAvatar
-          user={{ display_name: message.sender_name }}
+          user={{ display_name: message.sender_display_name }}
           size="sm"
           className="mt-1 shrink-0"
         />
@@ -41,7 +123,7 @@ function MessageBubble({ message, isOwn, onEdit, onDelete, onReply, onReact }) {
 
       <div className={`max-w-[70%] ${isOwn ? 'items-end' : 'items-start'} flex flex-col`}>
         {!isOwn && (
-          <span className="mb-0.5 text-xs font-medium text-accent">{message.sender_name}</span>
+          <span className="mb-0.5 text-xs font-medium text-accent">{message.sender_display_name}</span>
         )}
 
         {message.reply_to_id && message.reply_to_body && (
@@ -57,14 +139,23 @@ function MessageBubble({ message, isOwn, onEdit, onDelete, onReply, onReact }) {
               : 'rounded-tl-sm bg-default text-foreground'
           }`}
         >
-          <p className="whitespace-pre-wrap wrap-break-word">{message.body}</p>
+          {message.type !== 'media' && (
+            <p className="whitespace-pre-wrap wrap-break-word">{message.body}</p>
+          )}
+          {message.attachments?.length > 0 && (
+            <div className="mt-1 flex flex-col gap-1">
+              {message.attachments.map((att) => (
+                <AttachmentView key={att.id} attachment={att} />
+              ))}
+            </div>
+          )}
           <div
             className={`mt-1 flex items-center gap-1 text-[10px] ${
               isOwn ? 'text-accent-foreground/70 justify-end' : 'text-muted'
             }`}
           >
             {message.is_edited && <span>(editado)</span>}
-            <span>{formatMessageTime(message.created_at)}</span>
+            <span>{formatMessageTime(message.sent_at)}</span>
           </div>
         </div>
 
@@ -314,9 +405,16 @@ export default function ConversationPage() {
           </div>
         )}
 
-        {loadingMessages && messages.length > 0 && (
+        {hasMoreMessages && messages.length > 0 && (
           <div className="flex justify-center py-2">
-            <Spinner size="sm" />
+            <Button
+              size="sm"
+              variant="ghost"
+              isDisabled={loadingMessages}
+              onPress={loadMoreMessages}
+            >
+              {loadingMessages ? <Spinner size="sm" /> : 'Cargar mensajes anteriores'}
+            </Button>
           </div>
         )}
 
@@ -350,7 +448,7 @@ export default function ConversationPage() {
         <div className="flex items-center gap-2 border-t border-separator bg-background-secondary px-4 py-2">
           <div className="flex-1">
             <p className="text-xs font-medium text-accent">
-              {editing ? 'Editando mensaje' : `Respondiendo a ${replyTo.sender_name}`}
+              {editing ? 'Editando mensaje' : `Respondiendo a ${replyTo.sender_display_name}`}
             </p>
             <p className="truncate text-xs text-muted">
               {editing ? editing.body : replyTo.body}
