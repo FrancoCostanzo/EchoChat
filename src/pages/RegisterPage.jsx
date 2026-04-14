@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, Input, Button, Spinner } from '@heroui/react';
 import { MessageCircle, Eye, EyeOff, AlertCircle, Check, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
 
 function FieldError({ message }) {
@@ -15,17 +16,23 @@ function FieldError({ message }) {
 }
 
 const PASSWORD_RULES = [
-  { label: 'Al menos 8 caracteres', test: (p) => p.length >= 8 },
-  { label: 'Una letra mayúscula', test: (p) => /[A-Z]/.test(p) },
-  { label: 'Una letra minúscula', test: (p) => /[a-z]/.test(p) },
-  { label: 'Un número', test: (p) => /\d/.test(p) },
+  { key: 'minLength', test: (p) => p.length >= 8 },
+  { key: 'uppercase', test: (p) => /[A-Z]/.test(p) },
+  { key: 'lowercase', test: (p) => /[a-z]/.test(p) },
+  { key: 'number', test: (p) => /\d/.test(p) },
 ];
 
 function PasswordStrength({ password }) {
+  const { t } = useTranslation();
   if (!password) return null;
   const passed = PASSWORD_RULES.filter((r) => r.test(password)).length;
   const colors = ['bg-danger', 'bg-warning', 'bg-warning', 'bg-success'];
-  const labels = ['Muy débil', 'Débil', 'Regular', 'Fuerte'];
+  const labels = [
+    t('auth.passwordStrength.veryWeak'),
+    t('auth.passwordStrength.weak'),
+    t('auth.passwordStrength.fair'),
+    t('auth.passwordStrength.strong'),
+  ];
 
   return (
     <div className="flex flex-col gap-2">
@@ -38,15 +45,15 @@ function PasswordStrength({ password }) {
         ))}
       </div>
       <p className={`text-xs ${passed >= 4 ? 'text-success' : passed >= 2 ? 'text-warning' : 'text-danger'}`}>
-        {labels[passed - 1] ?? 'Muy débil'}
+        {labels[passed - 1] ?? t('auth.passwordStrength.veryWeak')}
       </p>
       <div className="grid grid-cols-2 gap-x-3 gap-y-1">
         {PASSWORD_RULES.map((rule) => {
           const ok = rule.test(password);
           return (
-            <p key={rule.label} className={`flex items-center gap-1 text-xs ${ok ? 'text-success' : 'text-muted'}`}>
+            <p key={rule.key} className={`flex items-center gap-1 text-xs ${ok ? 'text-success' : 'text-muted'}`}>
               {ok ? <Check size={11} /> : <X size={11} />}
-              {rule.label}
+              {t(`auth.passwordRules.${rule.key}`)}
             </p>
           );
         })}
@@ -56,6 +63,7 @@ function PasswordStrength({ password }) {
 }
 
 export default function RegisterPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const register = useAuthStore((s) => s.register);
 
@@ -76,34 +84,34 @@ export default function RegisterPage() {
   const errors = useMemo(() => {
     const e = {};
     if (!form.username.trim()) {
-      e.username = 'El usuario es requerido';
+      e.username = t('auth.errors.usernameRequired');
     } else if (!/^[a-zA-Z0-9._]+$/.test(form.username)) {
-      e.username = 'Solo letras, números, puntos y guiones bajos';
+      e.username = t('auth.errors.usernameInvalid');
     } else if (form.username.length < 3) {
-      e.username = 'Mínimo 3 caracteres';
+      e.username = t('auth.errors.usernameMinLength');
     }
 
-    if (!form.display_name.trim()) e.display_name = 'El nombre es requerido';
+    if (!form.display_name.trim()) e.display_name = t('auth.errors.displayNameRequired');
 
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      e.email = 'Email inválido';
+      e.email = t('auth.errors.emailInvalid');
     }
 
     const passOk = PASSWORD_RULES.every((r) => r.test(form.password));
     if (!form.password) {
-      e.password = 'La contraseña es requerida';
+      e.password = t('auth.errors.passwordRequired');
     } else if (!passOk) {
-      e.password = 'La contraseña no cumple los requisitos';
+      e.password = t('auth.errors.passwordWeak');
     }
 
     if (!form.confirmPassword) {
-      e.confirmPassword = 'Confirmá tu contraseña';
+      e.confirmPassword = t('auth.errors.confirmRequired');
     } else if (form.password !== form.confirmPassword) {
-      e.confirmPassword = 'Las contraseñas no coinciden';
+      e.confirmPassword = t('auth.errors.passwordMismatch');
     }
 
     return e;
-  }, [form]);
+  }, [form, t]);
 
   const isValid = Object.keys(errors).length === 0;
 
@@ -131,7 +139,7 @@ export default function RegisterPage() {
       await register(data);
       navigate('/login');
     } catch (err) {
-      setServerError(err.message || 'Error al registrarse');
+      setServerError(err.message || t('auth.errors.registerFailed'));
     } finally {
       setLoading(false);
     }
@@ -146,8 +154,8 @@ export default function RegisterPage() {
             <MessageCircle className="h-7 w-7 text-accent-foreground" />
           </div>
           <div className="text-center">
-            <h1 className="text-2xl font-bold">EchoChat</h1>
-            <p className="mt-1 text-sm text-muted">Creá tu cuenta</p>
+            <h1 className="text-2xl font-bold">{t('common.appName')}</h1>
+            <p className="mt-1 text-sm text-muted">{t('auth.registerTitle')}</p>
           </div>
         </div>
 
@@ -163,10 +171,10 @@ export default function RegisterPage() {
             {/* Username */}
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium">
-                Usuario <span className="text-danger">*</span>
+                {t('auth.username')} <span className="text-danger">*</span>
               </label>
               <Input
-                placeholder="tu.usuario"
+                placeholder={t('auth.usernamePlaceholder')}
                 value={form.username}
                 onChange={updateField('username')}
                 onBlur={() => touch('username')}
@@ -176,17 +184,17 @@ export default function RegisterPage() {
               {touched.username && errors.username ? (
                 <FieldError message={errors.username} />
               ) : (
-                <p className="text-xs text-muted">Letras, números, puntos y guiones bajos</p>
+                <p className="text-xs text-muted">{t('auth.usernameHint')}</p>
               )}
             </div>
 
             {/* Display name */}
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium">
-                Nombre completo <span className="text-danger">*</span>
+                {t('auth.displayName')} <span className="text-danger">*</span>
               </label>
               <Input
-                placeholder="Juan Pérez"
+                placeholder={t('auth.displayNamePlaceholder')}
                 value={form.display_name}
                 onChange={updateField('display_name')}
                 onBlur={() => touch('display_name')}
@@ -197,10 +205,10 @@ export default function RegisterPage() {
 
             {/* Email */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium">Email <span className="text-muted font-normal text-xs">(opcional)</span></label>
+              <label className="text-sm font-medium">{t('auth.email')} <span className="text-muted font-normal text-xs">({t('common.optional')})</span></label>
               <Input
                 type="email"
-                placeholder="juan@empresa.com"
+                placeholder={t('auth.emailPlaceholder')}
                 value={form.email}
                 onChange={updateField('email')}
                 onBlur={() => touch('email')}
@@ -212,17 +220,17 @@ export default function RegisterPage() {
             {/* Dept + Job */}
             <div className="flex gap-3">
               <div className="flex flex-1 flex-col gap-1.5">
-                <label className="text-sm font-medium">Departamento</label>
+                <label className="text-sm font-medium">{t('auth.department')}</label>
                 <Input
-                  placeholder="IT"
+                  placeholder={t('auth.departmentPlaceholder')}
                   value={form.department}
                   onChange={updateField('department')}
                 />
               </div>
               <div className="flex flex-1 flex-col gap-1.5">
-                <label className="text-sm font-medium">Cargo</label>
+                <label className="text-sm font-medium">{t('auth.jobTitle')}</label>
                 <Input
-                  placeholder="Developer"
+                  placeholder={t('auth.jobTitlePlaceholder')}
                   value={form.job_title}
                   onChange={updateField('job_title')}
                 />
@@ -232,11 +240,11 @@ export default function RegisterPage() {
             {/* Password */}
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium">
-                Contraseña <span className="text-danger">*</span>
+                {t('auth.password')} <span className="text-danger">*</span>
               </label>
               <div className="relative">
                 <Input
-                  placeholder="••••••••"
+                  placeholder={t('auth.passwordPlaceholder')}
                   type={showPassword ? 'text' : 'password'}
                   value={form.password}
                   onChange={updateField('password')}
@@ -248,7 +256,7 @@ export default function RegisterPage() {
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground transition-colors"
-                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -260,11 +268,11 @@ export default function RegisterPage() {
             {/* Confirm password */}
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium">
-                Confirmar contraseña <span className="text-danger">*</span>
+                {t('auth.confirmPassword')} <span className="text-danger">*</span>
               </label>
               <div className="relative">
                 <Input
-                  placeholder="••••••••"
+                  placeholder={t('auth.passwordPlaceholder')}
                   type={showPassword ? 'text' : 'password'}
                   value={form.confirmPassword}
                   onChange={updateField('confirmPassword')}
@@ -284,9 +292,9 @@ export default function RegisterPage() {
             <Button type="submit" isPending={loading} className="mt-1 w-full">
               {({ isPending }) =>
                 isPending ? (
-                  <><Spinner size="sm" /><span>Creando cuenta...</span></>
+                  <><Spinner size="sm" /><span>{t('auth.registering')}</span></>
                 ) : (
-                  'Crear cuenta'
+                  t('auth.register')
                 )
               }
             </Button>
@@ -294,9 +302,9 @@ export default function RegisterPage() {
         </Card>
 
         <p className="mt-6 text-center text-sm text-muted">
-          ¿Ya tenés cuenta?{' '}
+          {t('auth.hasAccount')}{' '}
           <Link to="/login" className="font-medium text-accent hover:underline">
-            Iniciá sesión
+            {t('auth.goLogin')}
           </Link>
         </p>
       </div>

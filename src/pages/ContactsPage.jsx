@@ -8,10 +8,12 @@ import {
   Trash2,
   StarOff,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { relationshipsApi, usersApi } from '@/lib/endpoints';
 import UserAvatar from '@/components/UserAvatar';
 
 function ContactCard({ user, type, onRemove, onToggleFavorite }) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-default">
       <UserAvatar user={user} showStatus size="sm" />
@@ -28,7 +30,7 @@ function ContactCard({ user, type, onRemove, onToggleFavorite }) {
             size="sm"
             variant="ghost"
             onPress={() => onToggleFavorite(user)}
-            aria-label={user.is_favorite ? 'Quitar favorito' : 'Agregar a favoritos'}
+            aria-label={user.is_favorite ? t('contacts.removeFavorite') : t('contacts.addFavorite')}
           >
             {user.is_favorite ? <StarOff size={16} /> : <Star size={16} />}
           </Button>
@@ -47,6 +49,7 @@ function ContactCard({ user, type, onRemove, onToggleFavorite }) {
 }
 
 export default function ContactsPage() {
+  const { t } = useTranslation();
   const [tab, setTab] = useState('contacts');
   const [contacts, setContacts] = useState([]);
   const [favorites, setFavorites] = useState([]);
@@ -140,16 +143,16 @@ export default function ContactsPage() {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-separator px-4 py-3">
-        <h2 className="text-base font-semibold">Contactos</h2>
+        <h2 className="text-base font-semibold">{t('contacts.title')}</h2>
       </div>
 
       <div className="px-4 py-3">
         <Tabs selectedKey={tab} onSelectionChange={setTab}>
-          <Tabs.List aria-label="Secciones de contactos">
-            <Tabs.Tab id="contacts">{`Contactos (${contacts.length})`}</Tabs.Tab>
-            <Tabs.Tab id="favorites">{`Favoritos (${favorites.length})`}</Tabs.Tab>
-            <Tabs.Tab id="blocked">{`Bloqueados (${blocked.length})`}</Tabs.Tab>
-            <Tabs.Tab id="add">Agregar</Tabs.Tab>
+          <Tabs.List aria-label={t('contacts.sections')}>
+            <Tabs.Tab id="contacts">{`${t('contacts.contacts')} (${contacts.length})`}</Tabs.Tab>
+            <Tabs.Tab id="favorites">{`${t('contacts.favorites')} (${favorites.length})`}</Tabs.Tab>
+            <Tabs.Tab id="blocked">{`${t('contacts.blocked')} (${blocked.length})`}</Tabs.Tab>
+            <Tabs.Tab id="add">{t('contacts.add')}</Tabs.Tab>
           </Tabs.List>
         </Tabs>
       </div>
@@ -159,7 +162,7 @@ export default function ContactsPage() {
           <div className="relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
             <Input
-              placeholder="Buscar usuarios para agregar..."
+              placeholder={t('contacts.searchToAdd')}
               className="pl-9"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -185,7 +188,7 @@ export default function ContactsPage() {
                   onPress={() => addContact(u)}
                 >
                   <UserPlus size={14} />
-                  Agregar
+                  {t('contacts.add')}
                 </Button>
               </div>
             ))}
@@ -196,9 +199,9 @@ export default function ContactsPage() {
           {getList().length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-8 text-muted">
               <p className="text-sm">
-                {tab === 'contacts' && 'No tenés contactos aún'}
-                {tab === 'favorites' && 'No tenés favoritos aún'}
-                {tab === 'blocked' && 'No tenés usuarios bloqueados'}
+                {tab === 'contacts' && t('contacts.noContacts')}
+                {tab === 'favorites' && t('contacts.noFavorites')}
+                {tab === 'blocked' && t('contacts.noBlocked')}
               </p>
             </div>
           ) : (

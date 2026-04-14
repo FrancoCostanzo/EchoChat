@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button, Spinner } from '@heroui/react';
 import { Bell, BellOff, Check, CheckCheck } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { notificationsApi } from '@/lib/endpoints';
 import { formatRelative } from '@/lib/dates';
 
@@ -32,6 +33,7 @@ function NotificationItem({ notification, onRead }) {
 }
 
 export default function NotificationsPage() {
+  const { t } = useTranslation();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -75,15 +77,15 @@ export default function NotificationsPage() {
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-separator px-4 py-3">
         <div>
-          <h2 className="text-base font-semibold">Notificaciones</h2>
+          <h2 className="text-base font-semibold">{t('notifications.title')}</h2>
           {unreadCount > 0 && (
-            <p className="text-xs text-muted">{unreadCount} sin leer</p>
+            <p className="text-xs text-muted">{t('notifications.unread', { count: unreadCount })}</p>
           )}
         </div>
         {unreadCount > 0 && (
           <Button size="sm" variant="secondary" onPress={markAllRead}>
             <CheckCheck size={14} />
-            Marcar todas como leídas
+            {t('notifications.markAllRead')}
           </Button>
         )}
       </div>
@@ -92,7 +94,7 @@ export default function NotificationsPage() {
         {notifications.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-12 text-muted">
             <BellOff size={40} />
-            <p className="text-sm">Sin notificaciones</p>
+            <p className="text-sm">{t('notifications.empty')}</p>
           </div>
         ) : (
           notifications.map((n) => (

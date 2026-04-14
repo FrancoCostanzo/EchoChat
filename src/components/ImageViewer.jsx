@@ -2,12 +2,14 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@heroui/react';
 import { X, ZoomIn, ZoomOut, RotateCcw, Download, Maximize2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 5;
 const ZOOM_STEP = 0.25;
 
 export default function ImageViewer({ src, filename, onClose }) {
+  const { t } = useTranslation();
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
@@ -111,7 +113,7 @@ export default function ImageViewer({ src, filename, onClose }) {
             variant="ghost"
             className="text-white hover:bg-white/10"
             onPress={handleDownload}
-            title="Descargar"
+            title={t('imageViewer.download')}
           >
             <Download size={16} />
           </Button>
@@ -121,7 +123,7 @@ export default function ImageViewer({ src, filename, onClose }) {
             variant="ghost"
             className="text-white hover:bg-white/10"
             onPress={handleOpenNew}
-            title="Abrir en nueva pestaña"
+            title={t('imageViewer.openNewTab')}
           >
             <Maximize2 size={16} />
           </Button>
@@ -131,7 +133,7 @@ export default function ImageViewer({ src, filename, onClose }) {
             variant="ghost"
             className="text-white hover:bg-white/10"
             onPress={onClose}
-            title="Cerrar (Esc)"
+            title={t('imageViewer.close')}
           >
             <X size={18} />
           </Button>
@@ -173,7 +175,7 @@ export default function ImageViewer({ src, filename, onClose }) {
           className="text-white hover:bg-white/10"
           onPress={handleZoomOut}
           isDisabled={zoom <= MIN_ZOOM}
-          title="Alejar (-)"
+          title={t('imageViewer.zoomOut')}
         >
           <ZoomOut size={18} />
         </Button>
@@ -181,7 +183,7 @@ export default function ImageViewer({ src, filename, onClose }) {
         <button
           onClick={handleReset}
           className="min-w-13 rounded-md px-2 py-1 text-center text-xs text-white/80 hover:bg-white/10"
-          title="Restablecer (0)"
+          title={t('imageViewer.reset')}
         >
           {Math.round(zoom * 100)}%
         </button>
@@ -193,7 +195,7 @@ export default function ImageViewer({ src, filename, onClose }) {
           className="text-white hover:bg-white/10"
           onPress={handleZoomIn}
           isDisabled={zoom >= MAX_ZOOM}
-          title="Acercar (+)"
+          title={t('imageViewer.zoomIn')}
         >
           <ZoomIn size={18} />
         </Button>

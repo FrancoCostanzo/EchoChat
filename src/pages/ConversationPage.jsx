@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
+import { useTranslation } from 'react-i18next';
 import UserAvatar from '@/components/UserAvatar';
 import ImageViewer from '@/components/ImageViewer';
 import { formatMessageTime, formatFullTime } from '@/lib/dates';
@@ -44,6 +45,7 @@ function downloadBlob(url, filename) {
 
 /* ─────────────────────────── Confirm Delete Modal ─────────────────────────── */
 function ConfirmDeleteModal({ message, onConfirm, onCancel }) {
+  const { t } = useTranslation();
   // Close on Escape
   useEffect(() => {
     const handler = (e) => { if (e.key === 'Escape') onCancel(); };
@@ -67,9 +69,9 @@ function ConfirmDeleteModal({ message, onConfirm, onCancel }) {
               <AlertTriangle size={18} className="text-danger" />
             </div>
             <div>
-              <h3 className="font-semibold text-foreground">Eliminar mensaje</h3>
+              <h3 className="font-semibold text-foreground">{t('chat.deleteMessage')}</h3>
               <p className="mt-0.5 text-xs text-muted">
-                Esta acción es permanente y no se puede deshacer.
+                {t('chat.deleteMessageWarning')}
               </p>
             </div>
           </div>
@@ -84,7 +86,7 @@ function ConfirmDeleteModal({ message, onConfirm, onCancel }) {
           {/* Actions */}
           <div className="flex justify-end gap-2">
             <Button variant="ghost" size="sm" onPress={onCancel}>
-              Cancelar
+              {t('common.cancel')}
             </Button>
             <Button
               size="sm"
@@ -92,7 +94,7 @@ function ConfirmDeleteModal({ message, onConfirm, onCancel }) {
               onPress={onConfirm}
             >
               <Trash2 size={13} />
-              Eliminar
+              {t('common.delete')}
             </Button>
           </div>
         </div>
@@ -103,6 +105,7 @@ function ConfirmDeleteModal({ message, onConfirm, onCancel }) {
 
 /* ─────────────────────────── Attachment View ─────────────────────────── */
 function AttachmentView({ attachment }) {
+  const { t } = useTranslation();
   const [url, setUrl] = useState(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const isImage =
@@ -138,7 +141,7 @@ function AttachmentView({ attachment }) {
             <button
               onClick={(e) => { e.stopPropagation(); downloadBlob(url, attachment.original_filename); }}
               className="rounded-lg bg-black/60 p-1.5 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
-              title="Descargar"
+              title={t('common.download')}
             >
               <Download size={13} />
             </button>
@@ -175,6 +178,7 @@ function AttachmentView({ attachment }) {
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
 function MessageBubble({ message, isOwn, onEdit, onDelete, onReply, onReact }) {
+  const { t } = useTranslation();
   const [showActions, setShowActions] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
@@ -237,7 +241,7 @@ function MessageBubble({ message, isOwn, onEdit, onDelete, onReply, onReact }) {
             }`}
           >
             {message.is_edited && (
-              <span className="opacity-70">(editado)</span>
+              <span className="opacity-70">{t('chat.edited')}</span>
             )}
             <span>{formatMessageTime(message.sent_at)}</span>
             {isOwn && (
@@ -276,7 +280,7 @@ function MessageBubble({ message, isOwn, onEdit, onDelete, onReply, onReact }) {
       >
         {/* Emoji picker */}
         <div className="relative">
-          <Tooltip content="Reaccionar" placement={isOwn ? 'top' : 'top'}>
+          <Tooltip content={t('chat.react')} placement={isOwn ? 'top' : 'top'}>
             <Button
               isIconOnly
               size="sm"
@@ -302,7 +306,7 @@ function MessageBubble({ message, isOwn, onEdit, onDelete, onReply, onReact }) {
           )}
         </div>
 
-        <Tooltip content="Responder">
+        <Tooltip content={t('chat.reply')}>
           <Button
             isIconOnly
             size="sm"
@@ -316,7 +320,7 @@ function MessageBubble({ message, isOwn, onEdit, onDelete, onReply, onReact }) {
 
         {isOwn && (
           <>
-            <Tooltip content="Editar">
+            <Tooltip content={t('common.edit')}>
               <Button
                 isIconOnly
                 size="sm"
@@ -327,7 +331,7 @@ function MessageBubble({ message, isOwn, onEdit, onDelete, onReply, onReact }) {
                 <Pencil size={13} />
               </Button>
             </Tooltip>
-            <Tooltip content="Eliminar">
+            <Tooltip content={t('common.delete')}>
               <Button
                 isIconOnly
                 size="sm"
@@ -346,6 +350,7 @@ function MessageBubble({ message, isOwn, onEdit, onDelete, onReply, onReact }) {
 }
 
 export default function ConversationPage() {
+  const { t } = useTranslation();
   const { conversationId } = useParams();
   const user = useAuthStore((s) => s.user);
   const {
@@ -385,9 +390,9 @@ export default function ConversationPage() {
     .map(([, name]) => name);
   const typingText =
     typingNames.length === 1
-      ? `${typingNames[0]} está escribiendo`
+      ? t('chat.isTyping', { name: typingNames[0] })
       : typingNames.length > 1
-        ? `${typingNames.join(', ')} están escribiendo`
+        ? t('chat.areTyping', { names: typingNames.join(', ') })
         : null;
 
   // Clear active conversation when leaving the page entirely
@@ -523,7 +528,7 @@ export default function ConversationPage() {
     );
   }
 
-  const convName = conversation.display_name || conversation.name || 'Conversación';
+  const convName = conversation.display_name || conversation.name || t('chat.conversation');
   const isDirect = conversation.type === 'direct';
 
   return (
@@ -558,24 +563,24 @@ export default function ConversationPage() {
               )}
               {!isDirect && conversation.member_count && (
                 <p className="text-xs text-muted leading-tight">
-                  {conversation.member_count} miembros
+                  {conversation.member_count} {t('chat.members')}
                 </p>
               )}
             </div>
           </div>
 
           <div className="flex items-center gap-0.5">
-            <Tooltip content="Llamada de voz">
+            <Tooltip content={t('chat.voiceCall')}>
               <Button isIconOnly size="sm" variant="ghost" className="rounded-xl hover:bg-default">
                 <Phone size={17} />
               </Button>
             </Tooltip>
-            <Tooltip content="Videollamada">
+            <Tooltip content={t('chat.videoCall')}>
               <Button isIconOnly size="sm" variant="ghost" className="rounded-xl hover:bg-default">
                 <Video size={17} />
               </Button>
             </Tooltip>
-            <Tooltip content="Buscar">
+            <Tooltip content={t('common.search')}>
               <Button isIconOnly size="sm" variant="ghost" className="rounded-xl hover:bg-default">
                 <Search size={17} />
               </Button>
@@ -586,9 +591,9 @@ export default function ConversationPage() {
               </Button>
               <Dropdown.Popover>
                 <Dropdown.Menu>
-                  <Dropdown.Item id="pinned" textValue="Mensajes fijados">
+                  <Dropdown.Item id="pinned" textValue={t('chat.pinnedMessages')}>
                     <Pin size={15} />
-                    <Label>Mensajes fijados</Label>
+                    <Label>{t('chat.pinnedMessages')}</Label>
                   </Dropdown.Item>
                 </Dropdown.Menu>
               </Dropdown.Popover>
@@ -605,7 +610,7 @@ export default function ConversationPage() {
           {loadingMessages && messages.length === 0 && (
             <div className="flex flex-col items-center justify-center gap-2 py-12 text-muted">
               <Spinner size="lg" />
-              <p className="text-xs">Cargando mensajes...</p>
+              <p className="text-xs">{t('chat.loadingMessages')}</p>
             </div>
           )}
 
@@ -618,7 +623,7 @@ export default function ConversationPage() {
                 isDisabled={loadingMessages}
                 onPress={loadMoreMessages}
               >
-                {loadingMessages ? <Spinner size="sm" /> : '↑ Cargar mensajes anteriores'}
+                {loadingMessages ? <Spinner size="sm" /> : t('chat.loadMore')}
               </Button>
             </div>
           )}
@@ -665,7 +670,7 @@ export default function ConversationPage() {
             <div className={`w-0.5 self-stretch rounded-full ${editing ? 'bg-warning' : 'bg-accent'}`} />
             <div className="flex-1 min-w-0">
               <p className={`text-xs font-semibold ${editing ? 'text-warning' : 'text-accent'}`}>
-                {editing ? '✏️ Editando mensaje' : `↩️ Respondiendo a ${replyTo.sender_display_name}`}
+                {editing ? t('chat.editingMessage') : t('chat.replyingTo', { name: replyTo.sender_display_name })}
               </p>
               <p className="truncate text-xs text-muted">
                 {editing ? editing.body : replyTo.body}
@@ -689,7 +694,7 @@ export default function ConversationPage() {
               className="hidden"
               onChange={handleFileUpload}
             />
-            <Tooltip content="Adjuntar archivo">
+            <Tooltip content={t('chat.attachFile')}>
               <Button
                 isIconOnly
                 size="sm"
@@ -703,7 +708,7 @@ export default function ConversationPage() {
 
             <Input
               ref={inputRef}
-              placeholder="Escribí un mensaje..."
+              placeholder={t('chat.writeMessage')}
               value={input}
               onChange={(e) => {
                 setInput(e.target.value);

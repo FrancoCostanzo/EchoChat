@@ -12,14 +12,15 @@ import {
   Hash,
   User,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
 import UserAvatar from '@/components/UserAvatar';
 import { formatMessageTime } from '@/lib/dates';
 
-function ConversationItem({ conversation, isActive, onClick }) {
+function ConversationItem({ conversation, isActive, onClick, t }) {
   const isDirect = conversation.type === 'direct';
-  const name = conversation.display_name || conversation.name || 'Sin nombre';
+  const name = conversation.display_name || conversation.name || t('sidebar.noName');
   const lastMsg = conversation.last_message_body;
   const time = conversation.last_message_at;
   const unread = conversation.unread_count || 0;
@@ -69,6 +70,7 @@ function ConversationItem({ conversation, isActive, onClick }) {
 }
 
 function Sidebar() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
@@ -110,7 +112,7 @@ function Sidebar() {
               <Plus size={18} />
             </Button>
             <Tooltip.Content>
-              <p>Nuevo chat</p>
+              <p>{t('sidebar.newChat')}</p>
             </Tooltip.Content>
           </Tooltip>
         </div>
@@ -120,7 +122,7 @@ function Sidebar() {
       <div className="relative px-3 py-2">
         <Search size={16} className="absolute left-6 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
         <Input
-          placeholder="Buscar conversación..."
+          placeholder={t('sidebar.searchConversation')}
           className="bg-default pl-9"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -132,7 +134,7 @@ function Sidebar() {
         {filtered.length === 0 && (
           <div className="flex flex-col items-center gap-2 py-8 text-muted">
             <MessageSquare size={32} />
-            <p className="text-sm">Sin conversaciones</p>
+            <p className="text-sm">{t('sidebar.noConversations')}</p>
           </div>
         )}
         {filtered.map((conv) => (
@@ -141,6 +143,7 @@ function Sidebar() {
             conversation={conv}
             isActive={conv.id === activeConversationId}
             onClick={() => handleConversationClick(conv.id)}
+            t={t}
           />
         ))}
       </div>
@@ -151,31 +154,31 @@ function Sidebar() {
           <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/chat')}>
             <MessageSquare size={18} />
           </Button>
-          <Tooltip.Content><p>Chats</p></Tooltip.Content>
+          <Tooltip.Content><p>{t('sidebar.chats')}</p></Tooltip.Content>
         </Tooltip>
         <Tooltip delay={0}>
           <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/contacts')}>
             <Users size={18} />
           </Button>
-          <Tooltip.Content><p>Contactos</p></Tooltip.Content>
+          <Tooltip.Content><p>{t('sidebar.contacts')}</p></Tooltip.Content>
         </Tooltip>
         <Tooltip delay={0}>
           <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/notifications')}>
             <Bell size={18} />
           </Button>
-          <Tooltip.Content><p>Notificaciones</p></Tooltip.Content>
+          <Tooltip.Content><p>{t('sidebar.notifications')}</p></Tooltip.Content>
         </Tooltip>
         <Tooltip delay={0}>
           <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/settings')}>
             <Settings size={18} />
           </Button>
-          <Tooltip.Content><p>Configuración</p></Tooltip.Content>
+          <Tooltip.Content><p>{t('sidebar.settings')}</p></Tooltip.Content>
         </Tooltip>
         <Tooltip delay={0}>
           <Button isIconOnly size="sm" variant="danger" onPress={handleLogout}>
             <LogOut size={18} />
           </Button>
-          <Tooltip.Content><p>Cerrar sesión</p></Tooltip.Content>
+          <Tooltip.Content><p>{t('sidebar.logout')}</p></Tooltip.Content>
         </Tooltip>
       </div>
     </div>

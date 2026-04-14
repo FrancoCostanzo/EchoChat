@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, Input, Button, Separator, Spinner } from '@heroui/react';
 import { MessageCircle, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
 
 function FieldError({ message }) {
@@ -15,6 +16,7 @@ function FieldError({ message }) {
 }
 
 export default function LoginPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const login = useAuthStore((s) => s.login);
 
@@ -26,8 +28,8 @@ export default function LoginPage() {
 
   const validate = (values) => {
     const errors = {};
-    if (!values.username.trim()) errors.username = 'El usuario es requerido';
-    if (!values.password) errors.password = 'La contraseña es requerida';
+    if (!values.username.trim()) errors.username = t('auth.errors.usernameRequired');
+    if (!values.password) errors.password = t('auth.errors.passwordRequired');
     return errors;
   };
 
@@ -52,7 +54,7 @@ export default function LoginPage() {
       await login(form);
       navigate('/chat');
     } catch (err) {
-      setServerError(err.message || 'Error al iniciar sesión');
+      setServerError(err.message || t('auth.errors.loginFailed'));
     } finally {
       setLoading(false);
     }
@@ -67,8 +69,8 @@ export default function LoginPage() {
             <MessageCircle className="h-7 w-7 text-accent-foreground" />
           </div>
           <div className="text-center">
-            <h1 className="text-2xl font-bold">EchoChat</h1>
-            <p className="mt-1 text-sm text-muted">Iniciá sesión en tu cuenta</p>
+            <h1 className="text-2xl font-bold">{t('common.appName')}</h1>
+            <p className="mt-1 text-sm text-muted">{t('auth.loginTitle')}</p>
           </div>
         </div>
 
@@ -85,10 +87,10 @@ export default function LoginPage() {
             {/* Username */}
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium">
-                Usuario
+                {t('auth.username')}
               </label>
               <Input
-                placeholder="tu.usuario"
+                placeholder={t('auth.usernamePlaceholder')}
                 value={form.username}
                 onChange={updateField('username')}
                 onBlur={() => touch('username')}
@@ -102,11 +104,11 @@ export default function LoginPage() {
             {/* Password */}
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">Contraseña</label>
+                <label className="text-sm font-medium">{t('auth.password')}</label>
               </div>
               <div className="relative">
                 <Input
-                  placeholder="••••••••"
+                  placeholder={t('auth.passwordPlaceholder')}
                   type={showPassword ? 'text' : 'password'}
                   value={form.password}
                   onChange={updateField('password')}
@@ -118,7 +120,7 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground transition-colors"
-                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -129,9 +131,9 @@ export default function LoginPage() {
             <Button type="submit" isPending={loading} className="mt-1 w-full">
               {({ isPending }) =>
                 isPending ? (
-                  <><Spinner size="sm" /><span>Ingresando...</span></>
+                  <><Spinner size="sm" /><span>{t('auth.loggingIn')}</span></>
                 ) : (
-                  'Iniciar sesión'
+                  t('auth.login')
                 )
               }
             </Button>
@@ -139,9 +141,9 @@ export default function LoginPage() {
         </Card>
 
         <p className="mt-6 text-center text-sm text-muted">
-          ¿No tenés cuenta?{' '}
+          {t('auth.noAccount')}{' '}
           <Link to="/register" className="font-medium text-accent hover:underline">
-            Registrate gratis
+            {t('auth.registerFree')}
           </Link>
         </p>
       </div>

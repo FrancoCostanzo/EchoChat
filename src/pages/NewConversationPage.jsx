@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Input, Button, Tabs, Checkbox, Spinner } from '@heroui/react';
 import { Search, ArrowLeft, Users, User, Hash } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { usersApi } from '@/lib/endpoints';
 import { useChatStore } from '@/stores/chatStore';
 import UserAvatar from '@/components/UserAvatar';
 
 export default function NewConversationPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const createConversation = useChatStore((s) => s.createConversation);
 
@@ -46,7 +48,7 @@ export default function NewConversationPage() {
       const data =
         tab === 'direct'
           ? { type: 'direct', member_ids: [selected[0]] }
-          : { type: 'group', name: groupName || 'Nuevo grupo', member_ids: selected };
+          : { type: 'group', name: groupName || t('newConversation.group'), member_ids: selected };
 
       const conv = await createConversation(data);
       navigate(`/chat/${conv.id}`);
@@ -63,23 +65,23 @@ export default function NewConversationPage() {
         <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/chat')}>
           <ArrowLeft size={18} />
         </Button>
-        <h2 className="text-base font-semibold">Nueva conversación</h2>
+        <h2 className="text-base font-semibold">{t('newConversation.title')}</h2>
       </div>
 
       <div className="px-4 py-3">
         <Tabs selectedKey={tab} onSelectionChange={setTab}>
-          <Tabs.List aria-label="Tipo de conversación">
+          <Tabs.List aria-label={t('newConversation.conversationType')}>
             <Tabs.Tab id="direct">
               <User size={14} />
-              <span>Directo</span>
+              <span>{t('newConversation.direct')}</span>
             </Tabs.Tab>
             <Tabs.Tab id="group">
               <Users size={14} />
-              <span>Grupo</span>
+              <span>{t('newConversation.group')}</span>
             </Tabs.Tab>
             <Tabs.Tab id="channel">
               <Hash size={14} />
-              <span>Canal</span>
+              <span>{t('newConversation.channel')}</span>
             </Tabs.Tab>
           </Tabs.List>
         </Tabs>
@@ -87,9 +89,9 @@ export default function NewConversationPage() {
 
       {tab !== 'direct' && (
         <div className="flex flex-col gap-1 px-4 pb-2">
-          <label className="text-sm text-muted">Nombre del grupo/canal</label>
+          <label className="text-sm text-muted">{t('newConversation.groupChannelName')}</label>
           <Input
-            placeholder="Ej: Equipo de desarrollo"
+            placeholder={t('newConversation.groupNamePlaceholder')}
             value={groupName}
             onChange={(e) => setGroupName(e.target.value)}
           />
@@ -99,7 +101,7 @@ export default function NewConversationPage() {
       <div className="relative px-4 pb-2">
         <Search size={16} className="absolute left-7 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
         <Input
-          placeholder="Buscar usuarios..."
+          placeholder={t('newConversation.searchUsers')}
           className="pl-9"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -161,10 +163,12 @@ export default function NewConversationPage() {
         >
           {({ isPending }) =>
             isPending ? (
-              <><Spinner size="sm" color="current" /> Creando...</>
+              <><Spinner size="sm" color="current" /> {t('chat.creating')}</>
             ) : tab === 'direct'
-              ? 'Iniciar conversación'
-              : `Crear ${tab === 'group' ? 'grupo' : 'canal'} (${selected.length})`
+              ? t('newConversation.startConversation')
+              : tab === 'group'
+                ? t('newConversation.createGroup', { count: selected.length })
+                : t('newConversation.createChannel', { count: selected.length })
           }
         </Button>
       </div>
