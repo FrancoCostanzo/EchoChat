@@ -700,7 +700,7 @@ export default function ConversationPage() {
         <div
           ref={containerRef}
           onScroll={handleScroll}
-          className="relative flex-1 overflow-y-auto py-3"
+          className="relative flex-1 overflow-y-auto overflow-x-hidden py-3"
         >
           {loadingMessages && messages.length === 0 && (
             <div className="flex flex-col items-center justify-center gap-2 py-12 text-muted">
