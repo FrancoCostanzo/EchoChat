@@ -93,7 +93,10 @@
     "deleteMessage": "Delete message",
     "deleteMessageWarning": "This action is permanent and cannot be undone.",
     "creating": "Creating...",
-    "messageDeleted": "Message deleted"
+    "messageDeleted": "Message deleted",
+    "retrySend": "Retry",
+    "sendError": "Failed to send",
+    "uploadingFile": "Uploading file..."
   },
   "newConversation": {
     "title": "New conversation",

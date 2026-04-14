@@ -93,7 +93,10 @@
     "deleteMessage": "Eliminar mensaje",
     "deleteMessageWarning": "Esta acción es permanente y no se puede deshacer.",
     "creating": "Creando...",
-    "messageDeleted": "Mensaje eliminado"
+    "messageDeleted": "Mensaje eliminado",
+    "retrySend": "Reintentar",
+    "sendError": "Error al enviar",
+    "uploadingFile": "Subiendo archivo..."
   },
   "newConversation": {
     "title": "Nueva conversación",

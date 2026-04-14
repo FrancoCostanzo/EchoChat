@@ -32,8 +32,29 @@ export const useChatStore = create((set, get) => ({
           }
         }
       }
-      // Refresh conversation list for sidebar preview
-      get().fetchConversations();
+      // Update conversation preview locally — no GET needed
+      set((state) => {
+        const updated = state.conversations.map((c) =>
+          c.id === message.conversation_id
+            ? {
+                ...c,
+                last_message_body: message.type === 'media' ? null : (message.body || null),
+                last_message_at: message.sent_at,
+                unread_count:
+                  message.conversation_id !== state.activeConversationId &&
+                  message.sender_id !== state.activeUserId
+                    ? (c.unread_count || 0) + 1
+                    : c.unread_count,
+              }
+            : c,
+        );
+        const target = updated.find((c) => c.id === message.conversation_id);
+        return {
+          conversations: target
+            ? [target, ...updated.filter((c) => c.id !== message.conversation_id)]
+            : updated,
+        };
+      });
     });
 
     socket.on('message:edited', (message) => {
@@ -201,10 +222,90 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-  sendMessage: async (data) => {
-    const res = await messagesApi.send(data);
-    // Don't add locally — the socket 'message:new' event handles it for all users
-    return res.data;
+  sendMessage: async (data, senderInfo) => {
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const { _filename, ...apiData } = data;
+
+    // Populate reply preview from local messages for instant display
+    let replyPreview = {};
+    if (data.reply_to_id) {
+      const replyMsg = get().messages.find((m) => m.id === data.reply_to_id);
+      if (replyMsg) {
+        replyPreview = {
+          reply_to_body: replyMsg.body,
+          reply_to_type: replyMsg.type,
+          reply_to_sender: replyMsg.sender_display_name,
+        };
+      }
+    }
+
+    const optimisticMsg = {
+      id: tempId,
+      _tempId: tempId,
+      _rawData: apiData,
+      conversation_id: data.conversation_id,
+      sender_id: senderInfo?.id,
+      sender_display_name: senderInfo?.display_name,
+      body: data.type === 'media' ? null : (data.body || null),
+      type: data.type || 'text',
+      sent_at: new Date().toISOString(),
+      is_edited: false,
+      is_deleted: false,
+      reply_to_id: data.reply_to_id || null,
+      ...replyPreview,
+      attachments: [],
+      reactions: [],
+      delivered_count: 0,
+      read_count: 0,
+      _status: 'sending',
+      _filename: _filename || null,
+    };
+
+    set((state) => ({ messages: [...state.messages, optimisticMsg] }));
+
+    try {
+      const res = await messagesApi.send(apiData);
+      const realMsg = res.data;
+      // Remove any socket-added duplicate then replace temp with real message
+      set((state) => ({
+        messages: state.messages
+          .filter((m) => m.id !== realMsg.id)
+          .map((m) => (m.id === tempId ? { ...realMsg, _status: 'sent' } : m)),
+      }));
+      return realMsg;
+    } catch (err) {
+      set((state) => ({
+        messages: state.messages.map((m) =>
+          m.id === tempId ? { ...m, _status: 'error' } : m,
+        ),
+      }));
+      throw err;
+    }
+  },
+
+  retrySendMessage: async (tempId) => {
+    const msg = get().messages.find((m) => m.id === tempId);
+    if (!msg?._rawData) return;
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        m.id === tempId ? { ...m, _status: 'sending' } : m,
+      ),
+    }));
+    try {
+      const res = await messagesApi.send(msg._rawData);
+      const realMsg = res.data;
+      set((state) => ({
+        messages: state.messages
+          .filter((m) => m.id !== realMsg.id)
+          .map((m) => (m.id === tempId ? { ...realMsg, _status: 'sent' } : m)),
+      }));
+    } catch {
+      set((state) => ({
+        messages: state.messages.map((m) =>
+          m.id === tempId ? { ...m, _status: 'error' } : m,
+        ),
+      }));
+    }
   },
 
   editMessage: async (messageId, body) => {

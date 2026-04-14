@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, memo } from 'react';
 import { useParams } from 'react-router-dom';
 import { Button, Input, Dropdown, Label, Spinner, Tooltip } from '@heroui/react';
 import {
@@ -20,6 +20,9 @@ import {
   CheckCheck,
   X,
   AlertTriangle,
+  Loader,
+  AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
@@ -177,7 +180,7 @@ function AttachmentView({ attachment }) {
 /* ─────────────────────────── Message Bubble ─────────────────────────── */
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
-function MessageBubble({ message, isOwn, onEdit, onDelete, onReply, onReact }) {
+const MessageBubble = memo(function MessageBubble({ message, isOwn, onEdit, onDelete, onReply, onReact, onRetry }) {
   const { t } = useTranslation();
   const [showActions, setShowActions] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -238,7 +241,7 @@ function MessageBubble({ message, isOwn, onEdit, onDelete, onReply, onReact }) {
             isOwn
               ? 'rounded-tr-md bg-accent text-accent-foreground'
               : 'rounded-tl-md bg-default text-foreground'
-          }`}
+          } ${message._status === 'sending' ? 'opacity-75' : ''}`}
         >
           {message.type !== 'media' && message.body && (
             <p className="wrap-break-word whitespace-pre-wrap leading-relaxed">{message.body}</p>
@@ -248,6 +251,14 @@ function MessageBubble({ message, isOwn, onEdit, onDelete, onReply, onReact }) {
               {message.attachments.map((att) => (
                 <AttachmentView key={att.id} attachment={att} />
               ))}
+            </div>
+          )}
+
+          {/* Pending attachment placeholder (optimistic media message) */}
+          {message.type === 'media' && (!message.attachments || message.attachments.length === 0) && message._status === 'sending' && (
+            <div className="flex items-center gap-2 rounded-xl border border-separator/60 bg-background/50 px-3 py-2 text-xs">
+              <Loader size={13} className="animate-spin shrink-0 text-accent" />
+              <span className="max-w-40 truncate opacity-70">{message._filename || t('chat.uploadingFile')}</span>
             </div>
           )}
 
@@ -262,7 +273,11 @@ function MessageBubble({ message, isOwn, onEdit, onDelete, onReply, onReact }) {
             )}
             <span>{formatMessageTime(message.sent_at)}</span>
             {isOwn && (
-              message.read_count > 0 ? (
+              message._status === 'sending' ? (
+                <Loader size={13} className="animate-spin opacity-60" />
+              ) : message._status === 'error' ? (
+                <AlertCircle size={13} className="text-danger" />
+              ) : message.read_count > 0 ? (
                 <CheckCheck size={13} className="text-blue-300" />
               ) : message.delivered_count > 0 ? (
                 <CheckCheck size={13} className="opacity-60" />
@@ -287,12 +302,25 @@ function MessageBubble({ message, isOwn, onEdit, onDelete, onReply, onReact }) {
             ))}
           </div>
         )}
+
+        {/* Send error retry */}
+        {isOwn && message._status === 'error' && (
+          <button
+            onClick={() => onRetry(message.id)}
+            className="mt-0.5 flex items-center gap-1 px-1 text-[10px] text-danger hover:underline"
+          >
+            <RefreshCw size={10} />
+            {t('chat.retrySend')}
+          </button>
+        )}
       </div>
 
       {/* Hover action bar */}
       <div
         className={`flex items-center gap-0.5 self-end pb-1 transition-all duration-150 ${
-          showActions ? 'opacity-100 translate-y-0' : 'pointer-events-none opacity-0 translate-y-1'
+          showActions && message._status !== 'sending' && message._status !== 'error'
+            ? 'opacity-100 translate-y-0'
+            : 'pointer-events-none opacity-0 translate-y-1'
         }`}
       >
         {/* Emoji picker */}
@@ -365,7 +393,7 @@ function MessageBubble({ message, isOwn, onEdit, onDelete, onReply, onReact }) {
       </>)}
     </div>
   );
-}
+});
 
 export default function ConversationPage() {
   const { t } = useTranslation();
@@ -377,6 +405,7 @@ export default function ConversationPage() {
     hasMoreMessages,
     setActiveConversation,
     sendMessage,
+    retrySendMessage,
     editMessage,
     deleteMessage,
     addReaction,
@@ -392,12 +421,17 @@ export default function ConversationPage() {
   const [editing, setEditing] = useState(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null); // message object to confirm delete
+  const [uploadingFile, setUploadingFile] = useState(false);
 
   const messagesEndRef = useRef(null);
   const containerRef = useRef(null);
   const fileInputRef = useRef(null);
   const inputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const prevScrollHeightRef = useRef(null);
+  const loadingMoreRef = useRef(false);
+  const wasAtBottomRef = useRef(true);
+  const initialLoadRef = useRef(false); // true after first batch of messages is rendered
 
   const conversation = getActiveConversation();
 
@@ -420,6 +454,7 @@ export default function ConversationPage() {
 
   useEffect(() => {
     if (conversationId) {
+      initialLoadRef.current = false;
       setActiveConversation(conversationId);
     }
     return () => {
@@ -428,16 +463,44 @@ export default function ConversationPage() {
     };
   }, [conversationId, setActiveConversation, emitTyping]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length]);
+  // Scroll to bottom on initial load / own new message, but not when loading older messages
+  useLayoutEffect(() => {
+    if (prevScrollHeightRef.current !== null) return; // handled by the load-more layout effect
+    if (loadingMoreRef.current) return;
+    const el = containerRef.current;
+    if (!el || messages.length === 0) return;
+    if (!initialLoadRef.current) {
+      // First batch: jump instantly before paint so user never sees the top
+      el.scrollTop = el.scrollHeight;
+      wasAtBottomRef.current = true;
+      initialLoadRef.current = true;
+    } else if (wasAtBottomRef.current) {
+      // New message while already at bottom: smooth scroll
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
+
+  // Restore scroll position after prepending older messages
+  useLayoutEffect(() => {
+    if (prevScrollHeightRef.current !== null) {
+      const el = containerRef.current;
+      if (el) {
+        el.scrollTop = el.scrollHeight - prevScrollHeightRef.current;
+      }
+      prevScrollHeightRef.current = null;
+      loadingMoreRef.current = false;
+    }
+  }, [messages]);
 
   const handleScroll = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
     const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+    wasAtBottomRef.current = atBottom;
     setShowScrollBtn(!atBottom);
-    if (el.scrollTop === 0 && hasMoreMessages) {
+    if (el.scrollTop < 80 && hasMoreMessages && !loadingMoreRef.current) {
+      loadingMoreRef.current = true;
+      prevScrollHeightRef.current = el.scrollHeight;
       loadMoreMessages();
     }
   }, [hasMoreMessages, loadMoreMessages]);
@@ -459,7 +522,7 @@ export default function ConversationPage() {
     } else {
       const data = { conversation_id: conversationId, body, type: 'text' };
       if (replyTo) data.reply_to_id = replyTo.id;
-      await sendMessage(data);
+      await sendMessage(data, user);
       setReplyTo(null);
     }
     setInput('');
@@ -478,6 +541,7 @@ export default function ConversationPage() {
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setUploadingFile(true);
     try {
       const objectType = file.type.startsWith('image/')
         ? 'image'
@@ -487,35 +551,35 @@ export default function ConversationPage() {
             ? 'audio'
             : 'document';
       const { data: storageObj } = await storageApi.upload(file, objectType);
-      await sendMessage({
-        conversation_id: conversationId,
-        body: file.name,
-        type: 'media',
-        attachment_ids: [storageObj.id],
-      });
+      await sendMessage(
+        { conversation_id: conversationId, type: 'media', attachment_ids: [storageObj.id], _filename: file.name },
+        user,
+      );
     } catch (err) {
       console.error('Upload failed:', err);
+    } finally {
+      setUploadingFile(false);
     }
     e.target.value = '';
   };
 
-  const handleEdit = (msg) => {
+  const handleEdit = useCallback((msg) => {
     setEditing(msg);
     setInput(msg.body);
     setReplyTo(null);
     setTimeout(() => inputRef.current?.focus(), 50);
-  };
+  }, []);
 
-  const handleReply = (msg) => {
+  const handleReply = useCallback((msg) => {
     setReplyTo(msg);
     setEditing(null);
     setTimeout(() => inputRef.current?.focus(), 50);
-  };
+  }, []);
 
   // Opens confirm modal instead of deleting immediately
-  const handleDeleteRequest = (msg) => {
+  const handleDeleteRequest = useCallback((msg) => {
     setDeleteTarget(msg);
-  };
+  }, []);
 
   const handleDeleteConfirm = async () => {
     if (deleteTarget) {
@@ -528,15 +592,28 @@ export default function ConversationPage() {
     setDeleteTarget(null);
   };
 
-  const handleReact = async (msgId, emoji) => {
+  const handleReact = useCallback(async (msgId, emoji) => {
     await addReaction(msgId, emoji);
-  };
+  }, [addReaction]);
 
   const cancelAction = () => {
     setReplyTo(null);
     setEditing(null);
     setInput('');
   };
+
+  const messageElements = useMemo(() => messages.map((msg) => (
+    <MessageBubble
+      key={msg.id}
+      message={msg}
+      isOwn={msg.sender_id === user?.id}
+      onEdit={handleEdit}
+      onDelete={handleDeleteRequest}
+      onReply={handleReply}
+      onReact={handleReact}
+      onRetry={retrySendMessage}
+    />
+  )), [messages, user?.id, handleEdit, handleDeleteRequest, handleReply, handleReact, retrySendMessage]);
 
   if (!conversation) {
     return (
@@ -632,31 +709,13 @@ export default function ConversationPage() {
             </div>
           )}
 
-          {hasMoreMessages && messages.length > 0 && (
-            <div className="flex justify-center py-2">
-              <Button
-                size="sm"
-                variant="ghost"
-                className="rounded-full border border-separator/70 text-xs hover:bg-default"
-                isDisabled={loadingMessages}
-                onPress={loadMoreMessages}
-              >
-                {loadingMessages ? <Spinner size="sm" /> : t('chat.loadMore')}
-              </Button>
+          {loadingMessages && messages.length > 0 && (
+            <div className="flex justify-center py-3">
+              <Spinner size="sm" />
             </div>
           )}
 
-          {messages.map((msg) => (
-            <MessageBubble
-              key={msg.id}
-              message={msg}
-              isOwn={msg.sender_id === user?.id}
-              onEdit={handleEdit}
-              onDelete={handleDeleteRequest}
-              onReply={handleReply}
-              onReact={handleReact}
-            />
-          ))}
+          {messageElements}
           <div ref={messagesEndRef} />
 
           {/* Scroll to bottom button */}
@@ -717,10 +776,11 @@ export default function ConversationPage() {
                 isIconOnly
                 size="sm"
                 variant="ghost"
+                isDisabled={uploadingFile}
                 className="mb-0.5 shrink-0 rounded-xl text-muted hover:text-foreground"
                 onPress={() => fileInputRef.current?.click()}
               >
-                <Paperclip size={17} />
+                {uploadingFile ? <Loader size={17} className="animate-spin" /> : <Paperclip size={17} />}
               </Button>
             </Tooltip>
 

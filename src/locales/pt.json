@@ -93,7 +93,10 @@
     "deleteMessage": "Excluir mensagem",
     "deleteMessageWarning": "Esta ação é permanente e não pode ser desfeita.",
     "creating": "Criando...",
-    "messageDeleted": "Mensagem excluída"
+    "messageDeleted": "Mensagem excluída",
+    "retrySend": "Tentar novamente",
+    "sendError": "Falha ao enviar",
+    "uploadingFile": "Enviando arquivo..."
   },
   "newConversation": {
     "title": "Nova conversa",
