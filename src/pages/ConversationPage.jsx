@@ -16,6 +16,8 @@ import {
   Hash,
   ArrowDown,
   Download,
+  Check,
+  CheckCheck,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
@@ -156,6 +158,15 @@ function MessageBubble({ message, isOwn, onEdit, onDelete, onReply, onReact }) {
           >
             {message.is_edited && <span>(editado)</span>}
             <span>{formatMessageTime(message.sent_at)}</span>
+            {isOwn && (
+              message.read_count > 0 ? (
+                <CheckCheck size={14} className="text-blue-400" />
+              ) : message.delivered_count > 0 ? (
+                <CheckCheck size={14} />
+              ) : (
+                <Check size={14} />
+              )
+            )}
           </div>
         </div>
 
@@ -214,6 +225,7 @@ export default function ConversationPage() {
     getActiveConversation,
     typingUsers,
     emitTyping,
+    clearActiveConversation,
   } = useChatStore();
 
   const [input, setInput] = useState('');
@@ -239,6 +251,11 @@ export default function ConversationPage() {
       : typingNames.length > 1
         ? `${typingNames.join(', ')} están escribiendo...`
         : null;
+
+  // Clear active conversation when leaving the page entirely
+  useEffect(() => {
+    return () => clearActiveConversation();
+  }, [clearActiveConversation]);
 
   useEffect(() => {
     if (conversationId) {

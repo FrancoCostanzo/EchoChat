@@ -29,6 +29,7 @@ export default function App() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const loading = useAuthStore((s) => s.loading);
   const token = useAuthStore((s) => s.token);
+  const user = useAuthStore((s) => s.user);
   const fetchConversations = useChatStore((s) => s.fetchConversations);
   const initSocket = useChatStore((s) => s.initSocket);
   const destroySocket = useChatStore((s) => s.destroySocket);
@@ -42,7 +43,7 @@ export default function App() {
   useEffect(() => {
     if (isAuthenticated && !loading) {
       fetchConversations();
-      if (token) initSocket(token);
+      if (token) initSocket(token, user?.id);
       return () => destroySocket();
     }
   }, [isAuthenticated, loading, fetchConversations, token, initSocket, destroySocket]);

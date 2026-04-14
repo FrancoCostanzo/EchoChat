@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
-import { Button, Input, Tooltip, Badge } from '@heroui/react';
+import { Button, Input, Tooltip } from '@heroui/react';
 import {
   MessageSquare,
   Users,
@@ -55,16 +55,14 @@ function ConversationItem({ conversation, isActive, onClick }) {
             </span>
           )}
         </div>
-        {lastMsg && (
-          <div className="flex items-center justify-between">
-            <p className="truncate text-xs text-muted">{lastMsg}</p>
-            {unread > 0 && (
-              <Badge color="accent" size="sm" className="ml-2">
-                {unread}
-              </Badge>
-            )}
-          </div>
-        )}
+        <div className="flex items-center justify-between">
+          <p className="truncate text-xs text-muted">{lastMsg || '\u00A0'}</p>
+          {unread > 0 && (
+            <span className="ml-2 shrink-0 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-[10px] font-bold text-accent-foreground">
+              {unread > 99 ? '99+' : unread}
+            </span>
+          )}
+        </div>
       </div>
     </button>
   );

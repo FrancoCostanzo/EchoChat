@@ -5,6 +5,7 @@ import { connectSocket, disconnectSocket, getSocket } from '@/lib/socket';
 export const useChatStore = create((set, get) => ({
   conversations: [],
   activeConversationId: null,
+  activeUserId: null,
   messages: [],
   loadingConversations: false,
   loadingMessages: false,
@@ -13,7 +14,8 @@ export const useChatStore = create((set, get) => ({
   onlineUsers: {},      // { userId: presence }
 
   // ── Socket lifecycle ────────────────────────────────────────────────
-  initSocket: (token) => {
+  initSocket: (token, userId) => {
+    set({ activeUserId: userId });
     const socket = connectSocket(token);
 
     socket.on('message:new', (message) => {
@@ -23,6 +25,11 @@ export const useChatStore = create((set, get) => ({
         const exists = state.messages.some((m) => m.id === message.id);
         if (!exists) {
           set({ messages: [...state.messages, message] });
+          // Auto-mark as read since the user is actively viewing this conversation
+          const currentUser = state.activeUserId;
+          if (message.sender_id !== currentUser) {
+            get().markMessagesRead(message.conversation_id, [message.id]);
+          }
         }
       }
       // Refresh conversation list for sidebar preview
@@ -76,6 +83,25 @@ export const useChatStore = create((set, get) => ({
       });
     });
 
+    socket.on('message:receipt', ({ messageId, delivered_count, read_count }) => {
+      set((state) => ({
+        messages: state.messages.map((m) =>
+          m.id === messageId ? { ...m, delivered_count, read_count } : m,
+        ),
+      }));
+    });
+
+    socket.on('messages:read', ({ countsMap }) => {
+      if (!countsMap) return;
+      set((state) => ({
+        messages: state.messages.map((m) =>
+          countsMap[m.id]
+            ? { ...m, delivered_count: countsMap[m.id].delivered_count, read_count: countsMap[m.id].read_count }
+            : m,
+        ),
+      }));
+    });
+
     socket.on('presence:changed', ({ userId, presence }) => {
       set((state) => ({
         onlineUsers: { ...state.onlineUsers, [userId]: presence },
@@ -90,7 +116,7 @@ export const useChatStore = create((set, get) => ({
 
   destroySocket: () => {
     disconnectSocket();
-    set({ typingUsers: {}, onlineUsers: {} });
+    set({ typingUsers: {}, onlineUsers: {}, activeUserId: null });
   },
 
   emitTyping: (conversationId, isTyping) => {
@@ -102,6 +128,16 @@ export const useChatStore = create((set, get) => ({
   joinConversation: (conversationId) => {
     const socket = getSocket();
     if (socket) socket.emit('join:conversation', conversationId);
+  },
+
+  markMessagesRead: (conversationId, messageIds) => {
+    if (!conversationId || !messageIds?.length) return;
+    const socket = getSocket();
+    if (socket) socket.emit('messages:read', { conversationId, messageIds });
+  },
+
+  clearActiveConversation: () => {
+    set({ activeConversationId: null, messages: [] });
   },
 
   fetchConversations: async () => {
@@ -120,6 +156,12 @@ export const useChatStore = create((set, get) => ({
     set({ activeConversationId: conversationId, messages: [], hasMoreMessages: true });
     if (conversationId) {
       await get().fetchMessages(conversationId);
+      // Optimistically clear unread badge
+      set((state) => ({
+        conversations: state.conversations.map((c) =>
+          c.id === conversationId ? { ...c, unread_count: 0 } : c,
+        ),
+      }));
       conversationsApi.markAsRead(conversationId).catch(() => {});
     }
   },
@@ -135,6 +177,14 @@ export const useChatStore = create((set, get) => ({
         messages: cursor ? [...sorted, ...state.messages] : sorted,
         hasMoreMessages: data.length === 50,
       }));
+      // Mark all loaded messages from others as read on initial load
+      if (!cursor) {
+        const { activeUserId } = get();
+        const unreadIds = sorted
+          .filter((m) => m.sender_id !== activeUserId)
+          .map((m) => m.id);
+        if (unreadIds.length > 0) get().markMessagesRead(conversationId, unreadIds);
+      }
     } finally {
       set({ loadingMessages: false });
     }
