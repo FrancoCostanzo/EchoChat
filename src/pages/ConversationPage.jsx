@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, memo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Button, Input, Dropdown, Label, Spinner, Tooltip } from '@heroui/react';
 import {
   Paperclip,
@@ -15,6 +15,7 @@ import {
   Trash2,
   Hash,
   ArrowDown,
+  ArrowLeft,
   Download,
   Check,
   CheckCheck,
@@ -372,7 +373,7 @@ function AttachmentView({ attachment }) {
           <img
             src={url}
             alt={attachment.original_filename}
-            className="max-h-64 max-w-xs object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+            className="max-h-64 max-w-[70vw] object-cover transition-transform duration-300 group-hover:scale-[1.02] sm:max-w-xs"
           />
           <div className="absolute inset-0 flex items-end justify-end gap-1 bg-linear-to-t from-black/40 to-transparent p-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
             <button
@@ -424,7 +425,7 @@ const MessageBubble = memo(function MessageBubble({ message, isOwn, isDirect, is
       initial={{ opacity: 0, x: isOwn ? 16 : -16, scale: 0.97 }}
       animate={{ opacity: 1, x: 0, scale: 1 }}
       transition={{ duration: 0.22, ease: 'easeOut' }}
-      className={`group flex gap-2 px-4 ${isFirstInGroup ? 'pt-3 pb-0.5' : 'py-0.5'} ${isOwn ? 'flex-row-reverse' : ''}`}
+      className={`group flex gap-2 px-2 md:px-4 ${isFirstInGroup ? 'pt-3 pb-0.5' : 'py-0.5'} ${isOwn ? 'flex-row-reverse' : ''}`}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => { setShowActions(false); setShowEmojiPicker(false); }}
     >
@@ -443,7 +444,7 @@ const MessageBubble = memo(function MessageBubble({ message, isOwn, isDirect, is
 
       {/* Deleted message */}
       {message.is_deleted ? (
-        <div className={`flex max-w-[68%] flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
+        <div className={`flex max-w-[85%] flex-col md:max-w-[68%] ${isOwn ? 'items-end' : 'items-start'}`}>
           <div className={`flex items-center gap-1.5 rounded-2xl border border-separator/50 px-3.5 py-2 text-sm italic text-muted ${isOwn ? 'rounded-tr-md' : 'rounded-tl-md'}`}>
             <Trash2 size={13} className="shrink-0 opacity-50" />
             <span>{t('chat.messageDeleted')}</span>
@@ -451,7 +452,7 @@ const MessageBubble = memo(function MessageBubble({ message, isOwn, isDirect, is
           <span className="mt-0.5 px-1 text-[10px] text-muted">{formatMessageTime(message.sent_at)}</span>
         </div>
       ) : (<>
-      <div className={`max-w-[68%] ${isOwn ? 'items-end' : 'items-start'} flex flex-col`}>
+      <div className={`max-w-[85%] md:max-w-[68%] ${isOwn ? 'items-end' : 'items-start'} flex flex-col`}>
         {/* Sender name */}
         {!isOwn && !isDirect && isFirstInGroup && (
           <span className="mb-0.5 ml-1 text-xs font-semibold text-accent">
@@ -645,6 +646,7 @@ const MessageBubble = memo(function MessageBubble({ message, isOwn, isDirect, is
 export default function ConversationPage() {
   const { t } = useTranslation();
   const { conversationId } = useParams();
+  const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const {
     messages,
@@ -914,8 +916,18 @@ export default function ConversationPage() {
 
       <div className="flex h-full flex-col">
         {/* ── Header ── */}
-        <div className="flex items-center justify-between border-b border-separator bg-background px-4 py-3 shadow-sm">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between border-b border-separator bg-background px-3 py-3 shadow-sm md:px-4">
+          <div className="flex items-center gap-2 md:gap-3">
+            {/* Mobile back button */}
+            <Button
+              isIconOnly
+              size="sm"
+              variant="ghost"
+              className="md:hidden shrink-0"
+              onPress={() => navigate('/chat')}
+            >
+              <ArrowLeft size={18} />
+            </Button>
             {isDirect ? (
               <UserAvatar
                 user={{ display_name: convName, presence: conversation.member_presence, avatar_url: conversation.other_avatar_url }}
@@ -941,17 +953,17 @@ export default function ConversationPage() {
 
           <div className="flex items-center gap-0.5">
             <Tooltip content={t('chat.voiceCall')}>
-              <Button isIconOnly size="sm" variant="ghost" className="rounded-xl hover:bg-default">
+              <Button isIconOnly size="sm" variant="ghost" className="hidden rounded-xl hover:bg-default sm:flex">
                 <Phone size={17} />
               </Button>
             </Tooltip>
             <Tooltip content={t('chat.videoCall')}>
-              <Button isIconOnly size="sm" variant="ghost" className="rounded-xl hover:bg-default">
+              <Button isIconOnly size="sm" variant="ghost" className="hidden rounded-xl hover:bg-default sm:flex">
                 <Video size={17} />
               </Button>
             </Tooltip>
             <Tooltip content={t('common.search')}>
-              <Button isIconOnly size="sm" variant="ghost" className="rounded-xl hover:bg-default">
+              <Button isIconOnly size="sm" variant="ghost" className="hidden rounded-xl hover:bg-default sm:flex">
                 <Search size={17} />
               </Button>
             </Tooltip>

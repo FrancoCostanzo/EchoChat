@@ -33,7 +33,7 @@ function AnimatedSidebar({ children }) {
       initial={{ opacity: 0, x: -12 }}
       animate={{ opacity: 1, x: 0 }}
       transition={SIDEBAR_TRANSITION}
-      className="flex h-full w-80 flex-col border-r border-separator bg-surface"
+      className="flex h-full w-full flex-col border-r border-separator bg-surface md:w-80"
     >
       {children}
     </motion.div>
@@ -293,12 +293,62 @@ function Sidebar() {
   return isSettings ? <SettingsSidebar key="settings" /> : <ChatSidebar key="chat" />;
 }
 
+function MobileBottomNav() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const pathname = location.pathname;
+  const isChats = pathname === '/chat';
+  const isContacts = pathname.startsWith('/contacts');
+  const isNotifications = pathname.startsWith('/notifications');
+  const isSettings = pathname.startsWith('/settings');
+
+  const items = [
+    { id: 'chats', icon: MessageSquare, label: t('sidebar.chats'), path: '/chat', active: isChats },
+    { id: 'contacts', icon: Users, label: t('sidebar.contacts'), path: '/contacts', active: isContacts },
+    { id: 'notifications', icon: Bell, label: t('sidebar.notifications'), path: '/notifications', active: isNotifications },
+    { id: 'settings', icon: Settings, label: t('sidebar.settings'), path: '/settings', active: isSettings },
+  ];
+
+  return (
+    <div className="flex items-center justify-around border-t border-separator bg-surface px-2 py-2 md:hidden">
+      {items.map(({ id, icon: Icon, label, path, active }) => (
+        <button
+          key={id}
+          onClick={() => navigate(path)}
+          className={`flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-[10px] transition-colors ${
+            active ? 'text-accent' : 'text-muted'
+          }`}
+        >
+          <Icon size={20} />
+          <span>{label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function ChatLayout() {
   const location = useLocation();
+  const pathname = location.pathname;
+
+  // On mobile: show sidebar only on /chat (index), hide on all "content" routes
+  // Conversation routes: /chat/new, /chat/:id
+  // Other content routes: /contacts, /notifications, /settings/*
+  const isOnChatIndex = pathname === '/chat';
+  const isConversationRoute = /^\/chat\/.+/.test(pathname);
+  const isContentRoute = !isOnChatIndex;
+
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar />
-      <main className="flex-1 overflow-hidden">
+    <div className="flex h-screen flex-col overflow-hidden md:flex-row">
+      {/* Sidebar: always on desktop, only on /chat index on mobile */}
+      <div className={`${isContentRoute ? 'hidden md:flex' : 'flex flex-1 md:flex-none'}`}>
+        <Sidebar />
+      </div>
+
+      {/* Main content: always on desktop, hidden on /chat index on mobile */}
+      <main className={`${isOnChatIndex ? 'hidden md:block' : ''} flex-1 min-w-0 overflow-hidden`}>
         <motion.div
           key={location.pathname}
           initial={{ opacity: 0, y: 8 }}
@@ -309,6 +359,9 @@ export default function ChatLayout() {
           <Outlet />
         </motion.div>
       </main>
+
+      {/* Mobile bottom nav: show on content pages except active conversations */}
+      {isContentRoute && !isConversationRoute && <MobileBottomNav />}
     </div>
   );
 }

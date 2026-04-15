@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button, Spinner } from '@heroui/react';
-import { Bell, BellOff, Check, CheckCheck } from 'lucide-react';
+import { Bell, BellOff, Check, CheckCheck, ArrowLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { notificationsApi } from '@/lib/endpoints';
 import { formatRelative } from '@/lib/dates';
@@ -34,6 +35,7 @@ function NotificationItem({ notification, onRead }) {
 
 export default function NotificationsPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -76,11 +78,16 @@ export default function NotificationsPage() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-separator px-4 py-3">
-        <div>
-          <h2 className="text-base font-semibold">{t('notifications.title')}</h2>
-          {unreadCount > 0 && (
-            <p className="text-xs text-muted">{t('notifications.unread', { count: unreadCount })}</p>
-          )}
+        <div className="flex items-center gap-2">
+          <Button isIconOnly size="sm" variant="ghost" className="md:hidden shrink-0" onPress={() => navigate('/chat')}>
+            <ArrowLeft size={18} />
+          </Button>
+          <div>
+            <h2 className="text-base font-semibold">{t('notifications.title')}</h2>
+            {unreadCount > 0 && (
+              <p className="text-xs text-muted">{t('notifications.unread', { count: unreadCount })}</p>
+            )}
+          </div>
         </div>
         {unreadCount > 0 && (
           <Button size="sm" variant="secondary" onPress={markAllRead}>

@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Input, Button, Spinner } from '@heroui/react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Monitor,
   Save,
@@ -18,6 +18,9 @@ import {
   MinusCircle,
   BellOff,
   Camera,
+  ArrowLeft,
+  User,
+  Shield,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
@@ -171,7 +174,7 @@ function ProfileTab() {
           {t('settings.profile')}
         </h3>
         <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium text-muted">{t('settings.name')}</label>
               <Input value={form.display_name} onChange={updateField('display_name')} />
@@ -181,7 +184,7 @@ function ProfileTab() {
               <Input type="email" value={form.email} onChange={updateField('email')} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium text-muted">{t('settings.department')}</label>
               <Input value={form.department} onChange={updateField('department')} />
@@ -282,7 +285,7 @@ function SecurityTab() {
             <label className="text-xs font-medium text-muted">{t('settings.currentPassword')}</label>
             <Input type="password" value={form.current_password} onChange={updateField('current_password')} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium text-muted">{t('settings.newPassword')}</label>
               <Input type="password" value={form.new_password} onChange={updateField('new_password')} />
@@ -560,12 +563,48 @@ const TAB_COMPONENTS = {
   presence:   PresenceTab,
 };
 
+const MOBILE_SETTINGS_NAV = [
+  { id: 'profile',    icon: User    },
+  { id: 'appearance', icon: Palette },
+  { id: 'language',   icon: Globe   },
+  { id: 'security',   icon: Shield  },
+  { id: 'presence',   icon: Wifi    },
+];
+
 export default function SettingsPage() {
   const { tab = 'profile' } = useParams();
+  const { t } = useTranslation();
+  const navigate = useNavigate();
   const TabContent = TAB_COMPONENTS[tab] || ProfileTab;
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
+      {/* Mobile settings header */}
+      <div className="flex items-center gap-2 border-b border-separator px-3 py-3 md:hidden">
+        <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/chat')}>
+          <ArrowLeft size={16} />
+        </Button>
+        <h2 className="text-sm font-semibold">{t('settings.title')}</h2>
+      </div>
+
+      {/* Mobile tab navigation */}
+      <div className="flex gap-1 overflow-x-auto border-b border-separator px-3 py-2 md:hidden">
+        {MOBILE_SETTINGS_NAV.map(({ id, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => navigate(`/settings/${id}`)}
+            className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              tab === id
+                ? 'bg-accent-soft text-accent'
+                : 'text-muted hover:bg-default'
+            }`}
+          >
+            <Icon size={13} />
+            {t(`settings.tabs.${id}`)}
+          </button>
+        ))}
+      </div>
+
       <AnimatePresence mode="wait">
         <motion.div
           key={tab}
@@ -573,7 +612,7 @@ export default function SettingsPage() {
           animate={{ opacity: 1, x: 0, scale: 1 }}
           exit={{ opacity: 0, x: -12, scale: 0.98 }}
           transition={{ duration: 0.22, ease: ENTRY_EASE }}
-          className="mx-auto w-full max-w-xl px-6 py-6"
+          className="mx-auto w-full max-w-xl px-4 py-4 md:px-6 md:py-6"
         >
           <TabContent />
         </motion.div>

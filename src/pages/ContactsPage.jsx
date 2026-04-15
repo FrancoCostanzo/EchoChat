@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Input, Button, Tabs, Spinner } from '@heroui/react';
 import {
   Search,
@@ -7,6 +8,7 @@ import {
   Ban,
   Trash2,
   StarOff,
+  ArrowLeft,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { relationshipsApi, usersApi } from '@/lib/endpoints';
@@ -51,6 +53,7 @@ function ContactCard({ user, type, onRemove, onToggleFavorite }) {
 
 export default function ContactsPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [tab, setTab] = useState('contacts');
   const [contacts, setContacts] = useState([]);
   const [favorites, setFavorites] = useState([]);
@@ -143,7 +146,10 @@ export default function ContactsPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b border-separator px-4 py-3">
+      <div className="flex items-center gap-2 border-b border-separator px-4 py-3">
+        <Button isIconOnly size="sm" variant="ghost" className="md:hidden shrink-0" onPress={() => navigate('/chat')}>
+          <ArrowLeft size={18} />
+        </Button>
         <h2 className="text-base font-semibold">{t('contacts.title')}</h2>
       </div>
 
