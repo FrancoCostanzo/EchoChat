@@ -3,7 +3,6 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useParams } from 'react-router-dom';
 import { Button, Input, Dropdown, Label, Spinner, Tooltip } from '@heroui/react';
 import {
-  Send,
   Paperclip,
   MoreVertical,
   Phone,
@@ -30,6 +29,7 @@ import { useChatStore } from '@/stores/chatStore';
 import { useTranslation } from 'react-i18next';
 import UserAvatar from '@/components/UserAvatar';
 import ImageViewer from '@/components/ImageViewer';
+import SendButton from '@/components/SendButton';
 import { formatMessageTime, formatFullTime } from '@/lib/dates';
 import { storageApi } from '@/lib/endpoints';
 
@@ -873,19 +873,11 @@ export default function ConversationPage() {
               className="flex-1 border-none bg-transparent shadow-none outline-none"
             />
 
-            <Button
-              isIconOnly
-              size="sm"
-              className={`mb-0.5 shrink-0 rounded-xl transition-all ${
-                input.trim()
-                  ? 'bg-accent text-accent-foreground scale-100 opacity-100'
-                  : 'bg-default text-muted scale-90 opacity-50'
-              }`}
-              isDisabled={!input.trim()}
+            <SendButton
               onPress={handleSend}
-            >
-              <Send size={16} />
-            </Button>
+              isDisabled={!input.trim()}
+              label={t('chat.send')}
+            />
           </div>
         </div>
       </div>

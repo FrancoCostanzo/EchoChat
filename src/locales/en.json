@@ -94,6 +94,7 @@
     "deleteMessageWarning": "This action is permanent and cannot be undone.",
     "creating": "Creating...",
     "messageDeleted": "Message deleted",
+    "send": "Send",
     "retrySend": "Retry",
     "sendError": "Failed to send",
     "uploadingFile": "Uploading file..."

@@ -11,6 +11,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { relationshipsApi, usersApi } from '@/lib/endpoints';
 import UserAvatar from '@/components/UserAvatar';
+import NotFoundIcon from '@/components/NotFoundIcon';
 
 function ContactCard({ user, type, onRemove, onToggleFavorite }) {
   const { t } = useTranslation();
@@ -197,13 +198,13 @@ export default function ContactsPage() {
       ) : (
         <div className="flex-1 overflow-y-auto px-4">
           {getList().length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-8 text-muted">
-              <p className="text-sm">
-                {tab === 'contacts' && t('contacts.noContacts')}
-                {tab === 'favorites' && t('contacts.noFavorites')}
-                {tab === 'blocked' && t('contacts.noBlocked')}
-              </p>
-            </div>
+            <NotFoundIcon
+              title={
+                tab === 'contacts' ? t('contacts.noContacts') :
+                tab === 'favorites' ? t('contacts.noFavorites') :
+                t('contacts.noBlocked')
+              }
+            />
           ) : (
             getList().map((u) => (
               <ContactCard

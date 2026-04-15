@@ -94,6 +94,7 @@
     "deleteMessageWarning": "Esta ação é permanente e não pode ser desfeita.",
     "creating": "Criando...",
     "messageDeleted": "Mensagem excluída",
+    "send": "Enviar",
     "retrySend": "Tentar novamente",
     "sendError": "Falha ao enviar",
     "uploadingFile": "Enviando arquivo..."
