@@ -23,7 +23,7 @@ import { useChatStore } from '@/stores/chatStore';
 import UserAvatar from '@/components/UserAvatar';
 import { formatMessageTime } from '@/lib/dates';
 
-function ConversationItem({ conversation, isActive, onClick, t }) {
+function ConversationItem({ conversation, isActive, onClick, t, animIndex = 0 }) {
   const isDirect = conversation.type === 'direct';
   const name = conversation.display_name || conversation.name || t('sidebar.noName');
   const lastMsg = conversation.last_message_body;
@@ -33,7 +33,8 @@ function ConversationItem({ conversation, isActive, onClick, t }) {
   return (
     <button
       onClick={onClick}
-      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-default ${
+      style={{ animationDelay: `${Math.min(animIndex, 10) * 25}ms` }}
+      className={`anim-fade-up flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-default ${
         isActive ? 'bg-default' : ''
       }`}
     >
@@ -97,7 +98,7 @@ function SettingsSidebar() {
   };
 
   return (
-    <div className="flex h-full w-80 flex-col border-r border-separator bg-surface">
+    <div className="anim-sidebar flex h-full w-80 flex-col border-r border-separator bg-surface">
       {/* Header */}
       <div className="flex items-center gap-2 border-b border-separator px-3 py-3">
         <Tooltip delay={0}>
@@ -177,7 +178,7 @@ function ChatSidebar() {
   };
 
   return (
-    <div className="flex h-full w-80 flex-col border-r border-separator bg-surface">
+    <div className="anim-sidebar flex h-full w-80 flex-col border-r border-separator bg-surface">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-separator px-4 py-3">
         <div className="flex items-center gap-3">
@@ -218,13 +219,14 @@ function ChatSidebar() {
             <p className="text-sm">{t('sidebar.noConversations')}</p>
           </div>
         )}
-        {filtered.map((conv) => (
+        {filtered.map((conv, i) => (
           <ConversationItem
             key={conv.id}
             conversation={conv}
             isActive={conv.id === activeConversationId}
             onClick={() => handleConversationClick(conv.id)}
             t={t}
+            animIndex={i}
           />
         ))}
       </div>
@@ -269,15 +271,18 @@ function ChatSidebar() {
 function Sidebar() {
   const location = useLocation();
   const isSettings = location.pathname.startsWith('/settings');
-  return isSettings ? <SettingsSidebar /> : <ChatSidebar />;
+  return isSettings ? <SettingsSidebar key="settings" /> : <ChatSidebar key="chat" />;
 }
 
 export default function ChatLayout() {
+  const location = useLocation();
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar />
       <main className="flex-1 overflow-hidden">
-        <Outlet />
+        <div key={location.pathname} className="h-full anim-fade-up">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

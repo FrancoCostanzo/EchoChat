@@ -105,7 +105,7 @@ function ProfileTab() {
       </div>
 
       {success && (
-        <div className="flex items-center gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success">
+        <div className="anim-alert flex items-center gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success">
           <Check size={15} />
           {t('settings.profileUpdated')}
         </div>
@@ -197,13 +197,13 @@ function SecurityTab() {
             </div>
           </div>
           {error && (
-            <div className="flex items-center gap-2 rounded-lg bg-danger/10 px-3 py-2.5 text-sm text-danger">
+            <div className="anim-alert flex items-center gap-2 rounded-lg bg-danger/10 px-3 py-2.5 text-sm text-danger">
               <AlertCircle size={14} />
               {error}
             </div>
           )}
           {success && (
-            <div className="flex items-center gap-2 rounded-lg bg-success-soft px-3 py-2.5 text-sm text-success">
+            <div className="anim-alert flex items-center gap-2 rounded-lg bg-success-soft px-3 py-2.5 text-sm text-success">
               <Check size={14} />
               {success}
             </div>
@@ -279,14 +279,14 @@ function AppearanceTab() {
             <button
               key={key}
               onClick={() => setMode(key)}
-              className={`relative flex flex-col items-center gap-2.5 rounded-xl border-2 p-4 transition-all duration-150 ${
+              className={`relative flex flex-col items-center gap-2.5 rounded-xl border-2 p-4 hover:scale-[1.03] active:scale-[0.96] ${
                 mode === key
-                  ? 'border-accent bg-accent-soft text-accent shadow-sm'
+                  ? 'border-accent bg-accent-soft text-accent shadow-sm scale-[1.03]'
                   : 'border-border text-muted hover:border-border-secondary hover:text-foreground'
               }`}
             >
               {mode === key && (
-                <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-accent">
+                <span className="anim-check-bounce absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-accent">
                   <Check size={10} strokeWidth={3} className="text-accent-foreground" />
                 </span>
               )}
@@ -310,17 +310,19 @@ function AppearanceTab() {
             <button
               key={key}
               onClick={() => setAccent(key)}
-              className={`flex items-center gap-3 rounded-xl border-2 p-3 transition-all duration-150 ${
+              className={`flex items-center gap-3 rounded-xl border-2 p-3 hover:scale-[1.03] active:scale-[0.96] ${
                 accent === key
-                  ? 'border-accent bg-accent-soft shadow-sm'
+                  ? 'border-accent bg-accent-soft shadow-sm scale-[1.03]'
                   : 'border-border hover:border-border-secondary'
               }`}
             >
               <span
-                className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full ring-2 ring-offset-2 ring-offset-background"
+                className={`relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full ring-2 ring-offset-2 ring-offset-background ${
+                  accent === key ? 'anim-color-pop' : ''
+                }`}
                 style={{ backgroundColor: color, ringColor: color }}
               >
-                {accent === key && <Check size={12} strokeWidth={3} className="text-white" />}
+                {accent === key && <Check size={12} strokeWidth={3} className="anim-check-bounce text-white" />}
               </span>
               <span className="text-sm font-medium">{t(`settings.accentColors.${key}`)}</span>
             </button>
@@ -371,16 +373,16 @@ function PresenceTab() {
             key={key}
             disabled={loading}
             onClick={() => handleUpdate(key)}
-            className={`flex items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all duration-150 disabled:opacity-60 ${
+            className={`flex items-center gap-3 rounded-xl border-2 px-4 py-3 text-left hover:scale-[1.01] active:scale-[0.98] disabled:opacity-60 ${
               presence === key
-                ? 'border-accent bg-accent-soft'
+                ? 'border-accent bg-accent-soft scale-[1.01]'
                 : 'border-border hover:border-border-secondary'
             }`}
           >
             <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${dotClass}`} />
             <Icon size={15} className="shrink-0 text-muted" />
             <span className="flex-1 text-sm font-medium">{t(`settings.presenceOptions.${key}`)}</span>
-            {presence === key && <Check size={14} className="text-accent" />}
+            {presence === key && <Check size={14} className="anim-check-bounce text-accent" />}
           </button>
         ))}
       </div>
@@ -411,9 +413,9 @@ function LanguageTab() {
           <button
             key={key}
             onClick={() => changeLanguage(key)}
-            className={`flex items-center gap-4 rounded-xl border-2 px-4 py-3 transition-all duration-150 ${
+            className={`flex items-center gap-4 rounded-xl border-2 px-4 py-3 hover:scale-[1.01] active:scale-[0.98] ${
               currentLang === key
-                ? 'border-accent bg-accent-soft'
+                ? 'border-accent bg-accent-soft scale-[1.01]'
                 : 'border-border hover:border-border-secondary'
             }`}
           >
@@ -422,7 +424,7 @@ function LanguageTab() {
               <p className="text-sm font-medium">{label}</p>
               <p className="text-xs text-muted">{region}</p>
             </div>
-            {currentLang === key && <Check size={14} className="text-accent" />}
+            {currentLang === key && <Check size={14} className="anim-check-bounce text-accent" />}
           </button>
         ))}
       </div>
@@ -444,7 +446,7 @@ export default function SettingsPage() {
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
-      <div className="mx-auto w-full max-w-xl px-6 py-6">
+      <div key={tab} className="mx-auto w-full max-w-xl px-6 py-6 anim-slide-right">
         <TabContent />
       </div>
     </div>
