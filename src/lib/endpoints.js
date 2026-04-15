@@ -14,6 +14,7 @@ export const authApi = {
 export const usersApi = {
   me: () => api.get('/users/me'),
   updateProfile: (data) => api.put('/users/me', data),
+  uploadAvatar: (file) => api.upload('/users/me/avatar', file),
   updatePresence: (presence) => api.put('/users/me/presence', { presence }),
   search: (q, limit = 20, offset = 0) => api.get('/users/search', { q, limit, offset }),
   getById: (id) => api.get(`/users/${id}`),

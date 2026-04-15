@@ -696,7 +696,7 @@ export default function ConversationPage() {
           <div className="flex items-center gap-3">
             {isDirect ? (
               <UserAvatar
-                user={{ display_name: convName, presence: conversation.member_presence }}
+                user={{ display_name: convName, presence: conversation.member_presence, avatar_url: conversation.other_avatar_url }}
                 showStatus
               />
             ) : (

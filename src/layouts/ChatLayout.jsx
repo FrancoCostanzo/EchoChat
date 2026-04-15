@@ -60,7 +60,7 @@ function ConversationItem({ conversation, isActive, onClick, t, animIndex = 0 })
       <div className="relative shrink-0">
         {isDirect ? (
           <UserAvatar
-            user={{ display_name: name, presence: conversation.member_presence }}
+            user={{ display_name: name, presence: conversation.member_presence, avatar_url: conversation.other_avatar_url }}
             showStatus
           />
         ) : (

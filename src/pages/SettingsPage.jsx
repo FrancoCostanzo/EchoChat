@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Input, Button, Spinner } from '@heroui/react';
 import { useParams } from 'react-router-dom';
@@ -17,6 +17,7 @@ import {
   Clock,
   MinusCircle,
   BellOff,
+  Camera,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
@@ -60,6 +61,7 @@ function ProfileTab() {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const updateUser = useAuthStore((s) => s.updateUser);
+  const avatarInputRef = useRef(null);
 
   const [form, setForm] = useState({
     display_name: user?.display_name || '',
@@ -70,6 +72,9 @@ function ProfileTab() {
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [avatarLoading, setAvatarLoading] = useState(false);
+  const [avatarSuccess, setAvatarSuccess] = useState(false);
+  const [avatarError, setAvatarError] = useState('');
 
   const updateField = (field) => (e) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
@@ -87,14 +92,56 @@ function ProfileTab() {
     }
   };
 
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarLoading(true);
+    setAvatarError('');
+    setAvatarSuccess(false);
+    try {
+      const { data } = await usersApi.uploadAvatar(file);
+      updateUser(data);
+      setAvatarSuccess(true);
+      setTimeout(() => setAvatarSuccess(false), 3000);
+    } catch (err) {
+      setAvatarError(err.message || t('settings.avatarError'));
+      setTimeout(() => setAvatarError(''), 3000);
+    } finally {
+      setAvatarLoading(false);
+      e.target.value = '';
+    }
+  };
+
   return (
     <div className="flex flex-col gap-5">
       {/* Avatar hero */}
       <div className="relative overflow-hidden rounded-2xl border border-border bg-background-secondary">
         <div className="h-20 bg-linear-to-br from-accent-soft to-transparent" />
         <div className="-mt-8 flex items-end gap-4 px-5 pb-5">
-          <div className="rounded-full ring-4 ring-background">
-            <UserAvatar user={user} size="lg" showStatus />
+          <div className="relative">
+            <div className="rounded-full ring-4 ring-background">
+              <UserAvatar user={user} size="lg" showStatus />
+            </div>
+            <button
+              type="button"
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={avatarLoading}
+              className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity hover:opacity-100 disabled:cursor-not-allowed"
+              title={t('settings.changeAvatar')}
+            >
+              {avatarLoading ? (
+                <Spinner size="sm" color="white" />
+              ) : (
+                <Camera size={18} className="text-white" />
+              )}
+            </button>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="hidden"
+              onChange={handleAvatarChange}
+            />
           </div>
           <div className="pb-1">
             <p className="font-semibold leading-tight">{user?.display_name}</p>
@@ -102,6 +149,21 @@ function ProfileTab() {
           </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {avatarSuccess && (
+          <AnimatedAlert className="flex items-center gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success">
+            <Check size={15} />
+            {t('settings.avatarUpdated')}
+          </AnimatedAlert>
+        )}
+        {avatarError && (
+          <AnimatedAlert className="flex items-center gap-2 rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger">
+            <AlertCircle size={15} />
+            {avatarError}
+          </AnimatedAlert>
+        )}
+      </AnimatePresence>
 
       {/* Form card */}
       <div className="rounded-2xl border border-border bg-background-secondary p-5">
