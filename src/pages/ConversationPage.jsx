@@ -220,7 +220,7 @@ function AttachmentView({ attachment }) {
 /* ─────────────────────────── Message Bubble ─────────────────────────── */
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
-const MessageBubble = memo(function MessageBubble({ message, isOwn, onEdit, onDelete, onReply, onReact, onRetry }) {
+const MessageBubble = memo(function MessageBubble({ message, isOwn, isDirect, isFirstInGroup, isLastInGroup, onEdit, onDelete, onReply, onReact, onRetry }) {
   const { t } = useTranslation();
   const [showActions, setShowActions] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -230,19 +230,21 @@ const MessageBubble = memo(function MessageBubble({ message, isOwn, onEdit, onDe
       initial={{ opacity: 0, x: isOwn ? 16 : -16, scale: 0.97 }}
       animate={{ opacity: 1, x: 0, scale: 1 }}
       transition={{ duration: 0.22, ease: 'easeOut' }}
-      className={`group flex gap-2 px-4 py-0.5 ${isOwn ? 'flex-row-reverse' : ''} ${
-        ''
-      }`}
+      className={`group flex gap-2 px-4 ${isFirstInGroup ? 'pt-3 pb-0.5' : 'py-0.5'} ${isOwn ? 'flex-row-reverse' : ''}`}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => { setShowActions(false); setShowEmojiPicker(false); }}
     >
       {/* Avatar */}
-      {!isOwn && (
-        <UserAvatar
-          user={{ display_name: message.sender_display_name }}
-          size="sm"
-          className="mt-1 shrink-0 self-end"
-        />
+      {!isOwn && !isDirect && (
+        isLastInGroup ? (
+          <UserAvatar
+            user={{ display_name: message.sender_display_name }}
+            size="sm"
+            className="mt-1 shrink-0 self-end"
+          />
+        ) : (
+          <div className="w-8 shrink-0" />
+        )
       )}
 
       {/* Deleted message */}
@@ -257,7 +259,7 @@ const MessageBubble = memo(function MessageBubble({ message, isOwn, onEdit, onDe
       ) : (<>
       <div className={`max-w-[68%] ${isOwn ? 'items-end' : 'items-start'} flex flex-col`}>
         {/* Sender name */}
-        {!isOwn && (
+        {!isOwn && !isDirect && isFirstInGroup && (
           <span className="mb-0.5 ml-1 text-xs font-semibold text-accent">
             {message.sender_display_name}
           </span>
@@ -282,8 +284,8 @@ const MessageBubble = memo(function MessageBubble({ message, isOwn, onEdit, onDe
         <div
           className={`relative rounded-2xl px-3.5 py-2.5 text-sm shadow-sm transition-shadow hover:shadow-md ${
             isOwn
-              ? 'rounded-tr-md bg-accent text-accent-foreground'
-              : 'rounded-tl-md bg-default text-foreground'
+              ? `${isLastInGroup ? 'rounded-tr-md' : 'rounded-2xl'} bg-accent text-accent-foreground`
+              : `${isLastInGroup ? 'rounded-tl-md' : 'rounded-2xl'} bg-default text-foreground`
           } ${message._status === 'sending' ? 'opacity-75' : ''}`}
         >
           {message.type !== 'media' && message.body && (
@@ -653,18 +655,30 @@ export default function ConversationPage() {
     setInput('');
   };
 
-  const messageElements = useMemo(() => messages.map((msg) => (
-    <MessageBubble
-      key={msg.id}
-      message={msg}
-      isOwn={msg.sender_id === user?.id}
-      onEdit={handleEdit}
-      onDelete={handleDeleteRequest}
-      onReply={handleReply}
-      onReact={handleReact}
-      onRetry={retrySendMessage}
-    />
-  )), [messages, user?.id, handleEdit, handleDeleteRequest, handleReply, handleReact, retrySendMessage]);
+  const messageElements = useMemo(() => {
+    const isDirect = conversation?.type === 'direct';
+    return messages.map((msg, index) => {
+      const prev = messages[index - 1];
+      const next = messages[index + 1];
+      const isFirstInGroup = !prev || prev.sender_id !== msg.sender_id;
+      const isLastInGroup  = !next || next.sender_id !== msg.sender_id;
+      return (
+        <MessageBubble
+          key={msg.id}
+          message={msg}
+          isOwn={msg.sender_id === user?.id}
+          isDirect={isDirect}
+          isFirstInGroup={isFirstInGroup}
+          isLastInGroup={isLastInGroup}
+          onEdit={handleEdit}
+          onDelete={handleDeleteRequest}
+          onReply={handleReply}
+          onReact={handleReact}
+          onRetry={retrySendMessage}
+        />
+      );
+    });
+  }, [messages, user?.id, conversation?.type, handleEdit, handleDeleteRequest, handleReply, handleReact, retrySendMessage]);
 
   if (!conversation) {
     return (
