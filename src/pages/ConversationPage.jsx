@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, memo } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useParams } from 'react-router-dom';
 import { Button, Input, Dropdown, Label, Spinner, Tooltip } from '@heroui/react';
 import {
@@ -46,6 +47,29 @@ function downloadBlob(url, filename) {
     .catch(() => window.open(url, '_blank'));
 }
 
+const EASE_OUT = [0.34, 1, 0.64, 1];
+const SPRING_OUT = [0.34, 1.56, 0.64, 1];
+
+function TypingDots() {
+  return (
+    <div className="flex items-center gap-0.5 text-muted">
+      {[0, 1, 2].map((index) => (
+        <motion.span
+          key={index}
+          animate={{ y: [0, -5, 0] }}
+          transition={{
+            duration: 1.2,
+            ease: 'easeInOut',
+            repeat: Number.POSITIVE_INFINITY,
+            delay: index * 0.2,
+          }}
+          className="inline-block h-1.5 w-1.5 rounded-full bg-current"
+        />
+      ))}
+    </div>
+  );
+}
+
 /* ─────────────────────────── Confirm Delete Modal ─────────────────────────── */
 function ConfirmDeleteModal({ message, onConfirm, onCancel }) {
   const { t } = useTranslation();
@@ -57,14 +81,30 @@ function ConfirmDeleteModal({ message, onConfirm, onCancel }) {
   }, [onCancel]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center anim-fade">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15, ease: 'easeOut' }}
+      className="fixed inset-0 z-50 flex items-center justify-center"
+    >
       {/* Backdrop */}
-      <div
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.15, ease: 'easeOut' }}
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onCancel}
       />
       {/* Dialog */}
-      <div className="relative z-10 mx-4 w-full max-w-sm rounded-2xl border border-separator bg-background shadow-2xl anim-scale-in">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.92 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.96 }}
+        transition={{ duration: 0.2, ease: SPRING_OUT }}
+        className="relative z-10 mx-4 w-full max-w-sm rounded-2xl border border-separator bg-background shadow-2xl"
+      >
         <div className="p-6">
           {/* Icon + title */}
           <div className="mb-4 flex items-start gap-3">
@@ -101,8 +141,8 @@ function ConfirmDeleteModal({ message, onConfirm, onCancel }) {
             </Button>
           </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -186,9 +226,12 @@ const MessageBubble = memo(function MessageBubble({ message, isOwn, onEdit, onDe
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, x: isOwn ? 16 : -16, scale: 0.97 }}
+      animate={{ opacity: 1, x: 0, scale: 1 }}
+      transition={{ duration: 0.22, ease: 'easeOut' }}
       className={`group flex gap-2 px-4 py-0.5 ${isOwn ? 'flex-row-reverse' : ''} ${
-        isOwn ? 'msg-own' : 'msg-other'
+        ''
       }`}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => { setShowActions(false); setShowEmojiPicker(false); }}
@@ -336,19 +379,27 @@ const MessageBubble = memo(function MessageBubble({ message, isOwn, onEdit, onDe
               <Smile size={13} />
             </Button>
           </Tooltip>
-          {showEmojiPicker && (
-            <div className={`absolute bottom-8 ${isOwn ? 'right-0' : 'left-0'} z-20 flex gap-1 rounded-2xl border border-separator bg-background px-2 py-1.5 shadow-xl anim-fade-up`}>
-              {QUICK_EMOJIS.map((emoji) => (
-                <button
-                  key={emoji}
-                  onClick={() => { onReact(message.id, emoji); setShowEmojiPicker(false); }}
-                  className="rounded-xl p-1 text-base transition-transform hover:scale-125"
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          )}
+          <AnimatePresence>
+            {showEmojiPicker && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 4 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                className={`absolute bottom-8 ${isOwn ? 'right-0' : 'left-0'} z-20 flex gap-1 rounded-2xl border border-separator bg-background px-2 py-1.5 shadow-xl`}
+              >
+                {QUICK_EMOJIS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    onClick={() => { onReact(message.id, emoji); setShowEmojiPicker(false); }}
+                    className="rounded-xl p-1 text-base transition-transform hover:scale-125"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         <Tooltip content={t('chat.reply')}>
@@ -391,7 +442,7 @@ const MessageBubble = memo(function MessageBubble({ message, isOwn, onEdit, onDe
         )}
       </div>
       </>)}
-    </div>
+    </motion.div>
   );
 });
 
@@ -629,13 +680,15 @@ export default function ConversationPage() {
   return (
     <>
       {/* Delete confirmation modal */}
-      {deleteTarget && (
-        <ConfirmDeleteModal
-          message={deleteTarget}
-          onConfirm={handleDeleteConfirm}
-          onCancel={handleDeleteCancel}
-        />
-      )}
+      <AnimatePresence>
+        {deleteTarget && (
+          <ConfirmDeleteModal
+            message={deleteTarget}
+            onConfirm={handleDeleteConfirm}
+            onCancel={handleDeleteCancel}
+          />
+        )}
+      </AnimatePresence>
 
       <div className="flex h-full flex-col">
         {/* ── Header ── */}
@@ -719,48 +772,68 @@ export default function ConversationPage() {
           <div ref={messagesEndRef} />
 
           {/* Scroll to bottom button */}
-          {showScrollBtn && (
-            <button
-              onClick={scrollToBottom}
-              className="absolute bottom-4 right-4 flex h-9 w-9 items-center justify-center rounded-full border border-separator bg-background shadow-lg transition-all hover:bg-default hover:scale-110 anim-fade-up"
-            >
-              <ArrowDown size={15} />
-            </button>
-          )}
+          <AnimatePresence>
+            {showScrollBtn && (
+              <motion.button
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                onClick={scrollToBottom}
+                className="absolute bottom-4 right-4 flex h-9 w-9 items-center justify-center rounded-full border border-separator bg-background shadow-lg transition-all hover:scale-110 hover:bg-default"
+              >
+                <ArrowDown size={15} />
+              </motion.button>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* ── Typing indicator ── */}
-        <div className={`overflow-hidden transition-all duration-300 ${typingText ? 'max-h-8 opacity-100' : 'max-h-0 opacity-0'}`}>
-          <div className="flex items-center gap-2 px-5 py-1">
-            <div className="flex items-center gap-0.5 text-muted">
-              <span className="typing-dot" />
-              <span className="typing-dot" />
-              <span className="typing-dot" />
-            </div>
-            <p className="text-xs text-muted">{typingText}</p>
-          </div>
-        </div>
+        <AnimatePresence initial={false}>
+          {typingText && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 32 }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3, ease: 'easeOut' }}
+              className="overflow-hidden"
+            >
+              <div className="flex items-center gap-2 px-5 py-1">
+                <TypingDots />
+                <p className="text-xs text-muted">{typingText}</p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* ── Reply / Edit banner ── */}
-        {(replyTo || editing) && (
-          <div className="flex items-center gap-3 border-t border-separator bg-accent/5 px-4 py-2.5 anim-fade-up">
-            <div className={`w-0.5 self-stretch rounded-full ${editing ? 'bg-warning' : 'bg-accent'}`} />
-            <div className="flex-1 min-w-0">
-              <p className={`text-xs font-semibold ${editing ? 'text-warning' : 'text-accent'}`}>
-                {editing ? t('chat.editingMessage') : t('chat.replyingTo', { name: replyTo.sender_display_name })}
-              </p>
-              <p className="truncate text-xs text-muted">
-                {editing ? editing.body : replyTo.body}
-              </p>
-            </div>
-            <button
-              onClick={cancelAction}
-              className="rounded-full p-1 text-muted transition-colors hover:bg-default hover:text-foreground"
+        <AnimatePresence initial={false}>
+          {(replyTo || editing) && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{ duration: 0.2, ease: EASE_OUT }}
+              className="flex items-center gap-3 border-t border-separator bg-accent/5 px-4 py-2.5"
             >
-              <X size={14} />
-            </button>
-          </div>
-        )}
+              <div className={`w-0.5 self-stretch rounded-full ${editing ? 'bg-warning' : 'bg-accent'}`} />
+              <div className="min-w-0 flex-1">
+                <p className={`text-xs font-semibold ${editing ? 'text-warning' : 'text-accent'}`}>
+                  {editing ? t('chat.editingMessage') : t('chat.replyingTo', { name: replyTo.sender_display_name })}
+                </p>
+                <p className="truncate text-xs text-muted">
+                  {editing ? editing.body : replyTo.body}
+                </p>
+              </div>
+              <button
+                onClick={cancelAction}
+                className="rounded-full p-1 text-muted transition-colors hover:bg-default hover:text-foreground"
+              >
+                <X size={14} />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* ── Input area ── */}
         <div className="border-t border-separator bg-background px-3 py-3">

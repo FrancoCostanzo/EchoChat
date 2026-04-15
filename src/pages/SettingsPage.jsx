@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Input, Button, Spinner } from '@heroui/react';
 import { useParams } from 'react-router-dom';
 import {
@@ -23,6 +24,37 @@ import { usersApi, authApi } from '@/lib/endpoints';
 import UserAvatar from '@/components/UserAvatar';
 import { useThemeStore, ACCENT_COLORS } from '@/stores/themeStore';
 import { changeLanguage } from '@/lib/i18n';
+
+const ENTRY_EASE = [0.34, 1.2, 0.64, 1];
+const BOUNCE_EASE = [0.34, 1.56, 0.64, 1];
+
+function AnimatedAlert({ children, className }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -6, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -4, scale: 0.98 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+function AnimatedCheck({ children, className }) {
+  return (
+    <motion.span
+      initial={{ opacity: 0, scale: 0, rotate: -20 }}
+      animate={{ opacity: 1, scale: [0, 1.3, 0.9, 1], rotate: [-20, 6, -2, 0] }}
+      exit={{ opacity: 0, scale: 0.8 }}
+      transition={{ duration: 0.28, ease: BOUNCE_EASE }}
+      className={className}
+    >
+      {children}
+    </motion.span>
+  );
+}
 
 function ProfileTab() {
   const { t } = useTranslation();
@@ -104,12 +136,14 @@ function ProfileTab() {
         </div>
       </div>
 
-      {success && (
-        <div className="anim-alert flex items-center gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success">
-          <Check size={15} />
-          {t('settings.profileUpdated')}
-        </div>
-      )}
+      <AnimatePresence>
+        {success && (
+          <AnimatedAlert className="flex items-center gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success">
+            <Check size={15} />
+            {t('settings.profileUpdated')}
+          </AnimatedAlert>
+        )}
+      </AnimatePresence>
 
       <Button isPending={loading} onPress={handleSave}>
         {({ isPending }) =>
@@ -196,18 +230,22 @@ function SecurityTab() {
               <Input type="password" value={form.confirm} onChange={updateField('confirm')} />
             </div>
           </div>
-          {error && (
-            <div className="anim-alert flex items-center gap-2 rounded-lg bg-danger/10 px-3 py-2.5 text-sm text-danger">
-              <AlertCircle size={14} />
-              {error}
-            </div>
-          )}
-          {success && (
-            <div className="anim-alert flex items-center gap-2 rounded-lg bg-success-soft px-3 py-2.5 text-sm text-success">
-              <Check size={14} />
-              {success}
-            </div>
-          )}
+          <AnimatePresence>
+            {error && (
+              <AnimatedAlert className="flex items-center gap-2 rounded-lg bg-danger/10 px-3 py-2.5 text-sm text-danger">
+                <AlertCircle size={14} />
+                {error}
+              </AnimatedAlert>
+            )}
+          </AnimatePresence>
+          <AnimatePresence>
+            {success && (
+              <AnimatedAlert className="flex items-center gap-2 rounded-lg bg-success-soft px-3 py-2.5 text-sm text-success">
+                <Check size={14} />
+                {success}
+              </AnimatedAlert>
+            )}
+          </AnimatePresence>
           <Button isPending={loading} onPress={handleChangePassword}>
             {({ isPending }) =>
               isPending ? (
@@ -285,11 +323,13 @@ function AppearanceTab() {
                   : 'border-border text-muted hover:border-border-secondary hover:text-foreground'
               }`}
             >
-              {mode === key && (
-                <span className="anim-check-bounce absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-accent">
-                  <Check size={10} strokeWidth={3} className="text-accent-foreground" />
-                </span>
-              )}
+              <AnimatePresence>
+                {mode === key && (
+                  <AnimatedCheck className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-accent">
+                    <Check size={10} strokeWidth={3} className="text-accent-foreground" />
+                  </AnimatedCheck>
+                )}
+              </AnimatePresence>
               <Icon size={22} />
               <span className="text-xs font-medium">{t(`settings.${key}`)}</span>
             </button>
@@ -316,14 +356,20 @@ function AppearanceTab() {
                   : 'border-border hover:border-border-secondary'
               }`}
             >
-              <span
-                className={`relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full ring-2 ring-offset-2 ring-offset-background ${
-                  accent === key ? 'anim-color-pop' : ''
-                }`}
+              <motion.span
+                animate={accent === key ? { scale: [1, 1.18, 0.92, 1] } : { scale: 1 }}
+                transition={{ duration: 0.3, ease: BOUNCE_EASE }}
+                className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full ring-2 ring-offset-2 ring-offset-background"
                 style={{ backgroundColor: color, ringColor: color }}
               >
-                {accent === key && <Check size={12} strokeWidth={3} className="anim-check-bounce text-white" />}
-              </span>
+                <AnimatePresence>
+                  {accent === key && (
+                    <AnimatedCheck className="text-white">
+                      <Check size={12} strokeWidth={3} />
+                    </AnimatedCheck>
+                  )}
+                </AnimatePresence>
+              </motion.span>
               <span className="text-sm font-medium">{t(`settings.accentColors.${key}`)}</span>
             </button>
           ))}
@@ -382,7 +428,13 @@ function PresenceTab() {
             <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${dotClass}`} />
             <Icon size={15} className="shrink-0 text-muted" />
             <span className="flex-1 text-sm font-medium">{t(`settings.presenceOptions.${key}`)}</span>
-            {presence === key && <Check size={14} className="anim-check-bounce text-accent" />}
+            <AnimatePresence>
+              {presence === key && (
+                <AnimatedCheck className="text-accent">
+                  <Check size={14} />
+                </AnimatedCheck>
+              )}
+            </AnimatePresence>
           </button>
         ))}
       </div>
@@ -424,7 +476,13 @@ function LanguageTab() {
               <p className="text-sm font-medium">{label}</p>
               <p className="text-xs text-muted">{region}</p>
             </div>
-            {currentLang === key && <Check size={14} className="anim-check-bounce text-accent" />}
+            <AnimatePresence>
+              {currentLang === key && (
+                <AnimatedCheck className="text-accent">
+                  <Check size={14} />
+                </AnimatedCheck>
+              )}
+            </AnimatePresence>
           </button>
         ))}
       </div>
@@ -446,9 +504,18 @@ export default function SettingsPage() {
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
-      <div key={tab} className="mx-auto w-full max-w-xl px-6 py-6 anim-slide-right">
-        <TabContent />
-      </div>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={tab}
+          initial={{ opacity: 0, x: 18, scale: 0.98 }}
+          animate={{ opacity: 1, x: 0, scale: 1 }}
+          exit={{ opacity: 0, x: -12, scale: 0.98 }}
+          transition={{ duration: 0.22, ease: ENTRY_EASE }}
+          className="mx-auto w-full max-w-xl px-6 py-6"
+        >
+          <TabContent />
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }

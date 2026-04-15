@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Button, Input, Tooltip } from '@heroui/react';
 import {
@@ -23,6 +24,22 @@ import { useChatStore } from '@/stores/chatStore';
 import UserAvatar from '@/components/UserAvatar';
 import { formatMessageTime } from '@/lib/dates';
 
+const SIDEBAR_TRANSITION = { duration: 0.2, ease: 'easeOut' };
+const CONTENT_TRANSITION = { duration: 0.2, ease: 'easeOut' };
+
+function AnimatedSidebar({ children }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -12 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={SIDEBAR_TRANSITION}
+      className="flex h-full w-80 flex-col border-r border-separator bg-surface"
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 function ConversationItem({ conversation, isActive, onClick, t, animIndex = 0 }) {
   const isDirect = conversation.type === 'direct';
   const name = conversation.display_name || conversation.name || t('sidebar.noName');
@@ -31,10 +48,12 @@ function ConversationItem({ conversation, isActive, onClick, t, animIndex = 0 })
   const unread = conversation.unread_count || 0;
 
   return (
-    <button
+    <motion.button
       onClick={onClick}
-      style={{ animationDelay: `${Math.min(animIndex, 10) * 25}ms` }}
-      className={`anim-fade-up flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-default ${
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, ease: 'easeOut', delay: Math.min(animIndex, 10) * 0.025 }}
+      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-default ${
         isActive ? 'bg-default' : ''
       }`}
     >
@@ -71,7 +90,7 @@ function ConversationItem({ conversation, isActive, onClick, t, animIndex = 0 })
           )}
         </div>
       </div>
-    </button>
+    </motion.button>
   );
 }
 
@@ -98,7 +117,7 @@ function SettingsSidebar() {
   };
 
   return (
-    <div className="anim-sidebar flex h-full w-80 flex-col border-r border-separator bg-surface">
+    <AnimatedSidebar>
       {/* Header */}
       <div className="flex items-center gap-2 border-b border-separator px-3 py-3">
         <Tooltip delay={0}>
@@ -147,7 +166,7 @@ function SettingsSidebar() {
           {t('sidebar.logout')}
         </button>
       </div>
-    </div>
+    </AnimatedSidebar>
   );
 }
 
@@ -178,7 +197,7 @@ function ChatSidebar() {
   };
 
   return (
-    <div className="anim-sidebar flex h-full w-80 flex-col border-r border-separator bg-surface">
+    <AnimatedSidebar>
       {/* Header */}
       <div className="flex items-center justify-between border-b border-separator px-4 py-3">
         <div className="flex items-center gap-3">
@@ -264,7 +283,7 @@ function ChatSidebar() {
           <Tooltip.Content><p>{t('sidebar.logout')}</p></Tooltip.Content>
         </Tooltip>
       </div>
-    </div>
+    </AnimatedSidebar>
   );
 }
 
@@ -280,9 +299,15 @@ export default function ChatLayout() {
     <div className="flex h-screen overflow-hidden">
       <Sidebar />
       <main className="flex-1 overflow-hidden">
-        <div key={location.pathname} className="h-full anim-fade-up">
+        <motion.div
+          key={location.pathname}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={CONTENT_TRANSITION}
+          className="h-full"
+        >
           <Outlet />
-        </div>
+        </motion.div>
       </main>
     </div>
   );

@@ -23,6 +23,7 @@
     "@heroui/react": "^3.0.2",
     "@heroui/styles": "^3.0.2",
     "date-fns": "^4.1.0",
+    "framer-motion": "^12.38.0",
     "i18next": "^26.0.4",
     "lucide-react": "^1.8.0",
     "react": "^19.2.5",
