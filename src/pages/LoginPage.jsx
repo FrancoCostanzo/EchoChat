@@ -1,19 +1,9 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Card, Input, Button, Separator, Spinner } from '@heroui/react';
+import { Card, InputGroup, TextField, Label, FieldError, Button, Spinner } from '@heroui/react';
 import { MessageCircle, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
-
-function FieldError({ message }) {
-  if (!message) return null;
-  return (
-    <p className="flex items-center gap-1 text-xs text-danger">
-      <AlertCircle size={12} />
-      {message}
-    </p>
-  );
-}
 
 export default function LoginPage() {
   const { t } = useTranslation();
@@ -74,70 +64,72 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <Card className="p-6 shadow-xl">
-          <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
-            {/* Server error */}
-            {serverError && (
-              <div className="flex items-center gap-2 rounded-lg border border-danger-soft-hover bg-danger-soft px-3 py-2.5 text-sm text-danger">
-                <AlertCircle size={16} className="shrink-0" />
-                {serverError}
-              </div>
-            )}
+        <Card className="shadow-xl">
+          <Card.Content className="p-6">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
+              {/* Server error */}
+              {serverError && (
+                <div className="flex items-center gap-2 rounded-lg border border-danger-soft-hover bg-danger-soft px-3 py-2.5 text-sm text-danger">
+                  <AlertCircle size={16} className="shrink-0" />
+                  {serverError}
+                </div>
+              )}
 
-            {/* Username */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium">
-                {t('auth.username')}
-              </label>
-              <Input
-                placeholder={t('auth.usernamePlaceholder')}
-                value={form.username}
-                onChange={updateField('username')}
-                onBlur={() => touch('username')}
-                autoFocus
-                autoComplete="username"
-                className={touched.username && errors.username ? 'border-danger' : ''}
-              />
-              {touched.username && <FieldError message={errors.username} />}
-            </div>
+              {/* Username */}
+              <TextField fullWidth isInvalid={touched.username && !!errors.username}>
+                <Label>{t('auth.username')}</Label>
+                <InputGroup fullWidth variant="secondary">
+                  <InputGroup.Input
+                    placeholder={t('auth.usernamePlaceholder')}
+                    value={form.username}
+                    onChange={updateField('username')}
+                    onBlur={() => touch('username')}
+                    autoFocus
+                    autoComplete="username"
+                  />
+                </InputGroup>
+                {touched.username && <FieldError>{errors.username}</FieldError>}
+              </TextField>
 
-            {/* Password */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">{t('auth.password')}</label>
-              </div>
-              <div className="relative">
-                <Input
-                  placeholder={t('auth.passwordPlaceholder')}
-                  type={showPassword ? 'text' : 'password'}
-                  value={form.password}
-                  onChange={updateField('password')}
-                  onBlur={() => touch('password')}
-                  autoComplete="current-password"
-                  className={`pr-10 ${touched.password && errors.password ? 'border-danger' : ''}`}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground transition-colors"
-                  aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-              {touched.password && <FieldError message={errors.password} />}
-            </div>
+              {/* Password */}
+              <TextField fullWidth isInvalid={touched.password && !!errors.password}>
+                <Label>{t('auth.password')}</Label>
+                <InputGroup fullWidth variant="secondary">
+                  <InputGroup.Input
+                    placeholder={t('auth.passwordPlaceholder')}
+                    type={showPassword ? 'text' : 'password'}
+                    value={form.password}
+                    onChange={updateField('password')}
+                    onBlur={() => touch('password')}
+                    autoComplete="current-password"
+                  />
+                  <InputGroup.Suffix className="pr-0">
+                    <Button
+                      isIconOnly
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onPress={() => setShowPassword((v) => !v)}
+                      aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </Button>
+                  </InputGroup.Suffix>
+                </InputGroup>
+                {touched.password && <FieldError>{errors.password}</FieldError>}
+              </TextField>
 
-            <Button type="submit" isPending={loading} className="mt-1 w-full">
-              {({ isPending }) =>
-                isPending ? (
-                  <><Spinner size="sm" /><span>{t('auth.loggingIn')}</span></>
-                ) : (
-                  t('auth.login')
-                )
-              }
-            </Button>
-          </form>
+              <Button type="submit" isPending={loading} className="mt-1 w-full">
+                {({ isPending }) =>
+                  isPending ? (
+                    <><Spinner size="sm" /><span>{t('auth.loggingIn')}</span></>
+                  ) : (
+                    t('auth.login')
+                  )
+                }
+              </Button>
+            </form>
+          </Card.Content>
         </Card>
 
         <p className="mt-6 text-center text-sm text-muted">

@@ -1,19 +1,10 @@
 import { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Card, Input, Button, Spinner } from '@heroui/react';
+import { motion } from 'framer-motion';
+import { Card, InputGroup, TextField, Label, FieldError, Description, Button, Spinner } from '@heroui/react';
 import { MessageCircle, Eye, EyeOff, AlertCircle, Check, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
-
-function FieldError({ message }) {
-  if (!message) return null;
-  return (
-    <p className="flex items-center gap-1 text-xs text-danger">
-      <AlertCircle size={12} />
-      {message}
-    </p>
-  );
-}
 
 const PASSWORD_RULES = [
   { key: 'minLength', test: (p) => p.length >= 8 },
@@ -159,146 +150,162 @@ export default function RegisterPage() {
           </div>
         </div>
 
-        <Card className="p-6 shadow-xl">
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-            {serverError && (
-              <div className="flex items-center gap-2 rounded-lg border border-danger-soft-hover bg-danger-soft px-3 py-2.5 text-sm text-danger">
-                <AlertCircle size={16} className="shrink-0" />
-                {serverError}
-              </div>
-            )}
-
-            {/* Username */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium">
-                {t('auth.username')} <span className="text-danger">*</span>
-              </label>
-              <Input
-                placeholder={t('auth.usernamePlaceholder')}
-                value={form.username}
-                onChange={updateField('username')}
-                onBlur={() => touch('username')}
-                autoFocus
-                autoComplete="username"
-              />
-              {touched.username && errors.username ? (
-                <FieldError message={errors.username} />
-              ) : (
-                <p className="text-xs text-muted">{t('auth.usernameHint')}</p>
+        <Card className="shadow-xl">
+          <Card.Content className="p-6">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+              {serverError && (
+                <div className="flex items-center gap-2 rounded-lg border border-danger-soft-hover bg-danger-soft px-3 py-2.5 text-sm text-danger">
+                  <AlertCircle size={16} className="shrink-0" />
+                  {serverError}
+                </div>
               )}
-            </div>
 
-            {/* Display name */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium">
-                {t('auth.displayName')} <span className="text-danger">*</span>
-              </label>
-              <Input
-                placeholder={t('auth.displayNamePlaceholder')}
-                value={form.display_name}
-                onChange={updateField('display_name')}
-                onBlur={() => touch('display_name')}
-                autoComplete="name"
-              />
-              {touched.display_name && <FieldError message={errors.display_name} />}
-            </div>
+              {/* Username */}
+              <TextField fullWidth isRequired isInvalid={touched.username && !!errors.username}>
+                <Label>{t('auth.username')}</Label>
+                <InputGroup fullWidth variant="secondary">
+                  <InputGroup.Input
+                    placeholder={t('auth.usernamePlaceholder')}
+                    value={form.username}
+                    onChange={updateField('username')}
+                    onBlur={() => touch('username')}
+                    autoFocus
+                    autoComplete="username"
+                  />
+                </InputGroup>
+                {touched.username && !!errors.username
+                  ? <FieldError>{errors.username}</FieldError>
+                  : <Description>{t('auth.usernameHint')}</Description>
+                }
+              </TextField>
 
-            {/* Email */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium">{t('auth.email')} <span className="text-muted font-normal text-xs">({t('common.optional')})</span></label>
-              <Input
-                type="email"
-                placeholder={t('auth.emailPlaceholder')}
-                value={form.email}
-                onChange={updateField('email')}
-                onBlur={() => touch('email')}
-                autoComplete="email"
-              />
-              {touched.email && <FieldError message={errors.email} />}
-            </div>
+              {/* Display name */}
+              <TextField fullWidth isRequired isInvalid={touched.display_name && !!errors.display_name}>
+                <Label>{t('auth.displayName')}</Label>
+                <InputGroup fullWidth variant="secondary">
+                  <InputGroup.Input
+                    placeholder={t('auth.displayNamePlaceholder')}
+                    value={form.display_name}
+                    onChange={updateField('display_name')}
+                    onBlur={() => touch('display_name')}
+                    autoComplete="name"
+                  />
+                </InputGroup>
+                {touched.display_name && <FieldError>{errors.display_name}</FieldError>}
+              </TextField>
 
-            {/* Dept + Job */}
-            <div className="flex gap-3">
-              <div className="flex flex-1 flex-col gap-1.5">
-                <label className="text-sm font-medium">{t('auth.department')}</label>
-                <Input
-                  placeholder={t('auth.departmentPlaceholder')}
-                  value={form.department}
-                  onChange={updateField('department')}
-                />
+              {/* Email */}
+              <TextField fullWidth isInvalid={touched.email && !!errors.email}>
+                <Label>
+                  {t('auth.email')}{' '}
+                  <span className="text-muted font-normal text-xs">({t('common.optional')})</span>
+                </Label>
+                <InputGroup fullWidth variant="secondary">
+                  <InputGroup.Input
+                    type="email"
+                    placeholder={t('auth.emailPlaceholder')}
+                    value={form.email}
+                    onChange={updateField('email')}
+                    onBlur={() => touch('email')}
+                    autoComplete="email"
+                  />
+                </InputGroup>
+                {touched.email && <FieldError>{errors.email}</FieldError>}
+              </TextField>
+
+              {/* Dept + Job */}
+              <div className="flex gap-3 overflow-hidden">
+                <TextField className="flex-1 min-w-0">
+                  <Label>{t('auth.department')}</Label>
+                  <InputGroup fullWidth variant="secondary">
+                    <InputGroup.Input
+                      placeholder={t('auth.departmentPlaceholder')}
+                      value={form.department}
+                      onChange={updateField('department')}
+                    />
+                  </InputGroup>
+                </TextField>
+                <TextField className="flex-1 min-w-0">
+                  <Label>{t('auth.jobTitle')}</Label>
+                  <InputGroup fullWidth variant="secondary">
+                    <InputGroup.Input
+                      placeholder={t('auth.jobTitlePlaceholder')}
+                      value={form.job_title}
+                      onChange={updateField('job_title')}
+                    />
+                  </InputGroup>
+                </TextField>
               </div>
-              <div className="flex flex-1 flex-col gap-1.5">
-                <label className="text-sm font-medium">{t('auth.jobTitle')}</label>
-                <Input
-                  placeholder={t('auth.jobTitlePlaceholder')}
-                  value={form.job_title}
-                  onChange={updateField('job_title')}
-                />
-              </div>
-            </div>
 
-            {/* Password */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium">
-                {t('auth.password')} <span className="text-danger">*</span>
-              </label>
-              <div className="relative">
-                <Input
-                  placeholder={t('auth.passwordPlaceholder')}
-                  type={showPassword ? 'text' : 'password'}
-                  value={form.password}
-                  onChange={updateField('password')}
-                  onBlur={() => touch('password')}
-                  autoComplete="new-password"
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground transition-colors"
-                  aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-              {form.password && <PasswordStrength password={form.password} />}
-              {touched.password && !form.password && <FieldError message={errors.password} />}
-            </div>
+              {/* Password */}
+              <TextField fullWidth isRequired isInvalid={touched.password && !!errors.password}>
+                <Label>{t('auth.password')}</Label>
+                <InputGroup fullWidth variant="secondary">
+                  <InputGroup.Input
+                    placeholder={t('auth.passwordPlaceholder')}
+                    type={showPassword ? 'text' : 'password'}
+                    value={form.password}
+                    onChange={updateField('password')}
+                    onBlur={() => touch('password')}
+                    autoComplete="new-password"
+                  />
+                  <InputGroup.Suffix className="pr-0">
+                    <Button
+                      isIconOnly
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onPress={() => setShowPassword((v) => !v)}
+                      aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </Button>
+                  </InputGroup.Suffix>
+                </InputGroup>
+                {form.password && <PasswordStrength password={form.password} />}
+                {!form.password && touched.password && <FieldError>{errors.password}</FieldError>}
+              </TextField>
 
-            {/* Confirm password */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium">
-                {t('auth.confirmPassword')} <span className="text-danger">*</span>
-              </label>
-              <div className="relative">
-                <Input
-                  placeholder={t('auth.passwordPlaceholder')}
-                  type={showPassword ? 'text' : 'password'}
-                  value={form.confirmPassword}
-                  onChange={updateField('confirmPassword')}
-                  onBlur={() => touch('confirmPassword')}
-                  autoComplete="new-password"
-                  className="pr-10"
-                />
-                {form.confirmPassword && (
-                  <span className={`absolute right-3 top-1/2 -translate-y-1/2 ${form.password === form.confirmPassword ? 'text-success' : 'text-danger'}`}>
-                    {form.password === form.confirmPassword ? <Check size={16} /> : <X size={16} />}
-                  </span>
-                )}
-              </div>
-              {touched.confirmPassword && <FieldError message={errors.confirmPassword} />}
-            </div>
+              {/* Confirm password */}
+              <TextField fullWidth isRequired isInvalid={touched.confirmPassword && !!errors.confirmPassword}>
+                <Label>{t('auth.confirmPassword')}</Label>
+                <InputGroup fullWidth variant="secondary">
+                  <InputGroup.Input
+                    placeholder={t('auth.passwordPlaceholder')}
+                    type={showPassword ? 'text' : 'password'}
+                    value={form.confirmPassword}
+                    onChange={updateField('confirmPassword')}
+                    onBlur={() => touch('confirmPassword')}
+                    autoComplete="new-password"
+                  />
+                  {form.confirmPassword && (
+                    <InputGroup.Suffix>
+                      <span className={form.password === form.confirmPassword ? 'text-success' : 'text-danger'}>
+                        {form.password === form.confirmPassword ? <Check size={16} /> : <X size={16} />}
+                      </span>
+                    </InputGroup.Suffix>
+                  )}
+                </InputGroup>
+                {touched.confirmPassword && <FieldError>{errors.confirmPassword}</FieldError>}
+              </TextField>
 
-            <Button type="submit" isPending={loading} className="mt-1 w-full">
-              {({ isPending }) =>
-                isPending ? (
-                  <><Spinner size="sm" /><span>{t('auth.registering')}</span></>
-                ) : (
-                  t('auth.register')
-                )
-              }
-            </Button>
-          </form>
+              <motion.div
+                whileTap={{ scale: 0.97 }}
+                transition={{ duration: 0.1 }}
+                className="mt-1"
+              >
+                <Button type="submit" isPending={loading} className="w-full">
+                  {({ isPending }) =>
+                    isPending ? (
+                      <><Spinner size="sm" /><span>{t('auth.registering')}</span></>
+                    ) : (
+                      t('auth.register')
+                    )
+                  }
+                </Button>
+              </motion.div>
+            </form>
+          </Card.Content>
         </Card>
 
         <p className="mt-6 text-center text-sm text-muted">

@@ -1,7 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Button, Input, Tooltip } from '@heroui/react';
+import { Button, InputGroup, TextField, Tooltip } from '@heroui/react';
 import {
   MessageSquare,
   Users,
@@ -33,7 +33,7 @@ function AnimatedSidebar({ children }) {
       initial={{ opacity: 0, x: -12 }}
       animate={{ opacity: 1, x: 0 }}
       transition={SIDEBAR_TRANSITION}
-      className="flex h-full w-full flex-col border-r border-separator bg-surface md:w-80"
+      className="flex h-full w-full flex-col border-r border-separator bg-surface"
     >
       {children}
     </motion.div>
@@ -220,14 +220,19 @@ function ChatSidebar() {
       </div>
 
       {/* Search */}
-      <div className="relative px-3 py-2">
-        <Search size={16} className="absolute left-6 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-        <Input
-          placeholder={t('sidebar.searchConversation')}
-          className="bg-default pl-9"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      <div className="px-3 py-2">
+        <TextField fullWidth aria-label={t('sidebar.searchConversation')}>
+          <InputGroup fullWidth variant="secondary">
+            <InputGroup.Prefix>
+              <Search size={15} className="text-muted" />
+            </InputGroup.Prefix>
+            <InputGroup.Input
+              placeholder={t('sidebar.searchConversation')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </InputGroup>
+        </TextField>
       </div>
 
       {/* Conversation List */}
@@ -332,6 +337,7 @@ function MobileBottomNav() {
 export default function ChatLayout() {
   const location = useLocation();
   const pathname = location.pathname;
+  const sidebarRef = useRef(null);
 
   // On mobile: show sidebar only on /chat (index), hide on all "content" routes
   // Conversation routes: /chat/new, /chat/:id
@@ -340,12 +346,47 @@ export default function ChatLayout() {
   const isConversationRoute = /^\/chat\/.+/.test(pathname);
   const isContentRoute = !isOnChatIndex;
 
+  const startResize = useCallback((e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = sidebarRef.current?.offsetWidth ?? 320;
+
+    const onMove = (ev) => {
+      const newWidth = Math.max(200, Math.min(480, startWidth + ev.clientX - startX));
+      if (sidebarRef.current) {
+        sidebarRef.current.style.width = newWidth + 'px';
+        sidebarRef.current.style.minWidth = newWidth + 'px';
+      }
+    };
+
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    };
+
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, []);
+
   return (
     <div className="flex h-screen flex-col overflow-hidden md:flex-row">
       {/* Sidebar: always on desktop, only on /chat index on mobile */}
-      <div className={`${isContentRoute ? 'hidden md:flex' : 'flex flex-1 md:flex-none'}`}>
+      <div
+        ref={sidebarRef}
+        className={`${isContentRoute ? 'hidden md:flex' : 'flex flex-1 md:flex-none'} md:w-80`}
+      >
         <Sidebar />
       </div>
+
+      {/* Resize handle - desktop only */}
+      <div
+        className="hidden md:flex w-1 shrink-0 cursor-col-resize items-stretch bg-separator transition-colors hover:bg-accent/40"
+        onMouseDown={startResize}
+      />
 
       {/* Main content: always on desktop, hidden on /chat index on mobile */}
       <main className={`${isOnChatIndex ? 'hidden md:block' : ''} flex-1 min-w-0 overflow-hidden`}>
