@@ -679,6 +679,7 @@ export default function ConversationPage() {
   const loadingMoreRef = useRef(false);
   const wasAtBottomRef = useRef(true);
   const initialLoadRef = useRef(false); // true after first batch of messages is rendered
+  const scrollIdleTimerRef = useRef(null);
 
   const conversation = getActiveConversation();
 
@@ -718,7 +719,7 @@ export default function ConversationPage() {
     if (!el || messages.length === 0) return;
     if (!initialLoadRef.current) {
       // First batch: jump instantly before paint so user never sees the top
-      el.scrollTop = el.scrollHeight;
+      messagesEndRef.current?.scrollIntoView({ behavior: 'instant', block: 'end' });
       wasAtBottomRef.current = true;
       initialLoadRef.current = true;
     } else if (wasAtBottomRef.current) {
@@ -744,7 +745,14 @@ export default function ConversationPage() {
     if (!el) return;
     const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
     wasAtBottomRef.current = atBottom;
-    setShowScrollBtn(!atBottom);
+    if (atBottom) {
+      setShowScrollBtn(false);
+      if (scrollIdleTimerRef.current) clearTimeout(scrollIdleTimerRef.current);
+    } else {
+      setShowScrollBtn(true);
+      if (scrollIdleTimerRef.current) clearTimeout(scrollIdleTimerRef.current);
+      scrollIdleTimerRef.current = setTimeout(() => setShowScrollBtn(false), 2000);
+    }
     if (el.scrollTop < 80 && hasMoreMessages && !loadingMoreRef.current) {
       loadingMoreRef.current = true;
       prevScrollHeightRef.current = el.scrollHeight;
@@ -964,28 +972,30 @@ export default function ConversationPage() {
         </div>
 
         {/* ── Messages ── */}
-        <div
-          ref={containerRef}
-          onScroll={handleScroll}
-          className="relative flex-1 overflow-y-auto overflow-x-hidden py-3"
-        >
-          {loadingMessages && messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center gap-2 py-12 text-muted">
-              <Spinner size="lg" />
-              <p className="text-xs">{t('chat.loadingMessages')}</p>
-            </div>
-          )}
+        <div className="relative flex-1 min-h-0">
+          <div
+            ref={containerRef}
+            onScroll={handleScroll}
+            className="h-full overflow-y-auto overflow-x-hidden py-3"
+          >
+            {loadingMessages && messages.length === 0 && (
+              <div className="flex flex-col items-center justify-center gap-2 py-12 text-muted">
+                <Spinner size="lg" />
+                <p className="text-xs">{t('chat.loadingMessages')}</p>
+              </div>
+            )}
 
-          {loadingMessages && messages.length > 0 && (
-            <div className="flex justify-center py-3">
-              <Spinner size="sm" />
-            </div>
-          )}
+            {loadingMessages && messages.length > 0 && (
+              <div className="flex justify-center py-3">
+                <Spinner size="sm" />
+              </div>
+            )}
 
-          {messageElements}
-          <div ref={messagesEndRef} />
+            {messageElements}
+            <div ref={messagesEndRef} />
+          </div>
 
-          {/* Scroll to bottom button */}
+          {/* Scroll to bottom button — fixed to the viewport of the message area */}
           <AnimatePresence>
             {showScrollBtn && (
               <motion.button
