@@ -13,6 +13,8 @@
 ## 📑 Tabla de Contenidos
 
 - [Convención de Commits](#-convención-de-commits)
+- [Convención de Ramas](#-convención-de-ramas)
+- [Versionado del Software](#-versionado-del-software)
 - [Guía de Estilos — Backend](#-guía-de-estilos--backend)
 - [Guía de Estilos — Frontend](#-guía-de-estilos--frontend)
 - [Convenciones Compartidas](#-convenciones-compartidas)
@@ -107,6 +109,125 @@ git commit -m "Release 🎉 v1.2.0"
 
 # Revert
 git commit -m "Revert ⏪ Revertir cambio en validación de JWT (#55)"
+```
+
+<br/>
+
+---
+
+<br/>
+
+## 🌿 Convención de Ramas
+
+### Ramas Permanentes
+
+| Rama | Propósito |
+|------|-----------|
+| `main` | Código en producción. Solo recibe merges de `hotfix/*` y `release/*` |
+| `develop` | Rama de integración. Base para todas las features en desarrollo |
+
+### Ramas de Corta Duración
+
+Todas se crean desde `develop` (salvo `hotfix/*`, que sale de `main`).
+
+```
+<tipo>/<descripcion-en-kebab-case>
+```
+
+| Tipo | Cuándo usarlo | Ejemplo |
+|------|---------------|---------|
+| `feat/` | Nueva funcionalidad | `feat/typing-indicator` |
+| `fix/` | Corrección de bug | `fix/unread-count-calculation` |
+| `hotfix/` | Corrección crítica en producción (sale de `main`) | `hotfix/crash-on-file-upload` |
+| `release/` | Preparación de una nueva versión | `release/1.3.0` |
+| `refactor/` | Reestructuración sin cambio funcional | `refactor/pagination-base-repository` |
+| `chore/` | Tareas de configuración, tooling, CI | `chore/update-docker-compose` |
+| `docs/` | Cambios exclusivamente de documentación | `docs/api-calls-endpoints` |
+
+### Reglas
+
+1. **`kebab-case`** para la descripción, sin mayúsculas ni espacios
+2. **Corta y descriptiva:** máximo 4-5 palabras separadas por guiones
+3. Si está relacionada a un issue, se puede añadir el número al final: `feat/polls-support-42`
+4. **Eliminar la rama** después del merge
+5. **Nunca commitear directamente** a `main`
+
+### Flujo de Ramas
+
+```
+main ──────────────────────────────────────────────────► (producción)
+  ↑                                              ↑
+  └─── hotfix/crash-on-file-upload               └─── release/1.3.0
+                                                          ↑
+develop ──────────────────────────────────────────────►  │
+  ↑            ↑              ↑                          │
+  └─ feat/...  └─ fix/...     └─ refactor/...  ──────────┘
+```
+
+<br/>
+
+---
+
+<br/>
+
+## 🏷 Versionado del Software
+
+EchoChat sigue **Semantic Versioning 2.0.0** ([semver.org](https://semver.org)):
+
+```
+MAJOR.MINOR.PATCH
+```
+
+| Segmento | Cuándo se incrementa | Ejemplo |
+|----------|---------------------|---------|
+| **MAJOR** | Cambios incompatibles (breaking changes en la API, migración de BD con ruptura) | `1.0.0` → `2.0.0` |
+| **MINOR** | Nueva funcionalidad compatible hacia atrás | `1.2.0` → `1.3.0` |
+| **PATCH** | Corrección de bugs compatible hacia atrás | `1.3.0` → `1.3.1` |
+
+### Pre-releases
+
+```
+<MAJOR>.<MINOR>.<PATCH>-<etiqueta>.<numero>
+```
+
+| Etiqueta | Significado | Ejemplo |
+|----------|------------|-------|
+| `alpha` | Funcionalidad incompleta, solo para desarrollo interno | `1.3.0-alpha.1` |
+| `beta` | Funcionalidad completa, en pruebas | `1.3.0-beta.2` |
+| `rc` | Release candidate, candidato a producción | `1.3.0-rc.1` |
+
+### Reglas
+
+1. Al incrementar `MAJOR`, resetear `MINOR` y `PATCH` a `0`
+2. Al incrementar `MINOR`, resetear `PATCH` a `0`
+3. La versión `0.y.z` es para desarrollo inicial; la API no es estable hasta `1.0.0`
+4. Una vez publicada una versión, **no se modifica**: cualquier cambio implica una nueva versión
+5. Las versiones se etiquetan en git con `v` prefijo: `v1.3.0`
+
+### Proceso de Release
+
+```bash
+# 1. Crear rama de release desde develop
+git checkout develop
+git checkout -b release/1.3.0
+
+# 2. Actualizar version en package.json (backend y frontend)
+npm version 1.3.0 --no-git-tag-version
+
+# 3. Commit de versión
+git commit -m "Release 🎉 v1.3.0"
+
+# 4. Merge a main y etiquetar
+git checkout main
+git merge --no-ff release/1.3.0
+git tag v1.3.0
+
+# 5. Merge de vuelta a develop
+git checkout develop
+git merge --no-ff release/1.3.0
+
+# 6. Eliminar rama de release
+git branch -d release/1.3.0
 ```
 
 <br/>
@@ -799,6 +920,6 @@ import UserAvatar from '@/components/UserAvatar';
 
 <div align="center">
 
-Última actualización: Abril 2025
+Última actualización: Abril 2026
 
 </div>
