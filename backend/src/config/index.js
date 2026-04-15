@@ -27,6 +27,9 @@ const config = {
     accessKey: process.env.MINIO_ACCESS_KEY || 'minioadmin',
     secretKey: process.env.MINIO_SECRET_KEY || 'minioadmin',
     useSSL: process.env.MINIO_USE_SSL === 'true',
+    publicEndPoint: process.env.MINIO_PUBLIC_ENDPOINT || process.env.MINIO_ENDPOINT || 'localhost',
+    publicPort: parseInt(process.env.MINIO_PUBLIC_PORT || process.env.MINIO_PORT, 10) || 9000,
+    publicUseSSL: (process.env.MINIO_PUBLIC_USE_SSL || process.env.MINIO_USE_SSL) === 'true',
   },
 
   cors: {

@@ -11,6 +11,7 @@
 [![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
 [![MinIO](https://img.shields.io/badge/MinIO-C72E49?style=for-the-badge&logo=minio&logoColor=white)](https://min.io/)
 [![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue?style=for-the-badge)](https://opensource.org/licenses/ISC)
 
 <br/>
@@ -21,7 +22,7 @@
 
 <br/>
 
-[Características](#-características) · [Tech Stack](#-tech-stack) · [Arquitectura](#-arquitectura) · [Instalación](#-instalación) · [Variables de Entorno](#-variables-de-entorno) · [Scripts](#-scripts) · [Base de Datos](#-base-de-datos) · [API](#-api-endpoints) · [Websockets](#-eventos-en-tiempo-real-socketio)
+[Características](#-características) · [Tech Stack](#-tech-stack) · [Arquitectura](#-arquitectura) · [Despliegue](#-despliegue-con-docker) · [Instalación Dev](#-instalación-desarrollo) · [Variables de Entorno](#-variables-de-entorno) · [Scripts](#-scripts) · [Base de Datos](#-base-de-datos) · [API](#-api-endpoints) · [Websockets](#-eventos-en-tiempo-real-socketio)
 
 </div>
 
@@ -294,7 +295,174 @@
 
 <br/>
 
-## 📦 Instalación
+## � Despliegue con Docker
+
+EchoChat se puede desplegar con **Docker Compose** en 3 modos según la infraestructura disponible:
+
+| Modo | ¿Qué levanta Docker? | ¿Qué ya tiene la empresa? |
+|------|----------------------|--------------------------|
+| **Todo en uno** | Backend + Frontend + PostgreSQL + MinIO | Nada, todo en un servidor |
+| **Mixto** | Backend + Frontend + lo que falte | PostgreSQL y/o MinIO existente |
+| **Solo app** | Backend + Frontend | PostgreSQL + MinIO propios |
+
+### Prerrequisitos
+
+- **Docker** >= 20
+- **Docker Compose** >= 2.20
+
+### Modo 1: Todo en uno (un solo servidor)
+
+Ideal para empezar rápido. Levanta todo en un mismo servidor:
+
+```bash
+git clone https://github.com/FrancoCostanzo/EchoChat.git
+cd EchoChat
+
+# Copiar y editar la configuración
+cp .env.example .env
+```
+
+Editar `.env` con estos valores:
+
+```env
+# Activar PostgreSQL y MinIO integrados
+COMPOSE_PROFILES=postgres,minio
+
+# Passwords seguras (cambiar obligatoriamente)
+DB_PASSWORD=mi_password_segura_postgres
+MINIO_SECRET_KEY=mi_password_segura_minio
+
+# Secreto JWT (generar uno aleatorio)
+JWT_SECRET=generar_con_node_-e_console.log(require('crypto').randomBytes(64).toString('hex'))
+
+# URL pública: poner la IP o dominio del servidor
+CORS_ORIGIN=http://192.168.1.100
+MINIO_PUBLIC_ENDPOINT=192.168.1.100
+```
+
+```bash
+docker compose up -d
+```
+
+La app estará en **http://192.168.1.100** (o la IP/dominio configurado).
+
+> **Nota:** El esquema SQL se aplica automáticamente en el primer inicio desde `backend/docs/messaging_intranet_schema.sql`. Los buckets de MinIO se crean automáticamente al iniciar el backend.
+
+### Modo 2: La empresa ya tiene PostgreSQL y/o MinIO
+
+Si ya existen servidores de base de datos o almacenamiento, simplemente apuntar a ellos:
+
+```env
+# No activar ningún perfil (o solo el que necesite)
+COMPOSE_PROFILES=
+
+# PostgreSQL externo
+DB_HOST=10.0.1.50
+DB_PORT=5432
+DB_NAME=echochat
+DB_USER=echochat
+DB_PASSWORD=password_del_postgres_existente
+
+# MinIO/S3 externo
+MINIO_ENDPOINT=10.0.1.51
+MINIO_PORT=9000
+MINIO_ACCESS_KEY=access_key_existente
+MINIO_SECRET_KEY=secret_key_existente
+MINIO_PUBLIC_ENDPOINT=10.0.1.51
+```
+
+> **Importante:** Si usa PostgreSQL externo, debe ejecutar el esquema SQL manualmente:
+> ```bash
+> psql -h 10.0.1.50 -U echochat -d echochat -f backend/docs/messaging_intranet_schema.sql
+> ```
+
+### Modo 3: Mixto (ej: BD externa, MinIO local)
+
+```env
+# Solo activar MinIO local
+COMPOSE_PROFILES=minio
+
+# PostgreSQL apunta al servidor existente
+DB_HOST=10.0.1.50
+DB_PASSWORD=password_del_postgres_existente
+
+# MinIO se levanta local
+MINIO_ENDPOINT=minio
+MINIO_PUBLIC_ENDPOINT=192.168.1.100
+```
+
+O al revés — PostgreSQL local y MinIO externo:
+
+```env
+COMPOSE_PROFILES=postgres
+DB_HOST=postgres
+
+MINIO_ENDPOINT=minio.empresa.com
+MINIO_PUBLIC_ENDPOINT=minio.empresa.com
+MINIO_PORT=9000
+```
+
+### Diagrama de despliegue
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                     Servidor (docker compose)                       │
+│                                                                     │
+│  ┌─────────────┐    ┌─────────────────┐    ┌───────────────────┐   │
+│  │   Nginx     │    │     Backend     │    │    PostgreSQL     │   │
+│  │  (Frontend) │───▶│  (Node.js API)  │───▶│  (perfil:postgres)│   │
+│  │   :80       │    │  :3000 interno  │    │  :5432 interno    │   │
+│  └─────────────┘    └────────┬────────┘    └───────────────────┘   │
+│        │                     │                                      │
+│        │ /api, /socket.io    │             ┌───────────────────┐   │
+│        └─────────────────────┘             │      MinIO        │   │
+│                                            │  (perfil: minio)  │   │
+│                                    ───────▶│  :9000 API        │   │
+│                                            │  :9001 Consola    │   │
+│                                            └───────────────────┘   │
+└─────────────────────────────────────────────────────────────────────┘
+         ▲                                          ▲
+         │ HTTP :80                                  │ :9000 (presigned URLs)
+    ┌────┴────┐                                ┌────┴────┐
+    │ Usuario │                                │ Usuario │
+    │ Browser │ ◀──────────────────────────────│ Browser │
+    └─────────┘    (descarga de archivos)      └─────────┘
+```
+
+### Comandos útiles
+
+```bash
+# Ver logs
+docker compose logs -f backend
+docker compose logs -f frontend
+
+# Reiniciar solo el backend
+docker compose restart backend
+
+# Reconstruir imágenes tras cambios de código
+docker compose build --no-cache
+docker compose up -d
+
+# Detener todo
+docker compose down
+
+# Detener y eliminar volúmenes (⚠️ borra datos de BD y archivos)
+docker compose down -v
+```
+
+### Consola de MinIO
+
+Cuando usa el MinIO integrado, la consola web está disponible en `http://IP_DEL_SERVIDOR:9001` con las credenciales configuradas en `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY`.
+
+<br/>
+
+---
+
+<br/>
+
+## 📦 Instalación (Desarrollo)
+
+Para desarrollo local sin Docker.
 
 ### Prerrequisitos
 
@@ -370,7 +538,7 @@ La aplicación estará disponible en **http://localhost:5173** 🚀
 
 ## 🔧 Variables de Entorno
 
-Crear un archivo `backend/.env` con las siguientes variables:
+Para **desarrollo** local, crear un archivo `backend/.env`. Para **producción** con Docker, editar `.env` en la raíz del proyecto (ver `.env.example`).
 
 ```env
 # ──── General ─────────────────────────────────
@@ -378,7 +546,7 @@ NODE_ENV=development
 PORT=3000
 
 # ──── PostgreSQL ──────────────────────────────
-DB_HOST=localhost
+DB_HOST=localhost           # En Docker todo-en-uno: postgres
 DB_PORT=5432
 DB_NAME=echochat
 DB_USER=echochat
@@ -392,14 +560,20 @@ JWT_EXPIRES_IN=7d
 JWT_REFRESH_EXPIRES_IN=30d
 
 # ──── MinIO (Object Storage) ─────────────────
-MINIO_ENDPOINT=localhost
+MINIO_ENDPOINT=localhost    # En Docker todo-en-uno: minio
 MINIO_PORT=9000
 MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin
 MINIO_USE_SSL=false
 
+# Endpoint público (cómo los navegadores acceden a MinIO)
+# En desarrollo: localhost | En producción: IP o dominio del servidor
+MINIO_PUBLIC_ENDPOINT=localhost
+MINIO_PUBLIC_PORT=9000
+MINIO_PUBLIC_USE_SSL=false
+
 # ──── CORS ────────────────────────────────────
-CORS_ORIGIN=http://localhost:5173
+CORS_ORIGIN=http://localhost:5173   # En Docker: http://IP_DEL_SERVIDOR
 
 # ──── Rate Limiting ───────────────────────────
 RATE_LIMIT_WINDOW_MS=900000
@@ -407,6 +581,12 @@ RATE_LIMIT_MAX=100
 
 # ──── Logging ─────────────────────────────────
 LOG_LEVEL=info
+
+# ──── Docker Compose (solo producción) ────────
+# Perfiles: postgres,minio (activar los que necesite)
+COMPOSE_PROFILES=postgres,minio
+FRONTEND_PORT=80
+MINIO_CONSOLE_PORT=9001
 ```
 
 <br/>
@@ -597,8 +777,12 @@ Todas las rutas están bajo el prefijo `/api`.
 
 ```
 EchoChat/
+├── � docker-compose.yml          # Orquestación (perfiles: postgres, minio)
+├── 📄 .env.example                # Template de configuración
 ├── 📁 api-collection/            # Colección de API (Postman)
 ├── 📁 backend/
+│   ├── 📄 Dockerfile              # Imagen Docker del backend
+│   ├── 📄 .dockerignore
 │   ├── 📁 docs/
 │   │   └── 📄 messaging_intranet_schema.sql
 │   ├── 📁 src/
@@ -616,6 +800,10 @@ EchoChat/
 │   │   └── 📁 services/           # Lógica de negocio
 │   └── 📄 package.json
 ├── 📁 frontend-web/
+│   ├── 📄 Dockerfile              # Build multi-etapa (Node → Nginx)
+│   ├── 📄 .dockerignore
+│   ├── 📁 nginx/
+│   │   └── 📄 default.conf.template  # Proxy reverso + SPA
 │   ├── 📁 public/
 │   ├── 📁 src/
 │   │   ├── 📄 App.jsx             # Componente raíz con rutas

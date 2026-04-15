@@ -1,0 +1,94 @@
+services:
+  # ── Backend API + WebSocket ──────────────────────────────────────────────
+  backend:
+    build: ./backend
+    container_name: echochat-backend
+    restart: unless-stopped
+    env_file: .env
+    expose:
+      - "${PORT:-3000}"
+    networks:
+      - echochat
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:${PORT:-3000}/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  # ── Frontend (Nginx + React SPA) ────────────────────────────────────────
+  frontend:
+    build: ./frontend-web
+    container_name: echochat-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    environment:
+      BACKEND_HOST: backend
+      BACKEND_PORT: ${PORT:-3000}
+      MINIO_INTERNAL_HOST: ${MINIO_ENDPOINT:-minio}
+      MINIO_INTERNAL_PORT: ${MINIO_PORT:-9000}
+    depends_on:
+      - backend
+    networks:
+      - echochat
+
+  # ── PostgreSQL (perfil: postgres) ────────────────────────────────────────
+  # Solo se levanta si COMPOSE_PROFILES incluye "postgres".
+  # Si ya tiene un servidor PostgreSQL, no active este perfil y configure DB_HOST.
+  postgres:
+    image: postgres:17-alpine
+    container_name: echochat-postgres
+    profiles: ["postgres"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-echochat}
+      POSTGRES_USER: ${DB_USER:-echochat}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD es requerido}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/docs/messaging_intranet_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    expose:
+      - "5432"
+    networks:
+      - echochat
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-echochat} -d ${DB_NAME:-echochat}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ── MinIO (perfil: minio) ────────────────────────────────────────────────
+  # Solo se levanta si COMPOSE_PROFILES incluye "minio".
+  # Si ya tiene un servidor MinIO/S3, no active este perfil y configure MINIO_ENDPOINT.
+  minio:
+    image: minio/minio:latest
+    container_name: echochat-minio
+    profiles: ["minio"]
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    networks:
+      - echochat
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+networks:
+  echochat:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  minio_data:

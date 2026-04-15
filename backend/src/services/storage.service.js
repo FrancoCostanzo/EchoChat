@@ -1,7 +1,7 @@
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const logger = require('../config/logger');
-const { minioClient } = require('../config/minio');
+const { minioClient, publicMinioClient } = require('../config/minio');
 const config = require('../config');
 const { storageRepository } = require('../repositories');
 const { NotFoundError } = require('../errors');
@@ -72,7 +72,7 @@ class StorageService {
     if (!obj) throw new NotFoundError('Storage object');
 
     const ttl = 3600; // 1 hour
-    const url = await minioClient.presignedGetObject(obj.bucket_name, obj.object_key, ttl);
+    const url = await publicMinioClient.presignedGetObject(obj.bucket_name, obj.object_key, ttl);
 
     const expiresAt = new Date(Date.now() + (ttl - 300) * 1000); // Cache for TTL - 5 min
     await storageRepository.saveCachedPresignedUrl(objectId, userId, 'get', url, expiresAt);
@@ -84,7 +84,7 @@ class StorageService {
     const bucket = this.getBucket(metadata.object_type);
     const objectKey = this.generateObjectKey(metadata.object_type, metadata.original_filename);
     const ttl = 3600;
-    const url = await minioClient.presignedPutObject(bucket, objectKey, ttl);
+    const url = await publicMinioClient.presignedPutObject(bucket, objectKey, ttl);
     return { url, bucket, objectKey };
   }
 

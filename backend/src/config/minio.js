@@ -2,10 +2,20 @@ const Minio = require('minio');
 const config = require('../config');
 const logger = require('./logger');
 
+// Cliente interno: para operaciones de upload/delete (conecta al host interno)
 const minioClient = new Minio.Client({
   endPoint: config.minio.endPoint,
   port: config.minio.port,
   useSSL: config.minio.useSSL,
+  accessKey: config.minio.accessKey,
+  secretKey: config.minio.secretKey,
+});
+
+// Cliente público: para generar presigned URLs accesibles desde el navegador
+const publicMinioClient = new Minio.Client({
+  endPoint: config.minio.publicEndPoint,
+  port: config.minio.publicPort,
+  useSSL: config.minio.publicUseSSL,
   accessKey: config.minio.accessKey,
   secretKey: config.minio.secretKey,
 });
@@ -32,4 +42,4 @@ async function ensureBuckets() {
   logger.info('All MinIO buckets verified');
 }
 
-module.exports = { minioClient, ensureBuckets, BUCKETS };
+module.exports = { minioClient, publicMinioClient, ensureBuckets, BUCKETS };
