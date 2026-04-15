@@ -11,6 +11,8 @@
 [![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
 [![MinIO](https://img.shields.io/badge/MinIO-C72E49?style=for-the-badge&logo=minio&logoColor=white)](https://min.io/)
 [![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![Electron](https://img.shields.io/badge/Electron-47848F?style=for-the-badge&logo=electron&logoColor=white)](https://www.electronjs.org/)
+[![React Native](https://img.shields.io/badge/React_Native-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactnative.dev/)
 [![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue?style=for-the-badge)](https://opensource.org/licenses/ISC)
 
@@ -22,7 +24,7 @@
 
 <br/>
 
-[Características](#-características) · [Tech Stack](#-tech-stack) · [Arquitectura](#-arquitectura) · [Despliegue](#-despliegue-con-docker) · [Instalación Dev](#-instalación-desarrollo) · [Variables de Entorno](#-variables-de-entorno) · [Scripts](#-scripts) · [Base de Datos](#-base-de-datos) · [API](#-api-endpoints) · [Websockets](#-eventos-en-tiempo-real-socketio)
+[Características](#-características) · [Plataformas](#-plataformas) · [Tech Stack](#-tech-stack) · [Arquitectura](#-arquitectura) · [Despliegue](#-despliegue-con-docker) · [Instalación Dev](#-instalación-desarrollo) · [Variables de Entorno](#-variables-de-entorno) · [Scripts](#-scripts) · [Base de Datos](#-base-de-datos) · [API](#-api-endpoints) · [Websockets](#-eventos-en-tiempo-real-socketio)
 
 </div>
 
@@ -171,7 +173,23 @@
 
 <br/>
 
-## 🛠 Tech Stack
+## � Plataformas
+
+| Plataforma | Tecnología | Estado |
+|------------|-----------|--------|
+| **Web** | React 19 + Vite | ✅ En desarrollo (`v1.0.0-alpha.1`) |
+| **Desktop** (Windows, macOS, Linux) | Electron | 🔧 Planificado |
+| **Mobile** (iOS, Android) | React Native + Expo | 🔧 Planificado |
+
+Las tres plataformas comparten el mismo backend y reutilizan la mayoría de la lógica de negocio del frontend.
+
+<br/>
+
+---
+
+<br/>
+
+## �🛠 Tech Stack
 
 <table>
 <tr>
@@ -225,6 +243,21 @@
   <img src="https://img.shields.io/badge/CORS-00ACC1?style=flat-square" alt="CORS"/>
 </td>
 </tr>
+<tr>
+<td><strong>Desktop</strong></td>
+<td>
+  <img src="https://img.shields.io/badge/Electron-47848F?style=flat-square&logo=electron&logoColor=white" alt="Electron"/>
+</td>
+</tr>
+<tr>
+<td><strong>Mobile</strong></td>
+<td>
+  <img src="https://img.shields.io/badge/React_Native-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React Native"/>
+  <img src="https://img.shields.io/badge/Expo-000020?style=flat-square&logo=expo&logoColor=white" alt="Expo"/>
+</td>
+</tr>
+<tr>
+<td><strong>Infraestructura</strong></td>
 </table>
 
 <br/>
