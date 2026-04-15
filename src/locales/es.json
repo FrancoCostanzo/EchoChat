@@ -97,7 +97,12 @@
     "send": "Enviar",
     "retrySend": "Reintentar",
     "sendError": "Error al enviar",
-    "uploadingFile": "Subiendo archivo..."
+    "uploadingFile": "Subiendo archivo...",
+    "attachImage": "Imagen",
+    "attachVideo": "Video",
+    "attachDocument": "Documento",
+    "sendFile": "Enviar archivo",
+    "captionPlaceholder": "Agregar un comentario..."
   },
   "newConversation": {
     "title": "Nueva conversación",

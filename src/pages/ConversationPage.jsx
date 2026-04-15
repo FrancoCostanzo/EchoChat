@@ -23,6 +23,10 @@ import {
   Loader,
   AlertCircle,
   RefreshCw,
+  Image,
+  Film,
+  FileText,
+  Send,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
@@ -49,6 +53,196 @@ function downloadBlob(url, filename) {
 
 const EASE_OUT = [0.34, 1, 0.64, 1];
 const SPRING_OUT = [0.34, 1.56, 0.64, 1];
+
+/* ─────────────────────────── File Picker Menu ─────────────────────────── */
+function FilePickerMenu({ onPick, disabled, uploading }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef(null);
+  const imageRef = useRef(null);
+  const videoRef = useRef(null);
+  const docRef   = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const pick = (ref) => { setOpen(false); ref.current?.click(); };
+
+  const MENU_ITEMS = [
+    { icon: Image,    label: t('chat.attachImage'),    ref: imageRef, accept: 'image/*' },
+    { icon: Film,     label: t('chat.attachVideo'),    ref: videoRef, accept: 'video/*' },
+    { icon: FileText, label: t('chat.attachDocument'), ref: docRef,   accept: '*/*' },
+  ];
+
+  return (
+    <div className="relative" ref={menuRef}>
+      {MENU_ITEMS.map(({ ref, accept }) => (
+        <input
+          key={accept}
+          ref={ref}
+          type="file"
+          accept={accept}
+          className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) { onPick(f); e.target.value = ''; } }}
+        />
+      ))}
+
+      <Tooltip content={t('chat.attachFile')}>
+        <Button
+          isIconOnly
+          size="sm"
+          variant="ghost"
+          isDisabled={disabled}
+          className="mb-0.5 shrink-0 rounded-xl text-muted hover:text-foreground"
+          onPress={() => setOpen((p) => !p)}
+        >
+          {uploading ? <Loader size={17} className="animate-spin" /> : <Paperclip size={17} />}
+        </Button>
+      </Tooltip>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 6, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 4, scale: 0.97 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="absolute bottom-10 left-0 z-30 min-w-44 overflow-hidden rounded-2xl border border-separator bg-background shadow-xl"
+          >
+            {MENU_ITEMS.map(({ icon: Icon, label, ref }) => (
+              <button
+                key={label}
+                onClick={() => pick(ref)}
+                className="flex w-full items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-default"
+              >
+                <Icon size={16} className="shrink-0 text-accent" />
+                {label}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/* ─────────────────────────── File Preview Bar ─────────────────────────── */
+function FilePreviewBar({ file, onSend, onCancel }) {
+  const { t } = useTranslation();
+  const [caption, setCaption] = useState('');
+  const [sending, setSending] = useState(false);
+  const [objectUrl, setObjectUrl] = useState(null);
+  const isImage = file?.type.startsWith('image/');
+  const isVideo = file?.type.startsWith('video/');
+
+  useEffect(() => {
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    setObjectUrl(url);
+    return () => { URL.revokeObjectURL(url); setObjectUrl(null); };
+  }, [file]);
+
+  const handleSend = async () => {
+    setSending(true);
+    try { await onSend(file, caption.trim()); }
+    finally { setSending(false); }
+  };
+
+  const formatSize = (bytes) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 16 }}
+      transition={{ duration: 0.22, ease: SPRING_OUT }}
+      className="border-t border-separator bg-background"
+    >
+      {/* Header: icon + filename + size + cancel */}
+      <div className="flex items-center justify-between border-b border-separator/50 px-4 py-2">
+        <div className="flex min-w-0 items-center gap-2">
+          {isImage
+            ? <Image size={14} className="shrink-0 text-accent" />
+            : isVideo
+              ? <Film size={14} className="shrink-0 text-accent" />
+              : <FileText size={14} className="shrink-0 text-accent" />}
+          <span className="truncate text-sm font-medium">{file.name}</span>
+          <span className="shrink-0 text-xs text-muted">{formatSize(file.size)}</span>
+        </div>
+        <button
+          onClick={onCancel}
+          disabled={sending}
+          className="ml-2 shrink-0 rounded-full p-1 text-muted transition-colors hover:bg-default hover:text-foreground disabled:opacity-40"
+        >
+          <X size={15} />
+        </button>
+      </div>
+
+      {/* Preview area */}
+      <div className="flex max-h-60 items-center justify-center overflow-hidden bg-black/5 px-4 py-3">
+        {isImage && (
+            <img
+              src={objectUrl}
+              alt={file.name}
+              className="max-h-52 max-w-full rounded-xl object-contain shadow-md"
+            />
+          )}
+          {isVideo && (
+            <video
+              src={objectUrl}
+              controls
+              className="max-h-52 max-w-full rounded-xl shadow-md"
+            />
+          )}
+          {!isImage && !isVideo && (
+            <div className="flex items-center gap-4 py-4">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-accent-soft">
+                <FileText size={28} className="text-accent" />
+              </div>
+              <div className="min-w-0">
+                <p className="max-w-xs truncate text-sm font-medium">{file.name}</p>
+                <p className="text-xs text-muted">{formatSize(file.size)}</p>
+              </div>
+            </div>
+          )}
+      </div>
+
+      {/* Caption input + send */}
+      <div className="flex items-end gap-2 px-3 py-2.5">
+          <Input
+            autoFocus
+            placeholder={t('chat.captionPlaceholder')}
+            value={caption}
+            onChange={(e) => setCaption(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+              if (e.key === 'Escape') onCancel();
+            }}
+            disabled={sending}
+            className="flex-1 border-separator/70 bg-default"
+          />
+          <Button
+            isIconOnly
+            isDisabled={sending}
+            className="shrink-0 rounded-xl bg-accent text-accent-foreground hover:bg-accent/90"
+            onPress={handleSend}
+          >
+            {sending ? <Loader size={16} className="animate-spin" /> : <Send size={16} />}
+          </Button>
+        </div>
+    </motion.div>
+  );
+}
 
 function TypingDots() {
   return (
@@ -474,11 +668,11 @@ export default function ConversationPage() {
   const [editing, setEditing] = useState(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null); // message object to confirm delete
-  const [uploadingFile, setUploadingFile] = useState(false);
+  const [previewFile, setPreviewFile] = useState(null);
+  const [sendingFile, setSendingFile] = useState(false);
 
   const messagesEndRef = useRef(null);
   const containerRef = useRef(null);
-  const fileInputRef = useRef(null);
   const inputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const prevScrollHeightRef = useRef(null);
@@ -591,10 +785,13 @@ export default function ConversationPage() {
     }
   };
 
-  const handleFileUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadingFile(true);
+  const handleFilePick = useCallback((file) => {
+    setPreviewFile(file);
+  }, []);
+
+  const handleFileSend = useCallback(async (file, caption) => {
+    setPreviewFile(null);
+    setSendingFile(true);
     try {
       const objectType = file.type.startsWith('image/')
         ? 'image'
@@ -604,17 +801,20 @@ export default function ConversationPage() {
             ? 'audio'
             : 'document';
       const { data: storageObj } = await storageApi.upload(file, objectType);
-      await sendMessage(
-        { conversation_id: conversationId, type: 'media', attachment_ids: [storageObj.id], _filename: file.name },
-        user,
-      );
+      const msgData = {
+        conversation_id: conversationId,
+        type: 'media',
+        attachment_ids: [storageObj.id],
+        _filename: file.name,
+      };
+      if (caption) msgData.body = caption;
+      await sendMessage(msgData, user);
     } catch (err) {
       console.error('Upload failed:', err);
     } finally {
-      setUploadingFile(false);
+      setSendingFile(false);
     }
-    e.target.value = '';
-  };
+  }, [conversationId, sendMessage, user]);
 
   const handleEdit = useCallback((msg) => {
     setEditing(msg);
@@ -849,27 +1049,21 @@ export default function ConversationPage() {
           )}
         </AnimatePresence>
 
+        {/* ── File preview bar ── */}
+        <AnimatePresence initial={false}>
+          {previewFile && (
+            <FilePreviewBar
+              file={previewFile}
+              onSend={handleFileSend}
+              onCancel={() => setPreviewFile(null)}
+            />
+          )}
+        </AnimatePresence>
+
         {/* ── Input area ── */}
         <div className="border-t border-separator bg-background px-3 py-3">
           <div className="flex items-end gap-2 rounded-2xl border border-separator/70 bg-default px-2 py-1.5 transition-shadow focus-within:shadow-md focus-within:border-accent/40">
-            <input
-              ref={fileInputRef}
-              type="file"
-              className="hidden"
-              onChange={handleFileUpload}
-            />
-            <Tooltip content={t('chat.attachFile')}>
-              <Button
-                isIconOnly
-                size="sm"
-                variant="ghost"
-                isDisabled={uploadingFile}
-                className="mb-0.5 shrink-0 rounded-xl text-muted hover:text-foreground"
-                onPress={() => fileInputRef.current?.click()}
-              >
-                {uploadingFile ? <Loader size={17} className="animate-spin" /> : <Paperclip size={17} />}
-              </Button>
-            </Tooltip>
+            <FilePickerMenu onPick={handleFilePick} disabled={!!previewFile || sendingFile} uploading={sendingFile} />
 
             <Input
               ref={inputRef}

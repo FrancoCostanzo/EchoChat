@@ -97,7 +97,12 @@
     "send": "Send",
     "retrySend": "Retry",
     "sendError": "Failed to send",
-    "uploadingFile": "Uploading file..."
+    "uploadingFile": "Uploading file...",
+    "attachImage": "Image",
+    "attachVideo": "Video",
+    "attachDocument": "Document",
+    "sendFile": "Send file",
+    "captionPlaceholder": "Add a caption..."
   },
   "newConversation": {
     "title": "New conversation",
