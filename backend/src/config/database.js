@@ -17,8 +17,7 @@ pool.on('connect', () => {
 });
 
 pool.on('error', (err) => {
-  logger.fatal({ err }, 'Unexpected database pool error');
-  process.exit(1);
+  logger.error({ err }, 'Unexpected database pool error');
 });
 
 /**
