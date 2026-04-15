@@ -1,0 +1,11 @@
+module.exports = {
+  authController: require('./auth.controller'),
+  userController: require('./user.controller'),
+  conversationController: require('./conversation.controller'),
+  messageController: require('./message.controller'),
+  callController: require('./call.controller'),
+  storageController: require('./storage.controller'),
+  broadcastController: require('./broadcast.controller'),
+  notificationController: require('./notification.controller'),
+  relationshipController: require('./relationship.controller'),
+};

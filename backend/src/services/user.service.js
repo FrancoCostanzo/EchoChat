@@ -1,0 +1,93 @@
+const path = require('path');
+const { v4: uuidv4 } = require('uuid');
+const logger = require('../config/logger');
+const { userRepository } = require('../repositories');
+const { minioClient } = require('../config/minio');
+const { NotFoundError, BadRequestError } = require('../errors');
+const { toUserResponse } = require('../models');
+
+const AVATAR_BUCKET = 'messaging-avatars';
+const AVATAR_ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const AVATAR_MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+
+async function withAvatarUrl(user) {
+  if (!user || !user.avatar_object_key) return user;
+  try {
+    const url = await minioClient.presignedGetObject(
+      user.avatar_bucket || AVATAR_BUCKET,
+      user.avatar_object_key,
+      60 * 60 * 24, // 24 h
+    );
+    return { ...user, avatar_url: url };
+  } catch (err) {
+    logger.warn({ err }, 'Failed to generate avatar presigned URL');
+    return user;
+  }
+}
+
+class UserService {
+  async getProfile(userId) {
+    const user = await userRepository.findById(userId);
+    if (!user) throw new NotFoundError('User');
+    return withAvatarUrl(toUserResponse(user));
+  }
+
+  async updateProfile(userId, data) {
+    const user = await userRepository.updateProfile(userId, data);
+    if (!user) throw new NotFoundError('User');
+    logger.info({ userId }, 'Profile updated');
+    return withAvatarUrl(toUserResponse(user));
+  }
+
+  async uploadAvatar(userId, fileBuffer, mimeType, fileSize, originalFilename) {
+    if (!AVATAR_ALLOWED_TYPES.includes(mimeType)) {
+      throw new BadRequestError('Invalid file type. Allowed: JPEG, PNG, WebP, GIF');
+    }
+    if (fileSize > AVATAR_MAX_SIZE) {
+      throw new BadRequestError('File too large. Maximum size is 5 MB');
+    }
+
+    // Delete previous avatar from MinIO if it exists
+    const current = await userRepository.findById(userId);
+    if (current?.avatar_object_key) {
+      try {
+        await minioClient.removeObject(
+          current.avatar_bucket || AVATAR_BUCKET,
+          current.avatar_object_key,
+        );
+      } catch (err) {
+        logger.warn({ err }, 'Failed to remove old avatar from MinIO');
+      }
+    }
+
+    const ext = path.extname(originalFilename) || '.jpg';
+    const objectKey = `avatars/${uuidv4()}${ext}`;
+
+    await minioClient.putObject(AVATAR_BUCKET, objectKey, fileBuffer, fileSize, {
+      'Content-Type': mimeType,
+    });
+
+    const user = await userRepository.updateAvatar(userId, AVATAR_BUCKET, objectKey);
+    logger.info({ userId, objectKey }, 'Avatar uploaded');
+    return withAvatarUrl(toUserResponse(user));
+  }
+
+  async updatePresence(userId, presence) {
+    const user = await userRepository.updatePresence(userId, presence);
+    if (!user) throw new NotFoundError('User');
+    return toUserResponse(user);
+  }
+
+  async search(term, limit, offset) {
+    const users = await userRepository.search(term, limit, offset);
+    return users.map(toUserResponse);
+  }
+
+  async getUserById(id) {
+    const user = await userRepository.findById(id);
+    if (!user) throw new NotFoundError('User');
+    return toUserResponse(user);
+  }
+}
+
+module.exports = new UserService();
