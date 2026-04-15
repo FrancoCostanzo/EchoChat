@@ -9,10 +9,14 @@ const { initSocket } = require('./socket');
 async function start() {
   try {
     // Verify database connection
-    const client = await pool.connect();
-    const { rows } = await client.query('SELECT NOW()');
-    client.release();
-    logger.info({ time: rows[0].now }, 'Database connected');
+    try {
+      const client = await pool.connect();
+      const { rows } = await client.query('SELECT NOW()');
+      client.release();
+      logger.info({ time: rows[0].now }, 'Database connected');
+    } catch (err) {
+      logger.warn({ err: err.message }, 'Database not available — requests requiring DB will fail until connected');
+    }
 
     // Ensure MinIO buckets exist
     try {
