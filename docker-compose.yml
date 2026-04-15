@@ -18,7 +18,7 @@ services:
 
   # ── Frontend (Nginx + React SPA) ────────────────────────────────────────
   frontend:
-    build: ./frontend-web
+    build: ./frontend
     container_name: echochat-frontend
     restart: unless-stopped
     ports:

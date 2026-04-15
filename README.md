@@ -508,7 +508,7 @@ cd backend
 npm install
 
 # Frontend
-cd ../frontend-web
+cd ../frontend
 npm install
 ```
 
@@ -524,7 +524,7 @@ cd backend
 npm run dev
 
 # Terminal 2 — Frontend
-cd frontend-web
+cd frontend
 npm run dev
 ```
 
@@ -799,7 +799,7 @@ EchoChat/
 │   │   ├── 📁 routes/             # Definiciones de rutas
 │   │   └── 📁 services/           # Lógica de negocio
 │   └── 📄 package.json
-├── 📁 frontend-web/
+├── 📁 frontend/
 │   ├── 📄 Dockerfile              # Build multi-etapa (Node → Nginx)
 │   ├── 📄 .dockerignore
 │   ├── 📁 nginx/
