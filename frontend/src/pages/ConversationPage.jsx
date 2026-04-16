@@ -348,6 +348,8 @@ function AttachmentView({ attachment }) {
   const [viewerOpen, setViewerOpen] = useState(false);
   const isImage =
     attachment.object_type === 'image' || attachment.mime_type?.startsWith('image/');
+  const isVideo =
+    attachment.object_type === 'video' || attachment.mime_type?.startsWith('video/');
 
   useEffect(() => {
     storageApi.getUrl(attachment.id).then((res) => setUrl(res.data.url)).catch(() => {});
@@ -357,7 +359,7 @@ function AttachmentView({ attachment }) {
     return (
       <div
         className={`animate-pulse rounded-xl bg-default/60 ${
-          isImage ? 'h-32 w-48' : 'h-9 w-44'
+          isImage || isVideo ? 'h-32 w-48' : 'h-9 w-44'
         }`}
       />
     );
@@ -393,6 +395,26 @@ function AttachmentView({ attachment }) {
           />
         )}
       </>
+    );
+  }
+
+  if (isVideo) {
+    return (
+      <div className="group relative overflow-hidden rounded-xl bg-black">
+        <video
+          src={url}
+          controls
+          preload="metadata"
+          className="max-h-64 max-w-[70vw] rounded-xl sm:max-w-xs"
+        />
+        <button
+          onClick={() => downloadBlob(url, attachment.original_filename)}
+          className="absolute right-2 top-2 rounded-lg bg-black/60 p-1.5 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-black/80 group-hover:opacity-100"
+          title={t('common.download')}
+        >
+          <Download size={13} />
+        </button>
+      </div>
     );
   }
 
