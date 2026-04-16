@@ -83,7 +83,7 @@
     "writeMessage": "Write a message...",
     "attachFile": "Attach file",
     "loadingMessages": "Loading messages...",
-    "loadMore": "↑ Load older messages",
+    "loadMore": "Load older messages",
     "edited": "(edited)",
     "react": "React",
     "reply": "Reply",
@@ -92,8 +92,8 @@
     "pinnedMessages": "Pinned messages",
     "isTyping": "{{name}} is typing",
     "areTyping": "{{names}} are typing",
-    "editingMessage": "✏️ Editing message",
-    "replyingTo": "↩️ Replying to {{name}}",
+    "editingMessage": "Editing message",
+    "replyingTo": "Replying to {{name}}",
     "deleteMessage": "Delete message",
     "deleteMessageWarning": "This action is permanent and cannot be undone.",
     "creating": "Creating...",
@@ -106,7 +106,8 @@
     "attachVideo": "Video",
     "attachDocument": "Document",
     "sendFile": "Send file",
-    "captionPlaceholder": "Add a caption..."
+    "captionPlaceholder": "Add a caption...",
+    "attachedFile": "Attached file"
   },
   "newConversation": {
     "title": "New conversation",

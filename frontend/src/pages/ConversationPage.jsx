@@ -16,6 +16,8 @@ import {
   Hash,
   ArrowDown,
   ArrowLeft,
+  ArrowUp,
+  CornerUpLeft,
   Download,
   Check,
   CheckCheck,
@@ -503,7 +505,9 @@ const MessageBubble = memo(function MessageBubble({ message, isOwn, isDirect, is
                 <span className="block font-semibold text-accent">{message.reply_to_sender}</span>
               )}
               <span className="line-clamp-2 text-muted">
-                {message.reply_to_type === 'media' ? '📎 Archivo adjunto' : message.reply_to_body}
+                {message.reply_to_type === 'media'
+                  ? <span className="flex items-center gap-1"><Paperclip size={11} />{t('chat.attachedFile')}</span>
+                  : message.reply_to_body}
               </span>
             </div>
           </div>
@@ -1034,6 +1038,22 @@ export default function ConversationPage() {
               </div>
             )}
 
+            {hasMoreMessages && !loadingMessages && (
+              <div className="flex justify-center py-2">
+                <button
+                  onClick={() => {
+                    loadingMoreRef.current = true;
+                    prevScrollHeightRef.current = containerRef.current?.scrollHeight ?? null;
+                    loadMoreMessages();
+                  }}
+                  className="flex items-center gap-1.5 rounded-full border border-separator bg-background px-3 py-1 text-xs text-muted shadow-sm transition-colors hover:bg-default hover:text-foreground"
+                >
+                  <ArrowUp size={12} />
+                  {t('chat.loadMore')}
+                </button>
+              </div>
+            )}
+
             {loadingMessages && messages.length > 0 && (
               <div className="flex justify-center py-3">
                 <Spinner size="sm" />
@@ -1091,7 +1111,8 @@ export default function ConversationPage() {
             >
               <div className={`w-0.5 self-stretch rounded-full ${editing ? 'bg-warning' : 'bg-accent'}`} />
               <div className="min-w-0 flex-1">
-                <p className={`text-xs font-semibold ${editing ? 'text-warning' : 'text-accent'}`}>
+                <p className={`flex items-center gap-1 text-xs font-semibold ${editing ? 'text-warning' : 'text-accent'}`}>
+                  {editing ? <Pencil size={11} /> : <CornerUpLeft size={11} />}
                   {editing ? t('chat.editingMessage') : t('chat.replyingTo', { name: replyTo.sender_display_name })}
                 </p>
                 <p className="truncate text-xs text-muted">

@@ -92,7 +92,7 @@
     "writeMessage": "Escribí un mensaje...",
     "attachFile": "Adjuntar archivo",
     "loadingMessages": "Cargando mensajes...",
-    "loadMore": "↑ Cargar mensajes anteriores",
+    "loadMore": "Cargar mensajes anteriores",
     "edited": "(editado)",
     "react": "Reaccionar",
     "reply": "Responder",
@@ -101,8 +101,8 @@
     "pinnedMessages": "Mensajes fijados",
     "isTyping": "{{name}} está escribiendo",
     "areTyping": "{{names}} están escribiendo",
-    "editingMessage": "✏️ Editando mensaje",
-    "replyingTo": "↩️ Respondiendo a {{name}}",
+    "editingMessage": "Editando mensaje",
+    "replyingTo": "Respondiendo a {{name}}",
     "deleteMessage": "Eliminar mensaje",
     "deleteMessageWarning": "Esta acción es permanente y no se puede deshacer.",
     "creating": "Creando...",
@@ -115,7 +115,8 @@
     "attachVideo": "Video",
     "attachDocument": "Documento",
     "sendFile": "Enviar archivo",
-    "captionPlaceholder": "Agregar un comentario..."
+    "captionPlaceholder": "Agregar un comentario...",
+    "attachedFile": "Archivo adjunto"
   },
   "newConversation": {
     "title": "Nueva conversación",
