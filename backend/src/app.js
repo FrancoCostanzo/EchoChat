@@ -7,6 +7,7 @@ const rateLimit = require('express-rate-limit');
 
 const config = require('./config');
 const logger = require('./config/logger');
+const { pool } = require('./config/database');
 const routes = require('./routes');
 const { errorHandler } = require('./middlewares');
 
@@ -45,8 +46,15 @@ app.use(pinoHttp({
 }));
 
 // ── Health check ────────────────────────────────────────────────────────
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/api/health', async (req, res) => {
+  let db = 'ok';
+  try {
+    await pool.query('SELECT 1');
+  } catch {
+    db = 'unavailable';
+  }
+  const status = db === 'ok' ? 'ok' : 'degraded';
+  res.status(db === 'ok' ? 200 : 503).json({ status, db, timestamp: new Date().toISOString() });
 });
 
 // ── API routes ──────────────────────────────────────────────────────────
