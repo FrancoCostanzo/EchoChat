@@ -111,10 +111,10 @@ class AuthService {
     logger.info({ userId }, 'User logged out');
   }
 
-  async logoutAll(userId) {
-    await sessionRepository.deactivateAllForUser(userId);
-    await userRepository.updatePresence(userId, 'offline');
-    logger.info({ userId }, 'All sessions revoked');
+  async logoutAll(userId, exceptSessionId = null) {
+    await sessionRepository.deactivateAllForUser(userId, exceptSessionId);
+    if (!exceptSessionId) await userRepository.updatePresence(userId, 'offline');
+    logger.info({ userId, exceptSessionId }, 'Sessions revoked');
   }
 
   async validateToken(token) {
@@ -145,9 +145,6 @@ class AuthService {
 
     const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
     await credentialRepository.updatePassword(userId, passwordHash);
-
-    // Revoke all other sessions
-    await sessionRepository.deactivateAllForUser(userId);
 
     await auditRepository.log({
       actor_id: userId,

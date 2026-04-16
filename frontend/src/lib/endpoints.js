@@ -4,7 +4,7 @@ export const authApi = {
   register: (data) => api.post('/auth/register', data),
   login: (data) => api.post('/auth/login', data),
   logout: () => api.post('/auth/logout'),
-  logoutAll: () => api.post('/auth/logout-all'),
+  logoutAll: (keepCurrent = false) => api.post(`/auth/logout-all${keepCurrent ? '?keepCurrent=true' : ''}`),
   me: () => api.get('/auth/me'),
   changePassword: (data) => api.put('/auth/password', data),
   getSessions: () => api.get('/auth/sessions'),

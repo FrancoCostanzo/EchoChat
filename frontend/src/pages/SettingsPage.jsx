@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Input, Button, Spinner } from '@heroui/react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -21,7 +21,30 @@ import {
   ArrowLeft,
   User,
   Shield,
+  Smartphone,
 } from 'lucide-react';
+
+function parseUserAgent(ua) {
+  if (!ua) return { browser: null, os: null };
+  let browser = 'Browser';
+  let os = null;
+
+  if (/Edg\//.test(ua)) browser = 'Edge';
+  else if (/OPR\/|Opera\//.test(ua)) browser = 'Opera';
+  else if (/Chrome\//.test(ua)) browser = 'Chrome';
+  else if (/Firefox\//.test(ua)) browser = 'Firefox';
+  else if (/Safari\//.test(ua) && /Version\//.test(ua)) browser = 'Safari';
+
+  if (/Windows NT 10/.test(ua)) os = 'Windows 10/11';
+  else if (/Windows NT/.test(ua)) os = 'Windows';
+  else if (/iPhone/.test(ua)) os = 'iPhone';
+  else if (/iPad/.test(ua)) os = 'iPad';
+  else if (/Macintosh|Mac OS X/.test(ua)) os = 'macOS';
+  else if (/Android/.test(ua)) os = 'Android';
+  else if (/Linux/.test(ua)) os = 'Linux';
+
+  return { browser, os };
+}
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
 import { usersApi, authApi } from '@/lib/endpoints';
@@ -228,8 +251,10 @@ function SecurityTab() {
   const [form, setForm] = useState({ current_password: '', new_password: '', confirm: '' });
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [revokeAllLoading, setRevokeAllLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showRevokeAllPrompt, setShowRevokeAllPrompt] = useState(false);
 
   const updateField = (field) => (e) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
@@ -248,6 +273,7 @@ function SecurityTab() {
         new_password: form.new_password,
       });
       setSuccess(t('settings.passwordUpdated'));
+      setShowRevokeAllPrompt(true);
       setForm({ current_password: '', new_password: '', confirm: '' });
     } catch (err) {
       setError(err.message);
@@ -257,8 +283,12 @@ function SecurityTab() {
   };
 
   const fetchSessions = async () => {
-    const { data } = await authApi.getSessions();
-    setSessions(data);
+    try {
+      const { data } = await authApi.getSessions();
+      setSessions(data);
+    } catch {
+      // silently ignore fetch errors in sessions list
+    }
   };
 
   const revokeSession = async (id) => {
@@ -266,9 +296,20 @@ function SecurityTab() {
     fetchSessions();
   };
 
-  useState(() => {
+  const revokeAllOthers = async () => {
+    setRevokeAllLoading(true);
+    try {
+      await authApi.logoutAll(true); // keepCurrent=true
+      setShowRevokeAllPrompt(false);
+      fetchSessions();
+    } finally {
+      setRevokeAllLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchSessions();
-  });
+  }, []);
 
   return (
     <div className="flex flex-col gap-5">
@@ -304,10 +345,25 @@ function SecurityTab() {
             )}
           </AnimatePresence>
           <AnimatePresence>
-            {success && (
+            {success && !showRevokeAllPrompt && (
               <AnimatedAlert className="flex items-center gap-2 rounded-lg bg-success-soft px-3 py-2.5 text-sm text-success">
                 <Check size={14} />
                 {success}
+              </AnimatedAlert>
+            )}
+            {showRevokeAllPrompt && (
+              <AnimatedAlert className="flex flex-col gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-3 text-sm">
+                <p className="font-medium text-foreground">{t('settings.passwordUpdated')} — {t('settings.revokeAllPrompt')}</p>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="danger" isPending={revokeAllLoading} onPress={revokeAllOthers}>
+                    {({ isPending }) => isPending
+                      ? <><Spinner size="sm" color="current" /> {t('settings.revoking')}</>
+                      : t('settings.revokeOtherSessions')}
+                  </Button>
+                  <Button size="sm" variant="ghost" onPress={() => setShowRevokeAllPrompt(false)}>
+                    {t('common.cancel')}
+                  </Button>
+                </div>
               </AnimatedAlert>
             )}
           </AnimatePresence>
@@ -325,32 +381,59 @@ function SecurityTab() {
 
       {/* Active sessions card */}
       <div className="rounded-2xl border border-border bg-background-secondary p-5">
-        <div className="mb-4 flex items-center gap-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft">
-            <Monitor size={14} className="text-accent" />
+        <div className="mb-4 flex items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft">
+              <Monitor size={14} className="text-accent" />
+            </div>
+            <h3 className="text-sm font-semibold">{t('settings.activeSessions')}</h3>
           </div>
-          <h3 className="text-sm font-semibold">{t('settings.activeSessions')}</h3>
+          {sessions.filter((s) => !s.is_current).length > 0 && (
+            <Button size="sm" variant="danger" isPending={revokeAllLoading} onPress={revokeAllOthers}>
+              {({ isPending }) => isPending
+                ? <Spinner size="sm" color="current" />
+                : t('settings.revokeOtherSessions')}
+            </Button>
+          )}
         </div>
         <div className="flex flex-col gap-2">
-          {sessions.map((s) => (
-            <div
-              key={s.id}
-              className="flex items-center gap-3 rounded-xl border border-border bg-background p-3 transition-colors"
-            >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-background-secondary">
-                <Monitor size={16} className="text-muted" />
+          {sessions.map((s) => {
+            const { browser, os } = parseUserAgent(s.user_agent);
+            const isMobile = /iPhone|iPad|Android/.test(s.user_agent || '');
+            const DeviceIcon = isMobile ? Smartphone : Monitor;
+            const label = s.device_name
+              || (browser && os ? `${browser} · ${os}` : browser || s.device_type || t('settings.device'));
+            return (
+              <div
+                key={s.id}
+                className={`flex items-center gap-3 rounded-xl border p-3 transition-colors ${
+                  s.is_current
+                    ? 'border-accent/40 bg-accent-soft'
+                    : 'border-border bg-background'
+                }`}
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-background-secondary">
+                  <DeviceIcon size={16} className={s.is_current ? 'text-accent' : 'text-muted'} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-medium">{label}</p>
+                    {s.is_current && (
+                      <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-accent-foreground">
+                        {t('settings.currentSession')}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted">{s.ip_address}</p>
+                </div>
+                {!s.is_current && (
+                  <Button size="sm" variant="danger" onPress={() => revokeSession(s.id)}>
+                    {t('settings.closeSession')}
+                  </Button>
+                )}
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">
-                  {s.device_name || s.device_type || t('settings.device')}
-                </p>
-                <p className="text-xs text-muted">{s.ip_address}</p>
-              </div>
-              <Button size="sm" variant="danger" onPress={() => revokeSession(s.id)}>
-                {t('settings.closeSession')}
-              </Button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

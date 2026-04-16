@@ -25,7 +25,7 @@ class SessionRepository extends BaseRepository {
 
   async findActiveByUser(userId) {
     const { rows } = await this.query(
-      `SELECT id, device_name, device_type, ip_address, last_activity, created_at
+      `SELECT id, device_name, device_type, ip_address, user_agent, last_activity, created_at
        FROM user_sessions
        WHERE user_id = $1 AND is_active = TRUE AND expires_at > NOW()
        ORDER BY last_activity DESC`,
@@ -41,11 +41,18 @@ class SessionRepository extends BaseRepository {
     );
   }
 
-  async deactivateAllForUser(userId) {
-    await this.query(
-      'UPDATE user_sessions SET is_active = FALSE WHERE user_id = $1',
-      [userId]
-    );
+  async deactivateAllForUser(userId, exceptId = null) {
+    if (exceptId) {
+      await this.query(
+        'UPDATE user_sessions SET is_active = FALSE WHERE user_id = $1 AND id != $2',
+        [userId, exceptId]
+      );
+    } else {
+      await this.query(
+        'UPDATE user_sessions SET is_active = FALSE WHERE user_id = $1',
+        [userId]
+      );
+    }
   }
 
   async updateActivity(id) {

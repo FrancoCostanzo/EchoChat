@@ -33,8 +33,11 @@ class AuthController {
   }
 
   async logoutAll(req, res) {
-    await authService.logoutAll(req.user.id);
-    res.json({ status: 'success', message: 'All sessions revoked' });
+    // keepCurrent=true revokes all OTHER sessions but keeps the current one active
+    const keepCurrent = req.query.keepCurrent === 'true';
+    const exceptId = keepCurrent ? req.session?.id : null;
+    await authService.logoutAll(req.user.id, exceptId);
+    res.json({ status: 'success', message: 'Sessions revoked' });
   }
 
   async me(req, res) {
@@ -58,7 +61,9 @@ class AuthController {
 
   async getSessions(req, res) {
     const sessions = await authService.getSessions(req.user.id);
-    res.json({ status: 'success', data: sessions });
+    const currentSessionId = req.session?.id;
+    const data = sessions.map((s) => ({ ...s, is_current: s.id === currentSessionId }));
+    res.json({ status: 'success', data });
   }
 
   async revokeSession(req, res) {
