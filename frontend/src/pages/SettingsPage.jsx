@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Input, Button, Spinner } from '@heroui/react';
+import { Input, Button, Spinner, InputOTP, REGEXP_ONLY_DIGITS } from '@heroui/react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Monitor,
@@ -22,6 +22,12 @@ import {
   User,
   Shield,
   Smartphone,
+  ShieldCheck,
+  ShieldOff,
+  QrCode,
+  Copy,
+  RefreshCw,
+  KeyRound,
 } from 'lucide-react';
 
 function parseUserAgent(ua) {
@@ -246,6 +252,329 @@ function ProfileTab() {
   );
 }
 
+// ── 2FA card ──────────────────────────────────────────────────────────────────
+function TwoFactorCard() {
+  const { t } = useTranslation();
+  const user = useAuthStore((s) => s.user);
+  const updateUser = useAuthStore((s) => s.updateUser);
+
+  // 'idle' | 'setup' | 'backup-codes' | 'disable' | 'regen' | 'regen-codes'
+  const [mode, setMode] = useState('idle');
+  const [setupData, setSetupData] = useState(null);       // { qr_url, secret, backup_codes }
+  const [backupCodes, setBackupCodes] = useState([]);     // shown once after enable / regen
+  const [code, setCode] = useState('');
+  const [disableForm, setDisableForm] = useState({ password: '', code: '' });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  const reset = () => { setMode('idle'); setCode(''); setDisableForm({ password: '', code: '' }); setError(''); setSetupData(null); };
+
+  const handleSetup = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const { data } = await authApi.setup2fa();
+      setSetupData(data);
+      setMode('setup');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEnable = async () => {
+    if (!code.trim()) return;
+    setError('');
+    setLoading(true);
+    try {
+      const { data } = await authApi.enable2fa(code.trim());
+      setBackupCodes(data.backup_codes);
+      updateUser({ totp_enabled: true });
+      setMode('backup-codes');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDisable = async () => {
+    if (!disableForm.password || !disableForm.code) return;
+    setError('');
+    setLoading(true);
+    try {
+      await authApi.disable2fa(disableForm.password, disableForm.code);
+      updateUser({ totp_enabled: false });
+      reset();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegen = async () => {
+    if (!code.trim()) return;
+    setError('');
+    setLoading(true);
+    try {
+      const { data } = await authApi.regenerateBackupCodes(code.trim());
+      setBackupCodes(data.backup_codes);
+      setMode('regen-codes');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copySecret = () => {
+    if (setupData?.secret) {
+      navigator.clipboard.writeText(setupData.secret);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const isEnabled = user?.totp_enabled;
+
+  return (
+    <div className="rounded-2xl border border-border bg-background-secondary p-5">
+      {/* Header */}
+      <div className="mb-4 flex items-center gap-2.5">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft">
+          {isEnabled ? <ShieldCheck size={14} className="text-accent" /> : <Shield size={14} className="text-accent" />}
+        </div>
+        <div className="flex-1">
+          <h3 className="text-sm font-semibold">{t('settings.twoFactor')}</h3>
+        </div>
+        {isEnabled && mode === 'idle' && (
+          <span className="rounded-full bg-success-soft px-2 py-0.5 text-[11px] font-semibold text-success">
+            {t('settings.twoFactorEnabled')}
+          </span>
+        )}
+      </div>
+
+      {/* ── Idle ── */}
+      {mode === 'idle' && (
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-muted">
+            {isEnabled ? t('settings.twoFactorEnabledDesc') : t('settings.twoFactorDisabledDesc')}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {!isEnabled ? (
+              <Button size="sm" isPending={loading} onPress={handleSetup}>
+                {({ isPending }) => isPending
+                  ? <><Spinner size="sm" color="current" /> {t('common.loading')}</>
+                  : <><ShieldCheck size={14} /> {t('settings.enable2fa')}</>}
+              </Button>
+            ) : (
+              <>
+                <Button size="sm" variant="danger" onPress={() => setMode('disable')}>
+                  <ShieldOff size={14} /> {t('settings.disable2fa')}
+                </Button>
+                <Button size="sm" variant="secondary" onPress={() => { setMode('regen'); setCode(''); setError(''); }}>
+                  <RefreshCw size={14} /> {t('settings.regenerateBackupCodes')}
+                </Button>
+              </>
+            )}
+          </div>
+          <AnimatePresence>
+            {error && (
+              <AnimatedAlert className="flex items-center gap-2 rounded-lg bg-danger/10 px-3 py-2.5 text-sm text-danger">
+                <AlertCircle size={14} /> {error}
+              </AnimatedAlert>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
+      {/* ── Setup: scan QR ── */}
+      {mode === 'setup' && setupData && (
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-muted">{t('settings.scan2faQr')}</p>
+          <div className="flex justify-center">
+            <img src={setupData.qr_code} alt="QR Code" className="h-44 w-44 rounded-xl border border-border" />
+          </div>
+          <div className="rounded-lg border border-border bg-background px-3 py-2.5">
+            <p className="mb-1 text-xs text-muted">{t('settings.manualEntry')}</p>
+            <div className="flex items-center justify-between gap-2">
+              <code className="break-all text-sm font-mono tracking-widest text-foreground select-all">
+                {setupData.secret}
+              </code>
+              <button
+                type="button"
+                onClick={copySecret}
+                className="shrink-0 text-muted hover:text-foreground"
+                title={t('common.copy')}
+              >
+                {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />}
+              </button>
+            </div>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted">{t('settings.enterTotpCode')}</label>
+            <InputOTP
+              maxLength={6}
+              pattern={REGEXP_ONLY_DIGITS}
+              value={code}
+              onChange={setCode}
+              isInvalid={!!error}
+              variant="secondary"
+            >
+              <InputOTP.Group>
+                <InputOTP.Slot index={0} />
+                <InputOTP.Slot index={1} />
+                <InputOTP.Slot index={2} />
+              </InputOTP.Group>
+              <InputOTP.Separator />
+              <InputOTP.Group>
+                <InputOTP.Slot index={3} />
+                <InputOTP.Slot index={4} />
+                <InputOTP.Slot index={5} />
+              </InputOTP.Group>
+            </InputOTP>
+          </div>
+          <AnimatePresence>
+            {error && (
+              <AnimatedAlert className="flex items-center gap-2 rounded-lg bg-danger/10 px-3 py-2.5 text-sm text-danger">
+                <AlertCircle size={14} /> {error}
+              </AnimatedAlert>
+            )}
+          </AnimatePresence>
+          <div className="flex gap-2">
+            <Button isPending={loading} onPress={handleEnable}>
+              {({ isPending }) => isPending
+                ? <><Spinner size="sm" color="current" /> {t('common.loading')}</>
+                : <><Check size={14} /> {t('settings.confirmEnable2fa')}</>}
+            </Button>
+            <Button variant="ghost" onPress={reset}>{t('common.cancel')}</Button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Backup codes (shown once) ── */}
+      {(mode === 'backup-codes' || mode === 'regen-codes') && (
+        <div className="flex flex-col gap-4">
+          <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2.5 text-sm text-warning">
+            <KeyRound size={14} className="mt-0.5 shrink-0" />
+            <span>{t('settings.backupCodesWarning')}</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {backupCodes.map((c, i) => (
+              <code key={i} className="rounded-lg border border-border bg-background px-3 py-2 text-center font-mono text-sm tracking-widest">
+                {c}
+              </code>
+            ))}
+          </div>
+          <Button onPress={reset}>{t('common.done')}</Button>
+        </div>
+      )}
+
+      {/* ── Disable 2FA ── */}
+      {mode === 'disable' && (
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-muted">{t('settings.disable2faDesc')}</p>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted">{t('settings.currentPassword')}</label>
+            <Input
+              type="password"
+              value={disableForm.password}
+              onChange={(e) => setDisableForm((f) => ({ ...f, password: e.target.value }))}
+              autoComplete="current-password"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted">{t('settings.enterTotpCode')}</label>
+            <InputOTP
+              maxLength={6}
+              pattern={REGEXP_ONLY_DIGITS}
+              value={disableForm.code}
+              onChange={(val) => setDisableForm((f) => ({ ...f, code: val }))}
+              isInvalid={!!error}
+              variant="secondary"
+            >
+              <InputOTP.Group>
+                <InputOTP.Slot index={0} />
+                <InputOTP.Slot index={1} />
+                <InputOTP.Slot index={2} />
+              </InputOTP.Group>
+              <InputOTP.Separator />
+              <InputOTP.Group>
+                <InputOTP.Slot index={3} />
+                <InputOTP.Slot index={4} />
+                <InputOTP.Slot index={5} />
+              </InputOTP.Group>
+            </InputOTP>
+          </div>
+          <AnimatePresence>
+            {error && (
+              <AnimatedAlert className="flex items-center gap-2 rounded-lg bg-danger/10 px-3 py-2.5 text-sm text-danger">
+                <AlertCircle size={14} /> {error}
+              </AnimatedAlert>
+            )}
+          </AnimatePresence>
+          <div className="flex gap-2">
+            <Button variant="danger" isPending={loading} onPress={handleDisable}>
+              {({ isPending }) => isPending
+                ? <><Spinner size="sm" color="current" /> {t('common.loading')}</>
+                : t('settings.disable2fa')}
+            </Button>
+            <Button variant="ghost" onPress={reset}>{t('common.cancel')}</Button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Regenerate backup codes ── */}
+      {mode === 'regen' && (
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-muted">{t('settings.regenerateDesc')}</p>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted">{t('settings.enterTotpCode')}</label>
+            <InputOTP
+              maxLength={6}
+              pattern={REGEXP_ONLY_DIGITS}
+              value={code}
+              onChange={setCode}
+              isInvalid={!!error}
+              variant="secondary"
+            >
+              <InputOTP.Group>
+                <InputOTP.Slot index={0} />
+                <InputOTP.Slot index={1} />
+                <InputOTP.Slot index={2} />
+              </InputOTP.Group>
+              <InputOTP.Separator />
+              <InputOTP.Group>
+                <InputOTP.Slot index={3} />
+                <InputOTP.Slot index={4} />
+                <InputOTP.Slot index={5} />
+              </InputOTP.Group>
+            </InputOTP>
+          </div>
+          <AnimatePresence>
+            {error && (
+              <AnimatedAlert className="flex items-center gap-2 rounded-lg bg-danger/10 px-3 py-2.5 text-sm text-danger">
+                <AlertCircle size={14} /> {error}
+              </AnimatedAlert>
+            )}
+          </AnimatePresence>
+          <div className="flex gap-2">
+            <Button isPending={loading} onPress={handleRegen}>
+              {({ isPending }) => isPending
+                ? <><Spinner size="sm" color="current" /> {t('common.loading')}</>
+                : t('settings.regenerateBackupCodes')}
+            </Button>
+            <Button variant="ghost" onPress={reset}>{t('common.cancel')}</Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SecurityTab() {
   const { t } = useTranslation();
   const [form, setForm] = useState({ current_password: '', new_password: '', confirm: '' });
@@ -378,6 +707,9 @@ function SecurityTab() {
           </Button>
         </div>
       </div>
+
+      {/* 2FA card */}
+      <TwoFactorCard />
 
       {/* Active sessions card */}
       <div className="rounded-2xl border border-border bg-background-secondary p-5">

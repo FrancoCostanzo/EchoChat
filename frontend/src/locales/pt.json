@@ -13,7 +13,9 @@
     "back": "Voltar",
     "optional": "opcional",
     "download": "Baixar",
-    "required": "*"
+    "required": "*",
+    "copy": "Copiar",
+    "done": "Pronto"
   },
   "auth": {
     "loginTitle": "Entre na sua conta",
@@ -53,7 +55,8 @@
       "confirmRequired": "Confirme sua senha",
       "passwordMismatch": "As senhas não coincidem",
       "loginFailed": "Erro ao entrar",
-      "registerFailed": "Erro ao se cadastrar"
+      "registerFailed": "Erro ao se cadastrar",
+      "invalidCode": "Código inválido ou expirado"
     },
     "passwordRules": {
       "minLength": "Pelo menos 8 caracteres",
@@ -176,6 +179,20 @@
     "revokeOtherSessions": "Encerrar outras sessões",
     "revokeAllPrompt": "Deseja encerrar todas as outras sessões?",
     "revoking": "Encerrando...",
+    "twoFactor": "Autenticação de dois fatores (2FA)",
+    "twoFactorEnabled": "Ativado",
+    "twoFactorEnabledDesc": "Sua conta está protegida com autenticação de dois fatores.",
+    "twoFactorDisabledDesc": "Adicione uma camada extra de segurança ativando a autenticação de dois fatores.",
+    "enable2fa": "Ativar 2FA",
+    "disable2fa": "Desativar 2FA",
+    "disable2faDesc": "Digite sua senha atual e o código do autenticador para desativar o 2FA.",
+    "confirmEnable2fa": "Confirmar e ativar",
+    "scan2faQr": "Escaneie este código QR com seu aplicativo autenticador (Google Authenticator, Authy, etc.).",
+    "manualEntry": "Entrada manual",
+    "enterTotpCode": "Código de verificação",
+    "backupCodesWarning": "Guarde esses códigos em um lugar seguro. Cada um pode ser usado apenas uma vez caso perca acesso ao seu app.",
+    "regenerateBackupCodes": "Regenerar códigos de recuperação",
+    "regenerateDesc": "Digite seu código do autenticador para gerar novos códigos de recuperação. Os antigos serão invalidados.",
     "theme": "Tema",
     "light": "Claro",
     "dark": "Escuro",

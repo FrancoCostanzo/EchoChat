@@ -9,6 +9,12 @@ export const authApi = {
   changePassword: (data) => api.put('/auth/password', data),
   getSessions: () => api.get('/auth/sessions'),
   revokeSession: (id) => api.delete(`/auth/sessions/${id}`),
+  // 2FA
+  setup2fa: () => api.post('/auth/2fa/setup'),
+  enable2fa: (code) => api.post('/auth/2fa/enable', { code }),
+  disable2fa: (password, code) => api.post('/auth/2fa/disable', { password, code }),
+  verify2faChallenge: (data) => api.post('/auth/2fa/challenge', data),
+  regenerateBackupCodes: (code) => api.post('/auth/2fa/backup-codes/regenerate', { code }),
 };
 
 export const usersApi = {

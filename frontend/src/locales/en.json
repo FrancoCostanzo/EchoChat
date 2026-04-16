@@ -13,7 +13,9 @@
     "back": "Back",
     "optional": "optional",
     "download": "Download",
-    "required": "*"
+    "required": "*",
+    "copy": "Copy",
+    "done": "Done"
   },
   "auth": {
     "loginTitle": "Sign in to your account",
@@ -53,7 +55,8 @@
       "confirmRequired": "Confirm your password",
       "passwordMismatch": "Passwords do not match",
       "loginFailed": "Login failed",
-      "registerFailed": "Registration failed"
+      "registerFailed": "Registration failed",
+      "invalidCode": "Invalid or expired code"
     },
     "passwordRules": {
       "minLength": "At least 8 characters",
@@ -176,6 +179,20 @@
     "revokeOtherSessions": "Close other sessions",
     "revokeAllPrompt": "Do you want to close all other sessions?",
     "revoking": "Closing...",
+    "twoFactor": "Two-factor authentication (2FA)",
+    "twoFactorEnabled": "Enabled",
+    "twoFactorEnabledDesc": "Your account is protected with two-factor authentication.",
+    "twoFactorDisabledDesc": "Add an extra layer of security by enabling two-factor authentication.",
+    "enable2fa": "Enable 2FA",
+    "disable2fa": "Disable 2FA",
+    "disable2faDesc": "Enter your current password and authenticator code to disable 2FA.",
+    "confirmEnable2fa": "Confirm and enable",
+    "scan2faQr": "Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.).",
+    "manualEntry": "Manual entry",
+    "enterTotpCode": "Verification code",
+    "backupCodesWarning": "Save these codes somewhere safe. Each one can only be used once if you lose access to your app.",
+    "regenerateBackupCodes": "Regenerate backup codes",
+    "regenerateDesc": "Enter your authenticator code to generate new backup codes. The old ones will be invalidated.",
     "theme": "Theme",
     "light": "Light",
     "dark": "Dark",

@@ -52,6 +52,49 @@ class CredentialRepository extends BaseRepository {
       [userId]
     );
   }
+
+  // ── 2FA ──────────────────────────────────────────────────────────────────
+
+  async setTotpSecret(userId, secret) {
+    await this.query(
+      `UPDATE user_credentials SET totp_secret = $1, totp_enabled = FALSE WHERE user_id = $2`,
+      [secret, userId]
+    );
+  }
+
+  async enableTotp(userId, hashedBackupCodes) {
+    await this.query(
+      `UPDATE user_credentials
+       SET totp_enabled = TRUE, totp_backup_codes = $1
+       WHERE user_id = $2`,
+      [hashedBackupCodes, userId]
+    );
+  }
+
+  async disableTotp(userId) {
+    await this.query(
+      `UPDATE user_credentials
+       SET totp_enabled = FALSE, totp_secret = NULL, totp_backup_codes = '{}'
+       WHERE user_id = $1`,
+      [userId]
+    );
+  }
+
+  async updateBackupCodes(userId, hashedBackupCodes) {
+    await this.query(
+      `UPDATE user_credentials SET totp_backup_codes = $1 WHERE user_id = $2`,
+      [hashedBackupCodes, userId]
+    );
+  }
+
+  async removeBackupCode(userId, codeHash) {
+    await this.query(
+      `UPDATE user_credentials
+       SET totp_backup_codes = array_remove(totp_backup_codes, $1)
+       WHERE user_id = $2`,
+      [codeHash, userId]
+    );
+  }
 }
 
 module.exports = new CredentialRepository();

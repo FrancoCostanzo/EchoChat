@@ -1,7 +1,7 @@
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const logger = require('../config/logger');
-const { userRepository } = require('../repositories');
+const { userRepository, credentialRepository } = require('../repositories');
 const { minioClient } = require('../config/minio');
 const { NotFoundError, BadRequestError } = require('../errors');
 const { toUserResponse } = require('../models');
@@ -29,7 +29,9 @@ class UserService {
   async getProfile(userId) {
     const user = await userRepository.findById(userId);
     if (!user) throw new NotFoundError('User');
-    return withAvatarUrl(toUserResponse(user));
+    const creds = await credentialRepository.findByUserId(userId);
+    const profile = await withAvatarUrl(toUserResponse(user));
+    return { ...profile, totp_enabled: creds?.totp_enabled ?? false };
   }
 
   async updateProfile(userId, data) {
