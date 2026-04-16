@@ -5,6 +5,8 @@ import { authApi } from '@/lib/endpoints';
 const TOKEN_KEY = 'echochat_token';
 const USER_KEY = 'echochat_user';
 
+let initPromise = null;
+
 export const useAuthStore = create((set, get) => ({
   user: (() => { try { return JSON.parse(localStorage.getItem(USER_KEY)); } catch { return null; } })(),
   token: localStorage.getItem(TOKEN_KEY),
@@ -12,23 +14,27 @@ export const useAuthStore = create((set, get) => ({
   loading: true,
   pending2fa: null, // holds temp_token while waiting for TOTP code
 
-  init: async () => {
-    const token = localStorage.getItem(TOKEN_KEY);
-    if (!token) {
-      set({ loading: false });
-      return;
-    }
-    api.setToken(token);
-    try {
-      const { data } = await authApi.me();
-      localStorage.setItem(USER_KEY, JSON.stringify(data));
-      set({ user: data, isAuthenticated: true, loading: false });
-    } catch (err) {
-      if (err.status === 401 || err.status === 403) {
-        get().clearAuth();
+  init: () => {
+    if (initPromise) return initPromise;
+    initPromise = (async () => {
+      const token = localStorage.getItem(TOKEN_KEY);
+      if (!token) {
+        set({ loading: false });
+        return;
       }
-      set({ loading: false });
-    }
+      api.setToken(token);
+      try {
+        const { data } = await authApi.me();
+        localStorage.setItem(USER_KEY, JSON.stringify(data));
+        set({ user: data, isAuthenticated: true, loading: false });
+      } catch (err) {
+        if (err.status === 401 || err.status === 403) {
+          get().clearAuth();
+        }
+        set({ loading: false });
+      }
+    })();
+    return initPromise;
   },
 
   login: async (credentials) => {
