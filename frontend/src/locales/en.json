@@ -13,6 +13,7 @@
     "back": "Back",
     "optional": "optional",
     "download": "Download",
+    "open": "Open",
     "required": "*",
     "copy": "Copy",
     "done": "Done"

@@ -34,6 +34,7 @@ import { useChatStore } from '@/stores/chatStore';
 import { useTranslation } from 'react-i18next';
 import UserAvatar from '@/components/UserAvatar';
 import ImageViewer from '@/components/ImageViewer';
+import PdfPreview from '@/components/PdfPreview';
 import SendButton from '@/components/SendButton';
 import { formatMessageTime, formatFullTime } from '@/lib/dates';
 import { storageApi } from '@/lib/endpoints';
@@ -350,6 +351,7 @@ function AttachmentView({ attachment }) {
     attachment.object_type === 'image' || attachment.mime_type?.startsWith('image/');
   const isVideo =
     attachment.object_type === 'video' || attachment.mime_type?.startsWith('video/');
+  const isPdf = attachment.mime_type === 'application/pdf';
 
   useEffect(() => {
     storageApi.getUrl(attachment.id).then((res) => setUrl(res.data.url)).catch(() => {});
@@ -359,7 +361,7 @@ function AttachmentView({ attachment }) {
     return (
       <div
         className={`animate-pulse rounded-xl bg-default/60 ${
-          isImage || isVideo ? 'h-32 w-48' : 'h-9 w-44'
+          isImage || isVideo || isPdf ? 'h-48 w-[280px]' : 'h-9 w-44'
         }`}
       />
     );
@@ -415,6 +417,16 @@ function AttachmentView({ attachment }) {
           <Download size={13} />
         </button>
       </div>
+    );
+  }
+
+  if (isPdf) {
+    return (
+      <PdfPreview
+        url={url}
+        filename={attachment.original_filename}
+        onDownload={() => downloadBlob(url, attachment.original_filename)}
+      />
     );
   }
 
