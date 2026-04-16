@@ -2,6 +2,11 @@ import { create } from 'zustand';
 import { conversationsApi, messagesApi } from '@/lib/endpoints';
 import { connectSocket, disconnectSocket, getSocket } from '@/lib/socket';
 
+// Tracks in-flight fetchMessages calls by conversationId so that concurrent
+// calls (e.g. React StrictMode's double-invoke) await the same Promise instead
+// of firing duplicate HTTP requests.
+const _inFlightFetch = new Map();
+
 export const useChatStore = create((set, get) => ({
   conversations: [],
   activeConversationId: null,
@@ -175,18 +180,33 @@ export const useChatStore = create((set, get) => ({
   },
 
   setActiveConversation: async (conversationId) => {
-    if (get().activeConversationId === conversationId) return;
+    const state = get();
+    if (state.activeConversationId === conversationId) return;
+    // Always restore activeConversationId synchronously so the UI never gets
+    // stuck — clearActiveConversation (called by StrictMode cleanup) may have
+    // nulled it between the two effect invocations.
     set({ activeConversationId: conversationId, messages: [], hasMoreMessages: true });
-    if (conversationId) {
-      await get().fetchMessages(conversationId);
-      // Optimistically clear unread badge
-      set((state) => ({
-        conversations: state.conversations.map((c) =>
-          c.id === conversationId ? { ...c, unread_count: 0 } : c,
-        ),
-      }));
-      conversationsApi.markAsRead(conversationId).catch(() => {});
+    if (!conversationId) return;
+
+    // If another call is already fetching this conversation (StrictMode double-
+    // invoke), await the same Promise and skip duplicate side effects.
+    if (_inFlightFetch.has(conversationId)) {
+      await _inFlightFetch.get(conversationId);
+      return;
     }
+
+    const fetchPromise = get().fetchMessages(conversationId)
+      .finally(() => _inFlightFetch.delete(conversationId));
+    _inFlightFetch.set(conversationId, fetchPromise);
+    await fetchPromise;
+
+    // Optimistically clear unread badge
+    set((s) => ({
+      conversations: s.conversations.map((c) =>
+        c.id === conversationId ? { ...c, unread_count: 0 } : c,
+      ),
+    }));
+    conversationsApi.markAsRead(conversationId).catch(() => {});
   },
 
   fetchMessages: async (conversationId, cursor) => {

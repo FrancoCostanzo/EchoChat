@@ -345,9 +345,14 @@ function ConfirmDeleteModal({ message, onConfirm, onCancel }) {
 }
 
 /* ─────────────────────────── Attachment View ─────────────────────────── */
+// Module-level cache so each attachment URL is only fetched once per session,
+// regardless of React StrictMode remounts or the same attachment appearing
+// in multiple messages.
+const _attachmentUrlCache = new Map();
+
 function AttachmentView({ attachment }) {
   const { t } = useTranslation();
-  const [url, setUrl] = useState(null);
+  const [url, setUrl] = useState(() => _attachmentUrlCache.get(attachment.id) ?? null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const isImage =
     attachment.object_type === 'image' || attachment.mime_type?.startsWith('image/');
@@ -356,7 +361,14 @@ function AttachmentView({ attachment }) {
   const isPdf = attachment.mime_type === 'application/pdf';
 
   useEffect(() => {
-    storageApi.getUrl(attachment.id).then((res) => setUrl(res.data.url)).catch(() => {});
+    if (_attachmentUrlCache.has(attachment.id)) {
+      setUrl(_attachmentUrlCache.get(attachment.id));
+      return;
+    }
+    storageApi.getUrl(attachment.id).then((res) => {
+      _attachmentUrlCache.set(attachment.id, res.data.url);
+      setUrl(res.data.url);
+    }).catch(() => {});
   }, [attachment.id]);
 
   if (!url) {
