@@ -647,17 +647,19 @@ const MessageBubble = memo(function MessageBubble({ message, isOwn, isDirect, is
 
         {isOwn && (
           <>
-            <Tooltip content={t('common.edit')}>
-              <Button
-                isIconOnly
-                size="sm"
-                variant="ghost"
-                className="h-7 w-7 min-w-0 rounded-full border border-separator/50 bg-background shadow-sm hover:border-accent/40"
-                onPress={() => onEdit(message)}
-              >
-                <Pencil size={13} />
-              </Button>
-            </Tooltip>
+            {(message.type !== 'media' || message.body) && (
+              <Tooltip content={t('common.edit')}>
+                <Button
+                  isIconOnly
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 w-7 min-w-0 rounded-full border border-separator/50 bg-background shadow-sm hover:border-accent/40"
+                  onPress={() => onEdit(message)}
+                >
+                  <Pencil size={13} />
+                </Button>
+              </Tooltip>
+            )}
             <Tooltip content={t('common.delete')}>
               <Button
                 isIconOnly
@@ -801,7 +803,7 @@ export default function ConversationPage() {
   };
 
   const handleSend = async () => {
-    const body = input.trim();
+    const body = (input ?? '').trim();
     if (!body) return;
 
     emitTyping(conversationId, false);
@@ -861,6 +863,7 @@ export default function ConversationPage() {
   }, [conversationId, sendMessage, user]);
 
   const handleEdit = useCallback((msg) => {
+    if (!msg.body) return;
     setEditing(msg);
     setInput(msg.body);
     setReplyTo(null);
@@ -1139,7 +1142,7 @@ export default function ConversationPage() {
 
             <SendButton
               onPress={handleSend}
-              isDisabled={!input.trim()}
+              isDisabled={!(input ?? '').trim()}
               label={t('chat.send')}
             />
           </div>
