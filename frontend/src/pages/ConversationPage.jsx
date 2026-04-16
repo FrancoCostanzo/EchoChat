@@ -347,7 +347,8 @@ function ConfirmDeleteModal({ message, onConfirm, onCancel }) {
 /* ─────────────────────────── Attachment View ─────────────────────────── */
 // Module-level cache so each attachment URL is only fetched once per session,
 // regardless of React StrictMode remounts or the same attachment appearing
-// in multiple messages.
+// in multiple messages.  Values are either a resolved URL string or an
+// in-flight Promise, so concurrent mounts share the same request.
 const _attachmentUrlCache = new Map();
 
 function AttachmentView({ attachment }) {
@@ -361,14 +362,25 @@ function AttachmentView({ attachment }) {
   const isPdf = attachment.mime_type === 'application/pdf';
 
   useEffect(() => {
-    if (_attachmentUrlCache.has(attachment.id)) {
-      setUrl(_attachmentUrlCache.get(attachment.id));
+    const cached = _attachmentUrlCache.get(attachment.id);
+    if (typeof cached === 'string') {
+      setUrl(cached);
       return;
     }
-    storageApi.getUrl(attachment.id).then((res) => {
-      _attachmentUrlCache.set(attachment.id, res.data.url);
-      setUrl(res.data.url);
-    }).catch(() => {});
+    // Reuse in-flight promise or start a new one
+    const promise = cached instanceof Promise
+      ? cached
+      : (() => {
+          const p = storageApi.getUrl(attachment.id).then((res) => {
+            _attachmentUrlCache.set(attachment.id, res.data.url);
+            return res.data.url;
+          }).catch(() => {
+            _attachmentUrlCache.delete(attachment.id);
+          });
+          _attachmentUrlCache.set(attachment.id, p);
+          return p;
+        })();
+    promise.then((resolvedUrl) => { if (resolvedUrl) setUrl(resolvedUrl); }).catch(() => {});
   }, [attachment.id]);
 
   if (!url) {
