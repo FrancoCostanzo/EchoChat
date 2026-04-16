@@ -133,7 +133,7 @@ git commit -m "Revert ⏪ Revertir cambio en validación de JWT (#55)"
 Todas se crean desde `develop` (salvo `hotfix/*`, que sale de `main`).
 
 ```
-<tipo>/<descripcion-en-kebab-case>
+<tipo>/<descripción-en-kebab-case>
 ```
 
 | Tipo | Cuándo usarlo | Ejemplo |
@@ -213,7 +213,7 @@ MAJOR.MINOR.PATCH
 git checkout develop
 git checkout -b release/1.3.0
 
-# 2. Actualizar version en package.json (backend y frontend)
+# 2. Actualizar versión en package.json (backend y frontend)
 npm version 1.3.0 --no-git-tag-version
 
 # 3. Commit de versión
