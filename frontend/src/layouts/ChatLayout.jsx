@@ -189,8 +189,8 @@ function ConversationRow({ conversation, isActive, onClick, t }) {
             showStatus
           />
         ) : (
-          <div className="flex h-8 w-8 items-center justify-center">
-            <Hash size={20} className="text-muted" strokeWidth={2.25} />
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-soft">
+            <Users size={16} className="text-accent" strokeWidth={2} />
           </div>
         )}
       </div>
@@ -331,7 +331,7 @@ function ChatSidebar() {
         {channels.length > 0 && (
           <>
             <SectionHeader
-              label={t('sidebar.channels', { defaultValue: 'Canales' })}
+              label={t('sidebar.groups', { defaultValue: 'Grupos' })}
               count={channels.length}
               collapsed={channelsCollapsed}
               onToggle={() => setChannelsCollapsed((v) => !v)}

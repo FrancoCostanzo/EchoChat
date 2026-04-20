@@ -14,6 +14,7 @@ import {
   Pencil,
   Trash2,
   Hash,
+  Users,
   ArrowDown,
   ArrowLeft,
   ArrowUp,
@@ -391,7 +392,7 @@ function AttachmentView({ attachment }) {
           <img
             src={url}
             alt={attachment.original_filename}
-            className="max-h-80 max-w-[70vw] object-cover sm:max-w-sm"
+            className="max-h-80 max-w-[70vw] rounded-md sm:max-w-sm"
           />
           <div className="absolute inset-0 flex items-end justify-end gap-1 bg-linear-to-t from-black/50 to-transparent p-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
             <button
@@ -575,11 +576,23 @@ const MessageRow = memo(function MessageRow({
 
             {/* Attachments */}
             {message.attachments?.length > 0 && (
-              <div className={`flex flex-col gap-1.5 ${message.type !== 'media' || message.body ? 'mt-1.5' : 'mt-0.5'}`}>
+              <div className={`flex flex-col gap-1.5 ${message.body && message.type !== 'media' ? 'mt-1.5' : 'mt-0.5'}`}>
                 {message.attachments.map((att) => (
                   <AttachmentView key={att.id} attachment={att} />
                 ))}
               </div>
+            )}
+
+            {/* Caption for media messages (shown after attachment) */}
+            {message.type === 'media' && message.body && message.attachments?.length > 0 && (
+              <p className={`mt-1 wrap-break-word whitespace-pre-wrap text-[14px] leading-[1.375] text-foreground ${
+                status === 'sending' ? 'opacity-70' : ''
+              }`}>
+                {message.body}
+                {message.is_edited && (
+                  <span className="ml-1 text-[10px] text-muted">({t('chat.edited')})</span>
+                )}
+              </p>
             )}
 
             {/* Pending attachment placeholder */}
@@ -589,9 +602,6 @@ const MessageRow = memo(function MessageRow({
                 <span className="max-w-40 truncate opacity-70">{message._filename || t('chat.uploadingFile')}</span>
               </div>
             )}
-
-            {/* Body caption on media only */}
-            {message.type === 'media' && message.body && !message.attachments?.length && null}
           </>
         )}
 
@@ -987,7 +997,7 @@ export default function ConversationPage() {
 
   const inputPlaceholder = isDirect
     ? t('chat.messageDirect', { name: convName, defaultValue: t('chat.writeMessage') })
-    : t('chat.messageChannel', { name: convName, defaultValue: t('chat.writeMessage') });
+    : t('chat.messageGroup', { name: convName, defaultValue: t('chat.writeMessage') });
 
   return (
     <>
@@ -1037,7 +1047,9 @@ export default function ConversationPage() {
               </>
             ) : (
               <>
-                <Hash size={22} className="shrink-0 text-muted" strokeWidth={2.25} />
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-soft">
+                  <Users size={16} className="text-accent" strokeWidth={2} />
+                </div>
                 <h2 className="truncate text-[15px] font-semibold leading-tight">
                   {convName}
                 </h2>
@@ -1117,16 +1129,16 @@ export default function ConversationPage() {
                       size="lg"
                     />
                   ) : (
-                    <Hash size={32} className="text-accent" strokeWidth={2.25} />
+                    <Users size={32} className="text-accent" strokeWidth={2} />
                   )}
                 </div>
                 <h3 className="mt-4 text-2xl font-bold">
-                  {isDirect ? convName : `${t('chat.welcomeChannel', { defaultValue: 'Bienvenido a' })} #${convName}`}
+                  {isDirect ? convName : `${t('chat.welcomeGroup', { defaultValue: 'Bienvenido al grupo' })} ${convName}`}
                 </h3>
                 <p className="mt-1 text-sm text-muted">
                   {isDirect
                     ? t('chat.directStart', { name: convName, defaultValue: `Este es el inicio de tu historial con ${convName}.` })
-                    : t('chat.channelStart', { name: convName, defaultValue: `Este es el comienzo del canal #${convName}.` })}
+                    : t('chat.groupStart', { name: convName, defaultValue: `Este es el comienzo del grupo ${convName}.` })}
                 </p>
               </div>
             )}

@@ -20,7 +20,7 @@ export default function UserAvatar({ user, size = 'md', showStatus = false, clas
     <div className={`relative inline-flex ${className}`}>
       <Avatar size={size}>
         {user?.avatar_url && <Avatar.Image src={user.avatar_url} alt={user?.display_name || ''} />}
-        <Avatar.Fallback>{initials}</Avatar.Fallback>
+        <Avatar.Fallback delayMs={0}>{initials}</Avatar.Fallback>
       </Avatar>
       {showStatus && user?.presence && (
         <span
