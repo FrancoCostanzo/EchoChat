@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx vite *)",
+      "Bash(gh auth *)",
+      "Bash(gh pr create --base develop --head feat/discord-ui-redesign --title 'Feat🎨: rediseño de UI/UX con estética Discord' --body ' *)"
+    ]
+  }
+}

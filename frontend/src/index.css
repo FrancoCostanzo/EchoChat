@@ -65,6 +65,43 @@
     --accent-foreground: var(--eclipse);
   }
 
+  /* ── Light theme override (Discord light palette) ──────────────────── */
+  :root,
+  .light,
+  [data-theme="light"] {
+    --background: oklch(1 0 0);                    /* #FFFFFF */
+    --foreground: oklch(0.141 0.005 286);          /* #060607 */
+
+    --surface: oklch(0.969 0.002 286);             /* #F2F3F5 sidebar */
+    --surface-foreground: var(--foreground);
+    --surface-secondary: oklch(0.949 0.002 286);   /* #EBEDEF */
+    --surface-tertiary: oklch(0.934 0.003 286);
+
+    --overlay: oklch(1 0 0);
+    --overlay-foreground: var(--foreground);
+
+    --muted: oklch(0.488 0.008 286);               /* #5C5E66 */
+
+    --default: oklch(0.949 0.002 286);
+    --default-foreground: var(--foreground);
+
+    --field-background: oklch(0.949 0.002 286);
+    --field-foreground: var(--foreground);
+    --field-placeholder: oklch(0.58 0.008 286);
+
+    --border: oklch(0.909 0.004 286);              /* #E3E5E8 */
+    --separator: oklch(0.925 0.004 286);
+    --focus: var(--accent);
+
+    --danger-soft: oklch(0.618 0.234 24 / 0.10);
+    --danger-soft-hover: oklch(0.618 0.234 24 / 0.18);
+    --success-soft: oklch(0.638 0.156 150 / 0.10);
+    --warning-soft: oklch(0.775 0.128 72 / 0.10);
+
+    --scrollbar: oklch(0.88 0.004 286);
+    --scrollbar-thumb: oklch(0.82 0.004 286);
+  }
+
   /* ── Dark theme override (Discord palette) ─────────────────────────── */
   .dark,
   [data-theme="dark"] {
@@ -109,43 +146,6 @@
     --scrollbar-thumb: oklch(0.16 0.005 286);
 
     --backdrop: rgba(0, 0, 0, 0.7);
-  }
-
-  /* ── Light theme override (Discord light palette) ──────────────────── */
-  :root,
-  .light,
-  [data-theme="light"] {
-    --background: oklch(1 0 0);                    /* #FFFFFF */
-    --foreground: oklch(0.141 0.005 286);          /* #060607 */
-
-    --surface: oklch(0.969 0.002 286);             /* #F2F3F5 sidebar */
-    --surface-foreground: var(--foreground);
-    --surface-secondary: oklch(0.949 0.002 286);   /* #EBEDEF */
-    --surface-tertiary: oklch(0.934 0.003 286);
-
-    --overlay: oklch(1 0 0);
-    --overlay-foreground: var(--foreground);
-
-    --muted: oklch(0.488 0.008 286);               /* #5C5E66 */
-
-    --default: oklch(0.949 0.002 286);
-    --default-foreground: var(--foreground);
-
-    --field-background: oklch(0.949 0.002 286);
-    --field-foreground: var(--foreground);
-    --field-placeholder: oklch(0.58 0.008 286);
-
-    --border: oklch(0.909 0.004 286);              /* #E3E5E8 */
-    --separator: oklch(0.925 0.004 286);
-    --focus: var(--accent);
-
-    --danger-soft: oklch(0.618 0.234 24 / 0.10);
-    --danger-soft-hover: oklch(0.618 0.234 24 / 0.18);
-    --success-soft: oklch(0.638 0.156 150 / 0.10);
-    --warning-soft: oklch(0.775 0.128 72 / 0.10);
-
-    --scrollbar: oklch(0.88 0.004 286);
-    --scrollbar-thumb: oklch(0.82 0.004 286);
   }
 
   /* ── Scrollbars (Discord-style thin) ───────────────────────────────── */
