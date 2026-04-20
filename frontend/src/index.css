@@ -1,7 +1,203 @@
 @import "tailwindcss";
 @import "@heroui/styles";
 
-/* ── SendButton ── */
+/* ──────────────────────────────────────────────────────────────────────────
+   EchoChat · Discord-inspired theme
+   ────────────────────────────────────────────────────────────────────────── */
+
+@layer base {
+  :root {
+    --echo-sidebar-width: 260px;
+    --echo-rail-width: 64px;
+
+    /* Density */
+    --echo-font-sans:
+      "gg sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+      Roboto, "Helvetica Neue", Arial, sans-serif;
+    --echo-radius-sm: 6px;
+    --echo-radius-md: 8px;
+    --echo-radius-lg: 12px;
+  }
+
+  html,
+  body {
+    font-family: var(--echo-font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  /* ── Accent color palettes (default is the Discord "blurple").
+     HeroUI auto-computes `*-hover`, `*-soft`, `*-soft-hover` via color-mix
+     from `--accent` + `--accent-foreground`, so only set those two here. ── */
+  :root,
+  :root[data-accent="blurple"] {
+    --accent: oklch(0.607 0.236 275.5);
+    --accent-foreground: var(--snow);
+  }
+  :root[data-accent="blue"] {
+    --accent: oklch(0.6204 0.195 253.83);
+    --accent-foreground: var(--snow);
+  }
+  :root[data-accent="violet"] {
+    --accent: oklch(0.49 0.218 296.78);
+    --accent-foreground: var(--snow);
+  }
+  :root[data-accent="green"] {
+    --accent: oklch(0.64 0.176 150.81);
+    --accent-foreground: var(--snow);
+  }
+  :root[data-accent="rose"] {
+    --accent: oklch(0.60 0.261 17.72);
+    --accent-foreground: var(--snow);
+  }
+  :root[data-accent="orange"] {
+    --accent: oklch(0.72 0.159 55);
+    --accent-foreground: var(--snow);
+  }
+  :root[data-accent="cyan"] {
+    --accent: oklch(0.70 0.136 220.49);
+    --accent-foreground: var(--eclipse);
+  }
+
+  /* ── Dark theme override (Discord palette) ─────────────────────────── */
+  .dark,
+  [data-theme="dark"] {
+    /* Base surfaces (from darkest spine to chat area) */
+    --background: oklch(0.284 0.004 286);          /* #313338 main chat */
+    --foreground: oklch(0.957 0.002 286);          /* #F2F3F5 primary text */
+
+    --surface: oklch(0.262 0.004 286);             /* #2B2D31 sidebar */
+    --surface-foreground: var(--foreground);
+    --surface-secondary: oklch(0.234 0.005 286);   /* #1E1F22 spine/header */
+    --surface-tertiary: oklch(0.313 0.005 286);    /* #36373D elevated */
+
+    --overlay: oklch(0.262 0.004 286);             /* popovers */
+    --overlay-foreground: var(--foreground);
+
+    --muted: oklch(0.765 0.006 286);               /* #B5BAC1 */
+
+    --default: oklch(0.339 0.005 286);             /* #383A40 hover/input */
+    --default-foreground: var(--foreground);
+
+    --field-background: oklch(0.234 0.005 286);    /* inputs darker than chat */
+    --field-foreground: var(--foreground);
+    --field-placeholder: oklch(0.58 0.006 286);
+
+    --success: oklch(0.638 0.156 150);             /* #23A55A */
+    --success-foreground: var(--snow);
+    --warning: oklch(0.775 0.128 72);              /* #F0B232 */
+    --warning-foreground: var(--eclipse);
+    --danger: oklch(0.618 0.234 24);               /* #F23F42 */
+    --danger-foreground: var(--snow);
+
+    --danger-soft: oklch(0.618 0.234 24 / 0.16);
+    --danger-soft-hover: oklch(0.618 0.234 24 / 0.28);
+    --success-soft: oklch(0.638 0.156 150 / 0.16);
+    --warning-soft: oklch(0.775 0.128 72 / 0.16);
+
+    --border: oklch(0.234 0.005 286);
+    --separator: oklch(0.234 0.005 286 / 0.7);
+    --focus: var(--accent);
+
+    --scrollbar: oklch(0.20 0.005 286);
+    --scrollbar-thumb: oklch(0.16 0.005 286);
+
+    --backdrop: rgba(0, 0, 0, 0.7);
+  }
+
+  /* ── Light theme override (Discord light palette) ──────────────────── */
+  :root,
+  .light,
+  [data-theme="light"] {
+    --background: oklch(1 0 0);                    /* #FFFFFF */
+    --foreground: oklch(0.141 0.005 286);          /* #060607 */
+
+    --surface: oklch(0.969 0.002 286);             /* #F2F3F5 sidebar */
+    --surface-foreground: var(--foreground);
+    --surface-secondary: oklch(0.949 0.002 286);   /* #EBEDEF */
+    --surface-tertiary: oklch(0.934 0.003 286);
+
+    --overlay: oklch(1 0 0);
+    --overlay-foreground: var(--foreground);
+
+    --muted: oklch(0.488 0.008 286);               /* #5C5E66 */
+
+    --default: oklch(0.949 0.002 286);
+    --default-foreground: var(--foreground);
+
+    --field-background: oklch(0.949 0.002 286);
+    --field-foreground: var(--foreground);
+    --field-placeholder: oklch(0.58 0.008 286);
+
+    --border: oklch(0.909 0.004 286);              /* #E3E5E8 */
+    --separator: oklch(0.925 0.004 286);
+    --focus: var(--accent);
+
+    --danger-soft: oklch(0.618 0.234 24 / 0.10);
+    --danger-soft-hover: oklch(0.618 0.234 24 / 0.18);
+    --success-soft: oklch(0.638 0.156 150 / 0.10);
+    --warning-soft: oklch(0.775 0.128 72 / 0.10);
+
+    --scrollbar: oklch(0.88 0.004 286);
+    --scrollbar-thumb: oklch(0.82 0.004 286);
+  }
+
+  /* ── Scrollbars (Discord-style thin) ───────────────────────────────── */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb, var(--scrollbar)) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb, var(--scrollbar));
+    border-radius: 4px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--muted);
+    background-clip: padding-box;
+  }
+
+  /* Selection */
+  ::selection {
+    background: color-mix(in oklab, var(--accent) 35%, transparent);
+    color: var(--foreground);
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Custom utility classes (HeroUI already ships `bg-*`, `text-*`, `border-*`
+   for every theme token via `@theme inline`, so we only add what's missing)
+   ────────────────────────────────────────────────────────────────────────── */
+@layer utilities {
+  /* Alias kept for backwards compatibility with earlier code */
+  .bg-background-secondary { background-color: var(--color-background-secondary, var(--surface-secondary)); }
+
+  /* Row hover (Discord-style message row highlight) */
+  .hover-row:hover {
+    background: color-mix(in oklab, var(--foreground) 4%, transparent);
+  }
+  .dark .hover-row:hover {
+    background: color-mix(in oklab, #000 22%, transparent);
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   SendButton (paper-plane fly animation)
+   ────────────────────────────────────────────────────────────────────────── */
 .send-btn {
   font-family: inherit;
   font-size: 14px;
@@ -12,87 +208,96 @@
   display: flex;
   align-items: center;
   border: none;
-  border-radius: 14px;
+  border-radius: 10px;
   overflow: hidden;
-  transition: all 0.2s;
+  transition:
+    background 0.15s ease,
+    transform 0.15s ease,
+    opacity 0.15s ease;
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
 }
-
+.send-btn:hover:not(:disabled) { background: var(--accent-hover, var(--accent)); }
 .send-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
-  transform: scale(0.9);
+  transform: scale(0.92);
 }
-
 .send-btn .send-label {
   display: block;
   margin-left: 0.35em;
   transition: all 0.3s ease-in-out;
 }
-
 .send-btn .send-icon {
   display: block;
   transform-origin: center center;
   transition: transform 0.3s ease-in-out;
 }
-
 .send-btn:not(:disabled):hover .send-svg-wrapper {
   animation: send-fly 0.6s ease-in-out infinite alternate;
 }
-
 .send-btn:not(:disabled):hover .send-icon {
   transform: translateX(1.2em) rotate(45deg) scale(1.1);
 }
-
 .send-btn:not(:disabled):hover .send-label {
   transform: translateX(5em);
 }
-
-.send-btn:not(:disabled):active {
-  transform: scale(0.95);
-}
+.send-btn:not(:disabled):active { transform: scale(0.95); }
 
 @keyframes send-fly {
   from { transform: translateY(0.1em); }
   to   { transform: translateY(-0.1em); }
 }
 
-@layer base {
-  :root {
-    --echo-sidebar-width: 320px;
-  }
+/* ──────────────────────────────────────────────────────────────────────────
+   Discord-style message row
+   ────────────────────────────────────────────────────────────────────────── */
+.msg-row {
+  transition: background-color 0.08s ease;
+}
+.msg-row:hover .msg-timestamp-inline {
+  opacity: 1;
+}
+.msg-row .msg-actions {
+  opacity: 0;
+  transform: translateY(2px);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  pointer-events: none;
+}
+.msg-row:hover .msg-actions,
+.msg-row:focus-within .msg-actions {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
 
-  /* Estilo del cursor para botones */
-  button:not(:disabled),
-  [role="button"]:not(:disabled) {
-    cursor: pointer;
-  }
+/* ──────────────────────────────────────────────────────────────────────────
+   Nav rail (Discord server pill)
+   ────────────────────────────────────────────────────────────────────────── */
+.rail-pill {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 4px;
+  height: 8px;
+  border-radius: 0 4px 4px 0;
+  background: var(--foreground);
+  transform: translateY(-50%) scaleY(0);
+  transform-origin: center;
+  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), height 0.2s ease;
+}
+.rail-item:hover .rail-pill        { transform: translateY(-50%) scaleY(1); height: 20px; }
+.rail-item[data-active="true"] .rail-pill { transform: translateY(-50%) scaleY(1); height: 40px; }
 
-  /* ── Accent color palettes ── */
-  :root[data-accent="blue"] {
-    --accent: oklch(0.6204 0.195 253.83);
-    --accent-foreground: var(--snow);
-  }
-  :root[data-accent="violet"] {
-    --accent: oklch(0.49 0.218 296.78);
-    --accent-foreground: var(--snow);
-  }
-  :root[data-accent="green"] {
-    --accent: oklch(0.73 0.194 150.81);
-    --accent-foreground: var(--eclipse);
-  }
-  :root[data-accent="rose"] {
-    --accent: oklch(0.60 0.261 17.72);
-    --accent-foreground: var(--snow);
-  }
-  :root[data-accent="orange"] {
-    --accent: oklch(0.78 0.159 72.33);
-    --accent-foreground: var(--eclipse);
-  }
-  :root[data-accent="cyan"] {
-    --accent: oklch(0.70 0.136 220.49);
-    --accent-foreground: var(--eclipse);
-  }
+.rail-btn {
+  border-radius: 16px;
+  transition:
+    border-radius 0.2s cubic-bezier(0.2, 0.8, 0.2, 1),
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+.rail-item:hover .rail-btn,
+.rail-item[data-active="true"] .rail-btn {
+  border-radius: 12px;
 }

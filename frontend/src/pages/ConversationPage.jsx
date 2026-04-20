@@ -26,10 +26,14 @@ import {
   Loader,
   AlertCircle,
   RefreshCw,
-  Image,
+  Image as ImageIcon,
   Film,
   FileText,
   Send,
+  AtSign,
+  Gift,
+  Sticker,
+  PlusCircle,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
@@ -37,7 +41,6 @@ import { useTranslation } from 'react-i18next';
 import UserAvatar from '@/components/UserAvatar';
 import ImageViewer from '@/components/ImageViewer';
 import PdfPreview from '@/components/PdfPreview';
-import SendButton from '@/components/SendButton';
 import { formatMessageTime, formatFullTime } from '@/lib/dates';
 import { storageApi } from '@/lib/endpoints';
 
@@ -79,9 +82,9 @@ function FilePickerMenu({ onPick, disabled, uploading }) {
   const pick = (ref) => { setOpen(false); ref.current?.click(); };
 
   const MENU_ITEMS = [
-    { icon: Image,    label: t('chat.attachImage'),    ref: imageRef, accept: 'image/*' },
-    { icon: Film,     label: t('chat.attachVideo'),    ref: videoRef, accept: 'video/*' },
-    { icon: FileText, label: t('chat.attachDocument'), ref: docRef,   accept: '*/*' },
+    { icon: ImageIcon, label: t('chat.attachImage'),    ref: imageRef, accept: 'image/*' },
+    { icon: Film,      label: t('chat.attachVideo'),    ref: videoRef, accept: 'video/*' },
+    { icon: FileText,  label: t('chat.attachDocument'), ref: docRef,   accept: '*/*' },
   ];
 
   return (
@@ -98,16 +101,15 @@ function FilePickerMenu({ onPick, disabled, uploading }) {
       ))}
 
       <Tooltip content={t('chat.attachFile')}>
-        <Button
-          isIconOnly
-          size="sm"
-          variant="ghost"
-          isDisabled={disabled}
-          className="mb-0.5 shrink-0 rounded-xl text-muted hover:text-foreground"
-          onPress={() => setOpen((p) => !p)}
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => setOpen((p) => !p)}
+          className="flex h-6 w-6 items-center justify-center rounded-full bg-muted/70 text-background transition-all hover:bg-foreground disabled:opacity-40"
+          aria-label={t('chat.attachFile')}
         >
-          {uploading ? <Loader size={17} className="animate-spin" /> : <Paperclip size={17} />}
-        </Button>
+          {uploading ? <Loader size={14} className="animate-spin" /> : <PlusCircle size={20} strokeWidth={2} className="absolute" />}
+        </button>
       </Tooltip>
 
       <AnimatePresence>
@@ -116,16 +118,16 @@ function FilePickerMenu({ onPick, disabled, uploading }) {
             initial={{ opacity: 0, y: 6, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.97 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
-            className="absolute bottom-10 left-0 z-30 min-w-44 overflow-hidden rounded-2xl border border-separator bg-background shadow-xl"
+            transition={{ duration: 0.14, ease: 'easeOut' }}
+            className="absolute bottom-10 left-0 z-30 min-w-44 overflow-hidden rounded-lg border border-separator bg-surface-secondary shadow-xl"
           >
             {MENU_ITEMS.map(({ icon: Icon, label, ref }) => (
               <button
                 key={label}
                 onClick={() => pick(ref)}
-                className="flex w-full items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-default"
+                className="flex w-full items-center gap-3 px-3 py-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
               >
-                <Icon size={16} className="shrink-0 text-accent" />
+                <Icon size={16} className="shrink-0" />
                 {label}
               </button>
             ))}
@@ -169,14 +171,13 @@ function FilePreviewBar({ file, onSend, onCancel }) {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 16 }}
-      transition={{ duration: 0.22, ease: SPRING_OUT }}
-      className="border-t border-separator bg-background"
+      transition={{ duration: 0.18, ease: SPRING_OUT }}
+      className="border-t border-separator bg-surface-secondary"
     >
-      {/* Header: icon + filename + size + cancel */}
-      <div className="flex items-center justify-between border-b border-separator/50 px-4 py-2">
+      <div className="flex items-center justify-between border-b border-separator/60 px-4 py-2">
         <div className="flex min-w-0 items-center gap-2">
           {isImage
-            ? <Image size={14} className="shrink-0 text-accent" />
+            ? <ImageIcon size={14} className="shrink-0 text-accent" />
             : isVideo
               ? <Film size={14} className="shrink-0 text-accent" />
               : <FileText size={14} className="shrink-0 text-accent" />}
@@ -186,64 +187,62 @@ function FilePreviewBar({ file, onSend, onCancel }) {
         <button
           onClick={onCancel}
           disabled={sending}
-          className="ml-2 shrink-0 rounded-full p-1 text-muted transition-colors hover:bg-default hover:text-foreground disabled:opacity-40"
+          className="ml-2 shrink-0 rounded p-1 text-muted transition-colors hover:bg-default hover:text-foreground disabled:opacity-40"
         >
           <X size={15} />
         </button>
       </div>
 
-      {/* Preview area */}
-      <div className="flex max-h-60 items-center justify-center overflow-hidden bg-black/5 px-4 py-3">
+      <div className="flex max-h-60 items-center justify-center overflow-hidden bg-surface-tertiary px-4 py-3">
         {isImage && (
-            <img
-              src={objectUrl}
-              alt={file.name}
-              className="max-h-52 max-w-full rounded-xl object-contain shadow-md"
-            />
-          )}
-          {isVideo && (
-            <video
-              src={objectUrl}
-              controls
-              className="max-h-52 max-w-full rounded-xl shadow-md"
-            />
-          )}
-          {!isImage && !isVideo && (
-            <div className="flex items-center gap-4 py-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-accent-soft">
-                <FileText size={28} className="text-accent" />
-              </div>
-              <div className="min-w-0">
-                <p className="max-w-xs truncate text-sm font-medium">{file.name}</p>
-                <p className="text-xs text-muted">{formatSize(file.size)}</p>
-              </div>
+          <img
+            src={objectUrl}
+            alt={file.name}
+            className="max-h-52 max-w-full rounded-md object-contain shadow-md"
+          />
+        )}
+        {isVideo && (
+          <video
+            src={objectUrl}
+            controls
+            className="max-h-52 max-w-full rounded-md shadow-md"
+          />
+        )}
+        {!isImage && !isVideo && (
+          <div className="flex items-center gap-4 py-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-accent-soft">
+              <FileText size={24} className="text-accent" />
             </div>
-          )}
+            <div className="min-w-0">
+              <p className="max-w-xs truncate text-sm font-medium">{file.name}</p>
+              <p className="text-xs text-muted">{formatSize(file.size)}</p>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Caption input + send */}
       <div className="flex items-end gap-2 px-3 py-2.5">
-          <Input
-            autoFocus
-            placeholder={t('chat.captionPlaceholder')}
-            value={caption}
-            onChange={(e) => setCaption(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
-              if (e.key === 'Escape') onCancel();
-            }}
-            disabled={sending}
-            className="flex-1 border-separator/70 bg-default"
-          />
-          <Button
-            isIconOnly
-            isDisabled={sending}
-            className="shrink-0 rounded-xl bg-accent text-accent-foreground hover:bg-accent/90"
-            onPress={handleSend}
-          >
-            {sending ? <Loader size={16} className="animate-spin" /> : <Send size={16} />}
-          </Button>
-        </div>
+        <Input
+          autoFocus
+          placeholder={t('chat.captionPlaceholder')}
+          value={caption}
+          onChange={(e) => setCaption(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+            if (e.key === 'Escape') onCancel();
+          }}
+          disabled={sending}
+          className="flex-1 bg-default"
+        />
+        <Button
+          isIconOnly
+          isDisabled={sending}
+          className="shrink-0 rounded-md bg-accent text-accent-foreground hover:bg-accent/90"
+          onPress={handleSend}
+        >
+          {sending ? <Loader size={16} className="animate-spin" /> : <Send size={16} />}
+        </Button>
+      </div>
     </motion.div>
   );
 }
@@ -254,12 +253,12 @@ function TypingDots() {
       {[0, 1, 2].map((index) => (
         <motion.span
           key={index}
-          animate={{ y: [0, -5, 0] }}
+          animate={{ y: [0, -4, 0] }}
           transition={{
-            duration: 1.2,
+            duration: 1.1,
             ease: 'easeInOut',
             repeat: Number.POSITIVE_INFINITY,
-            delay: index * 0.2,
+            delay: index * 0.18,
           }}
           className="inline-block h-1.5 w-1.5 rounded-full bg-current"
         />
@@ -271,7 +270,6 @@ function TypingDots() {
 /* ─────────────────────────── Confirm Delete Modal ─────────────────────────── */
 function ConfirmDeleteModal({ message, onConfirm, onCancel }) {
   const { t } = useTranslation();
-  // Close on Escape
   useEffect(() => {
     const handler = (e) => { if (e.key === 'Escape') onCancel(); };
     document.addEventListener('keydown', handler);
@@ -283,48 +281,43 @@ function ConfirmDeleteModal({ message, onConfirm, onCancel }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.15, ease: 'easeOut' }}
+      transition={{ duration: 0.12, ease: 'easeOut' }}
       className="fixed inset-0 z-50 flex items-center justify-center"
     >
-      {/* Backdrop */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.15, ease: 'easeOut' }}
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        transition={{ duration: 0.12, ease: 'easeOut' }}
+        className="absolute inset-0 bg-black/70 backdrop-blur-[2px]"
         onClick={onCancel}
       />
-      {/* Dialog */}
       <motion.div
-        initial={{ opacity: 0, scale: 0.92 }}
+        initial={{ opacity: 0, scale: 0.94 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.96 }}
-        transition={{ duration: 0.2, ease: SPRING_OUT }}
-        className="relative z-10 mx-4 w-full max-w-sm rounded-2xl border border-separator bg-background shadow-2xl"
+        transition={{ duration: 0.16, ease: EASE_OUT }}
+        className="relative z-10 mx-4 w-full max-w-sm overflow-hidden rounded-md border border-separator bg-surface shadow-2xl"
       >
-        <div className="p-6">
-          {/* Icon + title */}
+        <div className="p-5">
           <div className="mb-4 flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-danger-soft">
               <AlertTriangle size={18} className="text-danger" />
             </div>
             <div>
-              <h3 className="font-semibold text-foreground">{t('chat.deleteMessage')}</h3>
+              <h3 className="text-base font-semibold text-foreground">{t('chat.deleteMessage')}</h3>
               <p className="mt-0.5 text-xs text-muted">
                 {t('chat.deleteMessageWarning')}
               </p>
             </div>
           </div>
 
-          {/* Message preview */}
           {message?.body && message.type !== 'media' && (
-            <div className="mb-5 rounded-xl border border-separator bg-default px-3 py-2.5 text-sm text-muted line-clamp-3 italic">
+            <div className="mb-5 rounded-md border border-separator bg-surface-secondary px-3 py-2.5 text-sm text-muted line-clamp-3">
               "{message.body}"
             </div>
           )}
 
-          {/* Actions */}
           <div className="flex justify-end gap-2">
             <Button variant="ghost" size="sm" onPress={onCancel}>
               {t('common.cancel')}
@@ -345,10 +338,6 @@ function ConfirmDeleteModal({ message, onConfirm, onCancel }) {
 }
 
 /* ─────────────────────────── Attachment View ─────────────────────────── */
-// Module-level cache so each attachment URL is only fetched once per session,
-// regardless of React StrictMode remounts or the same attachment appearing
-// in multiple messages.  Values are either a resolved URL string or an
-// in-flight Promise, so concurrent mounts share the same request.
 const _attachmentUrlCache = new Map();
 
 function AttachmentView({ attachment }) {
@@ -367,7 +356,6 @@ function AttachmentView({ attachment }) {
       setUrl(cached);
       return;
     }
-    // Reuse in-flight promise or start a new one
     const promise = cached instanceof Promise
       ? cached
       : (() => {
@@ -386,7 +374,7 @@ function AttachmentView({ attachment }) {
   if (!url) {
     return (
       <div
-        className={`animate-pulse rounded-xl bg-default/60 ${
+        className={`animate-pulse rounded-md bg-default/60 ${
           isImage || isVideo || isPdf ? 'h-48 w-[280px]' : 'h-9 w-44'
         }`}
       />
@@ -397,18 +385,18 @@ function AttachmentView({ attachment }) {
     return (
       <>
         <div
-          className="group relative inline-block cursor-zoom-in overflow-hidden rounded-xl"
+          className="group relative inline-block cursor-zoom-in overflow-hidden rounded-md"
           onClick={() => setViewerOpen(true)}
         >
           <img
             src={url}
             alt={attachment.original_filename}
-            className="max-h-64 max-w-[70vw] object-cover transition-transform duration-300 group-hover:scale-[1.02] sm:max-w-xs"
+            className="max-h-80 max-w-[70vw] object-cover sm:max-w-sm"
           />
-          <div className="absolute inset-0 flex items-end justify-end gap-1 bg-linear-to-t from-black/40 to-transparent p-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+          <div className="absolute inset-0 flex items-end justify-end gap-1 bg-linear-to-t from-black/50 to-transparent p-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
             <button
               onClick={(e) => { e.stopPropagation(); downloadBlob(url, attachment.original_filename); }}
-              className="rounded-lg bg-black/60 p-1.5 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
+              className="rounded-md bg-black/60 p-1.5 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
               title={t('common.download')}
             >
               <Download size={13} />
@@ -428,16 +416,16 @@ function AttachmentView({ attachment }) {
 
   if (isVideo) {
     return (
-      <div className="group relative overflow-hidden rounded-xl bg-black">
+      <div className="group relative overflow-hidden rounded-md bg-black">
         <video
           src={url}
           controls
           preload="metadata"
-          className="max-h-64 max-w-[70vw] rounded-xl sm:max-w-xs"
+          className="max-h-80 max-w-[70vw] rounded-md sm:max-w-sm"
         />
         <button
           onClick={() => downloadBlob(url, attachment.original_filename)}
-          className="absolute right-2 top-2 rounded-lg bg-black/60 p-1.5 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-black/80 group-hover:opacity-100"
+          className="absolute right-2 top-2 rounded-md bg-black/60 p-1.5 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-black/80 group-hover:opacity-100"
           title={t('common.download')}
         >
           <Download size={13} />
@@ -461,252 +449,275 @@ function AttachmentView({ attachment }) {
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center gap-2 rounded-xl border border-separator/60 bg-background/50 px-3 py-2 text-xs transition-colors hover:bg-default"
+      className="flex max-w-sm items-center gap-2 rounded-md border border-separator bg-surface-secondary px-3 py-2 text-xs transition-colors hover:bg-default"
     >
-      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent-soft">
-        <Paperclip size={13} className="text-accent" />
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent-soft">
+        <Paperclip size={14} className="text-accent" />
       </div>
       <span className="max-w-40 truncate font-medium">{attachment.original_filename}</span>
-      <Download size={11} className="ml-auto shrink-0 opacity-50" />
+      <Download size={12} className="ml-auto shrink-0 opacity-60" />
     </a>
   );
 }
 
-/* ─────────────────────────── Message Bubble ─────────────────────────── */
+/* ─────────────────────────── Discord-style Message Row ─────────────────────────── */
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
-const MessageBubble = memo(function MessageBubble({ message, isOwn, isDirect, isFirstInGroup, isLastInGroup, onEdit, onDelete, onReply, onReact, onRetry }) {
+// Deterministic accent hue per-username so group chats feel "Discord-colored"
+const USER_HUES = [210, 160, 330, 40, 280, 120, 0, 250, 60, 190];
+function userColor(name = '') {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return `oklch(0.78 0.16 ${USER_HUES[h % USER_HUES.length]})`;
+}
+
+const MessageRow = memo(function MessageRow({
+  message, isOwn, isDirect, isFirstInGroup, isLastInGroup,
+  onEdit, onDelete, onReply, onReact, onRetry,
+}) {
   const { t } = useTranslation();
-  const [showActions, setShowActions] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+  const status = message._status;
+  const isDeleted = message.is_deleted;
+  const senderName = message.sender_display_name;
+  const nameColor = !isDirect && !isOwn ? userColor(senderName) : undefined;
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: isOwn ? 16 : -16, scale: 0.97 }}
-      animate={{ opacity: 1, x: 0, scale: 1 }}
-      transition={{ duration: 0.22, ease: 'easeOut' }}
-      className={`group flex gap-2 px-2 md:px-4 ${isFirstInGroup ? 'pt-3 pb-0.5' : 'py-0.5'} ${isOwn ? 'flex-row-reverse' : ''}`}
-      onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => { setShowActions(false); setShowEmojiPicker(false); }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.12, ease: 'easeOut' }}
+      className={`msg-row hover-row group relative flex gap-3 px-4 ${
+        isFirstInGroup ? 'mt-4 pt-1 pb-0.5' : 'py-0.5'
+      }`}
     >
-      {/* Avatar */}
-      {!isOwn && !isDirect && (
-        isLastInGroup ? (
+      {/* Avatar (only on first of group) */}
+      <div className="w-10 shrink-0">
+        {isFirstInGroup ? (
           <UserAvatar
-            user={{ display_name: message.sender_display_name }}
-            size="sm"
-            className="mt-1 shrink-0 self-end"
+            user={{
+              display_name: senderName,
+              avatar_url: message.sender_avatar_url,
+            }}
+            size="md"
+            className="mt-0.5"
           />
         ) : (
-          <div className="w-8 shrink-0" />
-        )
-      )}
-
-      {/* Deleted message */}
-      {message.is_deleted ? (
-        <div className={`flex max-w-[85%] flex-col md:max-w-[68%] ${isOwn ? 'items-end' : 'items-start'}`}>
-          <div className={`flex items-center gap-1.5 rounded-2xl border border-separator/50 px-3.5 py-2 text-sm italic text-muted ${isOwn ? 'rounded-tr-md' : 'rounded-tl-md'}`}>
-            <Trash2 size={13} className="shrink-0 opacity-50" />
-            <span>{t('chat.messageDeleted')}</span>
-          </div>
-          <span className="mt-0.5 px-1 text-[10px] text-muted">{formatMessageTime(message.sent_at)}</span>
-        </div>
-      ) : (<>
-      <div className={`max-w-[85%] md:max-w-[68%] ${isOwn ? 'items-end' : 'items-start'} flex flex-col`}>
-        {/* Sender name */}
-        {!isOwn && !isDirect && isFirstInGroup && (
-          <span className="mb-0.5 ml-1 text-xs font-semibold text-accent">
-            {message.sender_display_name}
+          <span
+            className="msg-timestamp-inline block w-10 pt-1 text-center text-[10px] leading-none text-muted opacity-0 transition-opacity"
+            title={formatFullTime(message.sent_at)}
+          >
+            {formatMessageTime(message.sent_at)}
           </span>
+        )}
+      </div>
+
+      {/* Content column */}
+      <div className="min-w-0 flex-1">
+        {/* Header: sender + time (first of group only) */}
+        {isFirstInGroup && (
+          <div className="flex items-baseline gap-2 leading-none">
+            <span
+              className="truncate text-[15px] font-semibold"
+              style={nameColor ? { color: nameColor } : undefined}
+            >
+              {isOwn ? t('chat.you', { defaultValue: senderName }) : senderName}
+            </span>
+            <span
+              className="shrink-0 text-[11px] text-muted"
+              title={formatFullTime(message.sent_at)}
+            >
+              {formatMessageTime(message.sent_at)}
+            </span>
+          </div>
         )}
 
         {/* Reply preview */}
-        {message.reply_to_id && (message.reply_to_body || message.reply_to_type) && (
-          <div className={`mb-1 flex max-w-full items-start gap-1.5 rounded-xl border-l-[3px] border-accent bg-accent/10 px-2.5 py-1.5 text-xs ${isOwn ? 'mr-1' : 'ml-1'}`}>
-            <Reply size={11} className="mt-0.5 shrink-0 text-accent" />
-            <div className="min-w-0">
-              {message.reply_to_sender && (
-                <span className="block font-semibold text-accent">{message.reply_to_sender}</span>
-              )}
-              <span className="line-clamp-2 text-muted">
-                {message.reply_to_type === 'media'
-                  ? <span className="flex items-center gap-1"><Paperclip size={11} />{t('chat.attachedFile')}</span>
-                  : message.reply_to_body}
+        {!isDeleted && message.reply_to_id && (message.reply_to_body || message.reply_to_type) && (
+          <div className="mb-0.5 flex items-center gap-1.5 text-xs">
+            <span className="inline-block h-3 w-4 -translate-y-0.5 border-l-2 border-t-2 border-muted/50 rounded-tl-md" />
+            {message.reply_to_sender && (
+              <span className="font-semibold" style={{ color: userColor(message.reply_to_sender) }}>
+                @{message.reply_to_sender}
               </span>
-            </div>
+            )}
+            <span className="truncate text-muted">
+              {message.reply_to_type === 'media' ? (
+                <span className="inline-flex items-center gap-1"><Paperclip size={11} />{t('chat.attachedFile')}</span>
+              ) : (
+                message.reply_to_body
+              )}
+            </span>
           </div>
         )}
 
-        {/* Bubble */}
-        <div
-          className={`relative rounded-2xl px-3.5 py-2.5 text-sm shadow-sm transition-shadow hover:shadow-md ${
-            isOwn
-              ? `${isLastInGroup ? 'rounded-tr-md' : 'rounded-2xl'} bg-accent text-accent-foreground`
-              : `${isLastInGroup ? 'rounded-tl-md' : 'rounded-2xl'} bg-default text-foreground`
-          } ${message._status === 'sending' ? 'opacity-75' : ''}`}
-        >
-          {message.type !== 'media' && message.body && (
-            <p className="wrap-break-word whitespace-pre-wrap leading-relaxed">{message.body}</p>
-          )}
-          {message.attachments?.length > 0 && (
-            <div className={`flex flex-col gap-1.5 ${message.type !== 'media' ? 'mt-2' : ''}`}>
-              {message.attachments.map((att) => (
-                <AttachmentView key={att.id} attachment={att} />
-              ))}
-            </div>
-          )}
-
-          {/* Pending attachment placeholder (optimistic media message) */}
-          {message.type === 'media' && (!message.attachments || message.attachments.length === 0) && message._status === 'sending' && (
-            <div className="flex items-center gap-2 rounded-xl border border-separator/60 bg-background/50 px-3 py-2 text-xs">
-              <Loader size={13} className="animate-spin shrink-0 text-accent" />
-              <span className="max-w-40 truncate opacity-70">{message._filename || t('chat.uploadingFile')}</span>
-            </div>
-          )}
-
-          {/* Time + status */}
-          <div
-            className={`mt-1.5 flex items-center gap-1 text-[10px] leading-none ${
-              isOwn ? 'justify-end text-accent-foreground/60' : 'text-muted'
-            }`}
-          >
-            {message.is_edited && (
-              <span className="opacity-70">{t('chat.edited')}</span>
+        {/* Body */}
+        {isDeleted ? (
+          <p className="flex items-center gap-1.5 py-0.5 text-[14px] italic text-muted">
+            <Trash2 size={13} className="shrink-0 opacity-60" />
+            {t('chat.messageDeleted')}
+          </p>
+        ) : (
+          <>
+            {message.type !== 'media' && message.body && (
+              <p
+                className={`wrap-break-word whitespace-pre-wrap text-[15px] leading-[1.375] text-foreground ${
+                  status === 'sending' ? 'opacity-70' : ''
+                } ${status === 'error' ? 'text-danger' : ''}`}
+              >
+                {message.body}
+                {message.is_edited && (
+                  <span className="ml-1 text-[10px] text-muted">({t('chat.edited')})</span>
+                )}
+              </p>
             )}
-            <span>{formatMessageTime(message.sent_at)}</span>
-            {isOwn && (
-              message._status === 'sending' ? (
-                <Loader size={13} className="animate-spin opacity-60" />
-              ) : message._status === 'error' ? (
-                <AlertCircle size={13} className="text-danger" />
-              ) : message.read_count > 0 ? (
-                <CheckCheck size={13} className="text-blue-300" />
-              ) : message.delivered_count > 0 ? (
-                <CheckCheck size={13} className="opacity-60" />
-              ) : (
-                <Check size={13} className="opacity-60" />
-              )
+
+            {/* Attachments */}
+            {message.attachments?.length > 0 && (
+              <div className={`flex flex-col gap-1.5 ${message.type !== 'media' || message.body ? 'mt-1.5' : 'mt-0.5'}`}>
+                {message.attachments.map((att) => (
+                  <AttachmentView key={att.id} attachment={att} />
+                ))}
+              </div>
+            )}
+
+            {/* Pending attachment placeholder */}
+            {message.type === 'media' && (!message.attachments || message.attachments.length === 0) && status === 'sending' && (
+              <div className="mt-0.5 flex max-w-sm items-center gap-2 rounded-md border border-separator bg-surface-secondary px-3 py-2 text-xs">
+                <Loader size={13} className="animate-spin shrink-0 text-accent" />
+                <span className="max-w-40 truncate opacity-70">{message._filename || t('chat.uploadingFile')}</span>
+              </div>
+            )}
+
+            {/* Body caption on media only */}
+            {message.type === 'media' && message.body && !message.attachments?.length && null}
+          </>
+        )}
+
+        {/* Status row (own messages) */}
+        {isOwn && !isDeleted && status && (status === 'sending' || status === 'error') && (
+          <div className="mt-0.5 flex items-center gap-1 text-[11px] text-muted">
+            {status === 'sending' && <><Loader size={11} className="animate-spin" /> {t('chat.sending', { defaultValue: '' })}</>}
+            {status === 'error' && (
+              <>
+                <AlertCircle size={11} className="text-danger" />
+                <button onClick={() => onRetry(message.id)} className="text-danger hover:underline">
+                  <span className="inline-flex items-center gap-0.5"><RefreshCw size={10} />{t('chat.retrySend')}</span>
+                </button>
+              </>
             )}
           </div>
-        </div>
+        )}
+
+        {/* Read receipts (own, last of group) */}
+        {isOwn && !isDeleted && isLastInGroup && status !== 'sending' && status !== 'error' && (
+          <div className="mt-0.5 flex items-center gap-0.5 text-[11px] text-muted">
+            {message.read_count > 0 ? (
+              <CheckCheck size={13} className="text-accent" />
+            ) : message.delivered_count > 0 ? (
+              <CheckCheck size={13} className="opacity-60" />
+            ) : (
+              <Check size={13} className="opacity-60" />
+            )}
+          </div>
+        )}
 
         {/* Reactions */}
         {message.reactions?.length > 0 && (
-          <div className={`mt-1 flex flex-wrap gap-1 ${isOwn ? 'justify-end' : ''}`}>
+          <div className="mt-1 flex flex-wrap gap-1">
             {message.reactions.map((r, i) => (
               <button
                 key={i}
                 onClick={() => onReact(message.id, r.emoji)}
-                className="rounded-full border border-separator/50 bg-background px-2 py-0.5 text-xs shadow-sm transition-all hover:scale-105 hover:border-accent/40 hover:bg-accent/10"
+                className={`flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs transition-all hover:bg-accent-soft ${
+                  r.reacted
+                    ? 'border-accent bg-accent-soft text-accent'
+                    : 'border-separator bg-surface-secondary text-muted'
+                }`}
               >
-                {r.emoji} <span className="text-muted">{r.count}</span>
+                <span className="text-[13px] leading-none">{r.emoji}</span>
+                <span className="font-semibold tabular-nums">{r.count}</span>
               </button>
             ))}
           </div>
         )}
-
-        {/* Send error retry */}
-        {isOwn && message._status === 'error' && (
-          <button
-            onClick={() => onRetry(message.id)}
-            className="mt-0.5 flex items-center gap-1 px-1 text-[10px] text-danger hover:underline"
-          >
-            <RefreshCw size={10} />
-            {t('chat.retrySend')}
-          </button>
-        )}
       </div>
 
-      {/* Hover action bar */}
-      <div
-        className={`flex items-center gap-0.5 self-end pb-1 transition-all duration-150 ${
-          showActions && message._status !== 'sending' && message._status !== 'error'
-            ? 'opacity-100 translate-y-0'
-            : 'pointer-events-none opacity-0 translate-y-1'
-        }`}
-      >
-        {/* Emoji picker */}
-        <div className="relative">
-          <Tooltip content={t('chat.react')} placement={isOwn ? 'top' : 'top'}>
-            <Button
-              isIconOnly
-              size="sm"
-              variant="ghost"
-              className="h-7 w-7 min-w-0 rounded-full border border-separator/50 bg-background shadow-sm hover:border-accent/40"
-              onPress={() => setShowEmojiPicker((p) => !p)}
-            >
-              <Smile size={13} />
-            </Button>
-          </Tooltip>
-          <AnimatePresence>
-            {showEmojiPicker && (
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 4 }}
-                transition={{ duration: 0.2, ease: 'easeOut' }}
-                className={`absolute bottom-8 ${isOwn ? 'right-0' : 'left-0'} z-20 flex gap-1 rounded-2xl border border-separator bg-background px-2 py-1.5 shadow-xl`}
+      {/* Hover action bar (top-right floating) */}
+      {!isDeleted && status !== 'sending' && (
+        <div className="msg-actions absolute -top-3 right-4 z-10 flex items-center gap-0.5 rounded-md border border-separator bg-surface shadow-md">
+          {/* Emoji */}
+          <div className="relative">
+            <Tooltip content={t('chat.react')}>
+              <button
+                onClick={() => setShowEmojiPicker((p) => !p)}
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-default hover:text-foreground"
               >
-                {QUICK_EMOJIS.map((emoji) => (
-                  <button
-                    key={emoji}
-                    onClick={() => { onReact(message.id, emoji); setShowEmojiPicker(false); }}
-                    className="rounded-xl p-1 text-base transition-transform hover:scale-125"
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        <Tooltip content={t('chat.reply')}>
-          <Button
-            isIconOnly
-            size="sm"
-            variant="ghost"
-            className="h-7 w-7 min-w-0 rounded-full border border-separator/50 bg-background shadow-sm hover:border-accent/40"
-            onPress={() => onReply(message)}
-          >
-            <Reply size={13} />
-          </Button>
-        </Tooltip>
-
-        {isOwn && (
-          <>
-            {(message.type !== 'media' || message.body) && (
-              <Tooltip content={t('common.edit')}>
-                <Button
-                  isIconOnly
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 w-7 min-w-0 rounded-full border border-separator/50 bg-background shadow-sm hover:border-accent/40"
-                  onPress={() => onEdit(message)}
-                >
-                  <Pencil size={13} />
-                </Button>
-              </Tooltip>
-            )}
-            <Tooltip content={t('common.delete')}>
-              <Button
-                isIconOnly
-                size="sm"
-                variant="ghost"
-                className="h-7 w-7 min-w-0 rounded-full border border-separator/50 bg-background shadow-sm hover:border-danger/40 hover:text-danger"
-                onPress={() => onDelete(message)}
-              >
-                <Trash2 size={13} />
-              </Button>
+                <Smile size={16} />
+              </button>
             </Tooltip>
-          </>
-        )}
-      </div>
-      </>)}
+            <AnimatePresence>
+              {showEmojiPicker && (
+                <motion.div
+                  initial={{ opacity: 0, y: 6, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 4, scale: 0.96 }}
+                  transition={{ duration: 0.14, ease: 'easeOut' }}
+                  className="absolute bottom-9 right-0 z-20 flex gap-0.5 rounded-md border border-separator bg-surface px-1.5 py-1 shadow-xl"
+                  onMouseLeave={() => setShowEmojiPicker(false)}
+                >
+                  {QUICK_EMOJIS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      onClick={() => { onReact(message.id, emoji); setShowEmojiPicker(false); }}
+                      className="rounded-md px-1.5 py-1 text-base transition-transform hover:scale-125"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <Tooltip content={t('chat.reply')}>
+            <button
+              onClick={() => onReply(message)}
+              className="flex h-7 w-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-default hover:text-foreground"
+            >
+              <Reply size={16} />
+            </button>
+          </Tooltip>
+
+          {isOwn && (message.type !== 'media' || message.body) && (
+            <Tooltip content={t('common.edit')}>
+              <button
+                onClick={() => onEdit(message)}
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-default hover:text-foreground"
+              >
+                <Pencil size={15} />
+              </button>
+            </Tooltip>
+          )}
+
+          {isOwn && (
+            <Tooltip content={t('common.delete')}>
+              <button
+                onClick={() => onDelete(message)}
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-danger-soft hover:text-danger"
+              >
+                <Trash2 size={15} />
+              </button>
+            </Tooltip>
+          )}
+        </div>
+      )}
     </motion.div>
   );
 });
 
+/* ─────────────────────────── Conversation Page ─────────────────────────── */
 export default function ConversationPage() {
   const { t } = useTranslation();
   const { conversationId } = useParams();
@@ -733,7 +744,7 @@ export default function ConversationPage() {
   const [replyTo, setReplyTo] = useState(null);
   const [editing, setEditing] = useState(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState(null); // message object to confirm delete
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [previewFile, setPreviewFile] = useState(null);
   const [sendingFile, setSendingFile] = useState(false);
 
@@ -744,12 +755,11 @@ export default function ConversationPage() {
   const prevScrollHeightRef = useRef(null);
   const loadingMoreRef = useRef(false);
   const wasAtBottomRef = useRef(true);
-  const initialLoadRef = useRef(false); // true after first batch of messages is rendered
+  const initialLoadRef = useRef(false);
   const scrollIdleTimerRef = useRef(null);
 
   const conversation = getActiveConversation();
 
-  // Build typing text for this conversation
   const currentTyping = typingUsers[conversationId] || {};
   const typingNames = Object.entries(currentTyping)
     .filter(([uid]) => uid !== user?.id)
@@ -761,7 +771,6 @@ export default function ConversationPage() {
         ? t('chat.areTyping', { names: typingNames.join(', ') })
         : null;
 
-  // Clear active conversation when leaving the page entirely
   useEffect(() => {
     return () => clearActiveConversation();
   }, [clearActiveConversation]);
@@ -777,24 +786,20 @@ export default function ConversationPage() {
     };
   }, [conversationId, setActiveConversation, emitTyping]);
 
-  // Scroll to bottom on initial load / own new message, but not when loading older messages
   useLayoutEffect(() => {
-    if (prevScrollHeightRef.current !== null) return; // handled by the load-more layout effect
+    if (prevScrollHeightRef.current !== null) return;
     if (loadingMoreRef.current) return;
     const el = containerRef.current;
     if (!el || messages.length === 0) return;
     if (!initialLoadRef.current) {
-      // First batch: jump instantly before paint so user never sees the top
       messagesEndRef.current?.scrollIntoView({ behavior: 'instant', block: 'end' });
       wasAtBottomRef.current = true;
       initialLoadRef.current = true;
     } else if (wasAtBottomRef.current) {
-      // New message while already at bottom: smooth scroll
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
 
-  // Restore scroll position after prepending older messages
   useLayoutEffect(() => {
     if (prevScrollHeightRef.current !== null) {
       const el = containerRef.current;
@@ -904,7 +909,6 @@ export default function ConversationPage() {
     setTimeout(() => inputRef.current?.focus(), 50);
   }, []);
 
-  // Opens confirm modal instead of deleting immediately
   const handleDeleteRequest = useCallback((msg) => {
     setDeleteTarget(msg);
   }, []);
@@ -932,13 +936,28 @@ export default function ConversationPage() {
 
   const messageElements = useMemo(() => {
     const isDirect = conversation?.type === 'direct';
+    const GROUP_GAP_MS = 7 * 60 * 1000; // start a new group after 7 minutes of silence
     return messages.map((msg, index) => {
       const prev = messages[index - 1];
       const next = messages[index + 1];
-      const isFirstInGroup = !prev || prev.sender_id !== msg.sender_id;
-      const isLastInGroup  = !next || next.sender_id !== msg.sender_id;
+
+      const prevTime = prev ? new Date(prev.sent_at).getTime() : 0;
+      const currTime = new Date(msg.sent_at).getTime();
+      const nextTime = next ? new Date(next.sent_at).getTime() : Infinity;
+
+      const isFirstInGroup =
+        !prev ||
+        prev.sender_id !== msg.sender_id ||
+        currTime - prevTime > GROUP_GAP_MS ||
+        prev.is_deleted !== msg.is_deleted;
+
+      const isLastInGroup =
+        !next ||
+        next.sender_id !== msg.sender_id ||
+        nextTime - currTime > GROUP_GAP_MS;
+
       return (
-        <MessageBubble
+        <MessageRow
           key={msg.id}
           message={msg}
           isOwn={msg.sender_id === user?.id}
@@ -966,9 +985,12 @@ export default function ConversationPage() {
   const convName = conversation.display_name || conversation.name || t('chat.conversation');
   const isDirect = conversation.type === 'direct';
 
+  const inputPlaceholder = isDirect
+    ? t('chat.messageDirect', { name: convName, defaultValue: t('chat.writeMessage') })
+    : t('chat.messageChannel', { name: convName, defaultValue: t('chat.writeMessage') });
+
   return (
     <>
-      {/* Delete confirmation modal */}
       <AnimatePresence>
         {deleteTarget && (
           <ConfirmDeleteModal
@@ -979,11 +1001,10 @@ export default function ConversationPage() {
         )}
       </AnimatePresence>
 
-      <div className="flex h-full flex-col">
-        {/* ── Header ── */}
-        <div className="flex items-center justify-between border-b border-separator bg-background px-3 py-3 shadow-sm md:px-4">
-          <div className="flex items-center gap-2 md:gap-3">
-            {/* Mobile back button */}
+      <div className="flex h-full flex-col bg-background">
+        {/* ── Header (Discord-style, 48px) ── */}
+        <header className="flex h-12 shrink-0 items-center justify-between border-b border-separator px-3 shadow-[0_1px_0_0_rgba(0,0,0,0.2)] md:px-4">
+          <div className="flex min-w-0 items-center gap-2">
             <Button
               isIconOnly
               size="sm"
@@ -993,48 +1014,69 @@ export default function ConversationPage() {
             >
               <ArrowLeft size={18} />
             </Button>
+
             {isDirect ? (
-              <UserAvatar
-                user={{ display_name: convName, presence: conversation.member_presence, avatar_url: conversation.other_avatar_url }}
-                showStatus
-              />
+              <>
+                <UserAvatar
+                  user={{
+                    display_name: convName,
+                    presence: conversation.member_presence,
+                    avatar_url: conversation.other_avatar_url,
+                  }}
+                  size="sm"
+                  showStatus
+                />
+                <div className="min-w-0">
+                  <h2 className="truncate text-[15px] font-semibold leading-tight">{convName}</h2>
+                  {conversation.member_presence && (
+                    <p className="text-[11px] capitalize leading-tight text-muted">
+                      {conversation.member_presence}
+                    </p>
+                  )}
+                </div>
+              </>
             ) : (
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft ring-1 ring-accent-soft-hover">
-                <Hash size={18} className="text-accent" />
-              </div>
+              <>
+                <Hash size={22} className="shrink-0 text-muted" strokeWidth={2.25} />
+                <h2 className="truncate text-[15px] font-semibold leading-tight">
+                  {convName}
+                </h2>
+                {conversation.member_count && (
+                  <>
+                    <span className="h-5 w-px shrink-0 bg-separator" />
+                    <p className="shrink-0 text-[12px] text-muted">
+                      {conversation.member_count} {t('chat.members')}
+                    </p>
+                  </>
+                )}
+              </>
             )}
-            <div>
-              <h2 className="text-sm font-semibold leading-tight">{convName}</h2>
-              {isDirect && conversation.member_presence && (
-                <p className="text-xs text-muted capitalize leading-tight">{conversation.member_presence}</p>
-              )}
-              {!isDirect && conversation.member_count && (
-                <p className="text-xs text-muted leading-tight">
-                  {conversation.member_count} {t('chat.members')}
-                </p>
-              )}
-            </div>
           </div>
 
-          <div className="flex items-center gap-0.5">
+          <div className="flex shrink-0 items-center gap-0.5">
             <Tooltip content={t('chat.voiceCall')}>
-              <Button isIconOnly size="sm" variant="ghost" className="hidden rounded-xl hover:bg-default sm:flex">
-                <Phone size={17} />
+              <Button isIconOnly size="sm" variant="ghost" className="hidden rounded-md text-muted hover:text-foreground sm:flex">
+                <Phone size={18} />
               </Button>
             </Tooltip>
             <Tooltip content={t('chat.videoCall')}>
-              <Button isIconOnly size="sm" variant="ghost" className="hidden rounded-xl hover:bg-default sm:flex">
-                <Video size={17} />
+              <Button isIconOnly size="sm" variant="ghost" className="hidden rounded-md text-muted hover:text-foreground sm:flex">
+                <Video size={18} />
+              </Button>
+            </Tooltip>
+            <Tooltip content={t('chat.pinnedMessages')}>
+              <Button isIconOnly size="sm" variant="ghost" className="hidden rounded-md text-muted hover:text-foreground sm:flex">
+                <Pin size={18} />
               </Button>
             </Tooltip>
             <Tooltip content={t('common.search')}>
-              <Button isIconOnly size="sm" variant="ghost" className="hidden rounded-xl hover:bg-default sm:flex">
-                <Search size={17} />
+              <Button isIconOnly size="sm" variant="ghost" className="hidden rounded-md text-muted hover:text-foreground sm:flex">
+                <Search size={18} />
               </Button>
             </Tooltip>
             <Dropdown>
-              <Button isIconOnly size="sm" variant="ghost" className="rounded-xl hover:bg-default">
-                <MoreVertical size={17} />
+              <Button isIconOnly size="sm" variant="ghost" className="rounded-md text-muted hover:text-foreground">
+                <MoreVertical size={18} />
               </Button>
               <Dropdown.Popover>
                 <Dropdown.Menu>
@@ -1046,7 +1088,7 @@ export default function ConversationPage() {
               </Dropdown.Popover>
             </Dropdown>
           </div>
-        </div>
+        </header>
 
         {/* ── Messages ── */}
         <div className="relative flex-1 min-h-0">
@@ -1062,6 +1104,33 @@ export default function ConversationPage() {
               </div>
             )}
 
+            {/* Welcome banner at top when all history is loaded */}
+            {!hasMoreMessages && !loadingMessages && messages.length > 0 && (
+              <div className="px-4 pt-4 pb-6">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent-soft">
+                  {isDirect ? (
+                    <UserAvatar
+                      user={{
+                        display_name: convName,
+                        avatar_url: conversation.other_avatar_url,
+                      }}
+                      size="lg"
+                    />
+                  ) : (
+                    <Hash size={32} className="text-accent" strokeWidth={2.25} />
+                  )}
+                </div>
+                <h3 className="mt-4 text-2xl font-bold">
+                  {isDirect ? convName : `${t('chat.welcomeChannel', { defaultValue: 'Bienvenido a' })} #${convName}`}
+                </h3>
+                <p className="mt-1 text-sm text-muted">
+                  {isDirect
+                    ? t('chat.directStart', { name: convName, defaultValue: `Este es el inicio de tu historial con ${convName}.` })
+                    : t('chat.channelStart', { name: convName, defaultValue: `Este es el comienzo del canal #${convName}.` })}
+                </p>
+              </div>
+            )}
+
             {hasMoreMessages && !loadingMessages && (
               <div className="flex justify-center py-2">
                 <button
@@ -1070,7 +1139,7 @@ export default function ConversationPage() {
                     prevScrollHeightRef.current = containerRef.current?.scrollHeight ?? null;
                     loadMoreMessages();
                   }}
-                  className="flex items-center gap-1.5 rounded-full border border-separator bg-background px-3 py-1 text-xs text-muted shadow-sm transition-colors hover:bg-default hover:text-foreground"
+                  className="flex items-center gap-1.5 rounded-full border border-separator bg-surface-secondary px-3 py-1 text-xs text-muted shadow-sm transition-colors hover:bg-default hover:text-foreground"
                 >
                   <ArrowUp size={12} />
                   {t('chat.loadMore')}
@@ -1088,18 +1157,18 @@ export default function ConversationPage() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Scroll to bottom button — fixed to the viewport of the message area */}
+          {/* Scroll to bottom */}
           <AnimatePresence>
             {showScrollBtn && (
               <motion.button
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 8 }}
-                transition={{ duration: 0.2, ease: 'easeOut' }}
+                transition={{ duration: 0.16, ease: 'easeOut' }}
                 onClick={scrollToBottom}
-                className="absolute bottom-4 right-4 flex h-9 w-9 items-center justify-center rounded-full border border-separator bg-background shadow-lg transition-all hover:scale-110 hover:bg-default"
+                className="absolute bottom-4 right-4 flex h-9 w-9 items-center justify-center rounded-full bg-surface-secondary text-foreground shadow-lg ring-1 ring-separator transition-all hover:bg-default"
               >
-                <ArrowDown size={15} />
+                <ArrowDown size={16} />
               </motion.button>
             )}
           </AnimatePresence>
@@ -1110,14 +1179,14 @@ export default function ConversationPage() {
           {typingText && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 32 }}
+              animate={{ opacity: 1, height: 24 }}
               exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3, ease: 'easeOut' }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
               className="overflow-hidden"
             >
-              <div className="flex items-center gap-2 px-5 py-1">
+              <div className="flex items-center gap-2 px-4 py-0.5">
                 <TypingDots />
-                <p className="text-xs text-muted">{typingText}</p>
+                <p className="text-[11px] text-muted">{typingText}</p>
               </div>
             </motion.div>
           )}
@@ -1127,25 +1196,30 @@ export default function ConversationPage() {
         <AnimatePresence initial={false}>
           {(replyTo || editing) && (
             <motion.div
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 8 }}
-              transition={{ duration: 0.2, ease: EASE_OUT }}
-              className="flex items-center gap-3 border-t border-separator bg-accent/5 px-4 py-2.5"
+              exit={{ opacity: 0, y: 12 }}
+              transition={{ duration: 0.16, ease: EASE_OUT }}
+              className="mx-3 mt-2 flex items-center gap-3 rounded-t-md border-t border-x border-separator bg-surface-secondary px-3 py-1.5 md:mx-4"
             >
-              <div className={`w-0.5 self-stretch rounded-full ${editing ? 'bg-warning' : 'bg-accent'}`} />
-              <div className="min-w-0 flex-1">
-                <p className={`flex items-center gap-1 text-xs font-semibold ${editing ? 'text-warning' : 'text-accent'}`}>
-                  {editing ? <Pencil size={11} /> : <CornerUpLeft size={11} />}
-                  {editing ? t('chat.editingMessage') : t('chat.replyingTo', { name: replyTo.sender_display_name })}
-                </p>
-                <p className="truncate text-xs text-muted">
-                  {editing ? editing.body : replyTo.body}
-                </p>
-              </div>
+              <span className={`flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide ${editing ? 'text-warning' : 'text-muted'}`}>
+                {editing ? <Pencil size={11} /> : <CornerUpLeft size={11} />}
+                {editing ? t('chat.editingMessage') : (
+                  <>
+                    {t('chat.replyingTo', { name: '' })}
+                    <span className="font-semibold normal-case" style={{ color: userColor(replyTo.sender_display_name) }}>
+                      @{replyTo.sender_display_name}
+                    </span>
+                  </>
+                )}
+              </span>
+              <p className="min-w-0 flex-1 truncate text-xs text-muted">
+                {editing ? editing.body : (replyTo.body || (replyTo.type === 'media' ? t('chat.attachedFile') : ''))}
+              </p>
               <button
                 onClick={cancelAction}
                 className="rounded-full p-1 text-muted transition-colors hover:bg-default hover:text-foreground"
+                aria-label={t('common.cancel')}
               >
                 <X size={14} />
               </button>
@@ -1164,14 +1238,24 @@ export default function ConversationPage() {
           )}
         </AnimatePresence>
 
-        {/* ── Input area ── */}
-        <div className="border-t border-separator bg-background px-3 py-3">
-          <div className="flex items-end gap-2 rounded-2xl border border-separator/70 bg-default px-2 py-1.5 transition-shadow focus-within:shadow-md focus-within:border-accent/40">
-            <FilePickerMenu onPick={handleFilePick} disabled={!!previewFile || sendingFile} uploading={sendingFile} />
+        {/* ── Input (Discord-style) ── */}
+        <div className="px-3 pb-4 pt-1 md:px-4">
+          <div
+            className={`flex items-end gap-2 rounded-md bg-default px-3 py-2 transition-shadow focus-within:ring-2 focus-within:ring-accent/40 ${
+              (replyTo || editing) ? 'rounded-t-none' : ''
+            }`}
+          >
+            <div className="flex h-9 items-center">
+              <FilePickerMenu
+                onPick={handleFilePick}
+                disabled={!!previewFile || sendingFile}
+                uploading={sendingFile}
+              />
+            </div>
 
             <Input
               ref={inputRef}
-              placeholder={t('chat.writeMessage')}
+              placeholder={inputPlaceholder}
               value={input}
               onChange={(e) => {
                 setInput(e.target.value);
@@ -1182,14 +1266,31 @@ export default function ConversationPage() {
                 }, 2000);
               }}
               onKeyDown={handleKeyDown}
-              className="flex-1 border-none bg-transparent shadow-none outline-none"
+              className="flex-1 border-none bg-transparent text-[15px] shadow-none outline-none"
             />
 
-            <SendButton
-              onPress={handleSend}
-              isDisabled={!(input ?? '').trim()}
-              label={t('chat.send')}
-            />
+            <div className="flex h-9 shrink-0 items-center gap-1 text-muted">
+              <Tooltip content="GIF">
+                <button className="flex h-7 w-7 items-center justify-center rounded hover:text-foreground" type="button">
+                  <Gift size={20} />
+                </button>
+              </Tooltip>
+              <Tooltip content="Sticker">
+                <button className="flex h-7 w-7 items-center justify-center rounded hover:text-foreground" type="button">
+                  <Sticker size={20} />
+                </button>
+              </Tooltip>
+              <Tooltip content={t('chat.send')}>
+                <button
+                  type="button"
+                  onClick={handleSend}
+                  disabled={!(input ?? '').trim()}
+                  className="flex h-7 w-7 items-center justify-center rounded text-accent transition-all hover:text-accent disabled:text-muted disabled:opacity-50 disabled:hover:text-muted"
+                >
+                  <Send size={20} />
+                </button>
+              </Tooltip>
+            </div>
           </div>
         </div>
       </div>
