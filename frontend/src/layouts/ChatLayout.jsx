@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Button, InputGroup, TextField, Tooltip } from '@heroui/react';
 import {
@@ -11,89 +11,293 @@ import {
   Search,
   Plus,
   Hash,
+  AtSign,
   User,
   Palette,
   Globe,
   Shield,
   Wifi,
   ArrowLeft,
+  Cog,
+  Mic,
+  Headphones,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
 import UserAvatar from '@/components/UserAvatar';
+import GuildRail from '@/components/GuildRail';
 import { formatMessageTime } from '@/lib/dates';
 
-const SIDEBAR_TRANSITION = { duration: 0.2, ease: 'easeOut' };
-const CONTENT_TRANSITION = { duration: 0.2, ease: 'easeOut' };
+const CONTENT_TRANSITION = { duration: 0.2, ease: [0.22, 1, 0.36, 1] };
 
-function AnimatedSidebar({ children }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: -12 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={SIDEBAR_TRANSITION}
-      className="flex h-full w-full flex-col border-r border-separator bg-surface"
-    >
-      {children}
-    </motion.div>
-  );
-}
-
+/* ─────────────────────────────────────────────────────────
+   ConversationItem — row in the channel/DM list
+   ───────────────────────────────────────────────────────── */
 function ConversationItem({ conversation, isActive, onClick, t, animIndex = 0 }) {
   const isDirect = conversation.type === 'direct';
   const name = conversation.display_name || conversation.name || t('sidebar.noName');
   const lastMsg = conversation.last_message_body;
   const time = conversation.last_message_at;
   const unread = conversation.unread_count || 0;
+  const hasUnread = unread > 0;
 
   return (
     <motion.button
       onClick={onClick}
-      initial={{ opacity: 0, y: 8 }}
+      initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2, ease: 'easeOut', delay: Math.min(animIndex, 10) * 0.025 }}
-      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-default ${
-        isActive ? 'bg-default' : ''
-      }`}
+      transition={{ duration: 0.18, ease: 'easeOut', delay: Math.min(animIndex, 12) * 0.015 }}
+      className={[
+        'group relative flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors',
+        isActive
+          ? 'bg-ink-600 text-foreground'
+          : hasUnread
+            ? 'text-foreground hover:bg-ink-750'
+            : 'text-ink-100 hover:bg-ink-750 hover:text-foreground',
+      ].join(' ')}
     >
+      {/* Unread bar indicator */}
+      {hasUnread && !isActive && (
+        <span className="absolute -left-2 top-1/2 h-2 w-1 -translate-y-1/2 rounded-r-full bg-foreground" />
+      )}
+
+      {/* Avatar / icon */}
       <div className="relative shrink-0">
         {isDirect ? (
           <UserAvatar
-            user={{ display_name: name, presence: conversation.member_presence, avatar_url: conversation.other_avatar_url }}
+            user={{
+              display_name: name,
+              presence: conversation.member_presence,
+              avatar_url: conversation.other_avatar_url,
+            }}
+            size="sm"
             showStatus
           />
         ) : (
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft">
-            <Hash size={18} className="text-accent" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-ink-700 text-ink-100 group-hover:bg-ink-600">
+            <Hash size={16} strokeWidth={2.5} />
           </div>
         )}
       </div>
 
       <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between">
-          <span className={`truncate text-sm ${unread > 0 ? 'font-semibold' : 'font-medium'}`}>
+        <div className="flex items-center justify-between gap-2">
+          <span
+            className={`truncate text-[15px] leading-tight ${hasUnread || isActive ? 'font-semibold' : 'font-medium'}`}
+          >
             {name}
           </span>
           {time && (
-            <span className="ml-2 shrink-0 text-xs text-muted">
+            <span className="shrink-0 text-[10px] text-ink-200">
               {formatMessageTime(time)}
             </span>
           )}
         </div>
-        <div className="flex items-center justify-between">
-          <p className="truncate text-xs text-muted">{lastMsg || '\u00A0'}</p>
-          {unread > 0 && (
-            <span className="ml-2 shrink-0 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-[10px] font-bold text-accent-foreground">
-              {unread > 99 ? '99+' : unread}
-            </span>
-          )}
-        </div>
+        {lastMsg && (
+          <p className="truncate text-xs text-ink-200">{lastMsg}</p>
+        )}
       </div>
+
+      {hasUnread && (
+        <span className="ml-1 flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-echo-dnd px-1.5 text-[10px] font-bold text-white">
+          {unread > 99 ? '99+' : unread}
+        </span>
+      )}
     </motion.button>
   );
 }
 
+/* ─────────────────────────────────────────────────────────
+   UserPanel — bottom of channel list, Discord-style
+   ───────────────────────────────────────────────────────── */
+function UserPanel() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+
+  return (
+    <div className="flex items-center gap-2 bg-ink-850 px-2 py-2">
+      <button
+        type="button"
+        onClick={() => navigate('/settings/profile')}
+        className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 transition-colors hover:bg-ink-800"
+      >
+        <UserAvatar user={user} size="sm" showStatus />
+        <div className="min-w-0 flex-1 text-left">
+          <p className="truncate text-[13px] font-semibold leading-tight">{user?.display_name}</p>
+          <p className="truncate text-[11px] text-ink-200">
+            {user?.presence_message || `@${user?.username}`}
+          </p>
+        </div>
+      </button>
+
+      <div className="flex items-center">
+        <Tooltip delay={0} placement="top">
+          <Button isIconOnly size="sm" variant="ghost" className="h-8 w-8 min-w-0">
+            <Mic size={16} className="text-ink-100" />
+          </Button>
+          <Tooltip.Content><p>Mic</p></Tooltip.Content>
+        </Tooltip>
+        <Tooltip delay={0} placement="top">
+          <Button isIconOnly size="sm" variant="ghost" className="h-8 w-8 min-w-0">
+            <Headphones size={16} className="text-ink-100" />
+          </Button>
+          <Tooltip.Content><p>Audio</p></Tooltip.Content>
+        </Tooltip>
+        <Tooltip delay={0} placement="top">
+          <Button
+            isIconOnly
+            size="sm"
+            variant="ghost"
+            className="h-8 w-8 min-w-0"
+            onPress={() => navigate('/settings/profile')}
+          >
+            <Cog size={16} className="text-ink-100" />
+          </Button>
+          <Tooltip.Content><p>{t('sidebar.settings')}</p></Tooltip.Content>
+        </Tooltip>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   ChatSidebar — channel/DM list
+   ───────────────────────────────────────────────────────── */
+function ChatSidebar() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { conversations, activeConversationId, setActiveConversation } = useChatStore();
+  const [search, setSearch] = useState('');
+
+  const filtered = conversations.filter((c) => {
+    const name = (c.display_name || c.name || '').toLowerCase();
+    return name.includes(search.toLowerCase());
+  });
+
+  // Split into direct (DMs) and channels/groups
+  const dms = filtered.filter((c) => c.type === 'direct');
+  const rooms = filtered.filter((c) => c.type !== 'direct');
+
+  const handleConversationClick = useCallback(
+    (id) => {
+      setActiveConversation(id);
+      navigate(`/chat/${id}`);
+    },
+    [setActiveConversation, navigate],
+  );
+
+  return (
+    <div className="flex h-full w-full flex-col bg-ink-800">
+      {/* Header */}
+      <div className="flex h-12 shrink-0 items-center justify-between border-b border-black/20 px-4 shadow-sm">
+        <div className="flex items-center gap-2 min-w-0">
+          <MessageSquare size={18} className="shrink-0 text-ink-100" />
+          <h2 className="truncate text-[15px] font-semibold">{t('sidebar.chats')}</h2>
+        </div>
+        <Tooltip delay={0} placement="bottom">
+          <Button
+            isIconOnly
+            size="sm"
+            variant="ghost"
+            className="h-7 w-7 min-w-0"
+            onPress={() => navigate('/chat/new')}
+          >
+            <Plus size={16} />
+          </Button>
+          <Tooltip.Content><p>{t('sidebar.newChat')}</p></Tooltip.Content>
+        </Tooltip>
+      </div>
+
+      {/* Search */}
+      <div className="px-2 pt-2">
+        <button
+          type="button"
+          onClick={() => document.getElementById('echo-search-input')?.focus()}
+          className="w-full"
+        >
+          <TextField fullWidth aria-label={t('sidebar.searchConversation')}>
+            <InputGroup fullWidth variant="secondary" className="h-8 rounded-md bg-ink-900 text-[13px]">
+              <InputGroup.Prefix>
+                <Search size={13} className="text-ink-200" />
+              </InputGroup.Prefix>
+              <InputGroup.Input
+                id="echo-search-input"
+                placeholder={t('sidebar.searchConversation')}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </InputGroup>
+          </TextField>
+        </button>
+      </div>
+
+      {/* Conversation List */}
+      <div className="flex-1 overflow-y-auto px-2 py-2">
+        {filtered.length === 0 && (
+          <div className="flex flex-col items-center gap-2 px-4 py-12 text-ink-200">
+            <MessageSquare size={28} className="opacity-50" />
+            <p className="text-center text-xs">{t('sidebar.noConversations')}</p>
+          </div>
+        )}
+
+        {dms.length > 0 && (
+          <div className="mb-3">
+            <SectionHeader icon={AtSign} label="Mensajes directos" count={dms.length} />
+            <div className="mt-0.5 flex flex-col gap-0.5">
+              {dms.map((conv, i) => (
+                <ConversationItem
+                  key={conv.id}
+                  conversation={conv}
+                  isActive={conv.id === activeConversationId}
+                  onClick={() => handleConversationClick(conv.id)}
+                  t={t}
+                  animIndex={i}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {rooms.length > 0 && (
+          <div>
+            <SectionHeader icon={Hash} label="Canales y grupos" count={rooms.length} />
+            <div className="mt-0.5 flex flex-col gap-0.5">
+              {rooms.map((conv, i) => (
+                <ConversationItem
+                  key={conv.id}
+                  conversation={conv}
+                  isActive={conv.id === activeConversationId}
+                  onClick={() => handleConversationClick(conv.id)}
+                  t={t}
+                  animIndex={i}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* User Panel */}
+      <UserPanel />
+    </div>
+  );
+}
+
+function SectionHeader({ icon: Icon, label, count }) {
+  return (
+    <div className="flex items-center gap-1 px-1 pb-1 pt-2 text-[11px] font-bold uppercase tracking-wider text-ink-200">
+      <Icon size={11} />
+      <span className="truncate">{label}</span>
+      <span className="ml-auto text-[10px] font-semibold">{count}</span>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   Settings sidebar (same slot as ChatSidebar but for settings)
+   ───────────────────────────────────────────────────────── */
 const SETTINGS_NAV = [
   { id: 'profile',    icon: User    },
   { id: 'appearance', icon: Palette },
@@ -106,49 +310,43 @@ function SettingsSidebar() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const user = useAuthStore((s) => s.user);
-  const logout = useAuthStore((s) => s.logout);
 
   const activeTab = location.pathname.split('/settings/')[1] || 'profile';
 
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
-
   return (
-    <AnimatedSidebar>
+    <div className="flex h-full w-full flex-col bg-ink-800">
       {/* Header */}
-      <div className="flex items-center gap-2 border-b border-separator px-3 py-3">
+      <div className="flex h-12 shrink-0 items-center gap-2 border-b border-black/20 px-3 shadow-sm">
         <Tooltip delay={0}>
-          <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/chat')}>
+          <Button
+            isIconOnly
+            size="sm"
+            variant="ghost"
+            className="h-7 w-7 min-w-0"
+            onPress={() => navigate('/chat')}
+          >
             <ArrowLeft size={16} />
           </Button>
           <Tooltip.Content><p>{t('common.back')}</p></Tooltip.Content>
         </Tooltip>
-        <h2 className="text-sm font-semibold">{t('settings.title')}</h2>
-      </div>
-
-      {/* User card */}
-      <div className="mx-3 mt-3 flex items-center gap-3 rounded-xl border border-border bg-background-secondary px-3 py-2.5">
-        <UserAvatar user={user} size="sm" showStatus />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold">{user?.display_name}</p>
-          <p className="truncate text-xs text-muted">@{user?.username}</p>
-        </div>
+        <h2 className="text-[15px] font-semibold">{t('settings.title')}</h2>
       </div>
 
       {/* Nav */}
-      <nav className="mx-2 mt-2 flex flex-col gap-0.5 p-1">
+      <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2 py-3">
+        <p className="px-2 pb-1 text-[11px] font-bold uppercase tracking-wider text-ink-200">
+          {t('settings.title')}
+        </p>
         {SETTINGS_NAV.map(({ id, icon: Icon }) => (
           <button
             key={id}
             onClick={() => navigate(`/settings/${id}`)}
-            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+            className={[
+              'flex items-center gap-3 rounded-md px-3 py-2 text-[14px] font-medium transition-colors',
               activeTab === id
-                ? 'bg-accent-soft text-accent'
-                : 'text-muted hover:bg-background-secondary hover:text-foreground'
-            }`}
+                ? 'bg-ink-600 text-foreground'
+                : 'text-ink-100 hover:bg-ink-750 hover:text-foreground',
+            ].join(' ')}
           >
             <Icon size={15} />
             {t(`settings.tabs.${id}`)}
@@ -156,148 +354,47 @@ function SettingsSidebar() {
         ))}
       </nav>
 
-      {/* Spacer + Logout */}
-      <div className="mt-auto border-t border-separator px-3 py-3">
-        <button
-          onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-danger transition-colors hover:bg-danger/10"
-        >
-          <LogOut size={15} />
-          {t('sidebar.logout')}
-        </button>
-      </div>
-    </AnimatedSidebar>
-  );
-}
-
-function ChatSidebar() {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
-  const user = useAuthStore((s) => s.user);
-  const logout = useAuthStore((s) => s.logout);
-  const { conversations, activeConversationId, setActiveConversation } = useChatStore();
-  const [search, setSearch] = useState('');
-
-  const filtered = conversations.filter((c) => {
-    const name = (c.display_name || c.name || '').toLowerCase();
-    return name.includes(search.toLowerCase());
-  });
-
-  const handleConversationClick = useCallback(
-    (id) => {
-      setActiveConversation(id);
-      navigate(`/chat/${id}`);
-    },
-    [setActiveConversation, navigate],
-  );
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
-
-  return (
-    <AnimatedSidebar>
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-separator px-4 py-3">
-        <div className="flex items-center gap-3">
-          <UserAvatar user={user} showStatus size="sm" />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">{user?.display_name}</p>
-            <p className="truncate text-xs text-muted">@{user?.username}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1">
-          <Tooltip delay={0}>
-            <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/chat/new')}>
-              <Plus size={18} />
-            </Button>
-            <Tooltip.Content>
-              <p>{t('sidebar.newChat')}</p>
-            </Tooltip.Content>
-          </Tooltip>
-        </div>
-      </div>
-
-      {/* Search */}
-      <div className="px-3 py-2">
-        <TextField fullWidth aria-label={t('sidebar.searchConversation')}>
-          <InputGroup fullWidth variant="secondary">
-            <InputGroup.Prefix>
-              <Search size={15} className="text-muted" />
-            </InputGroup.Prefix>
-            <InputGroup.Input
-              placeholder={t('sidebar.searchConversation')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </InputGroup>
-        </TextField>
-      </div>
-
-      {/* Conversation List */}
-      <div className="flex-1 overflow-y-auto px-2">
-        {filtered.length === 0 && (
-          <div className="flex flex-col items-center gap-2 py-8 text-muted">
-            <MessageSquare size={32} />
-            <p className="text-sm">{t('sidebar.noConversations')}</p>
-          </div>
-        )}
-        {filtered.map((conv, i) => (
-          <ConversationItem
-            key={conv.id}
-            conversation={conv}
-            isActive={conv.id === activeConversationId}
-            onClick={() => handleConversationClick(conv.id)}
-            t={t}
-            animIndex={i}
-          />
-        ))}
-      </div>
-
-      {/* Bottom Nav */}
-      <div className="flex items-center justify-around border-t border-separator px-2 py-2">
-        <Tooltip delay={0}>
-          <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/chat')}>
-            <MessageSquare size={18} />
-          </Button>
-          <Tooltip.Content><p>{t('sidebar.chats')}</p></Tooltip.Content>
-        </Tooltip>
-        <Tooltip delay={0}>
-          <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/contacts')}>
-            <Users size={18} />
-          </Button>
-          <Tooltip.Content><p>{t('sidebar.contacts')}</p></Tooltip.Content>
-        </Tooltip>
-        <Tooltip delay={0}>
-          <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/notifications')}>
-            <Bell size={18} />
-          </Button>
-          <Tooltip.Content><p>{t('sidebar.notifications')}</p></Tooltip.Content>
-        </Tooltip>
-        <Tooltip delay={0}>
-          <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/settings')}>
-            <Settings size={18} />
-          </Button>
-          <Tooltip.Content><p>{t('sidebar.settings')}</p></Tooltip.Content>
-        </Tooltip>
-        <Tooltip delay={0}>
-          <Button isIconOnly size="sm" variant="danger" onPress={handleLogout}>
-            <LogOut size={18} />
-          </Button>
-          <Tooltip.Content><p>{t('sidebar.logout')}</p></Tooltip.Content>
-        </Tooltip>
-      </div>
-    </AnimatedSidebar>
+      {/* User Panel at bottom */}
+      <UserPanel />
+    </div>
   );
 }
 
 function Sidebar() {
   const location = useLocation();
   const isSettings = location.pathname.startsWith('/settings');
-  return isSettings ? <SettingsSidebar key="settings" /> : <ChatSidebar key="chat" />;
+  return (
+    <AnimatePresence mode="wait">
+      {isSettings ? (
+        <motion.div
+          key="settings"
+          initial={{ opacity: 0, x: -8 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -8 }}
+          transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+          className="h-full w-full"
+        >
+          <SettingsSidebar />
+        </motion.div>
+      ) : (
+        <motion.div
+          key="chat"
+          initial={{ opacity: 0, x: -8 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -8 }}
+          transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+          className="h-full w-full"
+        >
+          <ChatSidebar />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 }
 
+/* ─────────────────────────────────────────────────────────
+   Mobile bottom nav (keeps functionality on small screens)
+   ───────────────────────────────────────────────────────── */
 function MobileBottomNav() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -317,13 +414,13 @@ function MobileBottomNav() {
   ];
 
   return (
-    <div className="flex items-center justify-around border-t border-separator bg-surface px-2 py-2 md:hidden">
+    <div className="flex items-center justify-around border-t border-black/20 bg-ink-850 px-2 py-2 md:hidden">
       {items.map(({ id, icon: Icon, label, path, active }) => (
         <button
           key={id}
           onClick={() => navigate(path)}
-          className={`flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-[10px] transition-colors ${
-            active ? 'text-accent' : 'text-muted'
+          className={`flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-[10px] font-medium transition-colors ${
+            active ? 'text-blurple-400' : 'text-ink-200'
           }`}
         >
           <Icon size={20} />
@@ -334,14 +431,14 @@ function MobileBottomNav() {
   );
 }
 
+/* ─────────────────────────────────────────────────────────
+   Root Layout
+   ───────────────────────────────────────────────────────── */
 export default function ChatLayout() {
   const location = useLocation();
   const pathname = location.pathname;
   const sidebarRef = useRef(null);
 
-  // On mobile: show sidebar only on /chat (index), hide on all "content" routes
-  // Conversation routes: /chat/new, /chat/:id
-  // Other content routes: /contacts, /notifications, /settings/*
   const isOnChatIndex = pathname === '/chat';
   const isConversationRoute = /^\/chat\/.+/.test(pathname);
   const isContentRoute = !isOnChatIndex;
@@ -349,10 +446,10 @@ export default function ChatLayout() {
   const startResize = useCallback((e) => {
     e.preventDefault();
     const startX = e.clientX;
-    const startWidth = sidebarRef.current?.offsetWidth ?? 320;
+    const startWidth = sidebarRef.current?.offsetWidth ?? 288;
 
     const onMove = (ev) => {
-      const newWidth = Math.max(200, Math.min(480, startWidth + ev.clientX - startX));
+      const newWidth = Math.max(220, Math.min(420, startWidth + ev.clientX - startX));
       if (sidebarRef.current) {
         sidebarRef.current.style.width = newWidth + 'px';
         sidebarRef.current.style.minWidth = newWidth + 'px';
@@ -373,26 +470,34 @@ export default function ChatLayout() {
   }, []);
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden md:flex-row">
-      {/* Sidebar: always on desktop, only on /chat index on mobile */}
+    <div className="flex h-screen flex-col overflow-hidden bg-ink-700 text-foreground md:flex-row">
+      {/* Guild rail — desktop only */}
+      <div className="hidden md:flex">
+        <GuildRail />
+      </div>
+
+      {/* Channel/Settings sidebar */}
       <div
         ref={sidebarRef}
-        className={`${isContentRoute ? 'hidden md:flex' : 'flex flex-1 md:flex-none'} md:w-80`}
+        className={`${isContentRoute ? 'hidden md:flex' : 'flex flex-1 md:flex-none'} md:w-72`}
       >
         <Sidebar />
       </div>
 
       {/* Resize handle - desktop only */}
       <div
-        className="hidden md:flex w-1 shrink-0 cursor-col-resize items-stretch bg-separator transition-colors hover:bg-accent/40"
+        className="hidden md:block w-[2px] shrink-0 cursor-col-resize bg-ink-900 transition-colors hover:bg-blurple-500/50"
         onMouseDown={startResize}
+        aria-hidden
       />
 
-      {/* Main content: always on desktop, hidden on /chat index on mobile */}
-      <main className={`${isOnChatIndex ? 'hidden md:block' : ''} flex-1 min-w-0 overflow-hidden`}>
+      {/* Main content */}
+      <main
+        className={`${isOnChatIndex ? 'hidden md:block' : ''} min-w-0 flex-1 overflow-hidden bg-ink-700`}
+      >
         <motion.div
           key={location.pathname}
-          initial={{ opacity: 0, y: 8 }}
+          initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={CONTENT_TRANSITION}
           className="h-full"
@@ -401,7 +506,7 @@ export default function ChatLayout() {
         </motion.div>
       </main>
 
-      {/* Mobile bottom nav: show on content pages except active conversations */}
+      {/* Mobile bottom nav */}
       {isContentRoute && !isConversationRoute && <MobileBottomNav />}
     </div>
   );

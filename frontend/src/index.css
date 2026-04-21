@@ -1,76 +1,105 @@
 @import "tailwindcss";
 @import "@heroui/styles";
 
-/* ── SendButton ── */
-.send-btn {
-  font-family: inherit;
-  font-size: 14px;
-  background: var(--accent);
-  color: var(--accent-foreground);
-  padding: 0.5em 0.85em;
-  padding-left: 0.7em;
-  display: flex;
-  align-items: center;
-  border: none;
-  border-radius: 14px;
-  overflow: hidden;
-  transition: all 0.2s;
-  cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
+/* ──────────────────────────────────────────────────────────
+   Discord-inspired design tokens
+   ────────────────────────────────────────────────────────── */
+@theme {
+  /* Neutral greys (dark, Discord-like) */
+  --color-ink-950: #1a1b1e;   /* guild rail */
+  --color-ink-900: #1e1f22;   /* deepest */
+  --color-ink-850: #232428;
+  --color-ink-800: #2b2d31;   /* channel list */
+  --color-ink-750: #2e3035;
+  --color-ink-700: #313338;   /* chat area */
+  --color-ink-600: #383a40;   /* hover */
+  --color-ink-500: #404249;
+  --color-ink-400: #4e5058;   /* dividers */
+  --color-ink-300: #6d6f78;
+  --color-ink-200: #949ba4;   /* muted text */
+  --color-ink-100: #b5bac1;   /* secondary text */
+  --color-ink-50:  #dbdee1;   /* hi-contrast text */
+  --color-ink-0:   #f2f3f5;   /* primary text */
+
+  /* Brand blurple */
+  --color-blurple-50:  #eef0fe;
+  --color-blurple-100: #dbe0fd;
+  --color-blurple-200: #bcc4fb;
+  --color-blurple-300: #929df8;
+  --color-blurple-400: #7882f4;
+  --color-blurple-500: #5865f2;   /* Discord blurple */
+  --color-blurple-600: #4752c4;
+  --color-blurple-700: #3c45a5;
+  --color-blurple-800: #2e3580;
+  --color-blurple-900: #252a63;
+
+  /* Status */
+  --color-echo-online: #23a55a;
+  --color-echo-idle:   #f0b232;
+  --color-echo-dnd:    #f23f43;
+  --color-echo-offline:#80848e;
+
+  /* Motion */
+  --ease-echo: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.send-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  transform: scale(0.9);
-}
-
-.send-btn .send-label {
-  display: block;
-  margin-left: 0.35em;
-  transition: all 0.3s ease-in-out;
-}
-
-.send-btn .send-icon {
-  display: block;
-  transform-origin: center center;
-  transition: transform 0.3s ease-in-out;
-}
-
-.send-btn:not(:disabled):hover .send-svg-wrapper {
-  animation: send-fly 0.6s ease-in-out infinite alternate;
-}
-
-.send-btn:not(:disabled):hover .send-icon {
-  transform: translateX(1.2em) rotate(45deg) scale(1.1);
-}
-
-.send-btn:not(:disabled):hover .send-label {
-  transform: translateX(5em);
-}
-
-.send-btn:not(:disabled):active {
-  transform: scale(0.95);
-}
-
-@keyframes send-fly {
-  from { transform: translateY(0.1em); }
-  to   { transform: translateY(-0.1em); }
-}
-
+/* ──────────────────────────────────────────────────────────
+   Base
+   ────────────────────────────────────────────────────────── */
 @layer base {
   :root {
-    --echo-sidebar-width: 320px;
+    --echo-sidebar-width: 288px;
+    --echo-guild-rail-width: 72px;
+
+    --snow: #ffffff;
+    --eclipse: #0c0d0e;
+
+    /* Default accent: Discord blurple */
+    --accent: oklch(0.57 0.20 275);
+    --accent-foreground: var(--snow);
   }
 
-  /* Estilo del cursor para botones */
+  /* ── Dark mode — Discord greys ── */
+  html.dark {
+    --heroui-background: 225 6% 13%;         /* #1e1f22 */
+    --heroui-background-secondary: 220 6% 18%; /* #2b2d31 */
+    --heroui-surface: 220 5% 20%;             /* #313338 */
+    --heroui-foreground: 220 8% 95%;          /* #f2f3f5 */
+    --heroui-muted: 219 6% 66%;               /* #b5bac1 */
+    --heroui-separator: 220 6% 14%;           /* #232428 */
+    --heroui-border: 223 7% 21%;              /* #313338 */
+    --heroui-default: 220 5% 25%;             /* #383a40 hover bg */
+  }
+
+  /* Smooth scrollbars */
+  *::-webkit-scrollbar { width: 8px; height: 8px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb {
+    background: var(--color-ink-400, rgba(120,120,120,0.25));
+    border-radius: 8px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--color-ink-300, rgba(120,120,120,0.45));
+  }
+  html:not(.dark) *::-webkit-scrollbar-thumb {
+    background: rgba(0,0,0,0.15);
+  }
+
+  /* Cursor on interactive */
   button:not(:disabled),
-  [role="button"]:not(:disabled) {
-    cursor: pointer;
+  [role="button"]:not(:disabled) { cursor: pointer; }
+
+  /* Text selection uses accent */
+  ::selection {
+    background: color-mix(in oklch, var(--accent) 45%, transparent);
+    color: var(--accent-foreground);
   }
 
-  /* ── Accent color palettes ── */
+  /* ── Accent palettes ── */
+  :root[data-accent="blurple"] {
+    --accent: oklch(0.57 0.20 275);
+    --accent-foreground: var(--snow);
+  }
   :root[data-accent="blue"] {
     --accent: oklch(0.6204 0.195 253.83);
     --accent-foreground: var(--snow);
@@ -95,4 +124,118 @@
     --accent: oklch(0.70 0.136 220.49);
     --accent-foreground: var(--eclipse);
   }
+}
+
+/* ──────────────────────────────────────────────────────────
+   Reusable utilities
+   ────────────────────────────────────────────────────────── */
+@layer utilities {
+  /* Guild-rail active pill indicator (Discord-style) */
+  .echo-pill {
+    @apply pointer-events-none absolute left-0 top-1/2 h-2 w-1 -translate-y-1/2 rounded-r-full bg-foreground opacity-0 transition-all duration-200;
+  }
+  .echo-pill-hover { @apply h-5 opacity-60; }
+  .echo-pill-active { @apply h-10 opacity-100; }
+
+  /* Subtle glow for emphasis */
+  .echo-glow-accent {
+    box-shadow: 0 0 0 1px color-mix(in oklch, var(--accent) 40%, transparent),
+                0 8px 24px -8px color-mix(in oklch, var(--accent) 35%, transparent);
+  }
+
+  /* Fade-in util */
+  .echo-fade-in {
+    animation: echo-fade-in 180ms var(--ease-echo);
+  }
+
+  /* Hover-lift */
+  .echo-lift {
+    transition: transform 120ms var(--ease-echo), background-color 120ms var(--ease-echo);
+  }
+  .echo-lift:hover { transform: translateY(-1px); }
+  .echo-lift:active { transform: translateY(0) scale(0.98); }
+
+  /* Message row toolbar */
+  .echo-msg-row { @apply relative; }
+  .echo-msg-toolbar {
+    @apply absolute -top-4 right-4 flex gap-0.5 rounded-lg border border-ink-400/40 bg-ink-850 px-1 py-1 shadow-md transition-all duration-150;
+  }
+  .echo-msg-toolbar[data-show="false"] {
+    @apply pointer-events-none opacity-0 translate-y-1;
+  }
+  .echo-msg-toolbar[data-show="true"] {
+    @apply opacity-100 translate-y-0;
+  }
+
+  /* Typing dots */
+  .echo-typing-dot {
+    animation: echo-typing 1.2s infinite ease-in-out;
+  }
+  .echo-typing-dot:nth-child(2) { animation-delay: 0.15s; }
+  .echo-typing-dot:nth-child(3) { animation-delay: 0.3s; }
+}
+
+/* ──────────────────────────────────────────────────────────
+   Keyframes
+   ────────────────────────────────────────────────────────── */
+@keyframes echo-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes echo-typing {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
+  30%            { transform: translateY(-3px); opacity: 1; }
+}
+
+/* ──────────────────────────────────────────────────────────
+   SendButton (original — animated arrow)
+   ────────────────────────────────────────────────────────── */
+.send-btn {
+  font-family: inherit;
+  font-size: 14px;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  padding: 0.5em 0.85em;
+  padding-left: 0.7em;
+  display: flex;
+  align-items: center;
+  border: none;
+  border-radius: 14px;
+  overflow: hidden;
+  transition: all 0.2s;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.send-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: scale(0.9);
+}
+.send-btn .send-label {
+  display: block;
+  margin-left: 0.35em;
+  transition: all 0.3s ease-in-out;
+}
+.send-btn .send-icon {
+  display: block;
+  transform-origin: center center;
+  transition: transform 0.3s ease-in-out;
+}
+.send-btn:not(:disabled):hover .send-svg-wrapper {
+  animation: send-fly 0.6s ease-in-out infinite alternate;
+}
+.send-btn:not(:disabled):hover .send-icon {
+  transform: translateX(1.2em) rotate(45deg) scale(1.1);
+}
+.send-btn:not(:disabled):hover .send-label {
+  transform: translateX(5em);
+}
+.send-btn:not(:disabled):active {
+  transform: scale(0.95);
+}
+@keyframes send-fly {
+  from { transform: translateY(0.1em); }
+  to   { transform: translateY(-0.1em); }
 }
