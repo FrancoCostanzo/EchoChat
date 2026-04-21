@@ -197,7 +197,7 @@ class MessageRepository extends BaseRepository {
 
   async toggleReaction(messageId, userId, emoji) {
     const { rows } = await this.query(
-      `SELECT id, emoji FROM message_reactions WHERE message_id = $1 AND user_id = $2`,
+      `SELECT emoji FROM message_reactions WHERE message_id = $1 AND user_id = $2`,
       [messageId, userId]
     );
     const existing = rows[0];
