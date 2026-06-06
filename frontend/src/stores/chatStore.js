@@ -172,7 +172,6 @@ export const useChatStore = create((set, get) => ({
     set({ loadingConversations: true });
     try {
       const { data } = await conversationsApi.list();
-      console.log('Fetched conversations:', data);
       set({ conversations: data });
     } finally {
       set({ loadingConversations: false });
