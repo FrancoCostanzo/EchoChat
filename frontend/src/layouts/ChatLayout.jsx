@@ -21,6 +21,7 @@ import {
   Cog,
   Mic,
   Headphones,
+  X,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
@@ -171,9 +172,12 @@ function ChatSidebar() {
   const { conversations, activeConversationId, setActiveConversation } = useChatStore();
   const [search, setSearch] = useState('');
 
+  const query = search.trim().toLowerCase();
   const filtered = conversations.filter((c) => {
+    if (!query) return true;
     const name = (c.display_name || c.name || '').toLowerCase();
-    return name.includes(search.toLowerCase());
+    const lastMsg = (c.last_message_body || '').toLowerCase();
+    return name.includes(query) || lastMsg.includes(query);
   });
 
   // Split into direct (DMs) and channels/groups
@@ -228,6 +232,18 @@ function ChatSidebar() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
+              {search && (
+                <InputGroup.Suffix>
+                  <button
+                    type="button"
+                    onClick={() => setSearch('')}
+                    aria-label={t('common.clear')}
+                    className="flex h-4 w-4 items-center justify-center rounded-full text-ink-200 transition-colors hover:text-foreground"
+                  >
+                    <X size={13} />
+                  </button>
+                </InputGroup.Suffix>
+              )}
             </InputGroup>
           </TextField>
         </button>

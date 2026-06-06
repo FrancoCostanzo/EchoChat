@@ -1029,6 +1029,10 @@ export default function SettingsPage() {
           transition={{ duration: 0.22, ease: ENTRY_EASE }}
           className="mx-auto w-full max-w-xl px-4 py-4 md:px-6 md:py-6"
         >
+          <div className="mb-5 hidden md:block">
+            <h1 className="text-xl font-bold text-foreground">{t(`settings.tabs.${tab}`)}</h1>
+            <p className="mt-0.5 text-sm text-muted">{t(`settings.descriptions.${tab}`)}</p>
+          </div>
           <TabContent />
         </motion.div>
       </AnimatePresence>
