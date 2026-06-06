@@ -14,7 +14,7 @@
 | 3 | Broadcasts completos | ⬜ Pendiente |
 | 4 | Pipeline de media seguro | ⬜ Pendiente |
 | 5 | Llamadas WebRTC reales | ⬜ Pendiente |
-| 6 | Mensajería ya modelada (quick wins) | ⬜ Pendiente |
+| 6 | Mensajería ya modelada (quick wins) | 🚧 En progreso |
 | 7 | Panel de administración | ⬜ Pendiente |
 
 Orden recomendado:
@@ -113,13 +113,23 @@ Fase 0 → Fase 1 → Fase 2 → Fase 3 → (Fase 6 en paralelo) → Fase 4 → 
 
 ## FASE 6 — Mensajería ya modelada (quick wins)
 
-| # | Funcionalidad | Esfuerzo | Depende de |
-|---|---|---|---|
-| 6.1 | Drafts (`drafts`): autoguardar borrador por conversación. | S (1-2d) | — |
-| 6.2 | Saved messages (`saved_messages`): guardar con nota + vista. | S (2d) | — |
-| 6.3 | Forwarding (campos `forwarded_from_*` ya existen). | S (1-2d) | — |
-| 6.4 | Polls (`poll.dto` ya existe sin ruta): votación en vivo + UI. | M (3-4d) | — |
-| 6.5 | Threads/hilos completos (`thread_id`). | M (3d) | — |
+| # | Funcionalidad | Esfuerzo | Depende de | Estado |
+|---|---|---|---|---|
+| 6.1 | Drafts (`drafts`): autoguardar borrador por conversación. | S (1-2d) | — | 🚧 backend + API (falta autosave en ConversationPage) |
+| 6.2 | Saved messages (`saved_messages`): guardar con nota + vista. | S (2d) | — | ✅ |
+| 6.3 | Forwarding (campos `forwarded_from_*` ya existen). | S (1-2d) | — | ⬜ |
+| 6.4 | Polls (`poll.dto` ya existe sin ruta): votación en vivo + UI. | M (3-4d) | — | ⬜ |
+| 6.5 | Threads/hilos completos (`thread_id`). | M (3d) | — | ⬜ |
+
+### Detalle de lo implementado en Fase 6
+
+- **6.2 Saved messages** ✅ — backend (`saved.repository`, métodos en `messageService`,
+  endpoints `GET /messages/saved`, `POST/DELETE /messages/:id/save`), acción "Guardar"
+  en la toolbar de cada mensaje (`ConversationPage`), página dedicada
+  `SavedMessagesPage` (`/saved`) con acceso en el GuildRail, i18n es/en/pt.
+- **6.1 Drafts** 🚧 — backend completo (`draft.repository`, métodos en `messageService`,
+  endpoints `GET /messages/drafts`, `GET/PUT/DELETE /messages/conversation/:id/draft`)
+  y cliente API (`messagesApi`). Falta el autosave en el composer de `ConversationPage`.
 
 ## FASE 7 — Panel de administración
 
