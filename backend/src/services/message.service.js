@@ -1,5 +1,5 @@
 const logger = require('../config/logger');
-const { messageRepository, conversationRepository } = require('../repositories');
+const { messageRepository, conversationRepository, userRepository, auditRepository } = require('../repositories');
 const { NotFoundError, ForbiddenError } = require('../errors');
 const { toMessageResponse } = require('../models');
 const { minioClient } = require('../config/minio');
@@ -73,7 +73,14 @@ class MessageService {
   async delete(messageId, userId) {
     const message = await messageRepository.findById(messageId);
     if (!message) throw new NotFoundError('Message');
-    if (message.sender_id !== userId) throw new ForbiddenError('Can only delete your own messages');
+
+    // Owners delete their own messages; others need the global `messages.delete_any`
+    // permission (moderators/admins). This connects per-message ownership with RBAC.
+    const isOwner = message.sender_id === userId;
+    if (!isOwner) {
+      const canDeleteAny = await userRepository.hasPermission(userId, 'messages.delete_any');
+      if (!canDeleteAny) throw new ForbiddenError('Can only delete your own messages');
+    }
 
     // Delete attachments from MinIO before soft-deleting the message
     const attachmentObjects = await messageRepository.getAttachmentObjects(messageId);
@@ -97,6 +104,15 @@ class MessageService {
 
     const deleted = await messageRepository.softDelete(messageId, userId);
     logger.info({ messageId }, 'Message deleted');
+
+    auditRepository.log({
+      actor_id: userId,
+      action: 'message.delete',
+      resource_type: 'message',
+      resource_id: messageId,
+      data_before: { conversation_id: message.conversation_id, sender_id: message.sender_id },
+      data_after: { by_owner: isOwner },
+    }).catch((err) => logger.warn({ err: err.message }, 'Failed to write audit log'));
 
     const response = toMessageResponse(deleted);
     try {
