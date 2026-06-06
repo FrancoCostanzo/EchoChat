@@ -39,6 +39,7 @@ import UserAvatar from '@/components/UserAvatar';
 import ImageViewer from '@/components/ImageViewer';
 import PdfPreview from '@/components/PdfPreview';
 import SendButton from '@/components/SendButton';
+import MessageSearchPanel from '@/components/MessageSearchPanel';
 import { formatMessageTime, formatFullTime } from '@/lib/dates';
 import { storageApi } from '@/lib/endpoints';
 
@@ -128,6 +129,66 @@ function FilePickerMenu({ onPick, disabled, uploading }) {
                 {label}
               </button>
             ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/* ─────────────────────────── Emoji Picker (input) ─────────────────────────── */
+const EMOJIS = [
+  '😀', '😂', '🥹', '😊', '😍', '😎', '🤔', '😅',
+  '😉', '🙃', '😴', '😭', '😡', '🥳', '🤩', '😘',
+  '🥰', '🤗', '🤓', '😬', '😮', '👀', '🫡', '🤯',
+  '👍', '👎', '👏', '🙌', '🙏', '💪', '🤝', '🔥',
+  '❤️', '💯', '🎉', '✅', '❌', '⭐', '💡', '🚀',
+];
+
+function EmojiPicker({ onPick }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <Tooltip content={t('chat.emoji')} placement="top">
+        <button
+          type="button"
+          onClick={() => setOpen((p) => !p)}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
+        >
+          <Smile size={18} />
+        </button>
+      </Tooltip>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 6, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 4, scale: 0.97 }}
+            transition={{ duration: 0.16, ease: 'easeOut' }}
+            className="absolute bottom-11 right-0 z-30 w-[296px] rounded-lg border border-ink-400/40 bg-ink-850 p-2 shadow-xl"
+          >
+            <div className="grid grid-cols-8 gap-0.5">
+              {EMOJIS.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => { onPick(emoji); setOpen(false); }}
+                  className="flex h-8 w-8 items-center justify-center rounded-md text-lg transition-transform hover:scale-125 hover:bg-ink-750"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -480,12 +541,13 @@ function ReactionPill({ emoji, count, mine, onClick }) {
   );
 }
 
-function ReceiptIcon({ message, t }) {
-  if (message._status === 'sending') return <Loader size={12} className="animate-spin text-ink-200" />;
-  if (message._status === 'error')   return <AlertCircle size={12} className="text-echo-dnd" />;
-  if (message.read_count > 0)        return <CheckCheck size={12} className="text-blurple-400" />;
-  if (message.delivered_count > 0)   return <CheckCheck size={12} className="text-ink-200" />;
-  return <Check size={12} className="text-ink-300" />;
+// Delivery receipt — only rendered on the user's own (accent) bubbles.
+function ReceiptIcon({ message }) {
+  if (message._status === 'sending') return <Loader size={13} className="animate-spin text-white/70" />;
+  if (message._status === 'error')   return <AlertCircle size={13} className="text-red-200" />;
+  if (message.read_count > 0)        return <CheckCheck size={13} className="text-sky-300" />;
+  if (message.delivered_count > 0)   return <CheckCheck size={13} className="text-white/70" />;
+  return <Check size={13} className="text-white/70" />;
 }
 
 const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstInGroup, isLastInGroup, onEdit, onDelete, onReply, onReact, onRetry, currentUserId, currentUser }) {
@@ -504,129 +566,138 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
     : message.sender_avatar_url;
 
   const showToolbar = !isPending && !message.is_deleted && (isHovered || showEmojiPicker);
+  const showName = !isOwn && !isDirect && isFirstInGroup;
+  const showAvatar = !isOwn && !isDirect;
+
+  const isMediaOnly =
+    message.type === 'media' && message.attachments?.length > 0 && !message.body;
+
+  // WhatsApp-style asymmetric corners: the "tail" corner is squared off on the
+  // first bubble of a group, on the side the bubble is anchored to.
+  const bubbleClass = [
+    'relative max-w-full shadow-sm',
+    isMediaOnly ? 'overflow-hidden p-1' : 'px-2.5 py-1.5',
+    isOwn
+      ? 'rounded-2xl bg-blurple-600 text-white'
+      : 'rounded-2xl bg-ink-800 text-ink-0',
+    isFirstInGroup ? (isOwn ? 'rounded-tr-md' : 'rounded-tl-md') : '',
+  ].join(' ');
+
+  const metaClass = isOwn ? 'text-white/60' : 'text-ink-200';
 
   return (
     <motion.div
+      id={`msg-${message.id}`}
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18, ease: 'easeOut' }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       className={[
-        'echo-msg-row group relative flex gap-3 pl-3 pr-12 transition-colors hover:bg-ink-800/50',
-        isFirstInGroup ? 'mt-4 pt-1 pb-0.5' : 'py-0.5',
+        'echo-msg-row group relative flex gap-2 px-3 sm:px-4',
+        isFirstInGroup ? 'mt-3' : 'mt-0.5',
+        isOwn ? 'flex-row-reverse' : 'flex-row',
       ].join(' ')}
     >
-      {/* Left column: avatar (first-in-group) or hover timestamp */}
-      <div className="w-10 shrink-0 select-none">
-        {isFirstInGroup ? (
-          <UserAvatar
-            user={{ display_name: displayName, avatar_url: avatarUrl }}
-            size="md"
-            className="mt-0.5"
-          />
-        ) : (
-          <span className="mt-1 hidden text-[10px] leading-none text-ink-200 group-hover:block text-right pr-1">
-            {formatMessageTime(message.sent_at)}
-          </span>
-        )}
-      </div>
+      {/* Avatar gutter (group chats, other users only) */}
+      {showAvatar && (
+        <div className="w-8 shrink-0 select-none self-end">
+          {isLastInGroup && (
+            <UserAvatar user={{ display_name: displayName, avatar_url: avatarUrl }} size="sm" />
+          )}
+        </div>
+      )}
 
-      {/* Right column: message content */}
-      <div className="min-w-0 flex-1">
-        {/* Sender header (only on first in group) */}
-        {isFirstInGroup && (
-          <div className="mb-0.5 flex items-baseline gap-2">
-            <span className={[
-              'text-[15px] font-semibold leading-none',
-              isOwn ? 'text-blurple-300' : 'text-foreground',
+      {/* Bubble column */}
+      <div className={[
+        'relative flex min-w-0 max-w-[82%] flex-col sm:max-w-[68%]',
+        isOwn ? 'items-end' : 'items-start',
+      ].join(' ')}>
+        <div className={bubbleClass}>
+          {/* Sender name (group chats, first in group) */}
+          {showName && (
+            <p className="mb-0.5 text-[13px] font-semibold text-blurple-400">{displayName}</p>
+          )}
+
+          {/* Reply preview */}
+          {message.reply_to_id && (message.reply_to_body || message.reply_to_type) && (
+            <div className={[
+              'mb-1 flex flex-col gap-0.5 rounded-md border-l-[3px] px-2 py-1 text-[12px]',
+              isOwn ? 'border-white/70 bg-black/15' : 'border-blurple-400 bg-black/10',
             ].join(' ')}>
-              {displayName}
-            </span>
-            <span className="text-[11px] text-ink-200" title={formatFullTime(message.sent_at)}>
-              {formatMessageTime(message.sent_at)}
-            </span>
-            {message.is_edited && (
-              <span className="text-[10px] text-ink-200">({t('chat.edited')})</span>
-            )}
-          </div>
-        )}
-
-        {/* Reply preview */}
-        {message.reply_to_id && (message.reply_to_body || message.reply_to_type) && (
-          <div className="relative mb-1 flex items-center gap-2 pl-2 text-[13px] text-ink-100">
-            <span className="absolute left-0 top-1/2 -ml-6 h-[18px] w-[26px] rounded-tl-[8px] border-l-2 border-t-2 border-ink-300/60" />
-            <Reply size={11} className="shrink-0 text-ink-200" />
-            {message.reply_to_sender && (
-              <span className="truncate font-semibold text-blurple-400">
-                @{message.reply_to_sender}
+              {message.reply_to_sender && (
+                <span className={isOwn ? 'font-semibold text-white/90' : 'font-semibold text-blurple-400'}>
+                  {message.reply_to_sender}
+                </span>
+              )}
+              <span className={['truncate', isOwn ? 'text-white/70' : 'text-ink-200'].join(' ')}>
+                {message.reply_to_type === 'media'
+                  ? <span className="inline-flex items-center gap-1"><Paperclip size={11} />{t('chat.attachedFile')}</span>
+                  : message.reply_to_body}
               </span>
-            )}
-            <span className="truncate text-ink-100/80">
-              {message.reply_to_type === 'media'
-                ? <span className="inline-flex items-center gap-1"><Paperclip size={11} />{t('chat.attachedFile')}</span>
-                : message.reply_to_body}
-            </span>
+            </div>
+          )}
+
+          {/* Deleted */}
+          {message.is_deleted ? (
+            <div className={['flex items-center gap-1.5 text-[14px] italic', isOwn ? 'text-white/70' : 'text-ink-200'].join(' ')}>
+              <Trash2 size={13} className="shrink-0 opacity-60" />
+              <span>{t('chat.messageDeleted')}</span>
+            </div>
+          ) : (
+            <>
+              {/* Body */}
+              {message.type !== 'media' && message.body && (
+                <p className={[
+                  'wrap-break-word whitespace-pre-wrap text-[15px] leading-[1.4]',
+                  message._status === 'sending' ? 'opacity-70' : '',
+                  message._status === 'error' ? (isOwn ? 'text-red-100' : 'text-echo-dnd') : '',
+                ].join(' ')}>
+                  {message.body}
+                </p>
+              )}
+
+              {/* Attachments */}
+              {message.attachments?.length > 0 && (
+                <div className={`flex flex-col items-start gap-2 ${message.body ? 'mt-2' : ''}`}>
+                  {message.attachments.map((att) => (
+                    <AttachmentView key={att.id} attachment={att} />
+                  ))}
+                </div>
+              )}
+
+              {/* Pending attachment */}
+              {message.type === 'media' && (!message.attachments || message.attachments.length === 0) && message._status === 'sending' && (
+                <div className="flex items-center gap-2 px-1 py-1 text-xs">
+                  <Loader size={13} className={`animate-spin shrink-0 ${isOwn ? 'text-white/80' : 'text-blurple-400'}`} />
+                  <span className={`max-w-64 truncate ${isOwn ? 'text-white/80' : 'text-ink-100'}`}>{message._filename || t('chat.uploadingFile')}</span>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Meta line: edited · time · receipt */}
+          <div className={['mt-0.5 flex items-center justify-end gap-1 text-[10px] leading-none', metaClass, isMediaOnly ? 'px-1 pb-0.5' : ''].join(' ')}>
+            {message.is_edited && !message.is_deleted && <span>{t('chat.edited')}</span>}
+            <span title={formatFullTime(message.sent_at)}>{formatMessageTime(message.sent_at)}</span>
+            {isOwn && !message.is_deleted && <ReceiptIcon message={message} />}
           </div>
-        )}
+        </div>
 
-        {/* Deleted */}
-        {message.is_deleted ? (
-          <div className="flex items-center gap-1.5 text-[14px] italic text-ink-200">
-            <Trash2 size={13} className="shrink-0 opacity-60" />
-            <span>{t('chat.messageDeleted')}</span>
-          </div>
-        ) : (
-          <>
-            {/* Body */}
-            {message.type !== 'media' && message.body && (
-              <p className={[
-                'wrap-break-word whitespace-pre-wrap text-[15px] leading-[1.375] text-ink-0',
-                message._status === 'sending' ? 'opacity-60' : '',
-                message._status === 'error' ? 'text-echo-dnd' : '',
-              ].join(' ')}>
-                {message.body}
-              </p>
-            )}
-
-            {/* Attachments */}
-            {message.attachments?.length > 0 && (
-              <div className={`flex flex-col items-start gap-2 ${message.body ? 'mt-2' : ''}`}>
-                {message.attachments.map((att) => (
-                  <AttachmentView key={att.id} attachment={att} />
-                ))}
-              </div>
-            )}
-
-            {/* Pending attachment */}
-            {message.type === 'media' && (!message.attachments || message.attachments.length === 0) && message._status === 'sending' && (
-              <div className="mt-1 flex items-center gap-2 rounded-md border border-ink-400/40 bg-ink-800 px-3 py-2 text-xs">
-                <Loader size={13} className="animate-spin shrink-0 text-blurple-400" />
-                <span className="max-w-64 truncate text-ink-100">{message._filename || t('chat.uploadingFile')}</span>
-              </div>
-            )}
-
-            {/* Status line for own messages */}
-            {isOwn && (
-              <div className="mt-1 flex items-center gap-1 text-[10px] text-ink-200">
-                <ReceiptIcon message={message} t={t} />
-                {message._status === 'error' && (
-                  <button
-                    onClick={() => onRetry(message.id)}
-                    className="flex items-center gap-1 text-echo-dnd hover:underline"
-                  >
-                    <RefreshCw size={10} />
-                    {t('chat.retrySend')}
-                  </button>
-                )}
-              </div>
-            )}
-          </>
+        {/* Retry (own, error) */}
+        {isOwn && message._status === 'error' && (
+          <button
+            onClick={() => onRetry(message.id)}
+            className="mt-0.5 flex items-center gap-1 text-[11px] text-echo-dnd hover:underline"
+          >
+            <RefreshCw size={10} />
+            {t('chat.retrySend')}
+          </button>
         )}
 
         {/* Reactions */}
         {!message.is_deleted && message.reactions?.length > 0 && (
-          <div className="mt-1.5 flex flex-wrap gap-1">
+          <div className={['mt-1 flex flex-wrap gap-1', isOwn ? 'justify-end' : 'justify-start'].join(' ')}>
             {message.reactions.map((r, i) => (
               <ReactionPill
                 key={i}
@@ -645,90 +716,95 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
             </button>
           </div>
         )}
-      </div>
 
-      {/* Toolbar (top-right, Discord-style) */}
-      {!isPending && !message.is_deleted && (
-        <div className="echo-msg-toolbar" data-show={showToolbar}>
-          <div className="relative">
-            <Tooltip content={t('chat.react')} placement="top">
+        {/* Hover toolbar (floats above the bubble, on its outer edge) */}
+        {!isPending && !message.is_deleted && (
+          <div
+            className={[
+              'absolute -top-3 z-20 flex gap-0.5 rounded-lg border border-ink-400/40 bg-ink-850 px-1 py-1 shadow-md transition-all duration-150',
+              isOwn ? 'right-0' : 'left-0',
+              showToolbar ? 'opacity-100 translate-y-0' : 'pointer-events-none translate-y-1 opacity-0',
+            ].join(' ')}
+          >
+            <div className="relative">
+              <Tooltip content={t('chat.react')} placement="top">
+                <button
+                  type="button"
+                  onClick={() => setShowEmojiPicker((p) => !p)}
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
+                >
+                  <Smile size={16} />
+                </button>
+              </Tooltip>
+              <AnimatePresence>
+                {showEmojiPicker && (
+                  <>
+                    <div className="fixed inset-0 z-20" onClick={() => setShowEmojiPicker(false)} />
+                    <motion.div
+                      initial={{ opacity: 0, y: 6, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 4, scale: 0.97 }}
+                      transition={{ duration: 0.16, ease: 'easeOut' }}
+                      className={[
+                        'absolute bottom-9 z-30 flex gap-0.5 rounded-lg border border-ink-400/40 bg-ink-850 p-1 shadow-xl',
+                        isOwn ? 'right-0' : 'left-0',
+                      ].join(' ')}
+                    >
+                      {QUICK_EMOJIS.map((emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onReact(message.id, emoji);
+                            setShowEmojiPicker(false);
+                          }}
+                          className="rounded-md p-1 text-base transition-transform hover:scale-125 hover:bg-ink-750"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <Tooltip content={t('chat.reply')} placement="top">
               <button
                 type="button"
-                onClick={() => setShowEmojiPicker((p) => !p)}
+                onClick={() => onReply(message)}
                 className="flex h-7 w-7 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
               >
-                <Smile size={16} />
+                <Reply size={16} />
               </button>
             </Tooltip>
-            <AnimatePresence>
-              {showEmojiPicker && (
-                <>
-                  {/* Backdrop to catch outside clicks */}
-                  <div
-                    className="fixed inset-0 z-20"
-                    onClick={() => setShowEmojiPicker(false)}
-                  />
-                  <motion.div
-                    initial={{ opacity: 0, y: 6, scale: 0.96 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 4, scale: 0.97 }}
-                    transition={{ duration: 0.16, ease: 'easeOut' }}
-                    className="absolute bottom-9 right-0 z-30 flex gap-0.5 rounded-lg border border-ink-400/40 bg-ink-850 p-1 shadow-xl"
-                  >
-                    {QUICK_EMOJIS.map((emoji) => (
-                      <button
-                        key={emoji}
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onReact(message.id, emoji);
-                          setShowEmojiPicker(false);
-                        }}
-                        className="rounded-md p-1 text-base transition-transform hover:scale-125 hover:bg-ink-750"
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </motion.div>
-                </>
-              )}
-            </AnimatePresence>
+
+            {canEdit && (
+              <Tooltip content={t('common.edit')} placement="top">
+                <button
+                  type="button"
+                  onClick={() => onEdit(message)}
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
+                >
+                  <Pencil size={16} />
+                </button>
+              </Tooltip>
+            )}
+            {isOwn && (
+              <Tooltip content={t('common.delete')} placement="top">
+                <button
+                  type="button"
+                  onClick={() => onDelete(message)}
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-echo-dnd/20 hover:text-echo-dnd"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </Tooltip>
+            )}
           </div>
-
-          <Tooltip content={t('chat.reply')} placement="top">
-            <button
-              type="button"
-              onClick={() => onReply(message)}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
-            >
-              <Reply size={16} />
-            </button>
-          </Tooltip>
-
-          {canEdit && (
-            <Tooltip content={t('common.edit')} placement="top">
-              <button
-                type="button"
-                onClick={() => onEdit(message)}
-                className="flex h-7 w-7 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
-              >
-                <Pencil size={16} />
-              </button>
-            </Tooltip>
-          )}
-          {isOwn && (
-            <Tooltip content={t('common.delete')} placement="top">
-              <button
-                type="button"
-                onClick={() => onDelete(message)}
-                className="flex h-7 w-7 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-echo-dnd/20 hover:text-echo-dnd"
-              >
-                <Trash2 size={16} />
-              </button>
-            </Tooltip>
-          )}
-        </div>
-      )}
+        )}
+      </div>
     </motion.div>
   );
 });
@@ -762,6 +838,7 @@ export default function ConversationPage() {
   const [deleteTarget, setDeleteTarget] = useState(null); // message object to confirm delete
   const [previewFile, setPreviewFile] = useState(null);
   const [sendingFile, setSendingFile] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const messagesEndRef = useRef(null);
   const containerRef = useRef(null);
@@ -956,6 +1033,25 @@ export default function ConversationPage() {
     setInput('');
   };
 
+  // Scroll to a message by id (used by the search panel). Briefly highlights it
+  // when the message is currently loaded in the DOM. The flash is done with the
+  // Web Animations API so no global CSS is needed.
+  const handleJumpToMessage = useCallback((id) => {
+    const el = document.getElementById(`msg-${id}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.animate(
+      [
+        { backgroundColor: 'rgba(88, 101, 242, 0)' },
+        { backgroundColor: 'rgba(88, 101, 242, 0.22)', offset: 0.2 },
+        { backgroundColor: 'rgba(88, 101, 242, 0.22)', offset: 0.5 },
+        { backgroundColor: 'rgba(88, 101, 242, 0)' },
+      ],
+      { duration: 1600, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+    );
+    if (window.innerWidth < 768) setSearchOpen(false);
+  }, []);
+
   const messageElements = useMemo(() => {
     const isDirect = conversation?.type === 'direct';
     return messages.map((msg, index) => {
@@ -1007,7 +1103,8 @@ export default function ConversationPage() {
         )}
       </AnimatePresence>
 
-      <div className="flex h-full flex-col bg-ink-700">
+      <div className="relative flex h-full bg-ink-700">
+        <div className="flex h-full min-w-0 flex-1 flex-col">
         {/* ── Header (Discord-style) ── */}
         <div className="flex h-12 shrink-0 items-center justify-between border-b border-black/30 bg-ink-700 px-3 shadow-[0_1px_0_rgba(0,0,0,0.2)] md:px-4">
           <div className="flex min-w-0 items-center gap-2 md:gap-3">
@@ -1059,8 +1156,17 @@ export default function ConversationPage() {
                 <Pin size={18} />
               </Button>
             </Tooltip>
-            <Tooltip content={t('common.search')} placement="bottom">
-              <Button isIconOnly size="sm" variant="ghost" className="hidden h-8 w-8 min-w-0 rounded-md text-ink-100 hover:bg-ink-600 hover:text-foreground sm:flex">
+            <Tooltip content={t('chat.searchMessages')} placement="bottom">
+              <Button
+                isIconOnly
+                size="sm"
+                variant="ghost"
+                onPress={() => setSearchOpen((p) => !p)}
+                className={[
+                  'h-8 w-8 min-w-0 rounded-md hover:bg-ink-600 hover:text-foreground sm:flex',
+                  searchOpen ? 'bg-ink-600 text-foreground' : 'hidden text-ink-100',
+                ].join(' ')}
+              >
                 <Search size={18} />
               </Button>
             </Tooltip>
@@ -1224,17 +1330,12 @@ export default function ConversationPage() {
               className="flex-1 border-none bg-transparent shadow-none outline-none text-[15px] placeholder:text-ink-200"
             />
 
-            <Tooltip content={t('chat.react')} placement="top">
-              <Button
-                isIconOnly
-                size="sm"
-                variant="ghost"
-                className="h-8 w-8 min-w-0 rounded-md text-ink-100 hover:bg-ink-750 hover:text-foreground"
-                onPress={() => {}}
-              >
-                <Smile size={18} />
-              </Button>
-            </Tooltip>
+            <EmojiPicker
+              onPick={(emoji) => {
+                setInput((v) => v + emoji);
+                inputRef.current?.focus();
+              }}
+            />
 
             <SendButton
               onPress={handleSend}
@@ -1261,6 +1362,18 @@ export default function ConversationPage() {
             </AnimatePresence>
           </div>
         </div>
+        </div>
+
+        {/* ── Message search panel ── */}
+        <AnimatePresence>
+          {searchOpen && (
+            <MessageSearchPanel
+              conversationId={conversationId}
+              onClose={() => setSearchOpen(false)}
+              onJump={handleJumpToMessage}
+            />
+          )}
+        </AnimatePresence>
       </div>
     </>
   );

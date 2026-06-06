@@ -71,6 +71,37 @@
     --heroui-default: 220 5% 25%;             /* #383a40 hover bg */
   }
 
+  /* ── Light mode — remap the ink scale to coherent light surfaces ──
+     The `--color-ink-*` tokens are defined dark in @theme; here we override
+     them (and the HeroUI surface tokens) so every `ink-*` utility flips to a
+     light value when the `.dark` class is absent. `html:not(.dark)` outranks
+     the `:root` defaults emitted by @theme. */
+  html:not(.dark) {
+    --color-ink-950: #d7d9dd;   /* guild rail */
+    --color-ink-900: #e8eaed;   /* deep surfaces / inputs */
+    --color-ink-850: #ebedef;   /* panels / popovers */
+    --color-ink-800: #f2f3f5;   /* channel list */
+    --color-ink-750: #e5e7ea;   /* hover */
+    --color-ink-700: #ffffff;   /* chat area */
+    --color-ink-600: #e7e9ec;   /* active / hover */
+    --color-ink-500: #d9dbdf;
+    --color-ink-400: #c9ccd1;   /* dividers */
+    --color-ink-300: #b1b6bd;
+    --color-ink-200: #5d6067;   /* muted text */
+    --color-ink-100: #4a4d54;   /* secondary text */
+    --color-ink-50:  #2e3035;   /* hi-contrast text */
+    --color-ink-0:   #1a1b1e;   /* primary text */
+
+    --heroui-background: 0 0% 100%;
+    --heroui-background-secondary: 220 14% 96%;
+    --heroui-surface: 0 0% 100%;
+    --heroui-foreground: 225 7% 11%;
+    --heroui-muted: 220 5% 40%;
+    --heroui-separator: 220 13% 91%;
+    --heroui-border: 220 13% 88%;
+    --heroui-default: 220 14% 93%;
+  }
+
   /* Smooth scrollbars */
   *::-webkit-scrollbar { width: 8px; height: 8px; }
   *::-webkit-scrollbar-track { background: transparent; }

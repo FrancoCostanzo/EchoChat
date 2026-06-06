@@ -16,7 +16,8 @@
     "open": "Open",
     "required": "*",
     "copy": "Copy",
-    "done": "Done"
+    "done": "Done",
+    "clear": "Clear"
   },
   "auth": {
     "loginTitle": "Sign in to your account",
@@ -107,7 +108,13 @@
     "attachDocument": "Document",
     "sendFile": "Send file",
     "captionPlaceholder": "Add a caption...",
-    "attachedFile": "Attached file"
+    "attachedFile": "Attached file",
+    "emoji": "Emoji",
+    "searchMessages": "Search the conversation",
+    "searchPlaceholder": "Search messages...",
+    "searchResults": "{{count}} results",
+    "searchNoResults": "No results",
+    "searchHint": "Type to search messages in this conversation"
   },
   "newConversation": {
     "title": "New conversation",
@@ -150,6 +157,13 @@
       "language": "Language",
       "security": "Security",
       "presence": "Status"
+    },
+    "descriptions": {
+      "profile": "Manage your personal info and profile photo",
+      "appearance": "Customize the app theme and colors",
+      "language": "Choose the interface language",
+      "security": "Password, two-factor authentication and active sessions",
+      "presence": "Set how others see you"
     },
     "profile": "Profile",
     "appearance": "Appearance",
@@ -211,6 +225,7 @@
       "offline": "Offline"
     },
     "accentColors": {
+      "blurple": "Blurple",
       "blue": "Blue",
       "violet": "Violet",
       "green": "Green",

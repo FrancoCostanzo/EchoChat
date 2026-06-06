@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(claude mcp *)",
+      "mcp__heroui-react__get_component_docs"
     ]
   }
 }

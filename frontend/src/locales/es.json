@@ -16,7 +16,8 @@
     "open": "Abrir",
     "required": "*",
     "copy": "Copiar",
-    "done": "Listo"
+    "done": "Listo",
+    "clear": "Limpiar"
   },
   "auth": {
     "loginTitle": "Iniciá sesión en tu cuenta",
@@ -116,7 +117,13 @@
     "attachDocument": "Documento",
     "sendFile": "Enviar archivo",
     "captionPlaceholder": "Agregar un comentario...",
-    "attachedFile": "Archivo adjunto"
+    "attachedFile": "Archivo adjunto",
+    "emoji": "Emoji",
+    "searchMessages": "Buscar en la conversación",
+    "searchPlaceholder": "Buscar mensajes...",
+    "searchResults": "{{count}} resultados",
+    "searchNoResults": "Sin resultados",
+    "searchHint": "Escribí para buscar mensajes en esta conversación"
   },
   "newConversation": {
     "title": "Nueva conversación",
@@ -159,6 +166,13 @@
       "language": "Idioma",
       "security": "Seguridad",
       "presence": "Estado"
+    },
+    "descriptions": {
+      "profile": "Administrá tu información personal y foto de perfil",
+      "appearance": "Personalizá el tema y los colores de la aplicación",
+      "language": "Elegí el idioma de la interfaz",
+      "security": "Contraseña, verificación en dos pasos y sesiones activas",
+      "presence": "Definí cómo te ven los demás"
     },
     "profile": "Perfil",
     "appearance": "Apariencia",
@@ -220,6 +234,7 @@
       "offline": "Desconectado"
     },
     "accentColors": {
+      "blurple": "Blurple",
       "blue": "Azul",
       "violet": "Violeta",
       "green": "Verde",
