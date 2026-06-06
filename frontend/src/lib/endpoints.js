@@ -61,6 +61,15 @@ export const messagesApi = {
   getPinned: (convId) => api.get(`/messages/conversation/${convId}/pinned`),
   pin: (convId, msgId) => api.post(`/messages/conversation/${convId}/pin/${msgId}`),
   unpin: (convId, msgId) => api.delete(`/messages/conversation/${convId}/pin/${msgId}`),
+  // Saved messages
+  listSaved: (params) => api.get('/messages/saved', params),
+  save: (msgId, note) => api.post(`/messages/${msgId}/save`, note ? { note } : {}),
+  unsave: (msgId) => api.delete(`/messages/${msgId}/save`),
+  // Drafts
+  listDrafts: () => api.get('/messages/drafts'),
+  getDraft: (convId) => api.get(`/messages/conversation/${convId}/draft`),
+  saveDraft: (convId, data) => api.put(`/messages/conversation/${convId}/draft`, data),
+  deleteDraft: (convId) => api.delete(`/messages/conversation/${convId}/draft`),
 };
 
 export const callsApi = {

@@ -12,6 +12,8 @@ import {
   AtSign,
   Smile,
   Reply,
+  Bookmark,
+  BookmarkCheck,
   Pencil,
   Trash2,
   Hash,
@@ -41,7 +43,7 @@ import PdfPreview from '@/components/PdfPreview';
 import SendButton from '@/components/SendButton';
 import MessageSearchPanel from '@/components/MessageSearchPanel';
 import { formatMessageTime, formatFullTime } from '@/lib/dates';
-import { storageApi } from '@/lib/endpoints';
+import { storageApi, messagesApi } from '@/lib/endpoints';
 
 function downloadBlob(url, filename) {
   fetch(url)
@@ -554,6 +556,18 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
   const { t } = useTranslation();
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const toggleSave = async () => {
+    const next = !saved;
+    setSaved(next);
+    try {
+      if (next) await messagesApi.save(message.id);
+      else await messagesApi.unsave(message.id);
+    } catch {
+      setSaved(!next); // revert on failure
+    }
+  };
 
   const isPending = message._status === 'sending' || message._status === 'error';
   const canEdit = isOwn && (message.type !== 'media' || message.body);
@@ -777,6 +791,16 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
                 className="flex h-7 w-7 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
               >
                 <Reply size={16} />
+              </button>
+            </Tooltip>
+
+            <Tooltip content={saved ? t('saved.remove') : t('chat.save')} placement="top">
+              <button
+                type="button"
+                onClick={toggleSave}
+                className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-ink-750 ${saved ? 'text-blurple-400' : 'text-ink-100 hover:text-foreground'}`}
+              >
+                {saved ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}
               </button>
             </Tooltip>
 

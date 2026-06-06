@@ -24,6 +24,16 @@ const reactionDto = Joi.object({
   emoji: Joi.string().max(10).required(),
 });
 
+const saveMessageDto = Joi.object({
+  note: Joi.string().max(2000).allow(null, ''),
+});
+
+const draftDto = Joi.object({
+  body: Joi.string().max(10000).allow(null, ''),
+  reply_to_id: Joi.string().uuid().allow(null),
+  pending_attachments: Joi.array().items(Joi.object()).default([]),
+}).min(1);
+
 const paginationDto = Joi.object({
   cursor: Joi.string().uuid().allow(null),
   limit: Joi.number().integer().min(1).max(100).default(50),
@@ -35,4 +45,6 @@ module.exports = {
   updateMessageDto,
   reactionDto,
   paginationDto,
+  saveMessageDto,
+  draftDto,
 };
