@@ -3,6 +3,7 @@ module.exports = {
   credentialRepository: require('./credential.repository'),
   sessionRepository: require('./session.repository'),
   conversationRepository: require('./conversation.repository'),
+  channelRepository: require('./channel.repository'),
   messageRepository: require('./message.repository'),
   callRepository: require('./call.repository'),
   storageRepository: require('./storage.repository'),

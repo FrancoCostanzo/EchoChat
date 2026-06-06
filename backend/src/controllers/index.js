@@ -2,6 +2,7 @@ module.exports = {
   authController: require('./auth.controller'),
   userController: require('./user.controller'),
   conversationController: require('./conversation.controller'),
+  channelController: require('./channel.controller'),
   messageController: require('./message.controller'),
   callController: require('./call.controller'),
   storageController: require('./storage.controller'),

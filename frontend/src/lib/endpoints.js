@@ -38,6 +38,16 @@ export const conversationsApi = {
   markAsRead: (id, messageId) => api.post(`/conversations/${id}/read`, messageId ? { message_id: messageId } : {}),
 };
 
+export const channelsApi = {
+  create: (data) => api.post('/channels', data),
+  discover: (params) => api.get('/channels/discover', params),
+  getById: (id) => api.get(`/channels/${id}`),
+  updateSettings: (id, data) => api.put(`/channels/${id}/settings`, data),
+  join: (id, message) => api.post(`/channels/${id}/join`, message ? { message } : {}),
+  listRequests: (id, params) => api.get(`/channels/${id}/requests`, params),
+  reviewRequest: (id, requestId, status) => api.put(`/channels/${id}/requests/${requestId}`, { status }),
+};
+
 export const messagesApi = {
   send: (data) => api.post('/messages', data),
   getById: (id) => api.get(`/messages/${id}`),

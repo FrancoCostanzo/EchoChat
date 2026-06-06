@@ -1,6 +1,7 @@
 module.exports = {
   ...require('./auth.dto'),
   ...require('./conversation.dto'),
+  ...require('./channel.dto'),
   ...require('./message.dto'),
   ...require('./call.dto'),
   ...require('./storage.dto'),
