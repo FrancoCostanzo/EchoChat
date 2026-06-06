@@ -15,6 +15,7 @@ function toChannelResponse(row) {
     post_restriction: row.post_restriction ?? 'members',
     join_mode: row.join_mode ?? 'open',
     is_member: row.is_member ?? undefined,
+    member_role: row.member_role ?? undefined,
     has_pending_request: row.has_pending_request ?? undefined,
     created_at: row.created_at,
   };

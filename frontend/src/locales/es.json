@@ -138,6 +138,42 @@
     "createGroup": "Crear grupo ({{count}})",
     "createChannel": "Crear canal ({{count}})"
   },
+  "channels": {
+    "explore": "Explorar canales",
+    "exploreSubtitle": "Descubrí y unite a los canales de la organización",
+    "search": "Buscar canales...",
+    "official": "Oficial",
+    "members": "{{count}} miembros",
+    "open": "Abrir",
+    "join": "Unirse",
+    "joining": "Uniéndose...",
+    "request": "Solicitar acceso",
+    "requested": "Solicitud pendiente",
+    "member": "Miembro",
+    "inviteOnly": "Solo por invitación",
+    "empty": "No hay canales para mostrar",
+    "categories": {
+      "all": "Todas",
+      "announcements": "Anuncios",
+      "department": "Departamentos",
+      "project": "Proyectos",
+      "general": "General"
+    },
+    "requestTitle": "Solicitar acceso al canal",
+    "requestMessage": "Mensaje (opcional)",
+    "requestMessagePlaceholder": "Contá por qué querés unirte...",
+    "sendRequest": "Enviar solicitud",
+    "manageRequests": "Solicitudes",
+    "pendingRequests": "Solicitudes pendientes",
+    "noRequests": "No hay solicitudes pendientes",
+    "approve": "Aprobar",
+    "reject": "Rechazar",
+    "joinedToast": "Te uniste al canal",
+    "requestSentToast": "Solicitud enviada",
+    "requestApproved": "Solicitud aprobada",
+    "requestRejected": "Solicitud rechazada",
+    "error": "Ocurrió un error"
+  },
   "contacts": {
     "title": "Contactos",
     "contacts": "Contactos",
@@ -258,7 +294,8 @@
     "newChat": "Nuevo chat",
     "noName": "Sin nombre",
     "searchConversation": "Buscar conversación...",
-    "noConversations": "Sin conversaciones"
+    "noConversations": "Sin conversaciones",
+    "explore": "Explorar canales"
   },
   "imageViewer": {
     "download": "Descargar",

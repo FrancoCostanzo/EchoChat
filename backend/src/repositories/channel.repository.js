@@ -82,6 +82,11 @@ class ChannelRepository extends BaseRepository {
                 SELECT 1 FROM conversation_members cm
                 WHERE cm.conversation_id = c.id AND cm.user_id = $1 AND cm.left_at IS NULL
               ) AS is_member,
+              (
+                SELECT cm.role FROM conversation_members cm
+                WHERE cm.conversation_id = c.id AND cm.user_id = $1 AND cm.left_at IS NULL
+                LIMIT 1
+              ) AS member_role,
               EXISTS (
                 SELECT 1 FROM channel_join_requests jr
                 WHERE jr.conversation_id = c.id AND jr.user_id = $1 AND jr.status = 'pending'

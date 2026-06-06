@@ -74,6 +74,7 @@ export default function GuildRail() {
   const pathname = location.pathname;
   const isChat = pathname === '/chat' || pathname.startsWith('/chat/');
   const isContacts = pathname.startsWith('/contacts');
+  const isChannels = pathname.startsWith('/channels');
   const isNotifications = pathname.startsWith('/notifications');
   const isSettings = pathname.startsWith('/settings');
   const isNew = pathname === '/chat/new';
@@ -119,9 +120,9 @@ export default function GuildRail() {
         />
         <RailItem
           icon={Compass}
-          label="Explorar"
-          onClick={() => navigate('/contacts')}
-          active={false}
+          label={t('sidebar.explore')}
+          onClick={() => navigate('/channels')}
+          active={isChannels}
         />
       </div>
 
