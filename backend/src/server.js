@@ -5,6 +5,7 @@ const logger = require('./config/logger');
 const { pool } = require('./config/database');
 const { ensureBuckets } = require('./config/minio');
 const { initSocket } = require('./socket');
+const { startJobs, stopJobs } = require('./jobs');
 
 async function start() {
   try {
@@ -31,6 +32,9 @@ async function start() {
     const server = http.createServer(app);
     initSocket(server);
 
+    // Start background jobs (presence timeout, presigned URL cleanup, …)
+    startJobs();
+
     // Start HTTP + WebSocket server
     server.listen(config.port, () => {
       logger.info({ port: config.port, env: config.env }, 'EchoChat backend started (HTTP + WebSocket)');
@@ -45,6 +49,7 @@ async function start() {
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.on(signal, async () => {
     logger.info({ signal }, 'Shutting down gracefully...');
+    stopJobs();
     await pool.end();
     process.exit(0);
   });

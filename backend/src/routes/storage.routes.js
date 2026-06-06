@@ -1,7 +1,7 @@
 const { Router } = require('express');
 const multer = require('multer');
 const { storageController } = require('../controllers');
-const { validate, authenticate } = require('../middlewares');
+const { validate, authenticate, requirePermission } = require('../middlewares');
 const { uploadMetadataDto } = require('../dtos');
 
 const upload = multer({
@@ -12,8 +12,8 @@ const upload = multer({
 const router = Router();
 router.use(authenticate);
 
-router.post('/upload', upload.single('file'), (req, res) => storageController.upload(req, res));
-router.post('/upload-url', validate(uploadMetadataDto), (req, res) => storageController.getUploadUrl(req, res));
+router.post('/upload', requirePermission('media.upload'), upload.single('file'), (req, res) => storageController.upload(req, res));
+router.post('/upload-url', requirePermission('media.upload'), validate(uploadMetadataDto), (req, res) => storageController.getUploadUrl(req, res));
 router.get('/:objectId', (req, res) => storageController.getById(req, res));
 router.get('/:objectId/url', (req, res) => storageController.getPresignedUrl(req, res));
 router.delete('/:objectId', (req, res) => storageController.delete(req, res));

@@ -882,6 +882,41 @@ INSERT INTO permissions (code, category, description) VALUES
     ('admin.view_audit',       'admin',     'Ver logs de auditoría'),
     ('admin.storage',          'admin',     'Ver y gestionar el almacenamiento MinIO');
 
+-- Mapeo rol → permisos (sin esto ningún usuario tendría permisos efectivos)
+-- super_admin y admin: todos los permisos
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+WHERE r.name IN ('super_admin', 'admin')
+ON CONFLICT DO NOTHING;
+
+-- moderator: permisos estándar + moderación de contenido
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r
+JOIN permissions p ON p.code IN (
+    'messages.send', 'messages.send_media', 'messages.send_voice',
+    'messages.delete_own', 'messages.edit', 'messages.delete_any',
+    'calls.make_voice', 'calls.make_video', 'calls.make_conference', 'calls.record',
+    'groups.create', 'groups.manage_own', 'groups.manage_any', 'groups.invite',
+    'broadcast.create', 'broadcast.send',
+    'media.upload', 'media.delete_own', 'media.delete_any'
+)
+WHERE r.name = 'moderator'
+ON CONFLICT DO NOTHING;
+
+-- user: permisos estándar de un empleado
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r
+JOIN permissions p ON p.code IN (
+    'messages.send', 'messages.send_media', 'messages.send_voice',
+    'messages.delete_own', 'messages.edit',
+    'calls.make_voice', 'calls.make_video', 'calls.make_conference',
+    'groups.create', 'groups.manage_own', 'groups.invite',
+    'broadcast.create', 'broadcast.send',
+    'media.upload', 'media.delete_own'
+)
+WHERE r.name = 'user'
+ON CONFLICT DO NOTHING;
+
 -- Configuración del sistema incluyendo parámetros de MinIO
 INSERT INTO system_settings (key, value, description, category) VALUES
     -- MinIO / Object Storage

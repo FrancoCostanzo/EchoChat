@@ -79,6 +79,65 @@ class UserRepository extends BaseRepository {
     return rows[0];
   }
 
+  // ── RBAC ────────────────────────────────────────────────────────────────
+  // Distinct permission codes granted to a user through their (non-expired) roles.
+  async getPermissionCodes(userId) {
+    const { rows } = await this.query(
+      `SELECT DISTINCT p.code
+       FROM user_roles ur
+       JOIN role_permissions rp ON rp.role_id = ur.role_id
+       JOIN permissions p ON p.id = rp.permission_id
+       WHERE ur.user_id = $1
+         AND (ur.expires_at IS NULL OR ur.expires_at > NOW())`,
+      [userId]
+    );
+    return rows.map((r) => r.code);
+  }
+
+  // Role names held by a user (highest priority first), excluding expired grants.
+  async getRoleNames(userId) {
+    const { rows } = await this.query(
+      `SELECT r.name
+       FROM user_roles ur
+       JOIN roles r ON r.id = ur.role_id
+       WHERE ur.user_id = $1
+         AND (ur.expires_at IS NULL OR ur.expires_at > NOW())
+       ORDER BY r.priority DESC`,
+      [userId]
+    );
+    return rows.map((r) => r.name);
+  }
+
+  // Flip users who have been inactive for `minutes` from 'online' to 'away'.
+  // Returns the affected user ids so the caller can broadcast presence changes.
+  async markStaleOnlineAsAway(minutes) {
+    const { rows } = await this.query(
+      `UPDATE users
+       SET presence = 'away'
+       WHERE presence = 'online'
+         AND last_seen_at IS NOT NULL
+         AND last_seen_at < NOW() - ($1 * INTERVAL '1 minute')
+       RETURNING id`,
+      [minutes]
+    );
+    return rows.map((r) => r.id);
+  }
+
+  async hasPermission(userId, code) {
+    const { rows } = await this.query(
+      `SELECT 1
+       FROM user_roles ur
+       JOIN role_permissions rp ON rp.role_id = ur.role_id
+       JOIN permissions p ON p.id = rp.permission_id
+       WHERE ur.user_id = $1
+         AND p.code = $2
+         AND (ur.expires_at IS NULL OR ur.expires_at > NOW())
+       LIMIT 1`,
+      [userId, code]
+    );
+    return rows.length > 0;
+  }
+
   async search(term, limit = 20, offset = 0) {
     const { rows } = await this.query(
       `SELECT * FROM users
