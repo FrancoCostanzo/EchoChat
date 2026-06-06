@@ -96,11 +96,8 @@
 ### 📁 Almacenamiento de Archivos
 - Subida de archivos a MinIO (S3-compatible)
 - Soporte: imágenes, videos, audio, documentos, grabaciones
-- Thumbnails automáticos para imágenes/videos
-- URLs prefirmadas con TTL para acceso seguro
-- Deduplicación por hash SHA256
-- Eliminación de metadatos EXIF por privacidad
-- Infraestructura para escaneo antivirus
+- URLs prefirmadas con TTL para acceso seguro (con caché y limpieza automática)
+- 🔧 *Planificado:* thumbnails automáticos, deduplicación por SHA256, strip de EXIF y escaneo antivirus (ver `docs/ROADMAP.md`, Fase 4)
 
 </td>
 <td width="50%">
@@ -120,8 +117,10 @@
 
 ### 🔐 Autenticación y Seguridad
 - JWT con access y refresh tokens
+- Autenticación de dos factores (2FA TOTP) con códigos de respaldo
 - Hashing de contraseñas con bcrypt
 - Gestión de sesiones multi-dispositivo
+- RBAC aplicado por endpoint (permisos globales) y por conversación (roles)
 - RBAC con permisos globales y por conversación
 - Helmet para headers HTTP seguros
 - Rate limiting (100 req / 15 min)

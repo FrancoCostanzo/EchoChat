@@ -1,5 +1,5 @@
 const logger = require('../config/logger');
-const { conversationRepository } = require('../repositories');
+const { conversationRepository, auditRepository } = require('../repositories');
 const { minioClient } = require('../config/minio');
 const { NotFoundError, ForbiddenError, BadRequestError } = require('../errors');
 const { toConversationResponse, toMemberResponse } = require('../models');
@@ -107,6 +107,17 @@ class ConversationService {
     }
     const member = await conversationRepository.updateMember(conversationId, targetUserId, data);
     if (!member) throw new NotFoundError('Member');
+
+    // Audit role changes (privilege escalation/demotion is security-relevant)
+    if (data.role) {
+      auditRepository.log({
+        actor_id: userId,
+        action: 'conversation.member_role_change',
+        resource_type: 'conversation',
+        resource_id: conversationId,
+        data_after: { target_user_id: targetUserId, new_role: data.role },
+      }).catch((err) => logger.warn({ err: err.message }, 'Failed to write audit log'));
+    }
     return toMemberResponse(member);
   }
 
