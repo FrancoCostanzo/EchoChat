@@ -9,7 +9,7 @@
 | Fase | Tema | Estado |
 |------|------|--------|
 | 0 | Cimientos transversales | ✅ Hecho (base) |
-| 1 | Canales | 🚧 Backend hecho (falta UI) |
+| 1 | Canales | ✅ Hecho |
 | 2 | Notificaciones push + email | ⬜ Pendiente |
 | 3 | Broadcasts completos | ⬜ Pendiente |
 | 4 | Pipeline de media seguro | ⬜ Pendiente |
@@ -55,7 +55,7 @@ Fase 0 → Fase 1 → Fase 2 → Fase 3 → (Fase 6 en paralelo) → Fase 4 → 
 | 1.1 | Backend de canales: endpoints sobre `channel_settings` (categoría, `post_restriction`, `join_mode`, `is_official`). | M (3d) | 0.1 | ✅ |
 | 1.2 | Descubrimiento de canales: listar `is_discoverable`, búsqueda, unirse a `open`. | S (2d) | 1.1 | ✅ |
 | 1.3 | Solicitudes de ingreso (`channel_join_requests`): pedir/aprobar/rechazar + notificación a admins. | M (2-3d) | 1.1 | ✅ |
-| 1.4 | UI de canales: exploración, badge oficial, panel de moderación. | L (5-6d) | 1.1-1.3 | ⬜ |
+| 1.4 | UI de canales: exploración, badge oficial, panel de moderación. | L (5-6d) | 1.1-1.3 | ✅ |
 
 ### Detalle de lo implementado en Fase 1 (backend)
 
@@ -70,7 +70,11 @@ Fase 0 → Fase 1 → Fase 2 → Fase 3 → (Fase 6 en paralelo) → Fase 4 → 
 - Solicitudes notifican a los gestores (in-app + socket `channel:join_request`);
   la aprobación agrega al miembro y emite `channel:joined`.
 - Cliente API frontend listo (`channelsApi` en `lib/endpoints.js`).
-- Pendiente 1.4: páginas/UI de exploración y moderación.
+- **UI (1.4)**: `ChannelsExplorePage` (`/channels`) con búsqueda, filtro por
+  categoría, tarjetas con badge oficial y conteo de miembros, acción según
+  estado (unirse / solicitar / pendiente / abrir), modal de solicitud de
+  acceso y modal de moderación (aprobar/rechazar) para gestores. Botón
+  "Explorar" del GuildRail conectado; i18n en es/en/pt. Build verificado.
 
 ## FASE 2 — Notificaciones reales (push + email)
 
