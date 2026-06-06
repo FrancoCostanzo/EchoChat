@@ -68,6 +68,47 @@ class MessageController {
     const messages = await messageService.getPinnedMessages(req.params.conversationId, req.user.id);
     res.json({ status: 'success', data: messages });
   }
+
+  // ── Saved messages ────────────────────────────────────────────────────────
+  async listSaved(req, res) {
+    const { limit = 50, offset = 0 } = req.query;
+    const messages = await messageService.listSaved(req.user.id, {
+      limit: parseInt(limit, 10),
+      offset: parseInt(offset, 10),
+    });
+    res.json({ status: 'success', data: messages });
+  }
+
+  async save(req, res) {
+    const saved = await messageService.saveMessage(req.user.id, req.params.messageId, req.body?.note);
+    res.status(StatusCodes.CREATED).json({ status: 'success', data: saved });
+  }
+
+  async unsave(req, res) {
+    await messageService.unsaveMessage(req.user.id, req.params.messageId);
+    res.json({ status: 'success', message: 'Message unsaved' });
+  }
+
+  // ── Drafts ──────────────────────────────────────────────────────────────
+  async listDrafts(req, res) {
+    const drafts = await messageService.listDrafts(req.user.id);
+    res.json({ status: 'success', data: drafts });
+  }
+
+  async getDraft(req, res) {
+    const draft = await messageService.getDraft(req.user.id, req.params.conversationId);
+    res.json({ status: 'success', data: draft });
+  }
+
+  async saveDraft(req, res) {
+    const draft = await messageService.saveDraft(req.user.id, req.params.conversationId, req.body);
+    res.json({ status: 'success', data: draft });
+  }
+
+  async deleteDraft(req, res) {
+    await messageService.deleteDraft(req.user.id, req.params.conversationId);
+    res.json({ status: 'success', message: 'Draft deleted' });
+  }
 }
 
 module.exports = new MessageController();

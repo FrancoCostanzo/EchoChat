@@ -1,7 +1,14 @@
 const logger = require('../config/logger');
-const { messageRepository, conversationRepository, userRepository, auditRepository } = require('../repositories');
+const {
+  messageRepository,
+  conversationRepository,
+  userRepository,
+  auditRepository,
+  savedMessageRepository,
+  draftRepository,
+} = require('../repositories');
 const { NotFoundError, ForbiddenError } = require('../errors');
-const { toMessageResponse } = require('../models');
+const { toMessageResponse, toSavedMessageResponse, toDraftResponse } = require('../models');
 const { minioClient } = require('../config/minio');
 
 // Lazy-load to avoid circular dependency (socket → services → message.service → socket)
@@ -192,6 +199,46 @@ class MessageService {
 
     const messages = await messageRepository.getPinnedMessages(conversationId);
     return messages.map(toMessageResponse);
+  }
+
+  // ── Saved messages ────────────────────────────────────────────────────────
+  async saveMessage(userId, messageId, note) {
+    const message = await messageRepository.findById(messageId);
+    if (!message) throw new NotFoundError('Message');
+    const member = await conversationRepository.getMember(message.conversation_id, userId);
+    if (!member) throw new ForbiddenError('Not a member of this conversation');
+    return savedMessageRepository.save(userId, messageId, note);
+  }
+
+  async unsaveMessage(userId, messageId) {
+    await savedMessageRepository.unsave(userId, messageId);
+  }
+
+  async listSaved(userId, pagination) {
+    const rows = await savedMessageRepository.list(userId, pagination);
+    return rows.map(toSavedMessageResponse);
+  }
+
+  // ── Drafts ──────────────────────────────────────────────────────────────
+  async saveDraft(userId, conversationId, data) {
+    const member = await conversationRepository.getMember(conversationId, userId);
+    if (!member) throw new ForbiddenError('Not a member of this conversation');
+    const draft = await draftRepository.upsert(userId, conversationId, data);
+    return toDraftResponse(draft);
+  }
+
+  async getDraft(userId, conversationId) {
+    const draft = await draftRepository.get(userId, conversationId);
+    return draft ? toDraftResponse(draft) : null;
+  }
+
+  async deleteDraft(userId, conversationId) {
+    await draftRepository.remove(userId, conversationId);
+  }
+
+  async listDrafts(userId) {
+    const drafts = await draftRepository.listByUser(userId);
+    return drafts.map(toDraftResponse);
   }
 }
 

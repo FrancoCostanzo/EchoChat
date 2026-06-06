@@ -33,4 +33,26 @@ function toMessageResponse(row) {
   };
 }
 
-module.exports = { toMessageResponse };
+function toSavedMessageResponse(row) {
+  if (!row) return null;
+  return {
+    ...toMessageResponse(row),
+    saved_note: row.saved_note ?? null,
+    saved_at: row.saved_at,
+    conversation_name: row.conversation_name ?? null,
+    conversation_type: row.conversation_type ?? null,
+  };
+}
+
+function toDraftResponse(row) {
+  if (!row) return null;
+  return {
+    conversation_id: row.conversation_id,
+    body: row.body,
+    reply_to_id: row.reply_to_id,
+    pending_attachments: row.pending_attachments ?? [],
+    updated_at: row.updated_at,
+  };
+}
+
+module.exports = { toMessageResponse, toSavedMessageResponse, toDraftResponse };

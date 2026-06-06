@@ -97,6 +97,7 @@
     "edited": "(editado)",
     "react": "Reaccionar",
     "reply": "Responder",
+    "save": "Guardar mensaje",
     "voiceCall": "Llamada de voz",
     "videoCall": "Videollamada",
     "pinnedMessages": "Mensajes fijados",
@@ -173,6 +174,15 @@
     "requestApproved": "Solicitud aprobada",
     "requestRejected": "Solicitud rechazada",
     "error": "Ocurrió un error"
+  },
+  "saved": {
+    "title": "Mensajes guardados",
+    "subtitle": "Tus mensajes marcados para después",
+    "empty": "No tenés mensajes guardados",
+    "note": "Nota",
+    "remove": "Quitar de guardados",
+    "openConversation": "Abrir conversación",
+    "directChat": "Chat directo"
   },
   "contacts": {
     "title": "Contactos",
@@ -295,7 +305,8 @@
     "noName": "Sin nombre",
     "searchConversation": "Buscar conversación...",
     "noConversations": "Sin conversaciones",
-    "explore": "Explorar canales"
+    "explore": "Explorar canales",
+    "saved": "Guardados"
   },
   "imageViewer": {
     "download": "Descargar",

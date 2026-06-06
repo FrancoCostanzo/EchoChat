@@ -8,6 +8,7 @@ import {
   LogOut,
   Plus,
   Compass,
+  Bookmark,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
@@ -75,6 +76,7 @@ export default function GuildRail() {
   const isChat = pathname === '/chat' || pathname.startsWith('/chat/');
   const isContacts = pathname.startsWith('/contacts');
   const isChannels = pathname.startsWith('/channels');
+  const isSaved = pathname.startsWith('/saved');
   const isNotifications = pathname.startsWith('/notifications');
   const isSettings = pathname.startsWith('/settings');
   const isNew = pathname === '/chat/new';
@@ -123,6 +125,12 @@ export default function GuildRail() {
           label={t('sidebar.explore')}
           onClick={() => navigate('/channels')}
           active={isChannels}
+        />
+        <RailItem
+          icon={Bookmark}
+          label={t('sidebar.saved')}
+          onClick={() => navigate('/saved')}
+          active={isSaved}
         />
       </div>
 
