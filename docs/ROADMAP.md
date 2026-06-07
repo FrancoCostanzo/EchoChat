@@ -115,9 +115,9 @@ Fase 0 → Fase 1 → Fase 2 → Fase 3 → (Fase 6 en paralelo) → Fase 4 → 
 
 | # | Funcionalidad | Esfuerzo | Depende de | Estado |
 |---|---|---|---|---|
-| 6.1 | Drafts (`drafts`): autoguardar borrador por conversación. | S (1-2d) | — | 🚧 backend + API (falta autosave en ConversationPage) |
+| 6.1 | Drafts (`drafts`): autoguardar borrador por conversación. | S (1-2d) | — | ✅ |
 | 6.2 | Saved messages (`saved_messages`): guardar con nota + vista. | S (2d) | — | ✅ |
-| 6.3 | Forwarding (campos `forwarded_from_*` ya existen). | S (1-2d) | — | ⬜ |
+| 6.3 | Forwarding (campos `forwarded_from_*` ya existen). | S (1-2d) | — | ✅ |
 | 6.4 | Polls (`poll.dto` ya existe sin ruta): votación en vivo + UI. | M (3-4d) | — | ⬜ |
 | 6.5 | Threads/hilos completos (`thread_id`). | M (3d) | — | ⬜ |
 
@@ -127,9 +127,14 @@ Fase 0 → Fase 1 → Fase 2 → Fase 3 → (Fase 6 en paralelo) → Fase 4 → 
   endpoints `GET /messages/saved`, `POST/DELETE /messages/:id/save`), acción "Guardar"
   en la toolbar de cada mensaje (`ConversationPage`), página dedicada
   `SavedMessagesPage` (`/saved`) con acceso en el GuildRail, i18n es/en/pt.
-- **6.1 Drafts** 🚧 — backend completo (`draft.repository`, métodos en `messageService`,
-  endpoints `GET /messages/drafts`, `GET/PUT/DELETE /messages/conversation/:id/draft`)
-  y cliente API (`messagesApi`). Falta el autosave en el composer de `ConversationPage`.
+- **6.1 Drafts** ✅ — backend (`draft.repository`, `messageService`, endpoints
+  `GET /messages/drafts`, `GET/PUT/DELETE /messages/conversation/:id/draft`) +
+  autosave con debounce en el composer de `ConversationPage` (carga al entrar,
+  guarda al escribir, borra al enviar).
+- **6.3 Forwarding** ✅ — `POST /messages/:id/forward` (a varias conversaciones),
+  copia body y referencia los mismos adjuntos sin re-subir; `getAttachmentObjects`
+  ahora solo borra de MinIO objetos no compartidos (evita romper el original).
+  UI: botón "Reenviar" en la toolbar + `ForwardModal` para elegir destinos.
 
 ## FASE 7 — Panel de administración
 
