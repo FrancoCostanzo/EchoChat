@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"['es','en','pt'].forEach\\(l=>JSON.parse\\(require\\('fs'\\).readFileSync\\('src/locales/'+l+'.json','utf8'\\)\\)\\);console.log\\('locales OK'\\)\")",
+      "Bash(cd /e/Proyectos/EchoChat/frontend && grep -n \"FilePicker\\\\|handleFilePick\\\\|<SendButton\\\\|onKeyDown={handleKeyDown}\\\\|Paperclip\\\\|AttachMenu\\\\|attachMenu\\\\|<Input\" src/pages/ConversationPage.jsx | head -25)",
+      "Read(//e/e/Proyectos/EchoChat/frontend/src/pages/**)",
+      "Bash(node --input-type=module -e \"import\\('@heroui/react'\\).then\\(m=>{const k=Object.keys\\(m\\).filter\\(x=>/^[A-Z]/.test\\(x\\)\\); console.log\\(k.join\\(', '\\)\\)}\\).catch\\(e=>console.log\\('ERR',e.message\\)\\)\")",
+      "Read(//c/Users/vevog/.claude/plugins/cache/ui-ux-pro-max-skill/ui-ux-pro-max/2.5.0/.claude/skills/ui-ux-pro-max/**)",
+      "Bash(python scripts/search.py \"messaging chat app social communication dark vibrant\" --design-system)",
+      "Bash(cd \"C:\\\\Users\\\\vevog\\\\.claude\\\\plugins\\\\cache\\\\ui-ux-pro-max-skill\\\\src\\\\ui-ux-pro-max\" && ls scripts data 2>&1 | head -30)",
+      "Read(//c/Users/vevog/.claude/plugins/cache/ui-ux-pro-max-skill/src/**)",
+      "Read(//c/Users/vevog/.claude/plugins/cache/ui-ux-pro-max-skill/**)",
+      "Bash(find . -name \"search.py\")",
+      "Bash(git -C . rev-parse --show-toplevel)",
+      "Bash(PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d EchoChat -t -c \"SELECT count\\(*\\) AS role_perm_rows FROM role_permissions;\" -c \"SELECT r.name, count\\(rp.*\\) FROM roles r LEFT JOIN role_permissions rp ON rp.role_id=r.id GROUP BY r.name ORDER BY r.name;\" -c \"SELECT EXISTS\\(SELECT 1 FROM permissions WHERE code='media.upload'\\) AS perm_exists;\")",
+      "Bash(node _diag_perms.js)",
+      "Bash(node _run_migration.js)",
+      "Bash(git check-ignore *)",
+      "Bash(git commit *)"
+    ]
+  }
+}
