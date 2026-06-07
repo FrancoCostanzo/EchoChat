@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, memo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Button, Input, Dropdown, Label, Spinner, Tooltip } from '@heroui/react';
+import { Button, Input, Dropdown, Label, Spinner, Tooltip, Modal } from '@heroui/react';
 import {
   Paperclip,
   MoreVertical,
@@ -855,17 +855,19 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
 /* ─────────────────────────────────────────────────────────
    ForwardModal — pick target conversations to forward a message
    ───────────────────────────────────────────────────────── */
-function ForwardModal({ message, conversations, currentConvId, onClose }) {
+function ForwardModal({ message, conversations, currentConvId, isOpen, onClose }) {
   const { t } = useTranslation();
   const [selected, setSelected] = useState([]);
   const [search, setSearch] = useState('');
   const [sending, setSending] = useState(false);
 
-  useEffect(() => {
-    const handler = (e) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [onClose]);
+  const handleOpenChange = (open) => {
+    if (!open) {
+      onClose();
+      setSelected([]);
+      setSearch('');
+    }
+  };
 
   const query = search.trim().toLowerCase();
   const targets = conversations.filter((c) => {
@@ -878,75 +880,70 @@ function ForwardModal({ message, conversations, currentConvId, onClose }) {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
   const handleForward = async () => {
-    if (selected.length === 0) return;
+    if (selected.length === 0 || !message) return;
     setSending(true);
     try {
       await messagesApi.forward(message.id, selected);
       onClose();
+      setSelected([]);
+      setSearch('');
     } catch {
       setSending(false);
     }
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      transition={{ duration: 0.15, ease: 'easeOut' }}
-      className="fixed inset-0 z-50 flex items-center justify-center"
-    >
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }}
-        transition={{ duration: 0.2, ease: SPRING_OUT }}
-        className="relative z-10 mx-4 flex max-h-[70vh] w-full max-w-md flex-col overflow-hidden rounded-md bg-ink-850 shadow-2xl ring-1 ring-black/40"
-      >
-        <div className="flex items-center justify-between border-b border-black/20 px-4 py-3">
-          <h3 className="flex items-center gap-2 text-[15px] font-semibold">
-            <Forward size={16} /> {t('chat.forwardTo')}
-          </h3>
-          <button onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded-md text-ink-200 hover:bg-ink-750 hover:text-foreground">
-            <X size={16} />
-          </button>
-        </div>
+    <Modal isOpen={isOpen} onOpenChange={handleOpenChange}>
+      <Modal.Backdrop>
+        <Modal.Container placement="center" size="md">
+          <Modal.Dialog>
+            <Modal.Header>
+              <Modal.Heading className="flex items-center gap-2">
+                <Forward size={16} /> {t('chat.forwardTo')}
+              </Modal.Heading>
+              <Modal.CloseTrigger />
+            </Modal.Header>
 
-        <div className="px-3 pt-3">
-          <div className="relative">
-            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-200" />
-            <Input className="pl-9" placeholder={t('sidebar.searchConversation')} value={search} onChange={(e) => setSearch(e.target.value)} />
-          </div>
-        </div>
+            <Modal.Body className="flex flex-col gap-3">
+              <div className="relative">
+                <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-200" />
+                <Input className="pl-9" placeholder={t('sidebar.searchConversation')} value={search} onChange={(e) => setSearch(e.target.value)} />
+              </div>
 
-        <div className="flex-1 overflow-y-auto px-2 py-2">
-          {targets.length === 0 ? (
-            <p className="py-6 text-center text-sm text-ink-200">{t('sidebar.noConversations')}</p>
-          ) : targets.map((c) => {
-            const name = c.display_name || c.name || t('sidebar.noName');
-            const isSel = selected.includes(c.id);
-            return (
-              <button
-                key={c.id}
-                onClick={() => toggle(c.id)}
-                className={`flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors ${isSel ? 'bg-blurple-500/15' : 'hover:bg-ink-750'}`}
-              >
-                {c.type === 'direct' ? (
-                  <UserAvatar user={{ display_name: name, avatar_url: c.other_avatar_url }} size="sm" />
-                ) : (
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-ink-700 text-ink-100"><Hash size={15} /></div>
-                )}
-                <span className="min-w-0 flex-1 truncate text-sm font-medium">{name}</span>
-                {isSel && <Check size={16} className="text-blurple-400" />}
-              </button>
-            );
-          })}
-        </div>
+              <div className="flex max-h-72 flex-col gap-0.5 overflow-y-auto">
+                {targets.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-ink-200">{t('sidebar.noConversations')}</p>
+                ) : targets.map((c) => {
+                  const name = c.display_name || c.name || t('sidebar.noName');
+                  const isSel = selected.includes(c.id);
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => toggle(c.id)}
+                      className={`flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors ${isSel ? 'bg-blurple-500/15' : 'hover:bg-ink-750'}`}
+                    >
+                      {c.type === 'direct' ? (
+                        <UserAvatar user={{ display_name: name, avatar_url: c.other_avatar_url }} size="sm" />
+                      ) : (
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-ink-700 text-ink-100"><Hash size={15} /></div>
+                      )}
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{name}</span>
+                      {isSel && <Check size={16} className="text-blurple-400" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </Modal.Body>
 
-        <div className="border-t border-black/20 p-3">
-          <Button className="w-full" isDisabled={selected.length === 0} isPending={sending} onPress={handleForward}>
-            {t('chat.forward')}{selected.length > 0 ? ` (${selected.length})` : ''}
-          </Button>
-        </div>
-      </motion.div>
-    </motion.div>
+            <Modal.Footer>
+              <Button className="w-full" isDisabled={selected.length === 0} isPending={sending} onPress={handleForward}>
+                {t('chat.forward')}{selected.length > 0 ? ` (${selected.length})` : ''}
+              </Button>
+            </Modal.Footer>
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
+    </Modal>
   );
 }
 
@@ -1292,26 +1289,20 @@ export default function ConversationPage() {
       </AnimatePresence>
 
       {/* Forward modal */}
-      <AnimatePresence>
-        {forwardTarget && (
-          <ForwardModal
-            message={forwardTarget}
-            conversations={conversations}
-            currentConvId={conversationId}
-            onClose={() => setForwardTarget(null)}
-          />
-        )}
-      </AnimatePresence>
+      <ForwardModal
+        isOpen={!!forwardTarget}
+        message={forwardTarget}
+        conversations={conversations}
+        currentConvId={conversationId}
+        onClose={() => setForwardTarget(null)}
+      />
 
       {/* Create poll modal */}
-      <AnimatePresence>
-        {showPollModal && (
-          <CreatePollModal
-            conversationId={conversationId}
-            onClose={() => setShowPollModal(false)}
-          />
-        )}
-      </AnimatePresence>
+      <CreatePollModal
+        isOpen={showPollModal}
+        conversationId={conversationId}
+        onClose={() => setShowPollModal(false)}
+      />
 
       <div className="relative flex h-full bg-ink-700">
         <div className="flex h-full min-w-0 flex-1 flex-col">

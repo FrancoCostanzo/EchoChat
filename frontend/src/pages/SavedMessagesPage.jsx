@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Spinner } from '@heroui/react';
+import { Button, Spinner, Card } from '@heroui/react';
 import { Bookmark, BookmarkX, Hash, MessageSquare } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { messagesApi } from '@/lib/endpoints';
@@ -63,9 +63,9 @@ export default function SavedMessagesPage() {
         ) : (
           <div className="flex flex-col gap-2">
             {items.map((m) => (
-              <div
+              <Card
                 key={m.id}
-                className="group flex flex-col gap-2 rounded-xl border border-black/20 bg-ink-800 p-4"
+                className="group flex flex-col gap-2 p-4"
               >
                 <div className="flex items-center gap-2">
                   <UserAvatar
@@ -110,7 +110,7 @@ export default function SavedMessagesPage() {
                 >
                   <MessageSquare size={14} /> {t('saved.openConversation')}
                 </Button>
-              </div>
+              </Card>
             ))}
           </div>
         )}

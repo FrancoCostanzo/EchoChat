@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Button, Input, Tabs, Spinner } from '@heroui/react';
+import { Button, Input, Tabs, Spinner, Modal, Card, InputGroup } from '@heroui/react';
 import {
   Compass,
   Hash,
@@ -20,40 +19,6 @@ import UserAvatar from '@/components/UserAvatar';
 
 const CATEGORIES = ['all', 'announcements', 'department', 'project', 'general'];
 const MANAGE_ROLES = ['owner', 'admin', 'moderator'];
-
-/* ── Lightweight modal (matches the app's custom-overlay pattern) ── */
-function Modal({ open, onClose, title, children }) {
-  return (
-    <AnimatePresence>
-      {open && (
-        <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-        >
-          <motion.div
-            className="w-full max-w-md overflow-hidden rounded-xl bg-ink-800 shadow-2xl"
-            initial={{ opacity: 0, scale: 0.96, y: 8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 8 }}
-            transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-black/20 px-4 py-3">
-              <h3 className="text-[15px] font-semibold">{title}</h3>
-              <Button isIconOnly size="sm" variant="ghost" className="h-7 w-7 min-w-0" onPress={onClose}>
-                <X size={16} />
-              </Button>
-            </div>
-            <div className="p-4">{children}</div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
 
 /* ── Channel card ── */
 function ChannelCard({ channel, t, onJoin, onRequest, onManage, onOpen, busy }) {
@@ -99,7 +64,7 @@ function ChannelCard({ channel, t, onJoin, onRequest, onManage, onOpen, busy }) 
   };
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-black/20 bg-ink-800 p-4 transition-colors hover:border-blurple-500/40">
+    <Card className="flex flex-col gap-3 p-4 transition-colors hover:border-blurple-500/40">
       <div className="flex items-start gap-3">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-ink-700 text-ink-100">
           <Hash size={20} strokeWidth={2.5} />
@@ -138,7 +103,7 @@ function ChannelCard({ channel, t, onJoin, onRequest, onManage, onOpen, busy }) 
         )}
         {renderAction()}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -318,62 +283,80 @@ export default function ChannelsExplorePage() {
       </div>
 
       {/* Request access modal */}
-      <Modal
-        open={!!requestModal}
-        onClose={() => setRequestModal(null)}
-        title={t('channels.requestTitle')}
-      >
-        <div className="flex flex-col gap-3">
-          <p className="text-sm font-medium">{requestModal?.name}</p>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-ink-200">{t('channels.requestMessage')}</label>
-            <textarea
-              className="min-h-24 w-full resize-none rounded-lg bg-ink-900 px-3 py-2 text-sm text-foreground outline-none ring-1 ring-black/20 placeholder:text-ink-200 focus:ring-blurple-500"
-              placeholder={t('channels.requestMessagePlaceholder')}
-              value={requestMessage}
-              onChange={(e) => setRequestMessage(e.target.value)}
-              maxLength={500}
-            />
-          </div>
-          <Button isPending={sendingRequest} onPress={handleSendRequest}>
-            {t('channels.sendRequest')}
-          </Button>
-        </div>
+      <Modal isOpen={!!requestModal} onOpenChange={(o) => { if (!o) setRequestModal(null); }}>
+        <Modal.Backdrop>
+          <Modal.Container placement="center" size="md">
+            <Modal.Dialog>
+              <Modal.Header>
+                <Modal.Heading>{t('channels.requestTitle')}</Modal.Heading>
+                <Modal.CloseTrigger />
+              </Modal.Header>
+              <Modal.Body className="flex flex-col gap-3">
+                <p className="text-sm font-medium">{requestModal?.name}</p>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-ink-200">{t('channels.requestMessage')}</label>
+                  <InputGroup>
+                    <InputGroup.TextArea
+                      className="min-h-24"
+                      placeholder={t('channels.requestMessagePlaceholder')}
+                      value={requestMessage}
+                      onChange={(e) => setRequestMessage(e.target.value)}
+                      maxLength={500}
+                    />
+                  </InputGroup>
+                </div>
+              </Modal.Body>
+              <Modal.Footer>
+                <Button className="w-full" isPending={sendingRequest} onPress={handleSendRequest}>
+                  {t('channels.sendRequest')}
+                </Button>
+              </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
       </Modal>
 
       {/* Manage requests modal */}
-      <Modal
-        open={!!requestsModal}
-        onClose={() => setRequestsModal(null)}
-        title={`${t('channels.pendingRequests')} · ${requestsModal?.name ?? ''}`}
-      >
-        {requestsLoading ? (
-          <div className="flex h-24 items-center justify-center">
-            <Spinner />
-          </div>
-        ) : requests.length === 0 ? (
-          <p className="py-6 text-center text-sm text-ink-200">{t('channels.noRequests')}</p>
-        ) : (
-          <div className="flex max-h-80 flex-col gap-2 overflow-y-auto">
-            {requests.map((req) => (
-              <div key={req.id} className="flex items-center gap-3 rounded-lg bg-ink-700 p-2">
-                <UserAvatar user={req} size="sm" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{req.display_name}</p>
-                  {req.message && <p className="truncate text-xs text-ink-200">{req.message}</p>}
-                </div>
-                <Button isIconOnly size="sm" variant="ghost" className="h-8 w-8 min-w-0 text-echo-online"
-                  onPress={() => reviewRequest(req.id, 'approved')} aria-label={t('channels.approve')}>
-                  <Check size={16} />
-                </Button>
-                <Button isIconOnly size="sm" variant="ghost" className="h-8 w-8 min-w-0 text-echo-dnd"
-                  onPress={() => reviewRequest(req.id, 'rejected')} aria-label={t('channels.reject')}>
-                  <X size={16} />
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
+      <Modal isOpen={!!requestsModal} onOpenChange={(o) => { if (!o) setRequestsModal(null); }}>
+        <Modal.Backdrop>
+          <Modal.Container placement="center" size="md">
+            <Modal.Dialog>
+              <Modal.Header>
+                <Modal.Heading>{`${t('channels.pendingRequests')} · ${requestsModal?.name ?? ''}`}</Modal.Heading>
+                <Modal.CloseTrigger />
+              </Modal.Header>
+              <Modal.Body>
+                {requestsLoading ? (
+                  <div className="flex h-24 items-center justify-center">
+                    <Spinner />
+                  </div>
+                ) : requests.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-ink-200">{t('channels.noRequests')}</p>
+                ) : (
+                  <div className="flex max-h-80 flex-col gap-2 overflow-y-auto">
+                    {requests.map((req) => (
+                      <div key={req.id} className="flex items-center gap-3 rounded-lg bg-ink-700 p-2">
+                        <UserAvatar user={req} size="sm" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">{req.display_name}</p>
+                          {req.message && <p className="truncate text-xs text-ink-200">{req.message}</p>}
+                        </div>
+                        <Button isIconOnly size="sm" variant="ghost" className="text-echo-online"
+                          onPress={() => reviewRequest(req.id, 'approved')} aria-label={t('channels.approve')}>
+                          <Check size={16} />
+                        </Button>
+                        <Button isIconOnly size="sm" variant="ghost" className="text-echo-dnd"
+                          onPress={() => reviewRequest(req.id, 'rejected')} aria-label={t('channels.reject')}>
+                          <X size={16} />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Modal.Body>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
       </Modal>
     </div>
   );
