@@ -7,6 +7,7 @@ module.exports = {
   messageRepository: require('./message.repository'),
   savedMessageRepository: require('./saved.repository'),
   draftRepository: require('./draft.repository'),
+  pollRepository: require('./poll.repository'),
   callRepository: require('./call.repository'),
   storageRepository: require('./storage.repository'),
   broadcastRepository: require('./broadcast.repository'),

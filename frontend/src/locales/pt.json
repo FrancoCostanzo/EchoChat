@@ -177,6 +177,24 @@
     "openConversation": "Abrir conversa",
     "directChat": "Chat direto"
   },
+  "poll": {
+    "create": "Criar enquete",
+    "question": "Pergunta",
+    "questionPlaceholder": "O que você quer perguntar?",
+    "options": "Opções",
+    "option": "Opção",
+    "addOption": "Adicionar opção",
+    "allowMultiple": "Permitir várias respostas",
+    "makeAnonymous": "Enquete anônima",
+    "vote": "Votar",
+    "retract": "Remover voto",
+    "close": "Fechar enquete",
+    "closed": "Fechada",
+    "anonymous": "Anônima",
+    "single": "Escolha uma",
+    "multiple": "Escolha várias",
+    "totalVotes": "{{count}} votos"
+  },
   "contacts": {
     "title": "Contatos",
     "contacts": "Contatos",

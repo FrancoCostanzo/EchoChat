@@ -6,9 +6,10 @@ const {
   auditRepository,
   savedMessageRepository,
   draftRepository,
+  pollRepository,
 } = require('../repositories');
 const { NotFoundError, ForbiddenError } = require('../errors');
-const { toMessageResponse, toSavedMessageResponse, toDraftResponse } = require('../models');
+const { toMessageResponse, toSavedMessageResponse, toDraftResponse, toPollResponse } = require('../models');
 const { minioClient } = require('../config/minio');
 
 // Lazy-load to avoid circular dependency (socket → services → message.service → socket)
@@ -51,7 +52,22 @@ class MessageService {
     if (!member) throw new ForbiddenError('Not a member of this conversation');
 
     const messages = await messageRepository.findByConversation(conversationId, pagination);
-    return messages.map(toMessageResponse);
+    const responses = messages.map(toMessageResponse);
+    await this._attachPolls(responses, userId);
+    return responses;
+  }
+
+  // Attach poll data (options + the user's votes) to any 'poll' type messages.
+  async _attachPolls(responses, userId) {
+    for (const m of responses) {
+      if (m.type !== 'poll') continue;
+      const poll = await pollRepository.findByMessageId(m.id);
+      if (!poll) continue;
+      const options = await pollRepository.getOptions(poll.id);
+      const myVotes = await pollRepository.getUserVotes(poll.id, userId);
+      m.poll = toPollResponse(poll, options, myVotes);
+    }
+    return responses;
   }
 
   async getById(messageId) {
