@@ -177,6 +177,24 @@
     "openConversation": "Open conversation",
     "directChat": "Direct chat"
   },
+  "poll": {
+    "create": "Create poll",
+    "question": "Question",
+    "questionPlaceholder": "What do you want to ask?",
+    "options": "Options",
+    "option": "Option",
+    "addOption": "Add option",
+    "allowMultiple": "Allow multiple answers",
+    "makeAnonymous": "Anonymous poll",
+    "vote": "Vote",
+    "retract": "Remove vote",
+    "close": "Close poll",
+    "closed": "Closed",
+    "anonymous": "Anonymous",
+    "single": "Pick one",
+    "multiple": "Pick several",
+    "totalVotes": "{{count}} votes"
+  },
   "contacts": {
     "title": "Contacts",
     "contacts": "Contacts",

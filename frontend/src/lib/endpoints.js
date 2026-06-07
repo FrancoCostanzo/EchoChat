@@ -74,6 +74,13 @@ export const messagesApi = {
   deleteDraft: (convId) => api.delete(`/messages/conversation/${convId}/draft`),
 };
 
+export const pollsApi = {
+  create: (data) => api.post('/polls', data),
+  vote: (pollId, optionIds) => api.post(`/polls/${pollId}/vote`, { option_ids: optionIds }),
+  retract: (pollId) => api.delete(`/polls/${pollId}/vote`),
+  close: (pollId) => api.post(`/polls/${pollId}/close`),
+};
+
 export const callsApi = {
   create: (data) => api.post('/calls', data),
   getById: (id) => api.get(`/calls/${id}`),

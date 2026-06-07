@@ -130,6 +130,11 @@ export const useChatStore = create((set, get) => ({
       }));
     });
 
+    socket.on('poll:update', ({ messageId, poll }) => {
+      // Trust server vote counts but keep this client's own vote selection.
+      get().applyPollUpdate(messageId, poll, { preserveVotes: true });
+    });
+
     socket.on('presence:changed', ({ userId, presence }) => {
       set((state) => ({
         onlineUsers: { ...state.onlineUsers, [userId]: presence },
@@ -349,6 +354,27 @@ export const useChatStore = create((set, get) => ({
 
   removeReaction: async (messageId, emoji) => {
     await messagesApi.removeReaction(messageId, emoji);
+  },
+
+  // Update the embedded poll of a message. When preserveVotes is true (realtime
+  // broadcast), the incoming `voted` flags belong to the actor, so we keep the
+  // local user's own selection and only adopt the authoritative counts.
+  applyPollUpdate: (messageId, poll, { preserveVotes = false } = {}) => {
+    set((state) => ({
+      messages: state.messages.map((m) => {
+        if (m.id !== messageId || !m.poll) return m;
+        if (!preserveVotes) return { ...m, poll };
+        const mine = new Set(m.poll.options.filter((o) => o.voted).map((o) => o.id));
+        return {
+          ...m,
+          poll: {
+            ...poll,
+            has_voted: m.poll.has_voted,
+            options: poll.options.map((o) => ({ ...o, voted: mine.has(o.id) })),
+          },
+        };
+      }),
+    }));
   },
 
   addLocalMessage: (message) => {

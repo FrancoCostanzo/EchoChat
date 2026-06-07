@@ -4,6 +4,7 @@ module.exports = {
   conversationController: require('./conversation.controller'),
   channelController: require('./channel.controller'),
   messageController: require('./message.controller'),
+  pollController: require('./poll.controller'),
   callController: require('./call.controller'),
   storageController: require('./storage.controller'),
   broadcastController: require('./broadcast.controller'),

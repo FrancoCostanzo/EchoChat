@@ -34,6 +34,7 @@ import {
   Film,
   FileText,
   Send,
+  BarChart3,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
@@ -43,6 +44,8 @@ import ImageViewer from '@/components/ImageViewer';
 import PdfPreview from '@/components/PdfPreview';
 import SendButton from '@/components/SendButton';
 import MessageSearchPanel from '@/components/MessageSearchPanel';
+import PollMessage from '@/components/PollMessage';
+import CreatePollModal from '@/components/CreatePollModal';
 import { formatMessageTime, formatFullTime } from '@/lib/dates';
 import { storageApi, messagesApi } from '@/lib/endpoints';
 
@@ -661,8 +664,13 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
             </div>
           ) : (
             <>
+              {/* Poll */}
+              {message.type === 'poll' && message.poll && (
+                <PollMessage message={message} currentUserId={currentUserId} />
+              )}
+
               {/* Body */}
-              {message.type !== 'media' && message.body && (
+              {message.type !== 'media' && message.type !== 'poll' && message.body && (
                 <p className={[
                   'wrap-break-word whitespace-pre-wrap text-[15px] leading-[1.4]',
                   message._status === 'sending' ? 'opacity-70' : '',
@@ -974,6 +982,7 @@ export default function ConversationPage() {
   const [sendingFile, setSendingFile] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [forwardTarget, setForwardTarget] = useState(null); // message being forwarded
+  const [showPollModal, setShowPollModal] = useState(false);
 
   const messagesEndRef = useRef(null);
   const containerRef = useRef(null);
@@ -1294,6 +1303,16 @@ export default function ConversationPage() {
         )}
       </AnimatePresence>
 
+      {/* Create poll modal */}
+      <AnimatePresence>
+        {showPollModal && (
+          <CreatePollModal
+            conversationId={conversationId}
+            onClose={() => setShowPollModal(false)}
+          />
+        )}
+      </AnimatePresence>
+
       <div className="relative flex h-full bg-ink-700">
         <div className="flex h-full min-w-0 flex-1 flex-col">
         {/* ── Header (Discord-style) ── */}
@@ -1502,6 +1521,16 @@ export default function ConversationPage() {
         <div className="bg-ink-700 px-3 pb-6 pt-1 md:pb-4">
           <div className="flex items-center gap-2 rounded-lg bg-ink-600 px-1 transition-shadow focus-within:ring-1 focus-within:ring-blurple-500/40">
             <FilePickerMenu onPick={handleFilePick} disabled={!!previewFile || sendingFile} uploading={sendingFile} />
+
+            <Tooltip content={t('poll.create')} placement="top">
+              <button
+                type="button"
+                onClick={() => setShowPollModal(true)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-ink-200 transition-colors hover:bg-ink-750 hover:text-foreground"
+              >
+                <BarChart3 size={18} />
+              </button>
+            </Tooltip>
 
             <Input
               ref={inputRef}
