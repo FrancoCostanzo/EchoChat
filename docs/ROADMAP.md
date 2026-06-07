@@ -118,7 +118,7 @@ Fase 0 → Fase 1 → Fase 2 → Fase 3 → (Fase 6 en paralelo) → Fase 4 → 
 | 6.1 | Drafts (`drafts`): autoguardar borrador por conversación. | S (1-2d) | — | ✅ |
 | 6.2 | Saved messages (`saved_messages`): guardar con nota + vista. | S (2d) | — | ✅ |
 | 6.3 | Forwarding (campos `forwarded_from_*` ya existen). | S (1-2d) | — | ✅ |
-| 6.4 | Polls (`poll.dto` ya existe sin ruta): votación en vivo + UI. | M (3-4d) | — | ⬜ |
+| 6.4 | Polls (`poll.dto` ya existe sin ruta): votación en vivo + UI. | M (3-4d) | — | ✅ |
 | 6.5 | Threads/hilos completos (`thread_id`). | M (3d) | — | ⬜ |
 
 ### Detalle de lo implementado en Fase 6
@@ -135,6 +135,11 @@ Fase 0 → Fase 1 → Fase 2 → Fase 3 → (Fase 6 en paralelo) → Fase 4 → 
   copia body y referencia los mismos adjuntos sin re-subir; `getAttachmentObjects`
   ahora solo borra de MinIO objetos no compartidos (evita romper el original).
   UI: botón "Reenviar" en la toolbar + `ForwardModal` para elegir destinos.
+- **6.4 Polls** ✅ — módulo `polls` (`poll.repository/service/controller/routes/model`)
+  en `/api/polls`: crear (mensaje tipo `poll` + opciones), votar (single/multiple),
+  quitar voto y cerrar; recuento desnormalizado y evento realtime `poll:update`.
+  Los mensajes tipo poll se enriquecen con la encuesta al cargar. UI: `PollMessage`
+  (barras de resultados + votación) y `CreatePollModal` desde el composer. i18n es/en/pt.
 
 ## FASE 7 — Panel de administración
 
