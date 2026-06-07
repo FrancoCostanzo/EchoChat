@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion } from 'framer-motion';
+import { Button, InputGroup } from '@heroui/react';
 import { Search, X, Loader, MessageSquareText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { messagesApi } from '@/lib/endpoints';
@@ -88,41 +89,48 @@ export default function MessageSearchPanel({ conversationId, onClose, onJump }) 
           <Search size={16} className="text-ink-100" />
           <h3 className="text-[15px] font-semibold">{t('chat.searchMessages')}</h3>
         </div>
-        <button
-          onClick={onClose}
-          className="rounded-md p-1 text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
+        <Button
+          isIconOnly
+          size="sm"
+          variant="ghost"
+          className="h-7 w-7 min-w-0"
+          onPress={onClose}
           aria-label={t('common.close')}
         >
           <X size={16} />
-        </button>
+        </Button>
       </div>
 
       {/* Search field */}
       <div className="border-b border-black/20 p-3">
-        <div className="flex items-center gap-2 rounded-md bg-ink-900 px-2.5 py-1.5">
-          {loading ? (
-            <Loader size={14} className="shrink-0 animate-spin text-ink-200" />
-          ) : (
-            <Search size={14} className="shrink-0 text-ink-200" />
-          )}
-          <input
+        <InputGroup variant="secondary" className="bg-ink-900">
+          <InputGroup.Prefix>
+            {loading ? (
+              <Loader size={14} className="animate-spin text-ink-200" />
+            ) : (
+              <Search size={14} className="text-ink-200" />
+            )}
+          </InputGroup.Prefix>
+          <InputGroup.Input
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Escape' && (query ? setQuery('') : onClose())}
             placeholder={t('chat.searchPlaceholder')}
-            className="min-w-0 flex-1 bg-transparent text-[14px] text-ink-0 outline-none placeholder:text-ink-200"
           />
           {query && (
-            <button
-              onClick={() => setQuery('')}
-              className="shrink-0 rounded p-0.5 text-ink-200 transition-colors hover:text-foreground"
-              aria-label={t('common.clear')}
-            >
-              <X size={13} />
-            </button>
+            <InputGroup.Suffix>
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                className="flex items-center text-ink-200 transition-colors hover:text-foreground"
+                aria-label={t('common.clear')}
+              >
+                <X size={13} />
+              </button>
+            </InputGroup.Suffix>
           )}
-        </div>
+        </InputGroup>
       </div>
 
       {/* Results */}
