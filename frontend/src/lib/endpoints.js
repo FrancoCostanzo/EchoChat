@@ -61,6 +61,8 @@ export const messagesApi = {
   getPinned: (convId) => api.get(`/messages/conversation/${convId}/pinned`),
   pin: (convId, msgId) => api.post(`/messages/conversation/${convId}/pin/${msgId}`),
   unpin: (convId, msgId) => api.delete(`/messages/conversation/${convId}/pin/${msgId}`),
+  // Forwarding
+  forward: (msgId, conversationIds) => api.post(`/messages/${msgId}/forward`, { conversation_ids: conversationIds }),
   // Saved messages
   listSaved: (params) => api.get('/messages/saved', params),
   save: (msgId, note) => api.post(`/messages/${msgId}/save`, note ? { note } : {}),

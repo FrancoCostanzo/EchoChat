@@ -12,6 +12,7 @@ import {
   AtSign,
   Smile,
   Reply,
+  Forward,
   Bookmark,
   BookmarkCheck,
   Pencil,
@@ -552,7 +553,7 @@ function ReceiptIcon({ message }) {
   return <Check size={13} className="text-white/70" />;
 }
 
-const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstInGroup, isLastInGroup, onEdit, onDelete, onReply, onReact, onRetry, currentUserId, currentUser }) {
+const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstInGroup, isLastInGroup, onEdit, onDelete, onReply, onReact, onForward, onRetry, currentUserId, currentUser }) {
   const { t } = useTranslation();
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -794,6 +795,16 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
               </button>
             </Tooltip>
 
+            <Tooltip content={t('chat.forward')} placement="top">
+              <button
+                type="button"
+                onClick={() => onForward(message)}
+                className="flex h-7 w-7 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
+              >
+                <Forward size={16} />
+              </button>
+            </Tooltip>
+
             <Tooltip content={saved ? t('saved.remove') : t('chat.save')} placement="top">
               <button
                 type="button"
@@ -833,6 +844,104 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
   );
 });
 
+/* ─────────────────────────────────────────────────────────
+   ForwardModal — pick target conversations to forward a message
+   ───────────────────────────────────────────────────────── */
+function ForwardModal({ message, conversations, currentConvId, onClose }) {
+  const { t } = useTranslation();
+  const [selected, setSelected] = useState([]);
+  const [search, setSearch] = useState('');
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  const query = search.trim().toLowerCase();
+  const targets = conversations.filter((c) => {
+    if (c.id === currentConvId) return false;
+    if (!query) return true;
+    return (c.display_name || c.name || '').toLowerCase().includes(query);
+  });
+
+  const toggle = (id) =>
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
+  const handleForward = async () => {
+    if (selected.length === 0) return;
+    setSending(true);
+    try {
+      await messagesApi.forward(message.id, selected);
+      onClose();
+    } catch {
+      setSending(false);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      transition={{ duration: 0.15, ease: 'easeOut' }}
+      className="fixed inset-0 z-50 flex items-center justify-center"
+    >
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }}
+        transition={{ duration: 0.2, ease: SPRING_OUT }}
+        className="relative z-10 mx-4 flex max-h-[70vh] w-full max-w-md flex-col overflow-hidden rounded-md bg-ink-850 shadow-2xl ring-1 ring-black/40"
+      >
+        <div className="flex items-center justify-between border-b border-black/20 px-4 py-3">
+          <h3 className="flex items-center gap-2 text-[15px] font-semibold">
+            <Forward size={16} /> {t('chat.forwardTo')}
+          </h3>
+          <button onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded-md text-ink-200 hover:bg-ink-750 hover:text-foreground">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="px-3 pt-3">
+          <div className="relative">
+            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-200" />
+            <Input className="pl-9" placeholder={t('sidebar.searchConversation')} value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-2 py-2">
+          {targets.length === 0 ? (
+            <p className="py-6 text-center text-sm text-ink-200">{t('sidebar.noConversations')}</p>
+          ) : targets.map((c) => {
+            const name = c.display_name || c.name || t('sidebar.noName');
+            const isSel = selected.includes(c.id);
+            return (
+              <button
+                key={c.id}
+                onClick={() => toggle(c.id)}
+                className={`flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors ${isSel ? 'bg-blurple-500/15' : 'hover:bg-ink-750'}`}
+              >
+                {c.type === 'direct' ? (
+                  <UserAvatar user={{ display_name: name, avatar_url: c.other_avatar_url }} size="sm" />
+                ) : (
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-ink-700 text-ink-100"><Hash size={15} /></div>
+                )}
+                <span className="min-w-0 flex-1 truncate text-sm font-medium">{name}</span>
+                {isSel && <Check size={16} className="text-blurple-400" />}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="border-t border-black/20 p-3">
+          <Button className="w-full" isDisabled={selected.length === 0} isPending={sending} onPress={handleForward}>
+            {t('chat.forward')}{selected.length > 0 ? ` (${selected.length})` : ''}
+          </Button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 export default function ConversationPage() {
   const { t } = useTranslation();
   const { conversationId } = useParams();
@@ -853,6 +962,7 @@ export default function ConversationPage() {
     typingUsers,
     emitTyping,
     clearActiveConversation,
+    conversations,
   } = useChatStore();
 
   const [input, setInput] = useState('');
@@ -863,6 +973,7 @@ export default function ConversationPage() {
   const [previewFile, setPreviewFile] = useState(null);
   const [sendingFile, setSendingFile] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [forwardTarget, setForwardTarget] = useState(null); // message being forwarded
 
   const messagesEndRef = useRef(null);
   const containerRef = useRef(null);
@@ -873,6 +984,8 @@ export default function ConversationPage() {
   const wasAtBottomRef = useRef(true);
   const initialLoadRef = useRef(false); // true after first batch of messages is rendered
   const scrollIdleTimerRef = useRef(null);
+  const draftReadyRef = useRef(false);  // true once the draft for this conv has loaded
+  const draftSaveTimerRef = useRef(null);
 
   const conversation = getActiveConversation();
 
@@ -903,6 +1016,42 @@ export default function ConversationPage() {
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
   }, [conversationId, setActiveConversation, emitTyping]);
+
+  // Load the saved draft when switching conversations, resetting composer state
+  useEffect(() => {
+    if (!conversationId) return;
+    draftReadyRef.current = false;
+    let active = true;
+    setInput('');
+    setReplyTo(null);
+    setEditing(null);
+    (async () => {
+      try {
+        const { data } = await messagesApi.getDraft(conversationId);
+        if (active && data?.body) setInput(data.body);
+      } catch {
+        // no draft / ignore
+      } finally {
+        if (active) draftReadyRef.current = true;
+      }
+    })();
+    return () => { active = false; };
+  }, [conversationId]);
+
+  // Debounced autosave of the draft as the user types (skipped while editing)
+  useEffect(() => {
+    if (!conversationId || !draftReadyRef.current || editing) return;
+    if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current);
+    draftSaveTimerRef.current = setTimeout(() => {
+      const body = (input ?? '').trim();
+      if (body) {
+        messagesApi.saveDraft(conversationId, { body }).catch(() => {});
+      } else {
+        messagesApi.deleteDraft(conversationId).catch(() => {});
+      }
+    }, 600);
+    return () => { if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current); };
+  }, [input, conversationId, editing]);
 
   // Scroll to bottom on initial load / own new message, but not when loading older messages
   useLayoutEffect(() => {
@@ -972,6 +1121,9 @@ export default function ConversationPage() {
       if (replyTo) data.reply_to_id = replyTo.id;
       await sendMessage(data, user);
       setReplyTo(null);
+      // The message was sent — drop any saved draft for this conversation
+      if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current);
+      messagesApi.deleteDraft(conversationId).catch(() => {});
     }
     setInput('');
   };
@@ -1076,6 +1228,8 @@ export default function ConversationPage() {
     if (window.innerWidth < 768) setSearchOpen(false);
   }, []);
 
+  const handleForward = useCallback((msg) => setForwardTarget(msg), []);
+
   const messageElements = useMemo(() => {
     const isDirect = conversation?.type === 'direct';
     return messages.map((msg, index) => {
@@ -1095,13 +1249,14 @@ export default function ConversationPage() {
           onDelete={handleDeleteRequest}
           onReply={handleReply}
           onReact={handleReact}
+          onForward={handleForward}
           onRetry={retrySendMessage}
           currentUserId={user?.id}
           currentUser={user}
         />
       );
     });
-  }, [messages, user, conversation?.type, handleEdit, handleDeleteRequest, handleReply, handleReact, retrySendMessage]);
+  }, [messages, user, conversation?.type, handleEdit, handleDeleteRequest, handleReply, handleReact, handleForward, retrySendMessage]);
 
   if (!conversation) {
     return (
@@ -1123,6 +1278,18 @@ export default function ConversationPage() {
             message={deleteTarget}
             onConfirm={handleDeleteConfirm}
             onCancel={handleDeleteCancel}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Forward modal */}
+      <AnimatePresence>
+        {forwardTarget && (
+          <ForwardModal
+            message={forwardTarget}
+            conversations={conversations}
+            currentConvId={conversationId}
+            onClose={() => setForwardTarget(null)}
           />
         )}
       </AnimatePresence>

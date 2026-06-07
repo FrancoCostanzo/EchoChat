@@ -5,13 +5,13 @@ class MessageRepository extends BaseRepository {
     super('messages');
   }
 
-  async create({ conversation_id, sender_id, type, body, body_format, reply_to_id, thread_id, forwarded_from_id, metadata }) {
+  async create({ conversation_id, sender_id, type, body, body_format, reply_to_id, thread_id, forwarded_from_id, forwarded_from_conv, metadata }) {
     const { rows } = await this.query(
-      `INSERT INTO messages (conversation_id, sender_id, type, body, body_format, reply_to_id, thread_id, forwarded_from_id, metadata)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `INSERT INTO messages (conversation_id, sender_id, type, body, body_format, reply_to_id, thread_id, forwarded_from_id, forwarded_from_conv, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
       [conversation_id, sender_id, type || 'text', body || null, body_format || 'plain',
-       reply_to_id || null, thread_id || null, forwarded_from_id || null, metadata || {}]
+       reply_to_id || null, thread_id || null, forwarded_from_id || null, forwarded_from_conv || null, metadata || {}]
     );
     return rows[0];
   }
@@ -165,15 +165,28 @@ class MessageRepository extends BaseRepository {
     return rows[0];
   }
 
+  // Returns only attachment objects that are NOT shared with another message
+  // (e.g. forwarded copies reference the same object_id). Callers use this to
+  // physically remove MinIO files without breaking the original message.
   async getAttachmentObjects(messageId) {
     const { rows } = await this.query(
       `SELECT so.bucket_name, so.object_key, so.thumbnail_bucket, so.thumbnail_key, ma.id AS attachment_id, so.id AS object_id
        FROM message_attachments ma
        JOIN storage_objects so ON so.id = ma.object_id
-       WHERE ma.message_id = $1`,
+       WHERE ma.message_id = $1
+         AND (SELECT COUNT(*) FROM message_attachments ma2 WHERE ma2.object_id = ma.object_id) = 1`,
       [messageId]
     );
     return rows;
+  }
+
+  // Object ids attached to a message (used to clone attachments when forwarding)
+  async getAttachmentObjectIds(messageId) {
+    const { rows } = await this.query(
+      `SELECT object_id FROM message_attachments WHERE message_id = $1 ORDER BY sort_order`,
+      [messageId]
+    );
+    return rows.map((r) => r.object_id);
   }
 
   async deleteAttachments(messageId) {

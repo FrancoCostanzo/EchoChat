@@ -240,6 +240,48 @@ class MessageService {
     const drafts = await draftRepository.listByUser(userId);
     return drafts.map(toDraftResponse);
   }
+
+  // ── Forwarding ────────────────────────────────────────────────────────────
+  async forward(userId, messageId, conversationIds) {
+    const source = await messageRepository.findById(messageId);
+    if (!source) throw new NotFoundError('Message');
+    const srcMember = await conversationRepository.getMember(source.conversation_id, userId);
+    if (!srcMember) throw new ForbiddenError('Not a member of the source conversation');
+
+    const objectIds = await messageRepository.getAttachmentObjectIds(messageId);
+    const results = [];
+
+    for (const convId of conversationIds) {
+      const member = await conversationRepository.getMember(convId, userId);
+      if (!member) continue; // silently skip conversations the user isn't part of
+
+      const created = await messageRepository.create({
+        conversation_id: convId,
+        sender_id: userId,
+        type: objectIds.length ? 'media' : 'text',
+        body: source.body,
+        forwarded_from_id: source.id,
+        forwarded_from_conv: source.conversation_id,
+      });
+
+      // Forwarded copies reference the same storage objects (no re-upload).
+      for (let i = 0; i < objectIds.length; i++) {
+        await messageRepository.addAttachment(created.id, objectIds[i], i);
+      }
+
+      const full = await messageRepository.findWithAttachments(created.id);
+      const response = toMessageResponse(full);
+      try {
+        getIO().to(`conv:${convId}`).emit('message:new', response);
+      } catch (err) {
+        logger.warn({ err: err.message }, 'Failed to emit message:new (forward)');
+      }
+      results.push(response);
+    }
+
+    logger.info({ messageId, targets: results.length }, 'Message forwarded');
+    return results;
+  }
 }
 
 module.exports = new MessageService();

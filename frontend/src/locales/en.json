@@ -89,6 +89,8 @@
     "react": "React",
     "reply": "Reply",
     "save": "Save message",
+    "forward": "Forward",
+    "forwardTo": "Forward to",
     "voiceCall": "Voice call",
     "videoCall": "Video call",
     "pinnedMessages": "Pinned messages",

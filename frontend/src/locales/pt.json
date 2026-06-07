@@ -89,6 +89,8 @@
     "react": "Reagir",
     "reply": "Responder",
     "save": "Salvar mensagem",
+    "forward": "Encaminhar",
+    "forwardTo": "Encaminhar para",
     "voiceCall": "Chamada de voz",
     "videoCall": "Videochamada",
     "pinnedMessages": "Mensagens fixadas",

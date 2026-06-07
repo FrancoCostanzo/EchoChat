@@ -34,6 +34,10 @@ const draftDto = Joi.object({
   pending_attachments: Joi.array().items(Joi.object()).default([]),
 }).min(1);
 
+const forwardDto = Joi.object({
+  conversation_ids: Joi.array().items(Joi.string().uuid()).min(1).required(),
+});
+
 const paginationDto = Joi.object({
   cursor: Joi.string().uuid().allow(null),
   limit: Joi.number().integer().min(1).max(100).default(50),
@@ -47,4 +51,5 @@ module.exports = {
   paginationDto,
   saveMessageDto,
   draftDto,
+  forwardDto,
 };
