@@ -550,8 +550,8 @@ function ReactionPill({ emoji, count, mine, onClick }) {
       className={[
         'echo-press flex h-auto min-w-0 items-center justify-start gap-1 rounded-full border px-2 py-0.5 text-[12px] font-semibold leading-none',
         mine
-          ? 'border-blurple-400/70 bg-blurple-500/20 text-blurple-300 shadow-[0_0_12px_-4px_rgba(88,101,242,0.7)] hover:bg-blurple-500/30'
-          : 'border-ink-400/40 bg-ink-800/70 text-ink-50 hover:border-blurple-400/50 hover:bg-ink-750',
+          ? 'echo-glow-sm border-accent/60 bg-accent/20 text-accent'
+          : 'border-ink-400/40 bg-ink-800/70 text-ink-50 hover:border-accent/50 hover:bg-ink-750',
       ].join(' ')}
     >
       <span className="text-[14px]">{emoji}</span>
@@ -726,14 +726,14 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
     'relative max-w-full transition-shadow',
     isMediaOnly ? 'overflow-hidden p-1' : 'px-3 py-1.5',
     isOwn
-      ? 'echo-grad-own text-white shadow-[0_4px_18px_-6px_rgba(88,101,242,0.55)] ring-1 ring-white/10'
-      : 'bg-ink-800/85 text-ink-0 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.4)] ring-1 ring-white/[0.06]',
+      ? 'echo-grad-own echo-glow-own echo-on-accent'
+      : 'bg-ink-800/85 text-ink-0 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.4)] ring-1 ring-white/8',
     'rounded-2xl',
     isFirstInGroup ? (isOwn ? 'rounded-tr-md' : 'rounded-tl-md') : '',
-    menu ? (isOwn ? 'ring-2 ring-white/40' : 'ring-2 ring-blurple-400/60') : '',
+    menu ? 'echo-selected' : '',
   ].join(' ');
 
-  const metaClass = isOwn ? 'text-white/70' : 'text-ink-200';
+  const metaClass = isOwn ? 'echo-on-accent-muted' : 'text-ink-200';
 
   return (
     <motion.div
@@ -870,7 +870,7 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
             <button
               type="button"
               onClick={openMenu}
-              className="echo-press flex h-auto items-center rounded-full border border-ink-400/40 bg-ink-800/70 px-1.5 py-0.5 text-ink-200 transition-colors hover:border-blurple-400/60 hover:text-foreground"
+              className="echo-press flex h-auto items-center rounded-full border border-ink-400/40 bg-ink-800/70 px-1.5 py-0.5 text-ink-200 transition-colors hover:border-accent/55 hover:text-foreground"
               title={t('chat.react')}
             >
               <Smile size={13} />
@@ -1527,7 +1527,7 @@ export default function ConversationPage() {
             {/* Conversation welcome when we hit the top */}
             {!hasMoreMessages && !loadingMessages && messages.length > 0 && (
               <div className="mb-4 px-4 pt-6">
-                <div className="echo-grad-brand mb-3 flex h-16 w-16 items-center justify-center rounded-2xl text-white shadow-[0_8px_24px_-8px_rgba(88,101,242,0.6)]">
+                <div className="echo-grad-brand echo-glow-md echo-on-accent mb-3 flex h-16 w-16 items-center justify-center rounded-2xl">
                   {isDirect
                     ? <AtSign size={32} />
                     : <Hash size={32} strokeWidth={2} />}
@@ -1613,7 +1613,7 @@ export default function ConversationPage() {
 
         {/* ── Input area ── */}
         <div className="px-3 pb-6 pt-1 md:pb-4">
-          <div className="echo-glass flex items-center gap-2 rounded-2xl px-1 transition-shadow focus-within:ring-2 focus-within:ring-blurple-500/50">
+          <div className="echo-glass flex items-center gap-2 rounded-2xl px-1 transition-shadow focus-within:ring-2 focus-within:ring-accent/55">
             <FilePickerMenu onPick={handleFilePick} disabled={!!previewFile || sendingFile} uploading={sendingFile} />
 
             <Tooltip content={t('poll.create')} placement="top">

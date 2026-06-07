@@ -46,10 +46,19 @@
   --color-cyan-400: #22d3ee;
   --color-amber-400: #fbbf24;
 
-  /* Brand gradients */
-  --gradient-brand: linear-gradient(135deg, #5865f2 0%, #8b5cf6 55%, #d946ef 100%);
-  --gradient-brand-soft: linear-gradient(135deg, color-mix(in oklch, #5865f2 22%, transparent), color-mix(in oklch, #8b5cf6 22%, transparent));
-  --gradient-own-bubble: linear-gradient(140deg, #5865f2 0%, #6f5cf0 50%, #8b5cf6 100%);
+  /* Brand gradients — derived from the user-selected --accent so the whole UI
+     follows the chosen palette (resolved at point of use). */
+  --gradient-brand: linear-gradient(135deg,
+    color-mix(in oklch, var(--accent), white 14%) 0%,
+    var(--accent) 52%,
+    color-mix(in oklch, var(--accent), black 16%) 100%);
+  --gradient-brand-soft: linear-gradient(135deg,
+    color-mix(in oklch, var(--accent) 24%, transparent),
+    color-mix(in oklch, var(--accent) 10%, transparent));
+  --gradient-own-bubble: linear-gradient(140deg,
+    color-mix(in oklch, var(--accent), white 10%) 0%,
+    var(--accent) 55%,
+    color-mix(in oklch, var(--accent), black 12%) 100%);
 
   /* Elevation scale (layered, slightly tinted shadows) */
   --shadow-e1: 0 1px 2px rgba(0,0,0,0.28), 0 1px 1px rgba(0,0,0,0.18);
@@ -127,16 +136,16 @@
     background-color: var(--color-ink-950);
     background-image:
       radial-gradient(60rem 60rem at 12% -10%, color-mix(in oklch, var(--accent) 26%, transparent), transparent 60%),
-      radial-gradient(50rem 50rem at 105% 8%, color-mix(in oklch, var(--color-violet-500) 22%, transparent), transparent 58%),
-      radial-gradient(55rem 55rem at 88% 112%, color-mix(in oklch, var(--color-fuchsia-500) 14%, transparent), transparent 60%);
+      radial-gradient(50rem 50rem at 105% 8%, color-mix(in oklch, color-mix(in oklch, var(--accent), white 14%) 20%, transparent), transparent 58%),
+      radial-gradient(55rem 55rem at 88% 112%, color-mix(in oklch, var(--accent) 14%, transparent), transparent 60%);
     background-attachment: fixed;
   }
   html:not(.dark) body {
     background-color: #eef0f6;
     background-image:
       radial-gradient(60rem 60rem at 12% -10%, color-mix(in oklch, var(--accent) 16%, transparent), transparent 60%),
-      radial-gradient(50rem 50rem at 105% 8%, color-mix(in oklch, var(--color-violet-500) 12%, transparent), transparent 58%),
-      radial-gradient(55rem 55rem at 88% 112%, color-mix(in oklch, var(--color-fuchsia-500) 9%, transparent), transparent 60%);
+      radial-gradient(50rem 50rem at 105% 8%, color-mix(in oklch, var(--accent) 11%, transparent), transparent 58%),
+      radial-gradient(55rem 55rem at 88% 112%, color-mix(in oklch, var(--accent) 9%, transparent), transparent 60%);
   }
 
   /* Smooth scrollbars */
@@ -226,13 +235,13 @@
     background-color: var(--color-ink-700);
     background-image:
       radial-gradient(75rem 38rem at 50% -18%, color-mix(in oklch, var(--accent) 14%, transparent), transparent 70%),
-      radial-gradient(55rem 55rem at 100% 115%, color-mix(in oklch, var(--color-violet-500) 10%, transparent), transparent 68%);
+      radial-gradient(55rem 55rem at 100% 115%, color-mix(in oklch, var(--accent) 9%, transparent), transparent 68%);
   }
   .echo-sidebar-bg {
     background-color: var(--color-ink-800);
     background-image:
       radial-gradient(40rem 30rem at 0% 0%, color-mix(in oklch, var(--accent) 10%, transparent), transparent 70%),
-      radial-gradient(40rem 40rem at 100% 100%, color-mix(in oklch, var(--color-fuchsia-500) 7%, transparent), transparent 70%);
+      radial-gradient(40rem 40rem at 100% 100%, color-mix(in oklch, var(--accent) 7%, transparent), transparent 70%);
   }
 
   /* Brand gradient fills */
@@ -257,6 +266,25 @@
   .echo-ring-accent {
     box-shadow: 0 0 0 1px color-mix(in oklch, var(--accent) 55%, transparent), var(--shadow-glow-accent);
   }
+
+  /* Accent-driven glows (single box-shadow each — don't combine with Tailwind ring/shadow) */
+  .echo-glow-own {
+    box-shadow:
+      0 4px 18px -6px color-mix(in oklch, var(--accent) 48%, transparent),
+      inset 0 0 0 1px color-mix(in oklch, #ffffff 12%, transparent);
+  }
+  .echo-glow-md { box-shadow: 0 4px 16px -4px color-mix(in oklch, var(--accent) 58%, transparent); }
+  .echo-glow-sm { box-shadow: 0 0 12px -4px color-mix(in oklch, var(--accent) 60%, transparent); }
+
+  /* Inset accent hairline for active list items (composes with a background) */
+  .echo-ring-soft { box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--accent) 35%, transparent); }
+
+  /* Selected emphasis via outline (no box-shadow conflict) */
+  .echo-selected { outline: 2px solid color-mix(in oklch, var(--accent) 70%, #ffffff 8%); outline-offset: 1px; }
+
+  /* Text on top of an accent fill (respects --accent-foreground for light palettes) */
+  .echo-on-accent { color: var(--accent-foreground); }
+  .echo-on-accent-muted { color: color-mix(in oklch, var(--accent-foreground), transparent 32%); }
 
   /* Press feedback (spring scale) */
   .echo-press { transition: transform 140ms var(--ease-spring), background-color 140ms var(--ease-echo), box-shadow 140ms var(--ease-echo); }
