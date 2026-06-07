@@ -1,7 +1,7 @@
 const { Router } = require('express');
 const { messageController } = require('../controllers');
 const { validate, authenticate } = require('../middlewares');
-const { sendMessageDto, updateMessageDto, reactionDto, saveMessageDto, draftDto } = require('../dtos');
+const { sendMessageDto, updateMessageDto, reactionDto, saveMessageDto, draftDto, forwardDto } = require('../dtos');
 
 const router = Router();
 router.use(authenticate);
@@ -26,6 +26,9 @@ router.post('/:messageId/receipts', (req, res) => messageController.addReceipt(r
 // Save / unsave a message
 router.post('/:messageId/save', validate(saveMessageDto), (req, res) => messageController.save(req, res));
 router.delete('/:messageId/save', (req, res) => messageController.unsave(req, res));
+
+// Forward a message to other conversations
+router.post('/:messageId/forward', validate(forwardDto), (req, res) => messageController.forward(req, res));
 
 // Conversation context routes
 router.get('/conversation/:conversationId', (req, res) => messageController.getMessages(req, res));

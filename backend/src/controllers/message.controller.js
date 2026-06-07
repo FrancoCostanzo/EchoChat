@@ -89,6 +89,13 @@ class MessageController {
     res.json({ status: 'success', message: 'Message unsaved' });
   }
 
+  async forward(req, res) {
+    const messages = await messageService.forward(
+      req.user.id, req.params.messageId, req.body.conversation_ids
+    );
+    res.status(StatusCodes.CREATED).json({ status: 'success', data: messages });
+  }
+
   // ── Drafts ──────────────────────────────────────────────────────────────
   async listDrafts(req, res) {
     const drafts = await messageService.listDrafts(req.user.id);

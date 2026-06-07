@@ -98,6 +98,8 @@
     "react": "Reaccionar",
     "reply": "Responder",
     "save": "Guardar mensaje",
+    "forward": "Reenviar",
+    "forwardTo": "Reenviar a",
     "voiceCall": "Llamada de voz",
     "videoCall": "Videollamada",
     "pinnedMessages": "Mensajes fijados",
