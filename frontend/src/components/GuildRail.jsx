@@ -39,12 +39,12 @@ function RailItem({ icon: Icon, label, onClick, active, variant = 'default', bad
             active ? 'rounded-2xl' : 'rounded-full',
             isBrand
               ? active
-                ? 'echo-grad-brand text-white shadow-[0_4px_16px_-4px_rgba(88,101,242,0.7)]'
-                : 'bg-ink-800 text-blurple-400 group-hover:echo-grad-brand group-hover:text-white'
+                ? 'echo-grad-brand echo-glow-md echo-on-accent'
+                : 'bg-ink-800 text-accent group-hover:bg-accent group-hover:text-accent-foreground'
               : isDanger
                 ? 'bg-ink-800 text-echo-dnd group-hover:bg-echo-dnd group-hover:text-white'
                 : active
-                  ? 'echo-grad-brand text-white shadow-[0_4px_16px_-4px_rgba(88,101,242,0.7)]'
+                  ? 'echo-grad-brand echo-glow-md echo-on-accent'
                   : 'bg-ink-800 text-ink-100 group-hover:bg-ink-600 group-hover:text-foreground',
           ].join(' ')}
         >

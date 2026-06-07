@@ -52,7 +52,7 @@ function ConversationItem({ conversation, isActive, onClick, t, animIndex = 0 })
       className={[
         'group relative flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors',
         isActive
-          ? 'echo-grad-brand-soft text-foreground ring-1 ring-blurple-400/30'
+          ? 'echo-grad-brand-soft echo-ring-soft text-foreground'
           : hasUnread
             ? 'text-foreground hover:bg-ink-750'
             : 'text-ink-100 hover:bg-ink-750 hover:text-foreground',
@@ -60,7 +60,7 @@ function ConversationItem({ conversation, isActive, onClick, t, animIndex = 0 })
     >
       {/* Active / unread bar indicator */}
       {(hasUnread || isActive) && (
-        <span className={`absolute -left-2 top-1/2 -translate-y-1/2 rounded-r-full bg-blurple-400 transition-all ${isActive ? 'h-6 w-1' : 'h-2 w-1'}`} />
+        <span className={`absolute -left-2 top-1/2 -translate-y-1/2 rounded-r-full bg-accent transition-all ${isActive ? 'h-6 w-1' : 'h-2 w-1'}`} />
       )}
 
       {/* Avatar / icon */}
@@ -197,7 +197,7 @@ function ChatSidebar() {
       {/* Header */}
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-white/5 px-4 shadow-sm">
         <div className="flex items-center gap-2 min-w-0">
-          <MessageSquare size={18} className="shrink-0 text-blurple-400" />
+          <MessageSquare size={18} className="shrink-0 text-accent" />
           <h2 className="truncate text-[15px] font-semibold">{t('sidebar.chats')}</h2>
         </div>
         <Tooltip delay={0} placement="bottom">
@@ -356,9 +356,9 @@ function SettingsSidebar() {
             variant="ghost"
             onPress={() => navigate(`/settings/${id}`)}
             className={[
-              'flex h-auto items-center justify-start gap-3 rounded-lg px-3 py-2 text-[14px] font-medium transition-colors',
+              'flex h-auto w-full items-center justify-start gap-3 rounded-lg px-3 py-2 text-[14px] font-medium transition-colors',
               activeTab === id
-                ? 'echo-grad-brand-soft text-foreground ring-1 ring-blurple-400/30'
+                ? 'echo-grad-brand-soft echo-ring-soft text-foreground'
                 : 'text-ink-100 hover:bg-ink-750 hover:text-foreground',
             ].join(' ')}
           >
@@ -435,7 +435,7 @@ function MobileBottomNav() {
           variant="ghost"
           onPress={() => navigate(path)}
           className={`flex h-auto flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-[10px] font-medium transition-colors hover:bg-transparent ${
-            active ? 'text-blurple-400' : 'text-ink-200'
+            active ? 'text-accent' : 'text-ink-200'
           }`}
         >
           <Icon size={20} />
