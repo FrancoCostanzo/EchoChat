@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Tooltip } from '@heroui/react';
+import { Button, Tooltip } from '@heroui/react';
 import {
   MessageSquare,
   Users,
@@ -20,11 +20,11 @@ function RailItem({ icon: Icon, label, onClick, active, variant = 'default', bad
 
   return (
     <Tooltip delay={0} placement="right">
-      <button
-        type="button"
-        onClick={onClick}
+      <Button
+        variant="ghost"
+        onPress={onClick}
         aria-label={label}
-        className="group relative flex h-12 w-12 items-center justify-center"
+        className="group relative flex h-12 w-12 min-w-0 items-center justify-center rounded-none p-0 [--button-bg-hover:transparent] [--button-bg-pressed:transparent]"
       >
         {/* Pill indicator (Discord-style) */}
         <span
@@ -39,16 +39,16 @@ function RailItem({ icon: Icon, label, onClick, active, variant = 'default', bad
             active ? 'rounded-2xl' : 'rounded-full',
             isBrand
               ? active
-                ? 'bg-blurple-500 text-white'
-                : 'bg-ink-800 text-blurple-400 group-hover:bg-blurple-500 group-hover:text-white'
+                ? 'echo-grad-brand text-white shadow-[0_4px_16px_-4px_rgba(88,101,242,0.7)]'
+                : 'bg-ink-800 text-blurple-400 group-hover:echo-grad-brand group-hover:text-white'
               : isDanger
                 ? 'bg-ink-800 text-echo-dnd group-hover:bg-echo-dnd group-hover:text-white'
                 : active
-                  ? 'bg-ink-600 text-foreground'
+                  ? 'echo-grad-brand text-white shadow-[0_4px_16px_-4px_rgba(88,101,242,0.7)]'
                   : 'bg-ink-800 text-ink-100 group-hover:bg-ink-600 group-hover:text-foreground',
           ].join(' ')}
         >
-          <Icon size={20} strokeWidth={2.25} />
+          <Icon size={20} strokeWidth={2.25} className="size-5" />
         </span>
 
         {/* Unread badge */}
@@ -57,7 +57,7 @@ function RailItem({ icon: Icon, label, onClick, active, variant = 'default', bad
             {badge > 99 ? '99+' : badge}
           </span>
         )}
-      </button>
+      </Button>
       <Tooltip.Content>
         <p className="text-xs font-semibold">{label}</p>
       </Tooltip.Content>

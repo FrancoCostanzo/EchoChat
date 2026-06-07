@@ -50,17 +50,17 @@ function ConversationItem({ conversation, isActive, onClick, t, animIndex = 0 })
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18, ease: 'easeOut', delay: Math.min(animIndex, 12) * 0.015 }}
       className={[
-        'group relative flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors',
+        'group relative flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors',
         isActive
-          ? 'bg-ink-600 text-foreground'
+          ? 'echo-grad-brand-soft text-foreground ring-1 ring-blurple-400/30'
           : hasUnread
             ? 'text-foreground hover:bg-ink-750'
             : 'text-ink-100 hover:bg-ink-750 hover:text-foreground',
       ].join(' ')}
     >
-      {/* Unread bar indicator */}
-      {hasUnread && !isActive && (
-        <span className="absolute -left-2 top-1/2 h-2 w-1 -translate-y-1/2 rounded-r-full bg-foreground" />
+      {/* Active / unread bar indicator */}
+      {(hasUnread || isActive) && (
+        <span className={`absolute -left-2 top-1/2 -translate-y-1/2 rounded-r-full bg-blurple-400 transition-all ${isActive ? 'h-6 w-1' : 'h-2 w-1'}`} />
       )}
 
       {/* Avatar / icon */}
@@ -119,10 +119,10 @@ function UserPanel() {
 
   return (
     <div className="flex items-center gap-2 bg-ink-850 px-2 py-2">
-      <button
-        type="button"
-        onClick={() => navigate('/settings/profile')}
-        className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 transition-colors hover:bg-ink-800"
+      <Button
+        variant="ghost"
+        onPress={() => navigate('/settings/profile')}
+        className="flex h-auto min-w-0 flex-1 items-center justify-start gap-2 rounded-md px-1 py-1 transition-colors hover:bg-ink-800"
       >
         <UserAvatar user={user} size="sm" showStatus />
         <div className="min-w-0 flex-1 text-left">
@@ -131,7 +131,7 @@ function UserPanel() {
             {user?.presence_message || `@${user?.username}`}
           </p>
         </div>
-      </button>
+      </Button>
 
       <div className="flex items-center">
         <Tooltip delay={0} placement="top">
@@ -193,11 +193,11 @@ function ChatSidebar() {
   );
 
   return (
-    <div className="flex h-full w-full flex-col bg-ink-800">
+    <div className="echo-sidebar-bg flex h-full w-full flex-col">
       {/* Header */}
-      <div className="flex h-12 shrink-0 items-center justify-between border-b border-black/20 px-4 shadow-sm">
+      <div className="flex h-12 shrink-0 items-center justify-between border-b border-white/5 px-4 shadow-sm">
         <div className="flex items-center gap-2 min-w-0">
-          <MessageSquare size={18} className="shrink-0 text-ink-100" />
+          <MessageSquare size={18} className="shrink-0 text-blurple-400" />
           <h2 className="truncate text-[15px] font-semibold">{t('sidebar.chats')}</h2>
         </div>
         <Tooltip delay={0} placement="bottom">
@@ -216,11 +216,7 @@ function ChatSidebar() {
 
       {/* Search */}
       <div className="px-2 pt-2">
-        <button
-          type="button"
-          onClick={() => document.getElementById('echo-search-input')?.focus()}
-          className="w-full"
-        >
+        <div className="w-full">
           <TextField fullWidth aria-label={t('sidebar.searchConversation')}>
             <InputGroup fullWidth variant="secondary" className="h-8 rounded-md bg-ink-900 text-[13px]">
               <InputGroup.Prefix>
@@ -234,19 +230,20 @@ function ChatSidebar() {
               />
               {search && (
                 <InputGroup.Suffix>
-                  <button
-                    type="button"
-                    onClick={() => setSearch('')}
+                  <Button
+                    isIconOnly
+                    variant="ghost"
+                    onPress={() => setSearch('')}
                     aria-label={t('common.clear')}
-                    className="flex h-4 w-4 items-center justify-center rounded-full text-ink-200 transition-colors hover:text-foreground"
+                    className="flex h-4 w-4 min-w-0 items-center justify-center rounded-full p-0 text-ink-200 transition-colors hover:bg-transparent hover:text-foreground"
                   >
                     <X size={13} />
-                  </button>
+                  </Button>
                 </InputGroup.Suffix>
               )}
             </InputGroup>
           </TextField>
-        </button>
+        </div>
       </div>
 
       {/* Conversation List */}
@@ -330,9 +327,9 @@ function SettingsSidebar() {
   const activeTab = location.pathname.split('/settings/')[1] || 'profile';
 
   return (
-    <div className="flex h-full w-full flex-col bg-ink-800">
+    <div className="echo-sidebar-bg flex h-full w-full flex-col">
       {/* Header */}
-      <div className="flex h-12 shrink-0 items-center gap-2 border-b border-black/20 px-3 shadow-sm">
+      <div className="flex h-12 shrink-0 items-center gap-2 border-b border-white/5 px-3 shadow-sm">
         <Tooltip delay={0}>
           <Button
             isIconOnly
@@ -354,19 +351,20 @@ function SettingsSidebar() {
           {t('settings.title')}
         </p>
         {SETTINGS_NAV.map(({ id, icon: Icon }) => (
-          <button
+          <Button
             key={id}
-            onClick={() => navigate(`/settings/${id}`)}
+            variant="ghost"
+            onPress={() => navigate(`/settings/${id}`)}
             className={[
-              'flex items-center gap-3 rounded-md px-3 py-2 text-[14px] font-medium transition-colors',
+              'flex h-auto items-center justify-start gap-3 rounded-lg px-3 py-2 text-[14px] font-medium transition-colors',
               activeTab === id
-                ? 'bg-ink-600 text-foreground'
+                ? 'echo-grad-brand-soft text-foreground ring-1 ring-blurple-400/30'
                 : 'text-ink-100 hover:bg-ink-750 hover:text-foreground',
             ].join(' ')}
           >
             <Icon size={15} />
             {t(`settings.tabs.${id}`)}
-          </button>
+          </Button>
         ))}
       </nav>
 
@@ -432,16 +430,17 @@ function MobileBottomNav() {
   return (
     <div className="flex items-center justify-around border-t border-black/20 bg-ink-850 px-2 py-2 md:hidden">
       {items.map(({ id, icon: Icon, label, path, active }) => (
-        <button
+        <Button
           key={id}
-          onClick={() => navigate(path)}
-          className={`flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-[10px] font-medium transition-colors ${
+          variant="ghost"
+          onPress={() => navigate(path)}
+          className={`flex h-auto flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-[10px] font-medium transition-colors hover:bg-transparent ${
             active ? 'text-blurple-400' : 'text-ink-200'
           }`}
         >
           <Icon size={20} />
           <span>{label}</span>
-        </button>
+        </Button>
       ))}
     </div>
   );
@@ -509,7 +508,7 @@ export default function ChatLayout() {
 
       {/* Main content */}
       <main
-        className={`${isOnChatIndex ? 'hidden md:block' : ''} min-w-0 flex-1 overflow-hidden bg-ink-700`}
+        className={`${isOnChatIndex ? 'hidden md:block' : ''} echo-chat-bg min-w-0 flex-1 overflow-hidden`}
       >
         <motion.div
           key={location.pathname}

@@ -5,21 +5,21 @@
    Discord-inspired design tokens
    ────────────────────────────────────────────────────────── */
 @theme {
-  /* Neutral greys (dark, Discord-like) */
-  --color-ink-950: #1a1b1e;   /* guild rail */
-  --color-ink-900: #1e1f22;   /* deepest */
-  --color-ink-850: #232428;
-  --color-ink-800: #2b2d31;   /* channel list */
-  --color-ink-750: #2e3035;
-  --color-ink-700: #313338;   /* chat area */
-  --color-ink-600: #383a40;   /* hover */
-  --color-ink-500: #404249;
-  --color-ink-400: #4e5058;   /* dividers */
-  --color-ink-300: #6d6f78;
-  --color-ink-200: #949ba4;   /* muted text */
-  --color-ink-100: #b5bac1;   /* secondary text */
-  --color-ink-50:  #dbdee1;   /* hi-contrast text */
-  --color-ink-0:   #f2f3f5;   /* primary text */
+  /* Neutral slate-violet (dark, richer & deeper than flat Discord grey) */
+  --color-ink-950: #0d0e15;   /* guild rail / deepest */
+  --color-ink-900: #12131c;   /* deep surfaces */
+  --color-ink-850: #171823;   /* panels / popovers */
+  --color-ink-800: #1d1f2b;   /* channel list */
+  --color-ink-750: #23252f;   /* hover surfaces */
+  --color-ink-700: #282a36;   /* chat area */
+  --color-ink-600: #32343f;   /* hover */
+  --color-ink-500: #3b3d4a;
+  --color-ink-400: #474a59;   /* dividers */
+  --color-ink-300: #6a6d80;
+  --color-ink-200: #9398ad;   /* muted text */
+  --color-ink-100: #b9bdcf;   /* secondary text */
+  --color-ink-50:  #e2e4ef;   /* hi-contrast text */
+  --color-ink-0:   #f5f6fb;   /* primary text */
 
   /* Brand blurple */
   --color-blurple-50:  #eef0fe;
@@ -39,8 +39,27 @@
   --color-echo-dnd:    #f23f43;
   --color-echo-offline:#80848e;
 
+  /* Vibrant secondary accents (for color pops, badges, gradients) */
+  --color-violet-500: #8b5cf6;
+  --color-violet-400: #a78bfa;
+  --color-fuchsia-500: #d946ef;
+  --color-cyan-400: #22d3ee;
+  --color-amber-400: #fbbf24;
+
+  /* Brand gradients */
+  --gradient-brand: linear-gradient(135deg, #5865f2 0%, #8b5cf6 55%, #d946ef 100%);
+  --gradient-brand-soft: linear-gradient(135deg, color-mix(in oklch, #5865f2 22%, transparent), color-mix(in oklch, #8b5cf6 22%, transparent));
+  --gradient-own-bubble: linear-gradient(140deg, #5865f2 0%, #6f5cf0 50%, #8b5cf6 100%);
+
+  /* Elevation scale (layered, slightly tinted shadows) */
+  --shadow-e1: 0 1px 2px rgba(0,0,0,0.28), 0 1px 1px rgba(0,0,0,0.18);
+  --shadow-e2: 0 4px 12px -4px rgba(0,0,0,0.45), 0 2px 4px rgba(0,0,0,0.25);
+  --shadow-e3: 0 12px 32px -8px rgba(0,0,0,0.55), 0 4px 10px rgba(0,0,0,0.3);
+  --shadow-glow-accent: 0 8px 28px -8px color-mix(in oklch, var(--accent) 55%, transparent);
+
   /* Motion */
   --ease-echo: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* ──────────────────────────────────────────────────────────
@@ -59,16 +78,16 @@
     --accent-foreground: var(--snow);
   }
 
-  /* ── Dark mode — Discord greys ── */
+  /* ── Dark mode — deep slate-violet ── */
   html.dark {
-    --heroui-background: 225 6% 13%;         /* #1e1f22 */
-    --heroui-background-secondary: 220 6% 18%; /* #2b2d31 */
-    --heroui-surface: 220 5% 20%;             /* #313338 */
-    --heroui-foreground: 220 8% 95%;          /* #f2f3f5 */
-    --heroui-muted: 219 6% 66%;               /* #b5bac1 */
-    --heroui-separator: 220 6% 14%;           /* #232428 */
-    --heroui-border: 223 7% 21%;              /* #313338 */
-    --heroui-default: 220 5% 25%;             /* #383a40 hover bg */
+    --heroui-background: 231 19% 9%;          /* #12131c */
+    --heroui-background-secondary: 230 19% 14%; /* #1d1f2b */
+    --heroui-surface: 230 16% 19%;            /* #282a36 */
+    --heroui-foreground: 230 40% 97%;         /* #f5f6fb */
+    --heroui-muted: 228 17% 77%;              /* #b9bdcf */
+    --heroui-separator: 230 21% 12%;          /* #171823 */
+    --heroui-border: 230 13% 22%;             /* #32343f */
+    --heroui-default: 230 13% 22%;            /* #32343f hover bg */
   }
 
   /* ── Light mode — remap the ink scale to coherent light surfaces ──
@@ -100,6 +119,24 @@
     --heroui-separator: 220 13% 91%;
     --heroui-border: 220 13% 88%;
     --heroui-default: 220 14% 93%;
+  }
+
+  /* ── Ambient backdrop — subtle color glows behind the whole app so
+     surfaces read as floating layers instead of flat grey ── */
+  body {
+    background-color: var(--color-ink-950);
+    background-image:
+      radial-gradient(60rem 60rem at 12% -10%, color-mix(in oklch, var(--accent) 26%, transparent), transparent 60%),
+      radial-gradient(50rem 50rem at 105% 8%, color-mix(in oklch, var(--color-violet-500) 22%, transparent), transparent 58%),
+      radial-gradient(55rem 55rem at 88% 112%, color-mix(in oklch, var(--color-fuchsia-500) 14%, transparent), transparent 60%);
+    background-attachment: fixed;
+  }
+  html:not(.dark) body {
+    background-color: #eef0f6;
+    background-image:
+      radial-gradient(60rem 60rem at 12% -10%, color-mix(in oklch, var(--accent) 16%, transparent), transparent 60%),
+      radial-gradient(50rem 50rem at 105% 8%, color-mix(in oklch, var(--color-violet-500) 12%, transparent), transparent 58%),
+      radial-gradient(55rem 55rem at 88% 112%, color-mix(in oklch, var(--color-fuchsia-500) 9%, transparent), transparent 60%);
   }
 
   /* Smooth scrollbars */
@@ -161,6 +198,70 @@
    Reusable utilities
    ────────────────────────────────────────────────────────── */
 @layer utilities {
+  /* ── Glass surfaces — translucent panels with blur + top highlight so the
+     ambient backdrop bleeds through and surfaces feel layered ── */
+  .echo-glass {
+    background-color: color-mix(in oklch, var(--color-ink-800) 72%, transparent);
+    backdrop-filter: blur(16px) saturate(1.4);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
+    border: 1px solid color-mix(in oklch, #ffffff 8%, transparent);
+    box-shadow: var(--shadow-e2), inset 0 1px 0 color-mix(in oklch, #ffffff 6%, transparent);
+  }
+  .echo-glass-strong {
+    background-color: color-mix(in oklch, var(--color-ink-850) 82%, transparent);
+    backdrop-filter: blur(22px) saturate(1.5);
+    -webkit-backdrop-filter: blur(22px) saturate(1.5);
+    border: 1px solid color-mix(in oklch, #ffffff 10%, transparent);
+    box-shadow: var(--shadow-e3), inset 0 1px 0 color-mix(in oklch, #ffffff 8%, transparent);
+  }
+  html:not(.dark) .echo-glass,
+  html:not(.dark) .echo-glass-strong {
+    border-color: color-mix(in oklch, #0c0d0e 8%, transparent);
+    box-shadow: var(--shadow-e2);
+  }
+
+  /* Ambient surface backgrounds — opaque base + baked-in colour glow so the
+     big panels read with depth/colour instead of flat grey (no perf cost) */
+  .echo-chat-bg {
+    background-color: var(--color-ink-700);
+    background-image:
+      radial-gradient(75rem 38rem at 50% -18%, color-mix(in oklch, var(--accent) 14%, transparent), transparent 70%),
+      radial-gradient(55rem 55rem at 100% 115%, color-mix(in oklch, var(--color-violet-500) 10%, transparent), transparent 68%);
+  }
+  .echo-sidebar-bg {
+    background-color: var(--color-ink-800);
+    background-image:
+      radial-gradient(40rem 30rem at 0% 0%, color-mix(in oklch, var(--accent) 10%, transparent), transparent 70%),
+      radial-gradient(40rem 40rem at 100% 100%, color-mix(in oklch, var(--color-fuchsia-500) 7%, transparent), transparent 70%);
+  }
+
+  /* Brand gradient fills */
+  .echo-grad-brand { background-image: var(--gradient-brand); }
+  .echo-grad-brand-soft { background-image: var(--gradient-brand-soft); }
+  .echo-grad-own { background-image: var(--gradient-own-bubble); }
+
+  /* Gradient text (headings / brand) */
+  .echo-grad-text {
+    background-image: var(--gradient-brand);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Elevation helpers */
+  .echo-e1 { box-shadow: var(--shadow-e1); }
+  .echo-e2 { box-shadow: var(--shadow-e2); }
+  .echo-e3 { box-shadow: var(--shadow-e3); }
+
+  /* Accent glow ring (focus / active emphasis) */
+  .echo-ring-accent {
+    box-shadow: 0 0 0 1px color-mix(in oklch, var(--accent) 55%, transparent), var(--shadow-glow-accent);
+  }
+
+  /* Press feedback (spring scale) */
+  .echo-press { transition: transform 140ms var(--ease-spring), background-color 140ms var(--ease-echo), box-shadow 140ms var(--ease-echo); }
+  .echo-press:active { transform: scale(0.94); }
+
   /* Guild-rail active pill indicator (Discord-style) */
   .echo-pill {
     @apply pointer-events-none absolute left-0 top-1/2 h-2 w-1 -translate-y-1/2 rounded-r-full bg-foreground opacity-0 transition-all duration-200;

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, memo } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button, Input, Dropdown, Label, Spinner, Tooltip, Modal } from '@heroui/react';
@@ -16,6 +17,7 @@ import {
   Bookmark,
   BookmarkCheck,
   Pencil,
+  Copy,
   Trash2,
   Hash,
   ArrowDown,
@@ -35,6 +37,7 @@ import {
   FileText,
   Send,
   BarChart3,
+  Upload,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
@@ -106,14 +109,15 @@ function FilePickerMenu({ onPick, disabled, uploading }) {
       ))}
 
       <Tooltip content={t('chat.attachFile')} placement="top">
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => setOpen((p) => !p)}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground disabled:opacity-40"
+        <Button
+          isIconOnly
+          variant="ghost"
+          isDisabled={disabled}
+          onPress={() => setOpen((p) => !p)}
+          className="flex h-8 w-8 min-w-0 shrink-0 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
         >
           {uploading ? <Loader size={18} className="animate-spin" /> : <Paperclip size={18} />}
-        </button>
+        </Button>
       </Tooltip>
 
       <AnimatePresence>
@@ -126,14 +130,15 @@ function FilePickerMenu({ onPick, disabled, uploading }) {
             className="absolute bottom-11 left-0 z-30 min-w-48 overflow-hidden rounded-lg border border-ink-400/40 bg-ink-850 shadow-xl"
           >
             {MENU_ITEMS.map(({ icon: Icon, label, ref }) => (
-              <button
+              <Button
                 key={label}
-                onClick={() => pick(ref)}
-                className="flex w-full items-center gap-3 px-3 py-2 text-[14px] text-ink-50 transition-colors hover:bg-blurple-500 hover:text-white"
+                variant="ghost"
+                onPress={() => pick(ref)}
+                className="flex h-auto w-full items-center justify-start gap-3 rounded-none px-3 py-2 text-[14px] text-ink-50 transition-colors hover:bg-blurple-500 hover:text-white"
               >
                 <Icon size={16} className="shrink-0" />
                 {label}
-              </button>
+              </Button>
             ))}
           </motion.div>
         )}
@@ -166,13 +171,14 @@ function EmojiPicker({ onPick }) {
   return (
     <div className="relative" ref={ref}>
       <Tooltip content={t('chat.emoji')} placement="top">
-        <button
-          type="button"
-          onClick={() => setOpen((p) => !p)}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
+        <Button
+          isIconOnly
+          variant="ghost"
+          onPress={() => setOpen((p) => !p)}
+          className="flex h-8 w-8 min-w-0 shrink-0 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
         >
           <Smile size={18} />
-        </button>
+        </Button>
       </Tooltip>
       <AnimatePresence>
         {open && (
@@ -185,14 +191,14 @@ function EmojiPicker({ onPick }) {
           >
             <div className="grid grid-cols-8 gap-0.5">
               {EMOJIS.map((emoji) => (
-                <button
+                <Button
                   key={emoji}
-                  type="button"
-                  onClick={() => { onPick(emoji); setOpen(false); }}
-                  className="flex h-8 w-8 items-center justify-center rounded-md text-lg transition-transform hover:scale-125 hover:bg-ink-750"
+                  variant="ghost"
+                  onPress={() => { onPick(emoji); setOpen(false); }}
+                  className="flex h-8 w-8 min-w-0 items-center justify-center rounded-md p-0 text-lg transition-transform hover:scale-125 hover:bg-ink-750"
                 >
                   {emoji}
-                </button>
+                </Button>
               ))}
             </div>
           </motion.div>
@@ -249,13 +255,15 @@ function FilePreviewBar({ file, onSend, onCancel }) {
           <span className="truncate text-[13px] font-semibold">{file.name}</span>
           <span className="shrink-0 text-[11px] text-ink-200">{formatSize(file.size)}</span>
         </div>
-        <button
-          onClick={onCancel}
-          disabled={sending}
-          className="ml-2 shrink-0 rounded-md p-1 text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground disabled:opacity-40"
+        <Button
+          isIconOnly
+          variant="ghost"
+          onPress={onCancel}
+          isDisabled={sending}
+          className="ml-2 h-auto w-auto min-w-0 shrink-0 rounded-md p-1 text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
         >
           <X size={15} />
-        </button>
+        </Button>
       </div>
 
       {/* Preview area */}
@@ -461,13 +469,15 @@ function AttachmentView({ attachment }) {
             className="max-h-80 max-w-[min(400px,70vw)] object-cover"
           />
           <div className="absolute inset-0 flex items-end justify-end gap-1 bg-gradient-to-t from-black/50 to-transparent p-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-            <button
-              onClick={(e) => { e.stopPropagation(); downloadBlob(url, attachment.original_filename); }}
-              className="rounded-md bg-black/70 p-1.5 text-white backdrop-blur-sm transition-colors hover:bg-black/90"
+            <Button
+              isIconOnly
+              variant="ghost"
+              onPress={() => downloadBlob(url, attachment.original_filename)}
+              className="h-auto w-auto min-w-0 rounded-md bg-black/70 p-1.5 text-white backdrop-blur-sm transition-colors hover:bg-black/90"
               title={t('common.download')}
             >
               <Download size={13} />
-            </button>
+            </Button>
           </div>
         </div>
         {viewerOpen && (
@@ -490,13 +500,15 @@ function AttachmentView({ attachment }) {
           preload="metadata"
           className="max-h-80 max-w-[min(400px,70vw)] rounded-lg"
         />
-        <button
-          onClick={() => downloadBlob(url, attachment.original_filename)}
-          className="absolute right-2 top-2 rounded-md bg-black/70 p-1.5 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-black/90 group-hover:opacity-100"
+        <Button
+          isIconOnly
+          variant="ghost"
+          onPress={() => downloadBlob(url, attachment.original_filename)}
+          className="absolute right-2 top-2 h-auto w-auto min-w-0 rounded-md bg-black/70 p-1.5 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-black/90 group-hover:opacity-100"
           title={t('common.download')}
         >
           <Download size={13} />
-        </button>
+        </Button>
       </div>
     );
   }
@@ -532,18 +544,19 @@ const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
 function ReactionPill({ emoji, count, mine, onClick }) {
   return (
-    <button
-      onClick={onClick}
+    <Button
+      variant="ghost"
+      onPress={onClick}
       className={[
-        'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[12px] font-medium leading-none transition-colors',
+        'echo-press flex h-auto min-w-0 items-center justify-start gap-1 rounded-full border px-2 py-0.5 text-[12px] font-semibold leading-none',
         mine
-          ? 'border-blurple-500/60 bg-blurple-500/15 text-blurple-400 hover:border-blurple-500'
-          : 'border-ink-400/40 bg-ink-800 text-ink-50 hover:border-ink-300 hover:bg-ink-750',
+          ? 'border-blurple-400/70 bg-blurple-500/20 text-blurple-300 shadow-[0_0_12px_-4px_rgba(88,101,242,0.7)] hover:bg-blurple-500/30'
+          : 'border-ink-400/40 bg-ink-800/70 text-ink-50 hover:border-blurple-400/50 hover:bg-ink-750',
       ].join(' ')}
     >
       <span className="text-[14px]">{emoji}</span>
       <span>{count}</span>
-    </button>
+    </Button>
   );
 }
 
@@ -556,11 +569,97 @@ function ReceiptIcon({ message }) {
   return <Check size={13} className="text-white/70" />;
 }
 
+/* ─────────────────────────────────────────────────────────
+   MessageContextMenu — right-click / long-press action menu.
+   Rendered in a portal, positioned at the cursor and clamped
+   to the viewport. Closes on outside-click, Escape, scroll/resize.
+   ───────────────────────────────────────────────────────── */
+function MessageContextMenu({ pos, onClose, quickEmojis, onEmoji, items }) {
+  const ref = useRef(null);
+  const [coords, setCoords] = useState({ left: pos.x, top: pos.y, ready: false });
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const { width, height } = el.getBoundingClientRect();
+    const pad = 8;
+    let left = pos.x;
+    let top = pos.y;
+    if (left + width + pad > window.innerWidth) left = window.innerWidth - width - pad;
+    if (top + height + pad > window.innerHeight) top = Math.max(pad, pos.y - height);
+    if (left < pad) left = pad;
+    if (top < pad) top = pad;
+    setCoords({ left, top, ready: true });
+  }, [pos]);
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('resize', onClose);
+    window.addEventListener('scroll', onClose, true);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('resize', onClose);
+      window.removeEventListener('scroll', onClose, true);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [onClose]);
+
+  return createPortal(
+    <div className="fixed inset-0 z-80" onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose(); }}>
+      <motion.div
+        ref={ref}
+        initial={{ opacity: 0, scale: 0.94 }}
+        animate={{ opacity: coords.ready ? 1 : 0, scale: coords.ready ? 1 : 0.94 }}
+        transition={{ duration: 0.13, ease: [0.34, 1.56, 0.64, 1] }}
+        style={{ left: coords.left, top: coords.top, transformOrigin: 'top left' }}
+        className="echo-glass-strong fixed w-56 overflow-hidden rounded-2xl p-1.5"
+        onClick={(e) => e.stopPropagation()}
+        onContextMenu={(e) => e.stopPropagation()}
+      >
+        {/* Quick reactions */}
+        <div className="mb-1 flex items-center justify-between gap-0.5 px-1.5 pb-1.5">
+          {quickEmojis.map((em) => (
+            <button
+              key={em}
+              type="button"
+              onClick={() => onEmoji(em)}
+              className="echo-press flex h-9 w-9 items-center justify-center rounded-full text-lg hover:bg-white/10"
+            >
+              {em}
+            </button>
+          ))}
+        </div>
+        <div className="mb-1 h-px bg-white/10" />
+        {/* Actions */}
+        {items.map((it) =>
+          it ? (
+            <button
+              key={it.key}
+              type="button"
+              onClick={it.onClick}
+              className={[
+                'echo-press flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-colors',
+                it.danger
+                  ? 'text-echo-dnd hover:bg-echo-dnd/15'
+                  : 'text-ink-50 hover:bg-blurple-500 hover:text-white',
+              ].join(' ')}
+            >
+              <it.icon size={16} className="shrink-0" />
+              <span className="truncate">{it.label}</span>
+            </button>
+          ) : null
+        )}
+      </motion.div>
+    </div>,
+    document.body
+  );
+}
+
 const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstInGroup, isLastInGroup, onEdit, onDelete, onReply, onReact, onForward, onRetry, currentUserId, currentUser }) {
   const { t } = useTranslation();
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
+  const [menu, setMenu] = useState(null); // { x, y } | null
   const [saved, setSaved] = useState(false);
+  const longPressTimer = useRef(null);
 
   const toggleSave = async () => {
     const next = !saved;
@@ -575,6 +674,7 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
 
   const isPending = message._status === 'sending' || message._status === 'error';
   const canEdit = isOwn && (message.type !== 'media' || message.body);
+  const canCopy = !!message.body;
 
   const displayName = isOwn
     ? (currentUser?.display_name || message.sender_display_name || 'Tú')
@@ -583,9 +683,39 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
     ? currentUser?.avatar_url
     : message.sender_avatar_url;
 
-  const showToolbar = !isPending && !message.is_deleted && (isHovered || showEmojiPicker);
   const showName = !isOwn && !isDirect && isFirstInGroup;
   const showAvatar = !isOwn && !isDirect;
+
+  // ── Context-menu (right-click / long-press) ──
+  const actionable = !isPending && !message.is_deleted;
+  const closeMenu = useCallback(() => setMenu(null), []);
+  const openMenu = (e) => {
+    if (!actionable) return;
+    e.preventDefault();
+    const x = e.clientX ?? e.touches?.[0]?.clientX ?? 0;
+    const y = e.clientY ?? e.touches?.[0]?.clientY ?? 0;
+    setMenu({ x, y });
+  };
+  const handleTouchStart = (e) => {
+    if (!actionable) return;
+    const t0 = e.touches[0];
+    const { clientX, clientY } = t0;
+    longPressTimer.current = setTimeout(() => setMenu({ x: clientX, y: clientY }), 450);
+  };
+  const cancelLongPress = () => {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+  };
+
+  const menuItems = menu
+    ? [
+        { key: 'reply', icon: Reply, label: t('chat.reply'), onClick: () => { closeMenu(); onReply(message); } },
+        { key: 'forward', icon: Forward, label: t('chat.forward'), onClick: () => { closeMenu(); onForward(message); } },
+        canCopy && { key: 'copy', icon: Copy, label: t('chat.copyText'), onClick: () => { closeMenu(); navigator.clipboard?.writeText(message.body); } },
+        { key: 'save', icon: saved ? BookmarkCheck : Bookmark, label: saved ? t('saved.remove') : t('chat.save'), onClick: () => { closeMenu(); toggleSave(); } },
+        canEdit && { key: 'edit', icon: Pencil, label: t('common.edit'), onClick: () => { closeMenu(); onEdit(message); } },
+        isOwn && { key: 'delete', icon: Trash2, label: t('common.delete'), danger: true, onClick: () => { closeMenu(); onDelete(message); } },
+      ]
+    : [];
 
   const isMediaOnly =
     message.type === 'media' && message.attachments?.length > 0 && !message.body;
@@ -593,15 +723,17 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
   // WhatsApp-style asymmetric corners: the "tail" corner is squared off on the
   // first bubble of a group, on the side the bubble is anchored to.
   const bubbleClass = [
-    'relative max-w-full shadow-sm',
-    isMediaOnly ? 'overflow-hidden p-1' : 'px-2.5 py-1.5',
+    'relative max-w-full transition-shadow',
+    isMediaOnly ? 'overflow-hidden p-1' : 'px-3 py-1.5',
     isOwn
-      ? 'rounded-2xl bg-blurple-600 text-white'
-      : 'rounded-2xl bg-ink-800 text-ink-0',
+      ? 'echo-grad-own text-white shadow-[0_4px_18px_-6px_rgba(88,101,242,0.55)] ring-1 ring-white/10'
+      : 'bg-ink-800/85 text-ink-0 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.4)] ring-1 ring-white/[0.06]',
+    'rounded-2xl',
     isFirstInGroup ? (isOwn ? 'rounded-tr-md' : 'rounded-tl-md') : '',
+    menu ? (isOwn ? 'ring-2 ring-white/40' : 'ring-2 ring-blurple-400/60') : '',
   ].join(' ');
 
-  const metaClass = isOwn ? 'text-white/60' : 'text-ink-200';
+  const metaClass = isOwn ? 'text-white/70' : 'text-ink-200';
 
   return (
     <motion.div
@@ -609,12 +741,16 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18, ease: 'easeOut' }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onContextMenu={openMenu}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={cancelLongPress}
+      onTouchMove={cancelLongPress}
+      onTouchCancel={cancelLongPress}
       className={[
-        'echo-msg-row group relative flex gap-2 px-3 sm:px-4',
+        'echo-msg-row group relative flex gap-2 rounded-lg px-3 transition-colors sm:px-4',
         isFirstInGroup ? 'mt-3' : 'mt-0.5',
         isOwn ? 'flex-row-reverse' : 'flex-row',
+        menu ? 'bg-white/4' : 'hover:bg-white/2.5',
       ].join(' ')}
     >
       {/* Avatar gutter (group chats, other users only) */}
@@ -709,13 +845,14 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
 
         {/* Retry (own, error) */}
         {isOwn && message._status === 'error' && (
-          <button
-            onClick={() => onRetry(message.id)}
-            className="mt-0.5 flex items-center gap-1 text-[11px] text-echo-dnd hover:underline"
+          <Button
+            variant="ghost"
+            onPress={() => onRetry(message.id)}
+            className="mt-0.5 flex h-auto w-fit min-w-0 items-center gap-1 self-start bg-transparent p-0 text-[11px] font-normal text-echo-dnd hover:bg-transparent hover:underline"
           >
-            <RefreshCw size={10} />
+            <RefreshCw size={10} className="size-3" />
             {t('chat.retrySend')}
-          </button>
+          </Button>
         )}
 
         {/* Reactions */}
@@ -731,123 +868,27 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
               />
             ))}
             <button
-              onClick={() => setShowEmojiPicker((p) => !p)}
-              className="flex items-center rounded-md border border-ink-400/40 bg-ink-800 px-1.5 py-0.5 text-ink-200 transition-colors hover:border-ink-300 hover:bg-ink-750 hover:text-foreground"
+              type="button"
+              onClick={openMenu}
+              className="echo-press flex h-auto items-center rounded-full border border-ink-400/40 bg-ink-800/70 px-1.5 py-0.5 text-ink-200 transition-colors hover:border-blurple-400/60 hover:text-foreground"
               title={t('chat.react')}
             >
               <Smile size={13} />
             </button>
           </div>
         )}
-
-        {/* Hover toolbar (floats above the bubble, on its outer edge) */}
-        {!isPending && !message.is_deleted && (
-          <div
-            className={[
-              'absolute -top-3 z-20 flex gap-0.5 rounded-lg border border-ink-400/40 bg-ink-850 px-1 py-1 shadow-md transition-all duration-150',
-              isOwn ? 'right-0' : 'left-0',
-              showToolbar ? 'opacity-100 translate-y-0' : 'pointer-events-none translate-y-1 opacity-0',
-            ].join(' ')}
-          >
-            <div className="relative">
-              <Tooltip content={t('chat.react')} placement="top">
-                <button
-                  type="button"
-                  onClick={() => setShowEmojiPicker((p) => !p)}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
-                >
-                  <Smile size={16} />
-                </button>
-              </Tooltip>
-              <AnimatePresence>
-                {showEmojiPicker && (
-                  <>
-                    <div className="fixed inset-0 z-20" onClick={() => setShowEmojiPicker(false)} />
-                    <motion.div
-                      initial={{ opacity: 0, y: 6, scale: 0.96 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 4, scale: 0.97 }}
-                      transition={{ duration: 0.16, ease: 'easeOut' }}
-                      className={[
-                        'absolute bottom-9 z-30 flex gap-0.5 rounded-lg border border-ink-400/40 bg-ink-850 p-1 shadow-xl',
-                        isOwn ? 'right-0' : 'left-0',
-                      ].join(' ')}
-                    >
-                      {QUICK_EMOJIS.map((emoji) => (
-                        <button
-                          key={emoji}
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onReact(message.id, emoji);
-                            setShowEmojiPicker(false);
-                          }}
-                          className="rounded-md p-1 text-base transition-transform hover:scale-125 hover:bg-ink-750"
-                        >
-                          {emoji}
-                        </button>
-                      ))}
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>
-            </div>
-
-            <Tooltip content={t('chat.reply')} placement="top">
-              <button
-                type="button"
-                onClick={() => onReply(message)}
-                className="flex h-7 w-7 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
-              >
-                <Reply size={16} />
-              </button>
-            </Tooltip>
-
-            <Tooltip content={t('chat.forward')} placement="top">
-              <button
-                type="button"
-                onClick={() => onForward(message)}
-                className="flex h-7 w-7 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
-              >
-                <Forward size={16} />
-              </button>
-            </Tooltip>
-
-            <Tooltip content={saved ? t('saved.remove') : t('chat.save')} placement="top">
-              <button
-                type="button"
-                onClick={toggleSave}
-                className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-ink-750 ${saved ? 'text-blurple-400' : 'text-ink-100 hover:text-foreground'}`}
-              >
-                {saved ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}
-              </button>
-            </Tooltip>
-
-            {canEdit && (
-              <Tooltip content={t('common.edit')} placement="top">
-                <button
-                  type="button"
-                  onClick={() => onEdit(message)}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
-                >
-                  <Pencil size={16} />
-                </button>
-              </Tooltip>
-            )}
-            {isOwn && (
-              <Tooltip content={t('common.delete')} placement="top">
-                <button
-                  type="button"
-                  onClick={() => onDelete(message)}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-echo-dnd/20 hover:text-echo-dnd"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </Tooltip>
-            )}
-          </div>
-        )}
       </div>
+
+      {/* Right-click / long-press context menu */}
+      {menu && (
+        <MessageContextMenu
+          pos={menu}
+          onClose={closeMenu}
+          quickEmojis={QUICK_EMOJIS}
+          onEmoji={(em) => { closeMenu(); onReact(message.id, em); }}
+          items={menuItems}
+        />
+      )}
     </motion.div>
   );
 });
@@ -917,10 +958,11 @@ function ForwardModal({ message, conversations, currentConvId, isOpen, onClose }
                   const name = c.display_name || c.name || t('sidebar.noName');
                   const isSel = selected.includes(c.id);
                   return (
-                    <button
+                    <Button
                       key={c.id}
-                      onClick={() => toggle(c.id)}
-                      className={`flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors ${isSel ? 'bg-blurple-500/15' : 'hover:bg-ink-750'}`}
+                      variant="ghost"
+                      onPress={() => toggle(c.id)}
+                      className={`flex h-auto w-full items-center justify-start gap-3 rounded-md px-2 py-2 text-left transition-colors ${isSel ? 'bg-blurple-500/15' : 'hover:bg-ink-750'}`}
                     >
                       {c.type === 'direct' ? (
                         <UserAvatar user={{ display_name: name, avatar_url: c.other_avatar_url }} size="sm" />
@@ -929,7 +971,7 @@ function ForwardModal({ message, conversations, currentConvId, isOpen, onClose }
                       )}
                       <span className="min-w-0 flex-1 truncate text-sm font-medium">{name}</span>
                       {isSel && <Check size={16} className="text-blurple-400" />}
-                    </button>
+                    </Button>
                   );
                 })}
               </div>
@@ -980,6 +1022,8 @@ export default function ConversationPage() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [forwardTarget, setForwardTarget] = useState(null); // message being forwarded
   const [showPollModal, setShowPollModal] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounterRef = useRef(0); // tracks nested dragenter/dragleave events
 
   const messagesEndRef = useRef(null);
   const containerRef = useRef(null);
@@ -1175,6 +1219,56 @@ export default function ConversationPage() {
     }
   }, [conversationId, sendMessage, user]);
 
+  // Drag & drop / paste-to-attach. Reuses the single-file preview flow: the
+  // first dropped or pasted file opens the FilePreviewBar with a caption.
+  const acceptDroppedFile = useCallback((file) => {
+    if (file && !previewFile && !sendingFile) setPreviewFile(file);
+  }, [previewFile, sendingFile]);
+
+  const handleDragEnter = useCallback((e) => {
+    if (!e.dataTransfer?.types?.includes('Files')) return;
+    e.preventDefault();
+    dragCounterRef.current += 1;
+    setIsDragging(true);
+  }, []);
+
+  const handleDragOver = useCallback((e) => {
+    if (e.dataTransfer?.types?.includes('Files')) e.preventDefault(); // allow drop
+  }, []);
+
+  const handleDragLeave = useCallback((e) => {
+    if (!e.dataTransfer?.types?.includes('Files')) return;
+    e.preventDefault();
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current <= 0) {
+      dragCounterRef.current = 0;
+      setIsDragging(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback((e) => {
+    e.preventDefault();
+    dragCounterRef.current = 0;
+    setIsDragging(false);
+    const file = e.dataTransfer?.files?.[0];
+    if (file) acceptDroppedFile(file);
+  }, [acceptDroppedFile]);
+
+  const handlePaste = useCallback((e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.kind === 'file') {
+        const file = item.getAsFile();
+        if (file) {
+          e.preventDefault();
+          acceptDroppedFile(file);
+          break;
+        }
+      }
+    }
+  }, [acceptDroppedFile]);
+
   const handleEdit = useCallback((msg) => {
     if (!msg.body) return;
     setEditing(msg);
@@ -1304,10 +1398,16 @@ export default function ConversationPage() {
         onClose={() => setShowPollModal(false)}
       />
 
-      <div className="relative flex h-full bg-ink-700">
+      <div
+        className="relative flex h-full bg-transparent"
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
         <div className="flex h-full min-w-0 flex-1 flex-col">
-        {/* ── Header (Discord-style) ── */}
-        <div className="flex h-12 shrink-0 items-center justify-between border-b border-black/30 bg-ink-700 px-3 shadow-[0_1px_0_rgba(0,0,0,0.2)] md:px-4">
+        {/* ── Header (glass) ── */}
+        <div className="relative z-10 flex h-12 shrink-0 items-center justify-between border-b border-white/8 bg-ink-800/70 px-3 shadow-[0_2px_12px_-6px_rgba(0,0,0,0.5)] backdrop-blur-xl md:px-4">
           <div className="flex min-w-0 items-center gap-2 md:gap-3">
             <Button
               isIconOnly
@@ -1388,7 +1488,7 @@ export default function ConversationPage() {
         </div>
 
         {/* ── Messages ── */}
-        <div className="relative flex-1 min-h-0 bg-ink-700">
+        <div className="relative flex-1 min-h-0">
           <div
             ref={containerRef}
             onScroll={handleScroll}
@@ -1403,17 +1503,18 @@ export default function ConversationPage() {
 
             {hasMoreMessages && !loadingMessages && (
               <div className="flex justify-center py-2">
-                <button
-                  onClick={() => {
+                <Button
+                  variant="ghost"
+                  onPress={() => {
                     loadingMoreRef.current = true;
                     prevScrollHeightRef.current = containerRef.current?.scrollHeight ?? null;
                     loadMoreMessages();
                   }}
-                  className="flex items-center gap-1.5 rounded-md border border-ink-400/40 bg-ink-800 px-3 py-1 text-xs text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
+                  className="flex h-auto items-center gap-1.5 rounded-md border border-ink-400/40 bg-ink-800 px-3 py-1 text-xs text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
                 >
                   <ArrowUp size={12} />
                   {t('chat.loadMore')}
-                </button>
+                </Button>
               </div>
             )}
 
@@ -1426,13 +1527,13 @@ export default function ConversationPage() {
             {/* Conversation welcome when we hit the top */}
             {!hasMoreMessages && !loadingMessages && messages.length > 0 && (
               <div className="mb-4 px-4 pt-6">
-                <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-ink-600">
+                <div className="echo-grad-brand mb-3 flex h-16 w-16 items-center justify-center rounded-2xl text-white shadow-[0_8px_24px_-8px_rgba(88,101,242,0.6)]">
                   {isDirect
-                    ? <AtSign size={32} className="text-ink-100" />
-                    : <Hash size={32} strokeWidth={2} className="text-ink-100" />}
+                    ? <AtSign size={32} />
+                    : <Hash size={32} strokeWidth={2} />}
                 </div>
                 <h3 className="text-2xl font-extrabold">
-                  {isDirect ? convName : `Bienvenido a #${convName}`}
+                  {isDirect ? convName : <>Bienvenido a <span className="echo-grad-text">#{convName}</span></>}
                 </h3>
                 <p className="mt-1 text-[14px] text-ink-100">
                   {isDirect
@@ -1455,7 +1556,7 @@ export default function ConversationPage() {
                 exit={{ opacity: 0, y: 8 }}
                 transition={{ duration: 0.18, ease: 'easeOut' }}
                 onClick={scrollToBottom}
-                className="absolute bottom-4 right-6 flex h-9 w-9 items-center justify-center rounded-full bg-ink-800 text-ink-100 shadow-lg ring-1 ring-black/20 transition-all hover:bg-ink-600 hover:text-foreground"
+                className="echo-glass-strong echo-press absolute bottom-4 right-6 flex h-10 w-10 items-center justify-center rounded-full text-ink-50 transition-colors hover:text-blurple-300"
               >
                 <ArrowDown size={15} />
               </motion.button>
@@ -1487,12 +1588,14 @@ export default function ConversationPage() {
                   </span>
                 </p>
               </div>
-              <button
-                onClick={cancelAction}
-                className="rounded-full p-1 text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
+              <Button
+                isIconOnly
+                variant="ghost"
+                onPress={cancelAction}
+                className="h-auto w-auto min-w-0 rounded-full p-1 text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
               >
                 <X size={14} />
-              </button>
+              </Button>
             </motion.div>
           )}
         </AnimatePresence>
@@ -1508,19 +1611,20 @@ export default function ConversationPage() {
           )}
         </AnimatePresence>
 
-        {/* ── Input area (Discord-style) ── */}
-        <div className="bg-ink-700 px-3 pb-6 pt-1 md:pb-4">
-          <div className="flex items-center gap-2 rounded-lg bg-ink-600 px-1 transition-shadow focus-within:ring-1 focus-within:ring-blurple-500/40">
+        {/* ── Input area ── */}
+        <div className="px-3 pb-6 pt-1 md:pb-4">
+          <div className="echo-glass flex items-center gap-2 rounded-2xl px-1 transition-shadow focus-within:ring-2 focus-within:ring-blurple-500/50">
             <FilePickerMenu onPick={handleFilePick} disabled={!!previewFile || sendingFile} uploading={sendingFile} />
 
             <Tooltip content={t('poll.create')} placement="top">
-              <button
-                type="button"
-                onClick={() => setShowPollModal(true)}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-ink-200 transition-colors hover:bg-ink-750 hover:text-foreground"
+              <Button
+                isIconOnly
+                variant="ghost"
+                onPress={() => setShowPollModal(true)}
+                className="flex h-9 w-9 min-w-0 shrink-0 items-center justify-center rounded-md text-ink-200 transition-colors hover:bg-ink-750 hover:text-foreground"
               >
                 <BarChart3 size={18} />
-              </button>
+              </Button>
             </Tooltip>
 
             <Input
@@ -1538,6 +1642,7 @@ export default function ConversationPage() {
                 }, 2000);
               }}
               onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
               className="flex-1 border-none bg-transparent shadow-none outline-none text-[15px] placeholder:text-ink-200"
             />
 
@@ -1583,6 +1688,35 @@ export default function ConversationPage() {
               onClose={() => setSearchOpen(false)}
               onJump={handleJumpToMessage}
             />
+          )}
+        </AnimatePresence>
+
+        {/* ── Drag & drop overlay ── */}
+        <AnimatePresence>
+          {isDragging && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
+              className="pointer-events-none absolute inset-2 z-40 flex items-center justify-center rounded-2xl border-2 border-dashed border-blurple-400 bg-ink-900/70 backdrop-blur-sm"
+            >
+              <motion.div
+                initial={{ scale: 0.92, y: 6 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.96 }}
+                transition={{ duration: 0.18, ease: SPRING_OUT }}
+                className="flex flex-col items-center gap-3 px-10 py-8 text-center"
+              >
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blurple-500/20">
+                  <Upload size={26} className="text-blurple-400" />
+                </div>
+                <div>
+                  <p className="text-[15px] font-semibold text-foreground">{t('chat.dropFiles')}</p>
+                  <p className="mt-0.5 text-[13px] text-ink-100">{t('chat.dropFilesHint')}</p>
+                </div>
+              </motion.div>
+            </motion.div>
           )}
         </AnimatePresence>
       </div>
