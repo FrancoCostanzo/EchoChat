@@ -120,14 +120,15 @@ export default function MessageSearchPanel({ conversationId, onClose, onJump }) 
           />
           {query && (
             <InputGroup.Suffix>
-              <button
-                type="button"
-                onClick={() => setQuery('')}
-                className="flex items-center text-ink-200 transition-colors hover:text-foreground"
+              <Button
+                isIconOnly
+                variant="ghost"
+                onPress={() => setQuery('')}
+                className="flex h-auto w-auto min-w-0 items-center p-0 text-ink-200 transition-colors hover:bg-transparent hover:text-foreground"
                 aria-label={t('common.clear')}
               >
                 <X size={13} />
-              </button>
+              </Button>
             </InputGroup.Suffix>
           )}
         </InputGroup>
@@ -158,10 +159,11 @@ export default function MessageSearchPanel({ conversationId, onClose, onJump }) 
 
         <div className="flex flex-col gap-1">
           {results.map((msg) => (
-            <button
+            <Button
               key={msg.id}
-              onClick={() => onJump?.(msg.id)}
-              className="group flex w-full flex-col gap-1 rounded-md px-2 py-2 text-left transition-colors hover:bg-ink-750"
+              variant="ghost"
+              onPress={() => onJump?.(msg.id)}
+              className="group flex h-auto w-full flex-col items-stretch justify-start gap-1 whitespace-normal rounded-md px-2 py-2 text-left transition-colors hover:bg-ink-750"
             >
               <div className="flex items-center gap-2">
                 <UserAvatar
@@ -180,7 +182,7 @@ export default function MessageSearchPanel({ conversationId, onClose, onJump }) 
                   ? <Highlighted text={msg.body} query={query.trim()} />
                   : <span className="italic text-ink-200">{t('chat.attachedFile')}</span>}
               </p>
-            </button>
+            </Button>
           ))}
         </div>
       </div>
