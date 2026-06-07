@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import { Button } from '@heroui/react';
 import { Download, ExternalLink, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -105,13 +106,15 @@ export default function PdfPreview({ url, filename, onDownload }) {
         >
           <ExternalLink size={12} />
         </a>
-        <button
-          onClick={(e) => { e.stopPropagation(); onDownload?.(); }}
-          className="rounded-lg bg-black/60 p-1.5 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
+        <Button
+          isIconOnly
+          variant="ghost"
+          onPress={() => onDownload?.()}
+          className="h-auto w-auto min-w-0 rounded-lg bg-black/60 p-1.5 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
           title={t('common.download')}
         >
           <Download size={12} />
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -154,11 +154,11 @@ function ProfileTab() {
             <div className="rounded-full ring-4 ring-background">
               <UserAvatar user={user} size="lg" showStatus />
             </div>
-            <button
-              type="button"
-              onClick={() => avatarInputRef.current?.click()}
-              disabled={avatarLoading}
-              className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity hover:opacity-100 disabled:cursor-not-allowed"
+            <Button
+              variant="ghost"
+              onPress={() => avatarInputRef.current?.click()}
+              isDisabled={avatarLoading}
+              className="absolute inset-0 flex h-full w-full items-center justify-center rounded-full bg-black/40 p-0 opacity-0 transition-opacity hover:bg-black/40 hover:opacity-100 disabled:cursor-not-allowed"
               title={t('settings.changeAvatar')}
             >
               {avatarLoading ? (
@@ -166,7 +166,7 @@ function ProfileTab() {
               ) : (
                 <Camera size={18} className="text-white" />
               )}
-            </button>
+            </Button>
             <input
               ref={avatarInputRef}
               type="file"
@@ -404,14 +404,15 @@ function TwoFactorCard() {
               <code className="break-all text-sm font-mono tracking-widest text-foreground select-all">
                 {setupData.secret}
               </code>
-              <button
-                type="button"
-                onClick={copySecret}
-                className="shrink-0 text-muted hover:text-foreground"
+              <Button
+                isIconOnly
+                variant="ghost"
+                onPress={copySecret}
+                className="h-auto w-auto min-w-0 shrink-0 p-0 text-muted hover:bg-transparent hover:text-foreground"
                 title={t('common.copy')}
               >
                 {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />}
-              </button>
+              </Button>
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
@@ -794,10 +795,11 @@ function AppearanceTab() {
         </div>
         <div className="grid grid-cols-3 gap-3">
           {THEME_MODES.map(({ key, icon: Icon }) => (
-            <button
+            <Button
               key={key}
-              onClick={() => setMode(key)}
-              className={`relative flex flex-col items-center gap-2.5 rounded-xl border-2 p-4 hover:scale-[1.03] active:scale-[0.96] ${
+              variant="ghost"
+              onPress={() => setMode(key)}
+              className={`relative flex h-auto flex-col items-center gap-2.5 rounded-xl border-2 p-4 [--button-bg-hover:transparent] [--button-bg-pressed:transparent] hover:scale-[1.03] active:scale-[0.96] ${
                 mode === key
                   ? 'border-accent bg-accent-soft text-accent shadow-sm scale-[1.03]'
                   : 'border-border text-muted hover:border-border-secondary hover:text-foreground'
@@ -812,7 +814,7 @@ function AppearanceTab() {
               </AnimatePresence>
               <Icon size={22} />
               <span className="text-xs font-medium">{t(`settings.${key}`)}</span>
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -827,10 +829,11 @@ function AppearanceTab() {
         </div>
         <div className="grid grid-cols-3 gap-3">
           {ACCENT_COLORS.map(({ key, color }) => (
-            <button
+            <Button
               key={key}
-              onClick={() => setAccent(key)}
-              className={`flex items-center gap-3 rounded-xl border-2 p-3 hover:scale-[1.03] active:scale-[0.96] ${
+              variant="ghost"
+              onPress={() => setAccent(key)}
+              className={`flex h-auto items-center justify-start gap-3 rounded-xl border-2 p-3 [--button-bg-hover:transparent] [--button-bg-pressed:transparent] hover:scale-[1.03] active:scale-[0.96] ${
                 accent === key
                   ? 'border-accent bg-accent-soft shadow-sm scale-[1.03]'
                   : 'border-border hover:border-border-secondary'
@@ -851,7 +854,7 @@ function AppearanceTab() {
                 </AnimatePresence>
               </motion.span>
               <span className="text-sm font-medium">{t(`settings.accentColors.${key}`)}</span>
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -895,11 +898,12 @@ function PresenceTab() {
       </div>
       <div className="flex flex-col gap-2">
         {PRESENCE_OPTIONS.map(({ key, dotClass, icon: Icon }) => (
-          <button
+          <Button
             key={key}
-            disabled={loading}
-            onClick={() => handleUpdate(key)}
-            className={`flex items-center gap-3 rounded-xl border-2 px-4 py-3 text-left hover:scale-[1.01] active:scale-[0.98] disabled:opacity-60 ${
+            variant="ghost"
+            isDisabled={loading}
+            onPress={() => handleUpdate(key)}
+            className={`flex h-auto items-center justify-start gap-3 rounded-xl border-2 px-4 py-3 text-left [--button-bg-hover:transparent] [--button-bg-pressed:transparent] hover:scale-[1.01] active:scale-[0.98] ${
               presence === key
                 ? 'border-accent bg-accent-soft scale-[1.01]'
                 : 'border-border hover:border-border-secondary'
@@ -915,7 +919,7 @@ function PresenceTab() {
                 </AnimatedCheck>
               )}
             </AnimatePresence>
-          </button>
+          </Button>
         ))}
       </div>
     </div>
@@ -942,10 +946,11 @@ function LanguageTab() {
       </div>
       <div className="flex flex-col gap-2">
         {LANGUAGES.map(({ key, label, flag, region }) => (
-          <button
+          <Button
             key={key}
-            onClick={() => changeLanguage(key)}
-            className={`flex items-center gap-4 rounded-xl border-2 px-4 py-3 hover:scale-[1.01] active:scale-[0.98] ${
+            variant="ghost"
+            onPress={() => changeLanguage(key)}
+            className={`flex h-auto items-center justify-start gap-4 rounded-xl border-2 px-4 py-3 [--button-bg-hover:transparent] [--button-bg-pressed:transparent] hover:scale-[1.01] active:scale-[0.98] ${
               currentLang === key
                 ? 'border-accent bg-accent-soft scale-[1.01]'
                 : 'border-border hover:border-border-secondary'
@@ -963,7 +968,7 @@ function LanguageTab() {
                 </AnimatedCheck>
               )}
             </AnimatePresence>
-          </button>
+          </Button>
         ))}
       </div>
     </div>
@@ -1005,10 +1010,11 @@ export default function SettingsPage() {
       {/* Mobile tab navigation */}
       <div className="flex gap-1 overflow-x-auto border-b border-separator px-3 py-2 md:hidden">
         {MOBILE_SETTINGS_NAV.map(({ id, icon: Icon }) => (
-          <button
+          <Button
             key={id}
-            onClick={() => navigate(`/settings/${id}`)}
-            className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+            variant="ghost"
+            onPress={() => navigate(`/settings/${id}`)}
+            className={`flex h-auto shrink-0 items-center justify-start gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
               tab === id
                 ? 'bg-accent-soft text-accent'
                 : 'text-muted hover:bg-default'
@@ -1016,7 +1022,7 @@ export default function SettingsPage() {
           >
             <Icon size={13} />
             {t(`settings.tabs.${id}`)}
-          </button>
+          </Button>
         ))}
       </div>
 

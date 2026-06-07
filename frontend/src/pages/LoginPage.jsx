@@ -93,13 +93,13 @@ function TotpStep({ onCancel }) {
         )}
       </div>
 
-      <button
-        type="button"
-        className="text-left text-xs text-accent hover:underline"
-        onClick={() => { setUseBackup((v) => !v); setCode(''); setError(''); }}
+      <Button
+        variant="ghost"
+        className="h-auto w-fit min-w-0 justify-start self-start bg-transparent p-0 text-left text-xs font-normal text-accent hover:bg-transparent hover:underline"
+        onPress={() => { setUseBackup((v) => !v); setCode(''); setError(''); }}
       >
         {useBackup ? t('auth.useTotpCode') : t('auth.useBackupCode')}
-      </button>
+      </Button>
 
       <Button type="submit" isPending={loading} className="w-full">
         {({ isPending }) =>
@@ -111,14 +111,14 @@ function TotpStep({ onCancel }) {
         }
       </Button>
 
-      <button
-        type="button"
-        className="flex items-center gap-1.5 self-center text-sm text-muted hover:text-foreground"
-        onClick={onCancel}
+      <Button
+        variant="ghost"
+        className="flex h-auto items-center gap-1.5 self-center bg-transparent p-0 text-sm font-normal text-muted hover:bg-transparent hover:text-foreground"
+        onPress={onCancel}
       >
         <ArrowLeft size={14} />
         {t('auth.backToLogin')}
-      </button>
+      </Button>
     </form>
   );
 }

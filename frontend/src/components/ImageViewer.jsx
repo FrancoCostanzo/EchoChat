@@ -180,13 +180,14 @@ export default function ImageViewer({ src, filename, onClose }) {
           <ZoomOut size={18} />
         </Button>
 
-        <button
-          onClick={handleReset}
-          className="min-w-13 rounded-md px-2 py-1 text-center text-xs text-white/80 hover:bg-white/10"
+        <Button
+          variant="ghost"
+          onPress={handleReset}
+          className="h-auto min-w-13 rounded-md px-2 py-1 text-center text-xs text-white/80 hover:bg-white/10"
           title={t('imageViewer.reset')}
         >
           {Math.round(zoom * 100)}%
-        </button>
+        </Button>
 
         <Button
           isIconOnly

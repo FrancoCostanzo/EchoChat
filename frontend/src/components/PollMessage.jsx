@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Button } from '@heroui/react';
 import { BarChart3, Check, Lock, EyeOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { pollsApi } from '@/lib/endpoints';
@@ -87,13 +88,13 @@ export default function PollMessage({ message, currentUserId }) {
           const selected = poll.is_multiple ? pending.includes(opt.id) : opt.voted;
           const showResults = poll.has_voted || closed;
           return (
-            <button
+            <Button
               key={opt.id}
-              type="button"
-              disabled={closed || busy}
-              onClick={() => handleOptionClick(opt.id)}
+              variant="ghost"
+              isDisabled={closed || busy}
+              onPress={() => handleOptionClick(opt.id)}
               className={[
-                'relative overflow-hidden rounded-lg border px-3 py-2 text-left text-sm transition-colors',
+                'relative flex h-auto w-full justify-start overflow-hidden rounded-lg border px-3 py-2 text-left text-sm transition-colors',
                 opt.voted ? 'border-blurple-500/60' : selected ? 'border-blurple-400/60' : 'border-black/20',
                 closed ? 'cursor-default' : 'hover:border-blurple-400/60',
                 'bg-ink-900',
@@ -115,34 +116,34 @@ export default function PollMessage({ message, currentUserId }) {
                   <span className="shrink-0 text-xs font-medium text-ink-200">{pct}%</span>
                 )}
               </span>
-            </button>
+            </Button>
           );
         })}
       </div>
 
       {poll.is_multiple && !closed && pending.length > 0 && (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => submitVote(pending)}
-          className="rounded-lg bg-blurple-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blurple-600 disabled:opacity-60"
+        <Button
+          variant="ghost"
+          isDisabled={busy}
+          onPress={() => submitVote(pending)}
+          className="h-auto rounded-lg bg-blurple-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blurple-600"
         >
           {t('poll.vote')}
-        </button>
+        </Button>
       )}
 
       <div className="flex items-center justify-between text-[11px] text-ink-200">
         <span>{t('poll.totalVotes', { count: total })}</span>
         <div className="flex items-center gap-2">
           {poll.has_voted && !closed && (
-            <button type="button" onClick={handleRetract} disabled={busy} className="hover:text-foreground">
+            <Button variant="ghost" onPress={handleRetract} isDisabled={busy} className="h-auto min-w-0 bg-transparent p-0 text-[11px] font-normal hover:bg-transparent hover:text-foreground">
               {t('poll.retract')}
-            </button>
+            </Button>
           )}
           {isOwner && !closed && (
-            <button type="button" onClick={handleClose} disabled={busy} className="hover:text-echo-dnd">
+            <Button variant="ghost" onPress={handleClose} isDisabled={busy} className="h-auto min-w-0 bg-transparent p-0 text-[11px] font-normal hover:bg-transparent hover:text-echo-dnd">
               {t('poll.close')}
-            </button>
+            </Button>
           )}
         </div>
       </div>
