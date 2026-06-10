@@ -120,7 +120,13 @@
     "searchPlaceholder": "Search messages...",
     "searchResults": "{{count}} results",
     "searchNoResults": "No results",
-    "searchHint": "Type to search messages in this conversation"
+    "searchHint": "Type to search messages in this conversation",
+    "thread": "Thread",
+    "replyInThread": "Reply in thread",
+    "threadReplies_one": "{{count}} reply",
+    "threadReplies_other": "{{count}} replies",
+    "threadNoReplies": "No replies yet. Start the thread!",
+    "threadReplyPlaceholder": "Reply in thread..."
   },
   "newConversation": {
     "title": "New conversation",

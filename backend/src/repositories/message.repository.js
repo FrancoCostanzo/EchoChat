@@ -17,7 +17,9 @@ class MessageRepository extends BaseRepository {
   }
 
   async findByConversation(conversationId, { cursor, limit = 50, direction = 'before' } = {}) {
-    let condition = 'm.conversation_id = $1';
+    // Thread replies live in their own side panel; the main timeline only
+    // shows root messages (with a reply counter aggregated below).
+    let condition = 'm.conversation_id = $1 AND m.thread_id IS NULL';
     const params = [conversationId];
 
     if (cursor) {
@@ -58,6 +60,7 @@ class MessageRepository extends BaseRepository {
               -- Receipt aggregation: count of delivered and read per message
               (SELECT COUNT(*) FROM message_receipts mr WHERE mr.message_id = m.id AND mr.delivered_at IS NOT NULL) AS delivered_count,
               (SELECT COUNT(*) FROM message_receipts mr WHERE mr.message_id = m.id AND mr.read_at IS NOT NULL) AS read_count,
+              (SELECT COUNT(*) FROM messages tm WHERE tm.thread_id = m.id AND tm.is_deleted = FALSE)::int AS thread_count,
               -- Reactions aggregation
               COALESCE(
                 (SELECT json_agg(json_build_object('emoji', r.emoji, 'count', r.cnt, 'user_ids', r.user_ids))
@@ -113,6 +116,7 @@ class MessageRepository extends BaseRepository {
               ) AS attachments,
               (SELECT COUNT(*) FROM message_receipts mr WHERE mr.message_id = m.id AND mr.delivered_at IS NOT NULL) AS delivered_count,
               (SELECT COUNT(*) FROM message_receipts mr WHERE mr.message_id = m.id AND mr.read_at IS NOT NULL) AS read_count,
+              (SELECT COUNT(*) FROM messages tm WHERE tm.thread_id = m.id AND tm.is_deleted = FALSE)::int AS thread_count,
               COALESCE(
                 (SELECT json_agg(json_build_object('emoji', r.emoji, 'count', r.cnt, 'user_ids', r.user_ids))
                  FROM (
@@ -136,6 +140,62 @@ class MessageRepository extends BaseRepository {
       [messageId]
     );
     return rows[0] || null;
+  }
+
+  // All replies of a thread (oldest first), with the same enrichment as the
+  // conversation timeline so the thread panel can reuse the message renderer.
+  async findThreadReplies(threadId, { limit = 200 } = {}) {
+    const { rows } = await this.query(
+      `SELECT m.*,
+              u.username AS sender_username,
+              u.display_name AS sender_display_name,
+              u.avatar_object_key AS sender_avatar_key,
+              COALESCE(
+                json_agg(
+                  json_build_object(
+                    'id', so.id,
+                    'object_type', so.object_type,
+                    'original_filename', so.original_filename,
+                    'mime_type', so.mime_type,
+                    'file_size_bytes', so.file_size_bytes,
+                    'image_width', so.image_width,
+                    'image_height', so.image_height,
+                    'duration_ms', so.duration_ms
+                  ) ORDER BY ma.sort_order
+                ) FILTER (WHERE ma.id IS NOT NULL),
+                '[]'
+              ) AS attachments,
+              COALESCE(
+                (SELECT json_agg(json_build_object('emoji', r.emoji, 'count', r.cnt, 'user_ids', r.user_ids))
+                 FROM (
+                   SELECT emoji,
+                          COUNT(*)::text AS cnt,
+                          json_agg(user_id) AS user_ids
+                   FROM message_reactions
+                   WHERE message_id = m.id
+                   GROUP BY emoji
+                 ) r),
+                '[]'
+              ) AS reactions
+       FROM messages m
+       LEFT JOIN users u ON u.id = m.sender_id
+       LEFT JOIN message_attachments ma ON ma.message_id = m.id
+       LEFT JOIN storage_objects so ON so.id = ma.object_id
+       WHERE m.thread_id = $1
+       GROUP BY m.id, u.username, u.display_name, u.avatar_object_key
+       ORDER BY m.sent_at ASC
+       LIMIT $2`,
+      [threadId, limit]
+    );
+    return rows;
+  }
+
+  async countThreadReplies(threadId) {
+    const { rows } = await this.query(
+      `SELECT COUNT(*)::int AS count FROM messages WHERE thread_id = $1 AND is_deleted = FALSE`,
+      [threadId]
+    );
+    return rows[0]?.count ?? 0;
   }
 
   async updateBody(id, body, editedBy) {

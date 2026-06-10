@@ -25,6 +25,9 @@ export const useChatStore = create((set, get) => ({
 
     socket.on('message:new', (message) => {
       const state = get();
+      // Thread replies don't enter the main timeline — the ThreadPanel has its
+      // own listener and the root's counter updates via message:thread_count.
+      if (message.thread_id) return;
       // Add message if we're in the same conversation
       if (message.conversation_id === state.activeConversationId) {
         const exists = state.messages.some((m) => m.id === message.id);
@@ -74,6 +77,14 @@ export const useChatStore = create((set, get) => ({
       set((state) => ({
         messages: state.messages.map((m) =>
           m.id === message.id ? { ...m, ...message } : m,
+        ),
+      }));
+    });
+
+    socket.on('message:thread_count', ({ messageId, thread_count }) => {
+      set((state) => ({
+        messages: state.messages.map((m) =>
+          m.id === messageId ? { ...m, thread_count } : m,
         ),
       }));
     });

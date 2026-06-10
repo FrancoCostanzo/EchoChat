@@ -38,6 +38,7 @@ import {
   Send,
   BarChart3,
   Upload,
+  MessageSquareText,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
@@ -47,6 +48,7 @@ import ImageViewer from '@/components/ImageViewer';
 import PdfPreview from '@/components/PdfPreview';
 import SendButton from '@/components/SendButton';
 import MessageSearchPanel from '@/components/MessageSearchPanel';
+import ThreadPanel from '@/components/ThreadPanel';
 import PollMessage from '@/components/PollMessage';
 import CreatePollModal from '@/components/CreatePollModal';
 import { formatMessageTime, formatFullTime } from '@/lib/dates';
@@ -655,7 +657,7 @@ function MessageContextMenu({ pos, onClose, quickEmojis, onEmoji, items }) {
   );
 }
 
-const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstInGroup, isLastInGroup, onEdit, onDelete, onReply, onReact, onForward, onRetry, currentUserId, currentUser }) {
+const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstInGroup, isLastInGroup, onEdit, onDelete, onReply, onReact, onForward, onOpenThread, onRetry, currentUserId, currentUser }) {
   const { t } = useTranslation();
   const [menu, setMenu] = useState(null); // { x, y } | null
   const [saved, setSaved] = useState(false);
@@ -709,6 +711,8 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
   const menuItems = menu
     ? [
         { key: 'reply', icon: Reply, label: t('chat.reply'), onClick: () => { closeMenu(); onReply(message); } },
+        // Thread replies can't be nested — only root messages open a thread
+        !message.thread_id && { key: 'thread', icon: MessageSquareText, label: t('chat.replyInThread'), onClick: () => { closeMenu(); onOpenThread(message); } },
         { key: 'forward', icon: Forward, label: t('chat.forward'), onClick: () => { closeMenu(); onForward(message); } },
         canCopy && { key: 'copy', icon: Copy, label: t('chat.copyText'), onClick: () => { closeMenu(); navigator.clipboard?.writeText(message.body); } },
         { key: 'save', icon: saved ? BookmarkCheck : Bookmark, label: saved ? t('saved.remove') : t('chat.save'), onClick: () => { closeMenu(); toggleSave(); } },
@@ -853,6 +857,21 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
             <RefreshCw size={10} className="size-3" />
             {t('chat.retrySend')}
           </Button>
+        )}
+
+        {/* Thread reply counter — opens the thread panel */}
+        {!message.is_deleted && message.thread_count > 0 && (
+          <button
+            type="button"
+            onClick={() => onOpenThread(message)}
+            className={[
+              'echo-press mt-1 flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-2.5 py-0.5 text-[12px] font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent/20',
+              isOwn ? 'self-end' : 'self-start',
+            ].join(' ')}
+          >
+            <MessageSquareText size={12} />
+            {t('chat.threadReplies', { count: message.thread_count })}
+          </button>
         )}
 
         {/* Reactions */}
@@ -1021,6 +1040,7 @@ export default function ConversationPage() {
   const [sendingFile, setSendingFile] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [forwardTarget, setForwardTarget] = useState(null); // message being forwarded
+  const [threadRoot, setThreadRoot] = useState(null); // root message of the open thread panel
   const [showPollModal, setShowPollModal] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const dragCounterRef = useRef(0); // tracks nested dragenter/dragleave events
@@ -1075,6 +1095,7 @@ export default function ConversationPage() {
     setInput('');
     setReplyTo(null);
     setEditing(null);
+    setThreadRoot(null);
     (async () => {
       try {
         const { data } = await messagesApi.getDraft(conversationId);
@@ -1330,6 +1351,17 @@ export default function ConversationPage() {
 
   const handleForward = useCallback((msg) => setForwardTarget(msg), []);
 
+  // Thread and search panels share the right column — only one open at a time
+  const handleOpenThread = useCallback((msg) => {
+    setThreadRoot(msg);
+    setSearchOpen(false);
+  }, []);
+
+  const handleOpenSearch = useCallback(() => {
+    setSearchOpen((p) => !p);
+    setThreadRoot(null);
+  }, []);
+
   const messageElements = useMemo(() => {
     const isDirect = conversation?.type === 'direct';
     return messages.map((msg, index) => {
@@ -1350,13 +1382,14 @@ export default function ConversationPage() {
           onReply={handleReply}
           onReact={handleReact}
           onForward={handleForward}
+          onOpenThread={handleOpenThread}
           onRetry={retrySendMessage}
           currentUserId={user?.id}
           currentUser={user}
         />
       );
     });
-  }, [messages, user, conversation?.type, handleEdit, handleDeleteRequest, handleReply, handleReact, handleForward, retrySendMessage]);
+  }, [messages, user, conversation?.type, handleEdit, handleDeleteRequest, handleReply, handleReact, handleForward, handleOpenThread, retrySendMessage]);
 
   if (!conversation) {
     return (
@@ -1462,7 +1495,7 @@ export default function ConversationPage() {
                 isIconOnly
                 size="sm"
                 variant="ghost"
-                onPress={() => setSearchOpen((p) => !p)}
+                onPress={handleOpenSearch}
                 className={[
                   'h-8 w-8 min-w-0 rounded-md hover:bg-ink-600 hover:text-foreground sm:flex',
                   searchOpen ? 'bg-ink-600 text-foreground' : 'hidden text-ink-100',
@@ -1687,6 +1720,18 @@ export default function ConversationPage() {
               conversationId={conversationId}
               onClose={() => setSearchOpen(false)}
               onJump={handleJumpToMessage}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* ── Thread panel ── */}
+        <AnimatePresence>
+          {threadRoot && (
+            <ThreadPanel
+              key={threadRoot.id}
+              root={threadRoot}
+              conversationId={conversationId}
+              onClose={() => setThreadRoot(null)}
             />
           )}
         </AnimatePresence>

@@ -12,6 +12,7 @@ function toMessageResponse(row) {
     reply_to_type: row.reply_to_type ?? null,
     reply_to_sender: row.reply_to_sender ?? null,
     thread_id: row.thread_id,
+    thread_count: parseInt(row.thread_count, 10) || 0,
     forwarded_from_id: row.forwarded_from_id,
     is_edited: row.is_edited,
     edited_at: row.edited_at,

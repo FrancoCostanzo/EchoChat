@@ -14,7 +14,7 @@
 | 3 | Broadcasts completos | ⬜ Pendiente |
 | 4 | Pipeline de media seguro | ⬜ Pendiente |
 | 5 | Llamadas WebRTC reales | ⬜ Pendiente |
-| 6 | Mensajería ya modelada (quick wins) | 🚧 En progreso |
+| 6 | Mensajería ya modelada (quick wins) | ✅ Hecho |
 | 7 | Panel de administración | ⬜ Pendiente |
 
 Orden recomendado:
@@ -119,7 +119,7 @@ Fase 0 → Fase 1 → Fase 2 → Fase 3 → (Fase 6 en paralelo) → Fase 4 → 
 | 6.2 | Saved messages (`saved_messages`): guardar con nota + vista. | S (2d) | — | ✅ |
 | 6.3 | Forwarding (campos `forwarded_from_*` ya existen). | S (1-2d) | — | ✅ |
 | 6.4 | Polls (`poll.dto` ya existe sin ruta): votación en vivo + UI. | M (3-4d) | — | ✅ |
-| 6.5 | Threads/hilos completos (`thread_id`). | M (3d) | — | ⬜ |
+| 6.5 | Threads/hilos completos (`thread_id`). | M (3d) | — | ✅ |
 
 ### Detalle de lo implementado en Fase 6
 
@@ -140,6 +140,14 @@ Fase 0 → Fase 1 → Fase 2 → Fase 3 → (Fase 6 en paralelo) → Fase 4 → 
   quitar voto y cerrar; recuento desnormalizado y evento realtime `poll:update`.
   Los mensajes tipo poll se enriquecen con la encuesta al cargar. UI: `PollMessage`
   (barras de resultados + votación) y `CreatePollModal` desde el composer. i18n es/en/pt.
+- **6.5 Threads** ✅ — backend: `GET /messages/:id/thread` (raíz + respuestas ordenadas),
+  validación de `thread_id` al enviar (debe apuntar a una raíz de la misma conversación;
+  responder a una respuesta se aplana sobre la raíz, estilo Slack), las respuestas de hilo
+  se excluyen del timeline principal y cada mensaje expone `thread_count`; evento realtime
+  `message:thread_count` para refrescar el contador sin refetch. Frontend: acción
+  "Responder en hilo" en el menú contextual, badge "N respuestas" en la burbuja y
+  `ThreadPanel` lateral (raíz + respuestas en vivo + composer propio), exclusión mutua
+  con el panel de búsqueda. i18n es/en/pt.
 
 ## FASE 7 — Panel de administración
 
