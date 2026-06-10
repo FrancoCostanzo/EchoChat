@@ -8,7 +8,7 @@ const {
   draftRepository,
   pollRepository,
 } = require('../repositories');
-const { NotFoundError, ForbiddenError } = require('../errors');
+const { NotFoundError, ForbiddenError, BadRequestError } = require('../errors');
 const { toMessageResponse, toSavedMessageResponse, toDraftResponse, toPollResponse } = require('../models');
 const { minioClient } = require('../config/minio');
 
@@ -22,6 +22,16 @@ class MessageService {
     // Verify membership
     const member = await conversationRepository.getMember(data.conversation_id, userId);
     if (!member) throw new ForbiddenError('Not a member of this conversation');
+
+    // Thread replies must point at a root message of the same conversation.
+    // Replying to a reply gets flattened onto the original root (Slack-style).
+    if (data.thread_id) {
+      const root = await messageRepository.findById(data.thread_id);
+      if (!root || root.conversation_id !== data.conversation_id) {
+        throw new BadRequestError('Invalid thread root');
+      }
+      if (root.thread_id) data.thread_id = root.thread_id;
+    }
 
     const message = await messageRepository.create({
       ...data,
@@ -41,10 +51,32 @@ class MessageService {
     const response = toMessageResponse(full);
     try {
       getIO().to(`conv:${data.conversation_id}`).emit('message:new', response);
+      // Let open timelines refresh the root's reply counter without refetching
+      if (response.thread_id) {
+        const threadCount = await messageRepository.countThreadReplies(response.thread_id);
+        getIO().to(`conv:${data.conversation_id}`).emit('message:thread_count', {
+          messageId: response.thread_id,
+          thread_count: threadCount,
+        });
+      }
     } catch (err) {
       logger.warn({ err: err.message }, 'Failed to emit message:new');
     }
     return response;
+  }
+
+  // Root message + ordered replies for the thread side panel
+  async getThread(messageId, userId) {
+    const root = await messageRepository.findWithAttachments(messageId);
+    if (!root) throw new NotFoundError('Message');
+    const member = await conversationRepository.getMember(root.conversation_id, userId);
+    if (!member) throw new ForbiddenError('Not a member of this conversation');
+
+    const replies = await messageRepository.findThreadReplies(messageId);
+    const rootResponse = toMessageResponse(root);
+    const replyResponses = replies.map(toMessageResponse);
+    await this._attachPolls([rootResponse, ...replyResponses], userId);
+    return { root: rootResponse, replies: replyResponses };
   }
 
   async getMessages(conversationId, userId, pagination) {

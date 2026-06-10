@@ -120,7 +120,13 @@
     "searchPlaceholder": "Buscar mensagens...",
     "searchResults": "{{count}} resultados",
     "searchNoResults": "Sem resultados",
-    "searchHint": "Digite para buscar mensagens nesta conversa"
+    "searchHint": "Digite para buscar mensagens nesta conversa",
+    "thread": "Tópico",
+    "replyInThread": "Responder no tópico",
+    "threadReplies_one": "{{count}} resposta",
+    "threadReplies_other": "{{count}} respostas",
+    "threadNoReplies": "Ainda não há respostas. Comece o tópico!",
+    "threadReplyPlaceholder": "Responder no tópico..."
   },
   "newConversation": {
     "title": "Nova conversa",

@@ -51,6 +51,7 @@ export const channelsApi = {
 export const messagesApi = {
   send: (data) => api.post('/messages', data),
   getById: (id) => api.get(`/messages/${id}`),
+  getThread: (id) => api.get(`/messages/${id}/thread`),
   edit: (id, body) => api.put(`/messages/${id}`, { body }),
   delete: (id) => api.delete(`/messages/${id}`),
   addReaction: (id, emoji) => api.post(`/messages/${id}/reactions`, { emoji }),

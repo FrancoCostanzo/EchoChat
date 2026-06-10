@@ -21,6 +21,11 @@ class MessageController {
     res.json({ status: 'success', data: message });
   }
 
+  async getThread(req, res) {
+    const thread = await messageService.getThread(req.params.messageId, req.user.id);
+    res.json({ status: 'success', data: thread });
+  }
+
   async update(req, res) {
     const message = await messageService.update(req.params.messageId, req.user.id, req.body.body);
     res.json({ status: 'success', data: message });
