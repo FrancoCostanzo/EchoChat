@@ -337,6 +337,12 @@
     "explore": "Explorar canales",
     "saved": "Guardados"
   },
+  "commandPalette": {
+    "title": "Navegación rápida",
+    "placeholder": "Buscar conversación o sección...",
+    "noResults": "Sin resultados",
+    "navigation": "Ir a"
+  },
   "imageViewer": {
     "download": "Descargar",
     "openNewTab": "Abrir en nueva pestaña",

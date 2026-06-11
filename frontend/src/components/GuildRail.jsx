@@ -13,6 +13,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
+import CanvasPanel from '@/components/CanvasPanel';
 
 function RailItem({ icon: Icon, label, onClick, active, variant = 'default', badge = 0 }) {
   const isDanger = variant === 'danger';
@@ -53,7 +54,7 @@ function RailItem({ icon: Icon, label, onClick, active, variant = 'default', bad
 
         {/* Unread badge */}
         {badge > 0 && (
-          <span className="pointer-events-none absolute -right-0.5 -bottom-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-echo-dnd px-1.5 text-[10px] font-bold text-white ring-2 ring-ink-950">
+          <span className="pointer-events-none absolute -right-0.5 -bottom-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-echo-dnd px-1.5 text-[10px] font-bold text-white ring-2 ring-ink-800">
             {badge > 99 ? '99+' : badge}
           </span>
         )}
@@ -89,9 +90,12 @@ export default function GuildRail() {
   };
 
   return (
-    <nav
+    <CanvasPanel
+      as="nav"
+      glass
+      radius="xl"
       aria-label="Primary"
-      className="relative flex h-full w-[72px] shrink-0 flex-col items-center bg-ink-950 py-3 dark:bg-ink-950"
+      className="relative flex max-h-full w-[68px] shrink-0 flex-col items-center gap-1.5 overflow-y-auto py-3"
     >
       {/* Top: Home / DMs */}
       <RailItem
@@ -104,7 +108,7 @@ export default function GuildRail() {
       />
 
       {/* Separator */}
-      <div className="my-2 h-[2px] w-8 rounded-full bg-ink-800" />
+      <div className="my-1 h-[2px] w-8 rounded-full bg-ink-600/60" />
 
       {/* Primary nav */}
       <div className="flex flex-col items-center gap-2">
@@ -134,8 +138,11 @@ export default function GuildRail() {
         />
       </div>
 
+      {/* Separator */}
+      <div className="my-1 h-[2px] w-8 rounded-full bg-ink-600/60" />
+
       {/* Bottom cluster */}
-      <div className="mt-auto flex flex-col items-center gap-2">
+      <div className="flex flex-col items-center gap-2">
         <RailItem
           icon={Bell}
           label={t('sidebar.notifications')}
@@ -155,6 +162,6 @@ export default function GuildRail() {
           variant="danger"
         />
       </div>
-    </nav>
+    </CanvasPanel>
   );
 }

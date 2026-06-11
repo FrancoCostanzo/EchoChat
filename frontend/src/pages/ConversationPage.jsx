@@ -1454,7 +1454,7 @@ export default function ConversationPage() {
             {isDirect ? (
               <>
                 <AtSign size={20} className="shrink-0 text-ink-200" />
-                <h2 className="truncate text-[15px] font-semibold leading-tight">{convName}</h2>
+                <h2 className="echo-display truncate text-[17px] font-semibold leading-tight">{convName}</h2>
                 {conversation.member_presence && (
                   <span className="hidden md:inline-block shrink-0 border-l border-ink-400/40 pl-3 text-[13px] capitalize text-ink-200">
                     {conversation.member_presence}
@@ -1464,7 +1464,7 @@ export default function ConversationPage() {
             ) : (
               <>
                 <Hash size={22} strokeWidth={2.5} className="shrink-0 text-ink-200" />
-                <h2 className="truncate text-[15px] font-semibold leading-tight">{convName}</h2>
+                <h2 className="echo-display truncate text-[17px] font-semibold leading-tight">{convName}</h2>
                 {conversation.member_count && (
                   <span className="hidden md:inline-block shrink-0 border-l border-ink-400/40 pl-3 text-[13px] text-ink-200">
                     {conversation.member_count} {t('chat.members')}
@@ -1565,7 +1565,7 @@ export default function ConversationPage() {
                     ? <AtSign size={32} />
                     : <Hash size={32} strokeWidth={2} />}
                 </div>
-                <h3 className="text-2xl font-extrabold">
+                <h3 className="echo-display text-3xl font-semibold">
                   {isDirect ? convName : <>Bienvenido a <span className="echo-grad-text">#{convName}</span></>}
                 </h3>
                 <p className="mt-1 text-[14px] text-ink-100">
@@ -1646,7 +1646,7 @@ export default function ConversationPage() {
 
         {/* ── Input area ── */}
         <div className="px-3 pb-6 pt-1 md:pb-4">
-          <div className="echo-glass flex items-center gap-2 rounded-2xl px-1 transition-shadow focus-within:ring-2 focus-within:ring-accent/55">
+          <div className="echo-glass echo-composer flex items-center gap-2 rounded-2xl px-1">
             <FilePickerMenu onPick={handleFilePick} disabled={!!previewFile || sendingFile} uploading={sendingFile} />
 
             <Tooltip content={t('poll.create')} placement="top">

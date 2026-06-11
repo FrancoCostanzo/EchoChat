@@ -5,6 +5,11 @@
    Discord-inspired design tokens
    ────────────────────────────────────────────────────────── */
 @theme {
+  /* Typography — Clash Display for hierarchy only (server/channel names,
+     section headers); Satoshi for UI & chat body. Never mix the two roles. */
+  --font-sans: "Satoshi", "Inter", system-ui, -apple-system, sans-serif;
+  --font-display: "Clash Display", "Satoshi", "Inter", system-ui, sans-serif;
+
   /* Neutral slate-violet (dark, richer & deeper than flat Discord grey) */
   --color-ink-950: #0d0e15;   /* guild rail / deepest */
   --color-ink-900: #12131c;   /* deep surfaces */
@@ -79,6 +84,10 @@
     --echo-sidebar-width: 288px;
     --echo-guild-rail-width: 72px;
 
+    /* Hairline border for floating panels — flips with the theme class
+       (the `dark:` variant follows the OS here, so it can't be used) */
+    --panel-border: color-mix(in oklch, #ffffff 7%, transparent);
+
     --snow: #ffffff;
     --eclipse: #0c0d0e;
 
@@ -105,6 +114,8 @@
      light value when the `.dark` class is absent. `html:not(.dark)` outranks
      the `:root` defaults emitted by @theme. */
   html:not(.dark) {
+    --panel-border: color-mix(in oklch, #0c0d0e 8%, transparent);
+
     --color-ink-950: #d7d9dd;   /* guild rail */
     --color-ink-900: #e8eaed;   /* deep surfaces / inputs */
     --color-ink-850: #ebedef;   /* panels / popovers */
@@ -333,6 +344,43 @@
   }
   .echo-typing-dot:nth-child(2) { animation-delay: 0.15s; }
   .echo-typing-dot:nth-child(3) { animation-delay: 0.3s; }
+
+  /* ── Spatial Canvas surfaces ── */
+
+  /* Opaque floating panel (non-glass variant used by CanvasPanel) */
+  .echo-panel-solid {
+    background-color: var(--color-ink-800);
+    border: 1px solid color-mix(in oklch, #ffffff 7%, transparent);
+  }
+  html:not(.dark) .echo-panel-solid {
+    border-color: color-mix(in oklch, #0c0d0e 8%, transparent);
+  }
+
+  /* Display hierarchy — Clash Display with tight tracking. Headers only. */
+  .echo-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+
+  /* Floating composer — gains elevation while the user is typing */
+  .echo-composer {
+    transition: transform 200ms var(--ease-echo), box-shadow 200ms var(--ease-echo);
+  }
+  .echo-composer:focus-within {
+    transform: translateY(-2px);
+    box-shadow:
+      var(--shadow-e3),
+      0 0 0 1.5px color-mix(in oklch, var(--accent) 60%, transparent),
+      0 10px 32px -10px color-mix(in oklch, var(--accent) 45%, transparent);
+  }
+}
+
+/* Respect reduced motion: drop glow/lift transitions and decorative loops */
+@media (prefers-reduced-motion: reduce) {
+  .echo-press, .echo-lift, .echo-composer { transition: none; }
+  .echo-composer:focus-within { transform: none; }
+  .echo-typing-dot { animation: none; }
+  .echo-fade-in { animation: none; }
 }
 
 /* ──────────────────────────────────────────────────────────
