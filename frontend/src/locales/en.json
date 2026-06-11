@@ -232,6 +232,7 @@
       "profile": "Profile",
       "appearance": "Appearance",
       "language": "Language",
+      "notifications": "Notifications",
       "security": "Security",
       "presence": "Status"
     },
@@ -239,6 +240,7 @@
       "profile": "Manage your personal info and profile photo",
       "appearance": "Customize the app theme and colors",
       "language": "Choose the interface language",
+      "notifications": "Configure alerts per channel and quiet hours",
       "security": "Password, two-factor authentication and active sessions",
       "presence": "Set how others see you"
     },
@@ -311,6 +313,26 @@
       "cyan": "Cyan"
     },
     "languageSelector": "Application language",
+    "notifications": {
+      "title": "Notification preferences",
+      "subtitle": "Choose how to receive each event type. Push and email will activate when available.",
+      "inApp": "In-app",
+      "push": "Push",
+      "email": "Email",
+      "quietHours": "Quiet hours",
+      "quietHoursDesc": "During this interval no push or email notifications will be sent.",
+      "quietStart": "From",
+      "quietEnd": "To",
+      "saveQuietHours": "Save schedule",
+      "events": {
+        "message.direct": "Direct messages",
+        "message.group": "Group messages",
+        "message.mention": "Mentions",
+        "channel.join_request": "Channel join requests",
+        "broadcast": "Broadcasts",
+        "call.incoming": "Incoming calls"
+      }
+    },
     "languages": {
       "es": "Español",
       "en": "English",
