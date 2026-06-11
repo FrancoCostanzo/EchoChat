@@ -126,7 +126,9 @@
     "threadReplies_one": "{{count}} resposta",
     "threadReplies_other": "{{count}} respostas",
     "threadNoReplies": "Ainda não há respostas. Comece o tópico!",
-    "threadReplyPlaceholder": "Responder no tópico..."
+    "threadReplyPlaceholder": "Responder no tópico...",
+    "memberPanel": "Membros",
+    "viewMembers": "Ver membros"
   },
   "newConversation": {
     "title": "Nova conversa",
@@ -327,6 +329,9 @@
     "noConversations": "Sem conversas",
     "explore": "Explorar canais",
     "saved": "Salvos"
+  },
+  "layout": {
+    "toggleSidebar": "Mostrar ou ocultar painel de canais (Ctrl+\\)"
   },
   "commandPalette": {
     "title": "Navegação rápida",

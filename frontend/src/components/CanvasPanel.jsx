@@ -35,6 +35,7 @@ const CanvasPanel = forwardRef(function CanvasPanel(
     radius = 'lg',
     inset = 'none',
     accentGlow = false,
+    clip = true,
     className = '',
     children,
     ...rest
@@ -49,7 +50,7 @@ const CanvasPanel = forwardRef(function CanvasPanel(
         RADIUS[radius] ?? RADIUS.lg,
         INSET[inset] ?? '',
         accentGlow ? 'echo-glow-accent' : '',
-        'overflow-hidden',
+        clip ? 'overflow-hidden' : 'overflow-visible',
         className,
       ]
         .filter(Boolean)

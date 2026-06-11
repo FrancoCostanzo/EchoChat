@@ -417,19 +417,21 @@
   .echo-composer {
     transition: transform 200ms var(--ease-echo), box-shadow 200ms var(--ease-echo);
   }
-  .echo-composer:focus-within {
+  .echo-composer:focus-within,
+  .echo-composer-focused {
     transform: translateY(-2px);
     box-shadow:
-      var(--shadow-e3),
-      0 0 0 1.5px color-mix(in oklch, var(--accent) 60%, transparent),
-      0 10px 32px -10px color-mix(in oklch, var(--accent) 45%, transparent);
+      var(--shadow-e2),
+      0 0 0 1.5px color-mix(in oklch, var(--composer-accent, var(--accent)) 55%, transparent),
+      0 10px 32px -10px color-mix(in oklch, var(--composer-accent, var(--accent)) 35%, transparent);
   }
 }
 
 /* Respect reduced motion: drop glow/lift transitions and decorative loops */
 @media (prefers-reduced-motion: reduce) {
   .echo-press, .echo-lift, .echo-composer { transition: none; }
-  .echo-composer:focus-within { transform: none; }
+  .echo-composer:focus-within,
+  .echo-composer-focused { transform: none; }
   .echo-typing-dot { animation: none; }
   .echo-fade-in { animation: none; }
 }

@@ -83,11 +83,11 @@ Stack: **Tailwind 4** + **HeroUI / Radix** + **Framer Motion**.
 
 | Componente | Estado | Archivo |
 |------------|--------|---------|
-| `<CanvasPanel />` | ✅ base | `components/CanvasPanel.jsx` |
+| `<CanvasPanel />` | ✅ | `components/CanvasPanel.jsx` |
 | `<CommandPalette />` | ✅ | `components/CommandPalette.jsx` |
-| `<GuildRail />` (dock) | 🚧 evoluciona a `<ServerOrbitDock />` | `components/GuildRail.jsx` |
-| `<FloatingComposer />` | 🚧 | pendiente |
-| `<PresenceAvatarStack />` | 📋 | pendiente |
+| `<ServerOrbitDock />` | ✅ | `components/ServerOrbitDock.jsx` (`GuildRail` re-export) |
+| `<FloatingComposer />` | ✅ | `components/FloatingComposer.jsx` |
+| `<PresenceAvatarStack />` | ✅ | `components/PresenceAvatarStack.jsx` |
 
 ### `<CanvasPanel />`
 
@@ -136,12 +136,13 @@ Input flotante dentro de la tarjeta de chat (no barra pegada al fondo).
 ## 6. Roadmap de implementación
 
 1. ✅ Tokens `@theme` + utilidades `.echo-e1/e2/e3`, `.echo-glass`, `.echo-display`
-2. ✅ `<CanvasPanel />` + dock flotante (`GuildRail`) + `Ctrl+K`
-3. 🚧 Migrar sidebar y chat a `<CanvasPanel />` con `inset`
-4. 📋 `<FloatingComposer />` en `ConversationPage`
-5. 📋 `<PresenceAvatarStack />` + panel miembros bajo demanda
-6. 📋 `<ServerOrbitDock />` con spring squircle
-7. 📋 Responsive bottom-bar + sheets
+2. ✅ `<CanvasPanel />` + `<ServerOrbitDock />` + `Ctrl+K`
+3. ✅ Sidebar y chat con `<CanvasPanel />` + `inset`; `Ctrl+\` colapsa canales
+4. ✅ `<FloatingComposer />` en `ConversationPage`
+5. ✅ `<PresenceAvatarStack />` + panel miembros bajo demanda
+6. ✅ `<ServerOrbitDock />` con spring squircle + dock inferior `<1024px`
+7. 📋 Virtualización de lista de mensajes (50+ ítems)
+8. 📋 Sheets móviles para sidebar en rutas secundarias
 
 ## Referencias
 

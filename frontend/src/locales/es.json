@@ -135,7 +135,9 @@
     "threadReplies_one": "{{count}} respuesta",
     "threadReplies_other": "{{count}} respuestas",
     "threadNoReplies": "Todavía no hay respuestas. ¡Empezá el hilo!",
-    "threadReplyPlaceholder": "Responder en el hilo..."
+    "threadReplyPlaceholder": "Responder en el hilo...",
+    "memberPanel": "Miembros",
+    "viewMembers": "Ver miembros"
   },
   "newConversation": {
     "title": "Nueva conversación",
@@ -336,6 +338,9 @@
     "noConversations": "Sin conversaciones",
     "explore": "Explorar canales",
     "saved": "Guardados"
+  },
+  "layout": {
+    "toggleSidebar": "Mostrar u ocultar panel de canales (Ctrl+\\)"
   },
   "commandPalette": {
     "title": "Navegación rápida",
