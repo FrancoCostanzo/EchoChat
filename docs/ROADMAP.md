@@ -10,8 +10,8 @@
 |------|------|--------|
 | 0 | Cimientos transversales | ✅ Hecho (base) |
 | 1 | Canales | ✅ Hecho |
-| 2 | Notificaciones push + email | ⬜ Pendiente |
-| 3 | Broadcasts completos | ⬜ Pendiente |
+| 2 | Notificaciones push + email | 🟡 En progreso (UI 2.3 ✅) |
+| 3 | Broadcasts completos | 🟡 En progreso (3.1–3.4 base ✅) |
 | 4 | Pipeline de media seguro | ⬜ Pendiente |
 | 5 | Llamadas WebRTC reales | ⬜ Pendiente |
 | 6 | Mensajería ya modelada (quick wins) | ✅ Hecho |
@@ -78,20 +78,44 @@ Fase 0 → Fase 1 → Fase 2 → Fase 3 → (Fase 6 en paralelo) → Fase 4 → 
 
 ## FASE 2 — Notificaciones reales (push + email)
 
-| # | Funcionalidad | Esfuerzo | Depende de |
-|---|---|---|---|
-| 2.1 | Web Push (VAPID): suscripción, envío respetando `notification_preferences`/`quiet_hours`. | M (3-4d) | 0.3 |
-| 2.2 | Email (nodemailer + SMTP): digest de no leídos, invitaciones, reset de contraseña. | M (2-3d) | 0.3 |
-| 2.3 | UI de preferencias granular por evento + horario de silencio. | S (2d) | 2.1 |
+| # | Funcionalidad | Esfuerzo | Depende de | Estado |
+|---|---|---|---|---|
+| 2.1 | Web Push (VAPID): suscripción, envío respetando `notification_preferences`/`quiet_hours`. | M (3-4d) | 0.3 | ⬜ |
+| 2.2 | Email (nodemailer + SMTP): digest de no leídos, invitaciones, reset de contraseña. | M (2-3d) | 0.3 | ⬜ |
+| 2.3 | UI de preferencias granular por evento + horario de silencio. | S (2d) | 2.1 | ✅ |
+
+### Detalle de lo implementado en Fase 2 (parcial)
+
+- **2.3 UI preferencias** ✅ — tab Notificaciones en `SettingsPage`: switches
+  in-app/push/email por evento (`message.direct`, `message.group`, `message.mention`,
+  `channel.join_request`, `broadcast`, `call.incoming`), horario de silencio global,
+  cableado a `GET/PUT /api/notifications/preferences`, i18n es/en/pt.
+- **Pendiente 2.1/2.2**: Web Push VAPID y email SMTP (los toggles push/email quedan
+  guardados pero sin envío real aún).
 
 ## FASE 3 — Broadcasts completos
 
-| # | Funcionalidad | Esfuerzo | Depende de |
-|---|---|---|---|
-| 3.1 | Gestión de destinatarios (`broadcast_recipients`), por departamento. | S (2d) | 0.1 |
-| 3.2 | Envío programado (`scheduled_at` + worker). | M (2-3d) | 0.3 |
-| 3.3 | Tracking de entrega/lectura (`broadcast_deliveries`). | M (2d) | 3.1 |
-| 3.4 | UI de difusiones: crear, programar, métricas. | L (4-5d) | 3.1-3.3 |
+| # | Funcionalidad | Esfuerzo | Depende de | Estado |
+|---|---|---|---|---|
+| 3.1 | Gestión de destinatarios (`broadcast_recipients`), por departamento. | S (2d) | 0.1 | ✅ |
+| 3.2 | Envío programado (`scheduled_at` + worker). | M (2-3d) | 0.3 | ✅ |
+| 3.3 | Tracking de entrega/lectura (`broadcast_deliveries`). | M (2d) | 3.1 | ✅ base |
+| 3.4 | UI de difusiones: crear, programar, métricas. | L (4-5d) | 3.1-3.3 | ✅ base |
+
+### Detalle de lo implementado en Fase 3 (base)
+
+- **3.1 Destinatarios** ✅ — `POST/DELETE /api/broadcasts/:listId/recipients`
+  (permiso `broadcast.create`); añadir por `recipient_ids` y/o `department`;
+  `broadcastsApi` en frontend.
+- **3.2 Envío programado** ✅ — job `scheduled-broadcasts` (cada minuto) despacha
+  mensajes con `status=scheduled` y `scheduled_at <= NOW()`; envío inmediato si no
+  hay fecha futura.
+- **3.3 Tracking** ✅ base — `dispatchMessage` entrega por DM 1:1, registra
+  `broadcast_deliveries`, actualiza `total_recipients`/`total_delivered` y notifica
+  in-app. Pendiente: sincronizar `total_read` desde read receipts.
+- **3.4 UI** ✅ base — `BroadcastsPage` (`/broadcasts`): crear listas, gestionar
+  destinatarios, redactar, programar o enviar ya, historial con estado y métricas;
+  acceso en GuildRail y Command Palette; i18n es/en/pt.
 
 ## FASE 4 — Pipeline de media seguro
 

@@ -348,6 +348,41 @@
       "pt": "Português"
     }
   },
+  "broadcasts": {
+    "title": "Difusiones",
+    "subtitle": "Enviá mensajes masivos a listas de destinatarios",
+    "create": "Nueva lista",
+    "createFirst": "Crear primera lista",
+    "createTitle": "Crear lista de difusión",
+    "name": "Nombre",
+    "description": "Descripción",
+    "selectRecipients": "Destinatarios iniciales",
+    "empty": "No tenés listas de difusión",
+    "noAccess": "No tenés permiso para gestionar difusiones",
+    "listMeta": "Lista de difusión",
+    "back": "Volver",
+    "recipients": "Destinatarios",
+    "removeRecipient": "Quitar destinatario",
+    "addRecipients": "Agregar destinatarios",
+    "department": "Departamento",
+    "departmentPlaceholder": "Ej: Ventas",
+    "add": "Agregar",
+    "compose": "Redactar mensaje",
+    "bodyPlaceholder": "Escribí el mensaje de la difusión...",
+    "scheduleOptional": "Programar envío (opcional)",
+    "schedule": "Programar",
+    "sendNow": "Enviar ahora",
+    "history": "Historial",
+    "noMessages": "Sin mensajes enviados",
+    "delivered": "{{delivered}}/{{total}} entregados",
+    "status": {
+      "draft": "Borrador",
+      "scheduled": "Programado",
+      "sending": "Enviando",
+      "sent": "Enviado",
+      "failed": "Fallido"
+    }
+  },
   "sidebar": {
     "chats": "Chats",
     "contacts": "Contactos",
@@ -359,6 +394,7 @@
     "searchConversation": "Buscar conversación...",
     "noConversations": "Sin conversaciones",
     "explore": "Explorar canales",
+    "broadcasts": "Difusiones",
     "saved": "Guardados"
   },
   "layout": {

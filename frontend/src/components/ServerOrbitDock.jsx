@@ -9,6 +9,7 @@ import {
   Plus,
   Compass,
   Bookmark,
+  Megaphone,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
@@ -81,6 +82,7 @@ export default function ServerOrbitDock({
   const isChat = pathname === '/chat' || pathname.startsWith('/chat/');
   const isContacts = pathname.startsWith('/contacts');
   const isChannels = pathname.startsWith('/channels');
+  const isBroadcasts = pathname.startsWith('/broadcasts');
   const isSaved = pathname.startsWith('/saved');
   const isNotifications = pathname.startsWith('/notifications');
   const isSettings = pathname.startsWith('/settings');
@@ -155,6 +157,12 @@ export default function ServerOrbitDock({
           label={t('sidebar.explore')}
           onClick={() => navigate('/channels')}
           active={isChannels}
+        />
+        <DockOrb
+          icon={Megaphone}
+          label={t('sidebar.broadcasts')}
+          onClick={() => navigate('/broadcasts')}
+          active={isBroadcasts}
         />
         <DockOrb
           icon={Bookmark}

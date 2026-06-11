@@ -14,6 +14,7 @@ const ConversationPage = lazy(() => import('@/pages/ConversationPage'));
 const NewConversationPage = lazy(() => import('@/pages/NewConversationPage'));
 const ContactsPage = lazy(() => import('@/pages/ContactsPage'));
 const ChannelsExplorePage = lazy(() => import('@/pages/ChannelsExplorePage'));
+const BroadcastsPage = lazy(() => import('@/pages/BroadcastsPage'));
 const SavedMessagesPage = lazy(() => import('@/pages/SavedMessagesPage'));
 const NotificationsPage = lazy(() => import('@/pages/NotificationsPage'));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
@@ -68,6 +69,7 @@ export default function App() {
           <Route path="/chat/:conversationId" element={<ConversationPage />} />
           <Route path="/contacts" element={<ContactsPage />} />
           <Route path="/channels" element={<ChannelsExplorePage />} />
+          <Route path="/broadcasts" element={<BroadcastsPage />} />
           <Route path="/saved" element={<SavedMessagesPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/settings" element={<Navigate to="/settings/profile" replace />} />
