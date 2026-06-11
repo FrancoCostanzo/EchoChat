@@ -374,6 +374,77 @@
       "failed": "Falhou"
     }
   },
+  "admin": {
+    "title": "Administração",
+    "noAccess": "Você não tem permissões de administração",
+    "backToChat": "Voltar ao chat",
+    "sections": {
+      "users": "Usuários",
+      "settings": "Sistema",
+      "audit": "Auditoria",
+      "storage": "Armazenamento"
+    },
+    "descriptions": {
+      "users": "Gerencie contas, status e papéis",
+      "settings": "Configuração global da plataforma",
+      "audit": "Histórico de ações críticas",
+      "storage": "Inventário e métricas do MinIO"
+    },
+    "users": {
+      "search": "Buscar usuários...",
+      "allStatuses": "Todos os status",
+      "create": "Novo usuário",
+      "createTitle": "Criar usuário",
+      "editTitle": "Editar usuário",
+      "edit": "Editar",
+      "delete": "Excluir",
+      "confirmDelete": "Excluir {{name}}?",
+      "colUser": "Usuário",
+      "colRoles": "Papéis",
+      "colStatus": "Status",
+      "colDept": "Departamento",
+      "username": "Usuário",
+      "password": "Senha",
+      "displayName": "Nome exibido",
+      "email": "Email",
+      "department": "Departamento",
+      "statusLabel": "Status",
+      "roles": "Papéis",
+      "status": {
+        "active": "Ativo",
+        "inactive": "Inativo",
+        "suspended": "Suspenso"
+      }
+    },
+    "settings": {
+      "categories": "Categorias",
+      "all": "Todas",
+      "edit": "Editar"
+    },
+    "audit": {
+      "filterAction": "Filtrar por ação...",
+      "allResults": "Todos",
+      "success": "Sucesso",
+      "failed": "Falhou",
+      "colTime": "Data",
+      "colActor": "Ator",
+      "colAction": "Ação",
+      "colResource": "Recurso",
+      "colResult": "OK"
+    },
+    "storage": {
+      "totalObjects": "Objetos",
+      "totalSize": "Tamanho total",
+      "pending": "Pendentes",
+      "failed": "Falhou",
+      "byBucket": "Por bucket",
+      "recentObjects": "Objetos recentes",
+      "colFile": "Arquivo",
+      "colBucket": "Bucket",
+      "colSize": "Tamanho",
+      "colStatus": "Status"
+    }
+  },
   "sidebar": {
     "chats": "Chats",
     "contacts": "Contatos",
@@ -386,6 +457,7 @@
     "noConversations": "Sem conversas",
     "explore": "Explorar canais",
     "broadcasts": "Difusões",
+    "admin": "Administração",
     "saved": "Salvos"
   },
   "layout": {

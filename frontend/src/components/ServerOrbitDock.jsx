@@ -10,6 +10,7 @@ import {
   Compass,
   Bookmark,
   Megaphone,
+  Shield,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
@@ -76,7 +77,11 @@ export default function ServerOrbitDock({
   const navigate = useNavigate();
   const location = useLocation();
   const logout = useAuthStore((s) => s.logout);
+  const user = useAuthStore((s) => s.user);
   const conversations = useChatStore((s) => s.conversations);
+
+  const canAdmin = (user?.roles || []).includes('super_admin')
+    || (user?.permissions || []).some((p) => p.startsWith('admin.'));
 
   const pathname = location.pathname;
   const isChat = pathname === '/chat' || pathname.startsWith('/chat/');
@@ -86,6 +91,7 @@ export default function ServerOrbitDock({
   const isSaved = pathname.startsWith('/saved');
   const isNotifications = pathname.startsWith('/notifications');
   const isSettings = pathname.startsWith('/settings');
+  const isAdmin = pathname.startsWith('/admin');
   const isNew = pathname === '/chat/new';
 
   const totalUnread = conversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
@@ -181,6 +187,14 @@ export default function ServerOrbitDock({
           onClick={() => navigate('/notifications')}
           active={isNotifications}
         />
+        {canAdmin && (
+          <DockOrb
+            icon={Shield}
+            label={t('sidebar.admin')}
+            onClick={() => navigate('/admin')}
+            active={isAdmin}
+          />
+        )}
         <DockOrb
           icon={Settings}
           label={t('sidebar.settings')}
