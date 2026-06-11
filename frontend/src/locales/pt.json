@@ -232,6 +232,7 @@
       "profile": "Perfil",
       "appearance": "Aparência",
       "language": "Idioma",
+      "notifications": "Notificações",
       "security": "Segurança",
       "presence": "Status"
     },
@@ -239,6 +240,7 @@
       "profile": "Gerencie suas informações pessoais e foto de perfil",
       "appearance": "Personalize o tema e as cores do aplicativo",
       "language": "Escolha o idioma da interface",
+      "notifications": "Configure alertas por canal e horário de silêncio",
       "security": "Senha, autenticação em duas etapas e sessões ativas",
       "presence": "Defina como os outros te veem"
     },
@@ -311,6 +313,26 @@
       "cyan": "Ciano"
     },
     "languageSelector": "Idioma do aplicativo",
+    "notifications": {
+      "title": "Preferências de notificações",
+      "subtitle": "Escolha como receber cada tipo de evento. Push e email serão ativados quando disponíveis.",
+      "inApp": "No app",
+      "push": "Push",
+      "email": "Email",
+      "quietHours": "Horário de silêncio",
+      "quietHoursDesc": "Durante este intervalo não serão enviadas notificações push nem email.",
+      "quietStart": "De",
+      "quietEnd": "Até",
+      "saveQuietHours": "Salvar horário",
+      "events": {
+        "message.direct": "Mensagens diretas",
+        "message.group": "Mensagens de grupo",
+        "message.mention": "Menções",
+        "channel.join_request": "Solicitações de canal",
+        "broadcast": "Difusões",
+        "call.incoming": "Chamadas recebidas"
+      }
+    },
     "languages": {
       "es": "Español",
       "en": "English",

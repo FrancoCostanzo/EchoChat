@@ -317,6 +317,7 @@ const SETTINGS_NAV = [
   { id: 'profile',    icon: User    },
   { id: 'appearance', icon: Palette },
   { id: 'language',   icon: Globe   },
+  { id: 'notifications', icon: Bell },
   { id: 'security',   icon: Shield  },
   { id: 'presence',   icon: Wifi    },
 ];

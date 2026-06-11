@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Input, Button, Spinner, InputOTP, REGEXP_ONLY_DIGITS } from '@heroui/react';
+import { Input, Button, Spinner, InputOTP, REGEXP_ONLY_DIGITS, Switch } from '@heroui/react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Monitor,
@@ -16,6 +16,7 @@ import {
   WifiOff,
   Clock,
   MinusCircle,
+  Bell,
   BellOff,
   Camera,
   ArrowLeft,
@@ -53,7 +54,7 @@ function parseUserAgent(ua) {
 }
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
-import { usersApi, authApi } from '@/lib/endpoints';
+import { usersApi, authApi, notificationsApi } from '@/lib/endpoints';
 import UserAvatar from '@/components/UserAvatar';
 import { useThemeStore, ACCENT_COLORS } from '@/stores/themeStore';
 import { changeLanguage } from '@/lib/i18n';
@@ -970,10 +971,191 @@ function LanguageTab() {
   );
 }
 
+const NOTIFICATION_EVENT_TYPES = [
+  'message.direct',
+  'message.group',
+  'message.mention',
+  'channel.join_request',
+  'broadcast',
+  'call.incoming',
+];
+
+const DEFAULT_PREF = {
+  in_app_enabled: true,
+  push_enabled: true,
+  email_enabled: false,
+  quiet_hours_start: null,
+  quiet_hours_end: null,
+};
+
+function formatTimeForInput(value) {
+  if (!value) return '';
+  const str = String(value);
+  return str.length >= 5 ? str.slice(0, 5) : str;
+}
+
+function NotificationsTab() {
+  const { t } = useTranslation();
+  const [prefs, setPrefs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(null);
+  const [quietStart, setQuietStart] = useState('');
+  const [quietEnd, setQuietEnd] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    notificationsApi
+      .getPreferences()
+      .then(({ data }) => {
+        if (!active) return;
+        const rows = Array.isArray(data) ? data : [];
+        setPrefs(rows);
+        const sample = rows.find((p) => p.quiet_hours_start || p.quiet_hours_end) || rows[0];
+        setQuietStart(formatTimeForInput(sample?.quiet_hours_start));
+        setQuietEnd(formatTimeForInput(sample?.quiet_hours_end));
+      })
+      .catch(() => { if (active) setPrefs([]); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  const getPref = (eventType) => {
+    const row = prefs.find((p) => p.event_type === eventType);
+    return { event_type: eventType, ...DEFAULT_PREF, ...row };
+  };
+
+  const persistPref = async (eventType, patch) => {
+    setSaving(eventType);
+    try {
+      const body = { ...getPref(eventType), ...patch, event_type: eventType };
+      const { data } = await notificationsApi.updatePreferences(body);
+      setPrefs((prev) => [...prev.filter((p) => p.event_type !== eventType), data]);
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const saveQuietHours = async () => {
+    setSaving('quiet');
+    try {
+      const start = quietStart || null;
+      const end = quietEnd || null;
+      const results = await Promise.all(
+        NOTIFICATION_EVENT_TYPES.map((eventType) =>
+          notificationsApi.updatePreferences({
+            ...getPref(eventType),
+            event_type: eventType,
+            quiet_hours_start: start,
+            quiet_hours_end: end,
+          }),
+        ),
+      );
+      setPrefs(results.map((r) => r.data));
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-16">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-5">
+      <SettingsCard icon={Bell} title={t('settings.notifications.title')}>
+        <p className="mb-4 text-xs text-ink-200">{t('settings.notifications.subtitle')}</p>
+        <div className="flex flex-col gap-3">
+          {NOTIFICATION_EVENT_TYPES.map((eventType) => {
+            const pref = getPref(eventType);
+            const busy = saving === eventType;
+            return (
+              <div
+                key={eventType}
+                className="rounded-xl border border-white/8 bg-ink-800/45 px-4 py-3"
+              >
+                <p className="mb-3 text-sm font-semibold text-foreground">
+                  {t(`settings.notifications.events.${eventType}`)}
+                </p>
+                <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:gap-6">
+                  <Switch
+                    isSelected={pref.in_app_enabled}
+                    isDisabled={busy}
+                    onChange={(v) => persistPref(eventType, { in_app_enabled: v })}
+                  >
+                    <Switch.Control><Switch.Thumb /></Switch.Control>
+                    <Switch.Content>{t('settings.notifications.inApp')}</Switch.Content>
+                  </Switch>
+                  <Switch
+                    isSelected={pref.push_enabled}
+                    isDisabled={busy}
+                    onChange={(v) => persistPref(eventType, { push_enabled: v })}
+                  >
+                    <Switch.Control><Switch.Thumb /></Switch.Control>
+                    <Switch.Content>{t('settings.notifications.push')}</Switch.Content>
+                  </Switch>
+                  <Switch
+                    isSelected={pref.email_enabled}
+                    isDisabled={busy}
+                    onChange={(v) => persistPref(eventType, { email_enabled: v })}
+                  >
+                    <Switch.Control><Switch.Thumb /></Switch.Control>
+                    <Switch.Content>{t('settings.notifications.email')}</Switch.Content>
+                  </Switch>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </SettingsCard>
+
+      <SettingsCard icon={BellOff} title={t('settings.notifications.quietHours')}>
+        <p className="mb-4 text-xs text-ink-200">{t('settings.notifications.quietHoursDesc')}</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="flex-1">
+            <label className="mb-1 block text-xs font-medium text-ink-200">
+              {t('settings.notifications.quietStart')}
+            </label>
+            <Input
+              type="time"
+              value={quietStart}
+              onChange={(e) => setQuietStart(e.target.value)}
+              className="w-full"
+            />
+          </div>
+          <div className="flex-1">
+            <label className="mb-1 block text-xs font-medium text-ink-200">
+              {t('settings.notifications.quietEnd')}
+            </label>
+            <Input
+              type="time"
+              value={quietEnd}
+              onChange={(e) => setQuietEnd(e.target.value)}
+              className="w-full"
+            />
+          </div>
+          <Button
+            variant="secondary"
+            isPending={saving === 'quiet'}
+            onPress={saveQuietHours}
+            className="shrink-0"
+          >
+            {t('settings.notifications.saveQuietHours')}
+          </Button>
+        </div>
+      </SettingsCard>
+    </div>
+  );
+}
+
 const TAB_COMPONENTS = {
   profile:    ProfileTab,
   appearance: AppearanceTab,
   language:   LanguageTab,
+  notifications: NotificationsTab,
   security:   SecurityTab,
   presence:   PresenceTab,
 };
@@ -982,6 +1164,7 @@ const MOBILE_SETTINGS_NAV = [
   { id: 'profile',    icon: User    },
   { id: 'appearance', icon: Palette },
   { id: 'language',   icon: Globe   },
+  { id: 'notifications', icon: Bell },
   { id: 'security',   icon: Shield  },
   { id: 'presence',   icon: Wifi    },
 ];
