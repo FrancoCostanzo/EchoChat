@@ -17,6 +17,11 @@ class BroadcastController {
     res.json({ status: 'success', data: list });
   }
 
+  async getMessages(req, res) {
+    const messages = await broadcastService.getMessages(req.params.listId, req.user.id);
+    res.json({ status: 'success', data: messages });
+  }
+
   async sendMessage(req, res) {
     const message = await broadcastService.sendMessage(req.params.listId, req.user.id, req.body);
     res.status(StatusCodes.CREATED).json({ status: 'success', data: message });
@@ -26,7 +31,7 @@ class BroadcastController {
     const recipients = await broadcastService.addRecipients(
       req.params.listId,
       req.user.id,
-      req.body.recipient_ids,
+      req.body,
     );
     res.status(StatusCodes.CREATED).json({ status: 'success', data: recipients });
   }

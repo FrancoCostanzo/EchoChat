@@ -14,8 +14,9 @@ const sendBroadcastDto = Joi.object({
 });
 
 const addBroadcastRecipientsDto = Joi.object({
-  recipient_ids: Joi.array().items(Joi.string().uuid()).min(1).required(),
-});
+  recipient_ids: Joi.array().items(Joi.string().uuid()).default([]),
+  department: Joi.string().max(100).allow(null, ''),
+}).or('recipient_ids', 'department');
 
 module.exports = {
   createBroadcastListDto,
