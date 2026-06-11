@@ -139,6 +139,7 @@ Usa la misma BD que el backend. No commitear `.env` ni credenciales en `mcp.json
 ## Referencias
 
 - `README.md` — setup, API, sockets, despliegue Docker, Git
+- `docs/SPATIAL_CANVAS.md` — sistema visual **Lienzo Espacial** (tokens, layout, componentes)
 - `docs/STYLE_GUIDE.md` — convenciones completas
 - `docs/ROADMAP.md` — funcionalidades planificadas
 - `tooling/bruno/` — colección Bruno para probar la API

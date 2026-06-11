@@ -29,6 +29,7 @@ import { useChatStore } from '@/stores/chatStore';
 import UserAvatar from '@/components/UserAvatar';
 import GuildRail from '@/components/GuildRail';
 import CommandPalette from '@/components/CommandPalette';
+import CanvasPanel from '@/components/CanvasPanel';
 import { formatMessageTime } from '@/lib/dates';
 
 const CONTENT_TRANSITION = { duration: 0.2, ease: [0.22, 1, 0.36, 1] };
@@ -199,7 +200,7 @@ function ChatSidebar() {
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-white/5 px-4 shadow-sm">
         <div className="flex items-center gap-2 min-w-0">
           <MessageSquare size={18} className="shrink-0 text-accent" />
-          <h2 className="echo-display truncate text-[17px] font-semibold">{t('sidebar.chats')}</h2>
+          <h2 className="echo-display truncate text-2xl font-semibold tracking-tight">{t('sidebar.chats')}</h2>
         </div>
         <Tooltip delay={0} placement="bottom">
           <Button
@@ -486,41 +487,49 @@ export default function ChatLayout() {
   }, []);
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden text-foreground md:flex-row md:gap-2 md:p-3">
+    <div className="flex h-screen flex-col overflow-hidden text-foreground md:flex-row md:gap-[var(--echo-canvas-gap)] md:p-3">
       {/* Guild rail — desktop only, floating dock centered on the canvas */}
       <div className="hidden md:flex md:items-center">
         <GuildRail />
       </div>
 
-      {/* Channel/Settings sidebar — floating card, inset from top/bottom */}
-      <div
+      {/* Channel/Settings sidebar — floating card with canvas inset */}
+      <CanvasPanel
         ref={sidebarRef}
-        className={`${isContentRoute ? 'hidden md:flex' : 'flex flex-1 md:flex-none'} md:my-4 md:w-72 md:overflow-hidden md:rounded-2xl md:border md:border-(--panel-border) md:shadow-[var(--shadow-e2)]`}
+        elevation={2}
+        radius="lg"
+        inset="md"
+        className={`${isContentRoute ? 'hidden md:flex' : 'flex flex-1 md:flex-none'} md:w-72 md:min-w-[220px]`}
       >
         <Sidebar />
-      </div>
+      </CanvasPanel>
 
-      {/* Resize handle - desktop only (invisible grab strip in the canvas gap) */}
+      {/* Resize handle — invisible grab strip in the canvas gap */}
       <div
-        className="hidden md:block w-1.5 shrink-0 cursor-col-resize self-stretch rounded-full bg-transparent transition-colors hover:bg-accent/45"
+        className="hidden w-1.5 shrink-0 cursor-col-resize self-stretch rounded-full bg-transparent transition-colors hover:bg-accent/45 md:block"
         onMouseDown={startResize}
         aria-hidden
       />
 
-      {/* Main content — the protagonist card */}
-      <main
-        className={`${isOnChatIndex ? 'hidden md:block' : ''} echo-chat-bg min-w-0 flex-1 overflow-hidden md:rounded-3xl md:border md:border-(--panel-border) md:shadow-[var(--shadow-e3)]`}
+      {/* Main content — hero card, highest elevation */}
+      <CanvasPanel
+        as="main"
+        elevation={3}
+        radius="xl"
+        inset="md"
+        accentGlow
+        className={`${isOnChatIndex ? 'hidden md:flex' : ''} echo-chat-bg min-w-0 flex-1 flex-col`}
       >
         <motion.div
           key={location.pathname}
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={CONTENT_TRANSITION}
-          className="h-full"
+          className="h-full min-h-0 flex-1"
         >
           <Outlet />
         </motion.div>
-      </main>
+      </CanvasPanel>
 
       {/* Mobile bottom nav */}
       {isContentRoute && !isConversationRoute && <MobileBottomNav />}

@@ -1084,6 +1084,9 @@ EchoChat/
 │   ├── 📄 vite.config.js
 │   └── 📄 package.json
 └── 📁 docs/                       # Documentación adicional
+    ├── 📄 STYLE_GUIDE.md
+    ├── 📄 SPATIAL_CANVAS.md       # Sistema visual Lienzo Espacial
+    └── 📄 ROADMAP.md
 ```
 
 <br/>
