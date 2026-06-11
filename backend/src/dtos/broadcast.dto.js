@@ -13,7 +13,12 @@ const sendBroadcastDto = Joi.object({
   scheduled_at: Joi.date().iso().allow(null),
 });
 
+const addBroadcastRecipientsDto = Joi.object({
+  recipient_ids: Joi.array().items(Joi.string().uuid()).min(1).required(),
+});
+
 module.exports = {
   createBroadcastListDto,
   sendBroadcastDto,
+  addBroadcastRecipientsDto,
 };

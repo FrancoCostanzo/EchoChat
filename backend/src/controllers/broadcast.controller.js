@@ -21,6 +21,24 @@ class BroadcastController {
     const message = await broadcastService.sendMessage(req.params.listId, req.user.id, req.body);
     res.status(StatusCodes.CREATED).json({ status: 'success', data: message });
   }
+
+  async addRecipients(req, res) {
+    const recipients = await broadcastService.addRecipients(
+      req.params.listId,
+      req.user.id,
+      req.body.recipient_ids,
+    );
+    res.status(StatusCodes.CREATED).json({ status: 'success', data: recipients });
+  }
+
+  async removeRecipient(req, res) {
+    const recipients = await broadcastService.removeRecipient(
+      req.params.listId,
+      req.user.id,
+      req.params.userId,
+    );
+    res.json({ status: 'success', data: recipients });
+  }
 }
 
 module.exports = new BroadcastController();

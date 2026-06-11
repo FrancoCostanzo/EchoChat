@@ -15,16 +15,21 @@ class BroadcastRepository extends BaseRepository {
   }
 
   async addRecipients(broadcastListId, userIds, addedBy) {
-    const values = userIds.map((_, i) => `($1, $${i * 2 + 2}, $${i * 2 + 3})`).join(', ');
-    const params = [broadcastListId];
+    if (!userIds?.length) return;
     for (const uid of userIds) {
-      params.push(uid, addedBy);
+      await this.query(
+        `INSERT INTO broadcast_recipients (broadcast_list_id, user_id, added_by)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (broadcast_list_id, user_id) DO NOTHING`,
+        [broadcastListId, uid, addedBy]
+      );
     }
+  }
+
+  async removeRecipient(broadcastListId, userId) {
     await this.query(
-      `INSERT INTO broadcast_recipients (broadcast_list_id, user_id, added_by)
-       VALUES ${values}
-       ON CONFLICT DO NOTHING`,
-      params
+      `DELETE FROM broadcast_recipients WHERE broadcast_list_id = $1 AND user_id = $2`,
+      [broadcastListId, userId]
     );
   }
 
