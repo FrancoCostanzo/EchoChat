@@ -687,27 +687,32 @@ function MessageContextMenu({ pos, onClose, quickEmojis, onEmoji, items }) {
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    const onPointerDown = (e) => {
+      if (ref.current?.contains(e.target)) return;
+      onClose();
+    };
     window.addEventListener('resize', onClose);
     window.addEventListener('scroll', onClose, true);
     window.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onPointerDown);
     return () => {
       window.removeEventListener('resize', onClose);
       window.removeEventListener('scroll', onClose, true);
       window.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onPointerDown);
     };
   }, [onClose]);
 
   return createPortal(
-    <div className="fixed inset-0 z-80" onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose(); }}>
+    <>
+      <div className="pointer-events-none fixed inset-0 z-80" aria-hidden />
       <motion.div
         ref={ref}
         initial={{ opacity: 0, scale: 0.94 }}
         animate={{ opacity: coords.ready ? 1 : 0, scale: coords.ready ? 1 : 0.94 }}
         transition={{ duration: 0.13, ease: [0.34, 1.56, 0.64, 1] }}
         style={{ left: coords.left, top: coords.top, transformOrigin: 'top left' }}
-        className="echo-glass-strong fixed w-56 overflow-hidden rounded-2xl p-1.5"
-        onClick={(e) => e.stopPropagation()}
-        onContextMenu={(e) => e.stopPropagation()}
+        className="echo-glass-strong pointer-events-auto fixed z-80 w-56 overflow-hidden rounded-2xl p-1.5"
       >
         {/* Quick reactions */}
         <div className="mb-1 flex items-center justify-between gap-0.5 px-1.5 pb-1.5">
@@ -743,31 +748,34 @@ function MessageContextMenu({ pos, onClose, quickEmojis, onEmoji, items }) {
           ) : null
         )}
       </motion.div>
-    </div>,
+    </>,
     document.body
   );
 }
 
-const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstInGroup, isLastInGroup, onEdit, onDelete, onReply, onReact, onForward, onOpenThread, onRetry, onSavedChange, currentUserId, currentUser }) {
+function buildMessageMenuItems({
+  message, isOwn, saved, t, closeMenu,
+  onReply, onOpenThread, onForward, onEdit, onDelete, onToggleSave,
+}) {
+  const canEdit = isOwn && (message.type !== 'media' || message.body);
+  const canCopy = !!message.body;
+  return [
+    { key: 'reply', icon: Reply, label: t('chat.reply'), onClick: () => { closeMenu(); onReply(message); } },
+    !message.thread_id && { key: 'thread', icon: MessageSquareText, label: t('chat.replyInThread'), onClick: () => { closeMenu(); onOpenThread(message); } },
+    { key: 'forward', icon: Forward, label: t('chat.forward'), onClick: () => { closeMenu(); onForward(message); } },
+    canCopy && { key: 'copy', icon: Copy, label: t('chat.copyText'), onClick: () => { closeMenu(); navigator.clipboard?.writeText(message.body); } },
+    { key: 'save', icon: saved ? BookmarkCheck : Bookmark, label: saved ? t('saved.remove') : t('chat.save'), onClick: () => { closeMenu(); onToggleSave(message); } },
+    canEdit && { key: 'edit', icon: Pencil, label: t('common.edit'), onClick: () => { closeMenu(); onEdit(message); } },
+    isOwn && { key: 'delete', icon: Trash2, label: t('common.delete'), danger: true, onClick: () => { closeMenu(); onDelete(message); } },
+  ];
+}
+
+const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstInGroup, isLastInGroup, isContextOpen, onOpenContextMenu, onEdit, onDelete, onReply, onReact, onForward, onOpenThread, onRetry, currentUserId, currentUser }) {
   const { t } = useTranslation();
-  const [menu, setMenu] = useState(null); // { x, y } | null
   const saved = !!message.is_saved;
   const longPressTimer = useRef(null);
 
-  const toggleSave = async () => {
-    const next = !saved;
-    onSavedChange(message.id, next);
-    try {
-      if (next) await messagesApi.save(message.id);
-      else await messagesApi.unsave(message.id);
-    } catch {
-      onSavedChange(message.id, saved);
-    }
-  };
-
   const isPending = message._status === 'sending' || message._status === 'error';
-  const canEdit = isOwn && (message.type !== 'media' || message.body);
-  const canCopy = !!message.body;
 
   const displayName = isOwn
     ? (currentUser?.display_name || message.sender_display_name || 'Tú')
@@ -781,36 +789,21 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
 
   // ── Context-menu (right-click / long-press) ──
   const actionable = !isPending && !message.is_deleted;
-  const closeMenu = useCallback(() => setMenu(null), []);
+  const openMenuAt = (x, y) => onOpenContextMenu(message.id, { x, y });
   const openMenu = (e) => {
     if (!actionable) return;
     e.preventDefault();
-    const x = e.clientX ?? e.touches?.[0]?.clientX ?? 0;
-    const y = e.clientY ?? e.touches?.[0]?.clientY ?? 0;
-    setMenu({ x, y });
+    openMenuAt(e.clientX ?? e.touches?.[0]?.clientX ?? 0, e.clientY ?? e.touches?.[0]?.clientY ?? 0);
   };
   const handleTouchStart = (e) => {
     if (!actionable) return;
     const t0 = e.touches[0];
     const { clientX, clientY } = t0;
-    longPressTimer.current = setTimeout(() => setMenu({ x: clientX, y: clientY }), 450);
+    longPressTimer.current = setTimeout(() => openMenuAt(clientX, clientY), 450);
   };
   const cancelLongPress = () => {
     if (longPressTimer.current) clearTimeout(longPressTimer.current);
   };
-
-  const menuItems = menu
-    ? [
-        { key: 'reply', icon: Reply, label: t('chat.reply'), onClick: () => { closeMenu(); onReply(message); } },
-        // Thread replies can't be nested — only root messages open a thread
-        !message.thread_id && { key: 'thread', icon: MessageSquareText, label: t('chat.replyInThread'), onClick: () => { closeMenu(); onOpenThread(message); } },
-        { key: 'forward', icon: Forward, label: t('chat.forward'), onClick: () => { closeMenu(); onForward(message); } },
-        canCopy && { key: 'copy', icon: Copy, label: t('chat.copyText'), onClick: () => { closeMenu(); navigator.clipboard?.writeText(message.body); } },
-        { key: 'save', icon: saved ? BookmarkCheck : Bookmark, label: saved ? t('saved.remove') : t('chat.save'), onClick: () => { closeMenu(); toggleSave(); } },
-        canEdit && { key: 'edit', icon: Pencil, label: t('common.edit'), onClick: () => { closeMenu(); onEdit(message); } },
-        isOwn && { key: 'delete', icon: Trash2, label: t('common.delete'), danger: true, onClick: () => { closeMenu(); onDelete(message); } },
-      ]
-    : [];
 
   const isMediaOnly =
     message.type === 'media' && message.attachments?.length > 0 && !message.body;
@@ -825,7 +818,7 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
       : 'bg-ink-800/85 text-ink-0 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.4)] ring-1 ring-white/8',
     'rounded-2xl',
     isFirstInGroup ? (isOwn ? 'rounded-tr-md' : 'rounded-tl-md') : '',
-    menu ? 'echo-selected' : '',
+    isContextOpen ? 'echo-selected' : '',
   ].join(' ');
 
   const metaClass = isOwn ? 'echo-on-accent-muted' : 'text-ink-200';
@@ -845,7 +838,7 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
         'echo-msg-row group relative flex gap-2 rounded-lg px-3 transition-colors sm:px-4',
         isFirstInGroup ? 'mt-3' : 'mt-0.5',
         isOwn ? 'flex-row-reverse' : 'flex-row',
-        menu ? 'bg-white/4' : 'hover:bg-white/2.5',
+        isContextOpen ? 'bg-white/4' : 'hover:bg-white/2.5',
       ].join(' ')}
     >
       {/* Avatar gutter (group chats, other users only) */}
@@ -991,17 +984,6 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
           </div>
         )}
       </div>
-
-      {/* Right-click / long-press context menu */}
-      {menu && (
-        <MessageContextMenu
-          pos={menu}
-          onClose={closeMenu}
-          quickEmojis={QUICK_EMOJIS}
-          onEmoji={(em) => { closeMenu(); onReact(message.id, em); }}
-          items={menuItems}
-        />
-      )}
     </motion.div>
   );
 });
@@ -1136,6 +1118,7 @@ export default function ConversationPage() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [forwardTarget, setForwardTarget] = useState(null); // message being forwarded
   const [threadRoot, setThreadRoot] = useState(null); // root message of the open thread panel
+  const [contextMenu, setContextMenu] = useState(null); // { messageId, x, y } | null
   const [showPollModal, setShowPollModal] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [members, setMembers] = useState([]);
@@ -1224,6 +1207,7 @@ export default function ConversationPage() {
       prevContentHeightRef.current = 0;
       if (anchorTimerRef.current) clearTimeout(anchorTimerRef.current);
       setShowScrollBtn(false);
+      setContextMenu(null);
       setActiveConversation(conversationId);
     }
     return () => {
@@ -1552,6 +1536,46 @@ export default function ConversationPage() {
     patchMessage(messageId, { is_saved: isSaved });
   }, [patchMessage]);
 
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
+  const handleOpenContextMenu = useCallback((messageId, pos) => {
+    setContextMenu({ messageId, ...pos });
+  }, []);
+
+  const handleToggleSave = useCallback(async (message) => {
+    const saved = !!message.is_saved;
+    const next = !saved;
+    handleSavedChange(message.id, next);
+    try {
+      if (next) await messagesApi.save(message.id);
+      else await messagesApi.unsave(message.id);
+    } catch {
+      handleSavedChange(message.id, saved);
+    }
+  }, [handleSavedChange]);
+
+  const contextMenuMessage = contextMenu
+    ? messages.find((m) => m.id === contextMenu.messageId)
+    : null;
+
+  const contextMenuItems = contextMenuMessage
+    ? buildMessageMenuItems({
+        message: contextMenuMessage,
+        isOwn: contextMenuMessage.sender_id === user?.id,
+        saved: !!contextMenuMessage.is_saved,
+        t,
+        closeMenu: handleCloseContextMenu,
+        onReply: handleReply,
+        onOpenThread: handleOpenThread,
+        onForward: handleForward,
+        onEdit: handleEdit,
+        onDelete: handleDeleteRequest,
+        onToggleSave: handleToggleSave,
+      })
+    : [];
+
   const messageElements = useMemo(() => {
     const isDirect = conversation?.type === 'direct';
     return messages.map((msg, index) => {
@@ -1567,6 +1591,8 @@ export default function ConversationPage() {
           isDirect={isDirect}
           isFirstInGroup={isFirstInGroup}
           isLastInGroup={isLastInGroup}
+          isContextOpen={contextMenu?.messageId === msg.id}
+          onOpenContextMenu={handleOpenContextMenu}
           onEdit={handleEdit}
           onDelete={handleDeleteRequest}
           onReply={handleReply}
@@ -1574,13 +1600,12 @@ export default function ConversationPage() {
           onForward={handleForward}
           onOpenThread={handleOpenThread}
           onRetry={retrySendMessage}
-          onSavedChange={handleSavedChange}
           currentUserId={user?.id}
           currentUser={user}
         />
       );
     });
-  }, [messages, user, conversation?.type, handleEdit, handleDeleteRequest, handleReply, handleReact, handleForward, handleOpenThread, retrySendMessage, handleSavedChange]);
+  }, [messages, user, conversation?.type, contextMenu?.messageId, handleOpenContextMenu, handleEdit, handleDeleteRequest, handleReply, handleReact, handleForward, handleOpenThread, retrySendMessage]);
 
   if (!conversation) {
     return (
@@ -1959,6 +1984,17 @@ export default function ConversationPage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* ── Message context menu (single instance per conversation) ── */}
+        {contextMenu && contextMenuMessage && (
+          <MessageContextMenu
+            pos={contextMenu}
+            onClose={handleCloseContextMenu}
+            quickEmojis={QUICK_EMOJIS}
+            onEmoji={(em) => { handleCloseContextMenu(); handleReact(contextMenuMessage.id, em); }}
+            items={contextMenuItems}
+          />
+        )}
       </div>
     </>
   );
