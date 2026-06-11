@@ -434,6 +434,8 @@
   .echo-composer-focused { transform: none; }
   .echo-typing-dot { animation: none; }
   .echo-fade-in { animation: none; }
+  .echo-shimmer { animation: none; }
+  .send-btn.send-btn--pulse { animation: none; }
 }
 
 /* ──────────────────────────────────────────────────────────
@@ -442,6 +444,22 @@
 @keyframes echo-fade-in {
   from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes echo-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.echo-shimmer {
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklch, var(--echo-bg-panel, #1a1b1e) 92%, transparent) 0%,
+    color-mix(in oklch, #ffffff 8%, var(--echo-bg-panel, #1a1b1e)) 50%,
+    color-mix(in oklch, var(--echo-bg-panel, #1a1b1e) 92%, transparent) 100%
+  );
+  background-size: 200% 100%;
+  animation: echo-shimmer 1.4s ease-in-out infinite;
 }
 
 @keyframes echo-typing {
@@ -519,7 +537,16 @@
   transform: translateX(5em);
 }
 .send-btn:not(:disabled):active {
-  transform: scale(0.95);
+  transform: scale(0.92);
+  filter: brightness(1.08);
+}
+.send-btn.send-btn--pulse:not(:disabled) {
+  animation: send-pulse 0.38s ease-out;
+}
+@keyframes send-pulse {
+  0%   { transform: scale(1); box-shadow: 0 0 0 0 color-mix(in oklch, var(--accent) 55%, transparent); }
+  45%  { transform: scale(0.9); box-shadow: 0 0 0 6px color-mix(in oklch, var(--accent) 0%, transparent); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 transparent; }
 }
 @keyframes send-fly {
   from { transform: translateY(0.1em); }

@@ -33,7 +33,7 @@ export const useChatStore = create((set, get) => ({
       if (message.conversation_id === state.activeConversationId) {
         const exists = state.messages.some((m) => m.id === message.id);
         if (!exists) {
-          set({ messages: [...state.messages, message] });
+          set({ messages: [...state.messages, { ...message, _animateIn: true }] });
           // Auto-mark as read since the user is actively viewing this conversation
           const currentUser = state.activeUserId;
           if (message.sender_id !== currentUser) {

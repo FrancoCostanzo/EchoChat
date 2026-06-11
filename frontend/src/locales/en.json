@@ -89,6 +89,7 @@
     "react": "React",
     "copyText": "Copy text",
     "reply": "Reply",
+    "jumpToOriginal": "Jump to original message",
     "save": "Save message",
     "savedMessage": "Saved message",
     "forward": "Forward",
