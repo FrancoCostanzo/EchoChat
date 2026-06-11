@@ -40,9 +40,11 @@ import {
   Upload,
   MessageSquareText,
   Play,
+  ImageIcon,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
+import { useWallpaperStore } from '@/stores/wallpaperStore';
 import { useTranslation } from 'react-i18next';
 import UserAvatar from '@/components/UserAvatar';
 import ImageViewer from '@/components/ImageViewer';
@@ -53,6 +55,8 @@ import MessageSearchPanel from '@/components/MessageSearchPanel';
 import ThreadPanel from '@/components/ThreadPanel';
 import PollMessage from '@/components/PollMessage';
 import CreatePollModal from '@/components/CreatePollModal';
+import WallpaperPicker from '@/components/WallpaperPicker';
+import { PRESETS } from '@/components/WallpaperPicker';
 import { formatMessageTime, formatFullTime } from '@/lib/dates';
 import FloatingComposer from '@/components/FloatingComposer';
 import PresenceAvatarStack from '@/components/PresenceAvatarStack';
@@ -1242,6 +1246,14 @@ export default function ConversationPage() {
   const [loadingMembers, setLoadingMembers] = useState(false);
   const dragCounterRef = useRef(0);
 
+  const [wallpaperPickerOpen, setWallpaperPickerOpen] = useState(false);
+  const [wallpaperStyle, setWallpaperStyle] = useState(null); // null = default echo-chat-bg
+
+  const wallpapers = useWallpaperStore((s) => s.wallpapers);
+  const resolveWallpaper = useWallpaperStore((s) => s.resolveWallpaper);
+  const cacheUrl = useWallpaperStore((s) => s.cacheUrl);
+  const getCachedUrl = useWallpaperStore((s) => s.getCachedUrl);
+
   const messagesEndRef = useRef(null);
   const messagesContentRef = useRef(null);
   const containerRef = useRef(null);
@@ -1259,8 +1271,67 @@ export default function ConversationPage() {
   const draftReadyRef = useRef(false);  // true once the draft for this conv has loaded
   const draftSaveTimerRef = useRef(null);
 
-  const conversation = getActiveConversation();
+  const conversation =
+    conversations.find((c) => c.id === conversationId) ?? getActiveConversation();
   const isDirect = conversation?.type === 'direct';
+
+  // Resolve and apply wallpaper using URL conversationId (works before chat list loads)
+  useEffect(() => {
+    if (!conversationId) {
+      setWallpaperStyle(null);
+      return undefined;
+    }
+
+    const convType =
+      conversation?.type ?? conversations.find((c) => c.id === conversationId)?.type;
+
+    const active = resolveWallpaper(convType, conversationId);
+    if (!active) {
+      setWallpaperStyle(null);
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    if (active.wallpaper_type === 'preset') {
+      const preset = PRESETS.find((p) => p.key === active.wallpaper_value);
+      setWallpaperStyle(preset ? { background: preset.background } : null);
+    } else if (active.wallpaper_type === 'color') {
+      setWallpaperStyle({ backgroundColor: active.wallpaper_value });
+    } else if (active.wallpaper_type === 'image' && active.storage_object_id) {
+      const cached = getCachedUrl(active.storage_object_id);
+      if (cached) {
+        setWallpaperStyle({
+          backgroundImage: `url(${cached})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        });
+      } else {
+        storageApi.getUrl(active.storage_object_id).then((res) => {
+          if (cancelled) return;
+          const url = res.data?.url;
+          if (url) {
+            cacheUrl(active.storage_object_id, url);
+            setWallpaperStyle({
+              backgroundImage: `url(${url})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+            });
+          }
+        }).catch(() => {});
+      }
+    }
+
+    return () => { cancelled = true; };
+  }, [
+    conversationId,
+    conversation?.type,
+    conversations,
+    wallpapers,
+    resolveWallpaper,
+    getCachedUrl,
+    cacheUrl,
+  ]);
 
   useEffect(() => {
     if (!conversationId || !conversation || isDirect) {
@@ -1821,8 +1892,19 @@ export default function ConversationPage() {
         onClose={() => setShowPollModal(false)}
       />
 
+      {wallpaperPickerOpen && (
+        <WallpaperPicker
+          isOpen={wallpaperPickerOpen}
+          onClose={() => setWallpaperPickerOpen(false)}
+          scope="conversation"
+          scopeKey={conversationId}
+          label={convName}
+        />
+      )}
+
       <div
-        className="relative flex h-full bg-transparent"
+        className={`relative flex h-full${wallpaperStyle ? '' : ' bg-transparent'}`}
+        style={wallpaperStyle ?? undefined}
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -1903,6 +1985,10 @@ export default function ConversationPage() {
                   <Dropdown.Item id="pinned" textValue={t('chat.pinnedMessages')}>
                     <Pin size={15} />
                     <Label>{t('chat.pinnedMessages')}</Label>
+                  </Dropdown.Item>
+                  <Dropdown.Item id="wallpaper" textValue={t('chat.changeWallpaper')} onAction={() => setWallpaperPickerOpen(true)}>
+                    <ImageIcon size={15} />
+                    <Label>{t('chat.changeWallpaper')}</Label>
                   </Dropdown.Item>
                 </Dropdown.Menu>
               </Dropdown.Popover>

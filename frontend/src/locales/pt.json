@@ -130,7 +130,8 @@
     "threadNoReplies": "Ainda não há respostas. Comece o tópico!",
     "threadReplyPlaceholder": "Responder no tópico...",
     "memberPanel": "Membros",
-    "viewMembers": "Ver membros"
+    "viewMembers": "Ver membros",
+    "changeWallpaper": "Alterar plano de fundo"
   },
   "newConversation": {
     "title": "Nova conversa",
@@ -479,5 +480,39 @@
     "reset": "Restaurar (0)",
     "zoomIn": "Aumentar (+)",
     "resetZoom": "Restaurar zoom"
+  },
+  "wallpaper": {
+    "title": "Plano de fundo do chat",
+    "settingsTitle": "Plano de fundo do chat",
+    "settingsHint": "O plano de fundo mais específico tem prioridade: conversa > tipo > geral.",
+    "scopeGlobal": "Geral (todos os chats)",
+    "typeDirect": "Mensagens diretas",
+    "typeGroup": "Grupos",
+    "typeChannel": "Canais",
+    "typeBroadcast": "Difusões",
+    "typeBot": "Bots",
+    "presets": "Gradientes",
+    "solidColor": "Cor sólida",
+    "image": "Imagem",
+    "customColor": "Cor personalizada",
+    "uploadHint": "Clique para enviar uma imagem",
+    "uploading": "Enviando...",
+    "preview": "Pré-visualização",
+    "currentlySet": "Plano de fundo definido",
+    "remove": "Remover plano de fundo",
+    "notSet": "Não definido (herdado)",
+    "type_preset": "Gradiente",
+    "type_color": "Cor sólida",
+    "type_image": "Imagem personalizada",
+    "presetNames": {
+      "midnight": "Meia-noite",
+      "aurora": "Aurora",
+      "ember": "Brasa",
+      "forest": "Floresta",
+      "dusk": "Entardecer",
+      "ocean": "Oceano",
+      "rose": "Rosa",
+      "graphite": "Grafite"
+    }
   }
 }

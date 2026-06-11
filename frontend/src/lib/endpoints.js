@@ -138,3 +138,9 @@ export const relationshipsApi = {
   getBlocked: () => api.get('/relationships/blocked'),
   getFavorites: () => api.get('/relationships/favorites'),
 };
+
+export const wallpaperApi = {
+  getAll: () => api.get('/preferences/wallpapers'),
+  upsert: (data) => api.put('/preferences/wallpapers', data),
+  remove: (scope, scopeKey) => api.delete(`/preferences/wallpapers/${scope}/${encodeURIComponent(scopeKey)}`),
+};
