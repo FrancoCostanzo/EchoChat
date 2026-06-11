@@ -9,6 +9,7 @@ const logger = require('../config/logger');
 const jobs = [
   require('./presenceTimeout.job'),
   require('./presignedCleanup.job'),
+  require('./scheduledBroadcasts.job'),
 ];
 
 const tasks = [];
