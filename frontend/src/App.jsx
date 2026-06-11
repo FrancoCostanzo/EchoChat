@@ -50,7 +50,7 @@ export default function App() {
       if (token) initSocket(token, user?.id);
       return () => destroySocket();
     }
-  }, [isAuthenticated, loading, fetchConversations, token, initSocket, destroySocket]);
+  }, [isAuthenticated, loading, fetchConversations, token, user?.id, initSocket, destroySocket]);
 
   return (
     <Suspense fallback={<PageLoader />}>

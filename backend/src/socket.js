@@ -6,6 +6,31 @@ const logger = require('./config/logger');
 // a circular dependency (message.service → socket → services → message.service).
 
 let io;
+const offlineTimers = new Map();
+
+function cancelOfflineTimer(userId) {
+  const timer = offlineTimers.get(userId);
+  if (timer) {
+    clearTimeout(timer);
+    offlineTimers.delete(userId);
+  }
+}
+
+function scheduleOffline(userId) {
+  cancelOfflineTimer(userId);
+  const timer = setTimeout(async () => {
+    offlineTimers.delete(userId);
+    try {
+      const sockets = await io.in(`user:${userId}`).fetchSockets();
+      if (sockets.length === 0) {
+        await updatePresence(userId, 'offline');
+      }
+    } catch (err) {
+      logger.warn({ err: err.message, userId }, 'Failed to mark user offline');
+    }
+  }, 2500);
+  offlineTimers.set(userId, timer);
+}
 
 function initSocket(httpServer) {
   const { authService } = require('./services');
@@ -50,8 +75,22 @@ function initSocket(httpServer) {
       logger.warn({ err: err.message, userId }, 'Failed to join conversation rooms');
     }
 
-    // ── Update presence to online ───────────────────────────────────
-    await updatePresence(userId, 'online');
+    // ── Restore presence on connect (debounced disconnect avoids F5 → offline) ─
+    cancelOfflineTimer(userId);
+    try {
+      const dbUser = await userRepository.findById(userId);
+      if (dbUser?.presence === 'offline') {
+        await updatePresence(userId, 'online');
+      } else if (dbUser?.presence) {
+        await userRepository.updatePresence(userId, dbUser.presence);
+        io.emit('presence:changed', { userId, presence: dbUser.presence });
+      } else {
+        await updatePresence(userId, 'online');
+      }
+    } catch (err) {
+      logger.warn({ err: err.message, userId }, 'Failed to restore presence on connect');
+      await updatePresence(userId, 'online');
+    }
 
     // ── Join a new conversation room (when creating/entering one) ───
     socket.on('join:conversation', (conversationId) => {
@@ -111,14 +150,10 @@ function initSocket(httpServer) {
     });
 
     // ── Disconnect ──────────────────────────────────────────────────
-    socket.on('disconnect', async () => {
+    socket.on('disconnect', () => {
       logger.info({ userId, socketId: socket.id }, 'Socket disconnected');
-
-      // Check if user has any other active sockets
-      const sockets = await io.in(`user:${userId}`).fetchSockets();
-      if (sockets.length === 0) {
-        await updatePresence(userId, 'offline');
-      }
+      // Grace period so F5 / tab refresh does not flash offline in DB or /me
+      scheduleOffline(userId);
     });
   });
 
