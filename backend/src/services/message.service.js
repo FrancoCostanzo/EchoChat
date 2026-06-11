@@ -67,12 +67,12 @@ class MessageService {
 
   // Root message + ordered replies for the thread side panel
   async getThread(messageId, userId) {
-    const root = await messageRepository.findWithAttachments(messageId);
+    const root = await messageRepository.findWithAttachments(messageId, userId);
     if (!root) throw new NotFoundError('Message');
     const member = await conversationRepository.getMember(root.conversation_id, userId);
     if (!member) throw new ForbiddenError('Not a member of this conversation');
 
-    const replies = await messageRepository.findThreadReplies(messageId);
+    const replies = await messageRepository.findThreadReplies(messageId, { viewerUserId: userId });
     const rootResponse = toMessageResponse(root);
     const replyResponses = replies.map(toMessageResponse);
     await this._attachPolls([rootResponse, ...replyResponses], userId);
@@ -83,7 +83,10 @@ class MessageService {
     const member = await conversationRepository.getMember(conversationId, userId);
     if (!member) throw new ForbiddenError('Not a member of this conversation');
 
-    const messages = await messageRepository.findByConversation(conversationId, pagination);
+    const messages = await messageRepository.findByConversation(conversationId, {
+      ...pagination,
+      viewerUserId: userId,
+    });
     const responses = messages.map(toMessageResponse);
     await this._attachPolls(responses, userId);
     return responses;

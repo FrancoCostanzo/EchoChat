@@ -31,6 +31,9 @@ function toMessageResponse(row) {
     // Read receipt counts (sent → delivered → read)
     delivered_count: parseInt(row.delivered_count, 10) || 0,
     read_count: parseInt(row.read_count, 10) || 0,
+    // Saved/bookmarked by the viewing user (when joined in the query)
+    is_saved: row.is_saved === true || row.is_saved === 't',
+    saved_note: row.saved_note ?? null,
   };
 }
 

@@ -257,6 +257,14 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
+  patchMessage: (messageId, patch) => {
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        m.id === messageId ? { ...m, ...patch } : m,
+      ),
+    }));
+  },
+
   loadMoreMessages: async () => {
     const { activeConversationId, messages, hasMoreMessages, loadingMessages } = get();
     if (!activeConversationId || !hasMoreMessages || loadingMessages) return;
