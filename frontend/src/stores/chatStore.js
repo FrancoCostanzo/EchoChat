@@ -231,10 +231,14 @@ export const useChatStore = create((set, get) => ({
       if (cursor) params.cursor = cursor;
       const { data } = await messagesApi.getByConversation(conversationId, params);
       const sorted = [...data].sort((a, b) => new Date(a.sent_at) - new Date(b.sent_at));
-      set((state) => ({
-        messages: cursor ? [...sorted, ...state.messages] : sorted,
-        hasMoreMessages: data.length === 50,
-      }));
+      set((state) => {
+        // Ignore stale responses after switching conversations
+        if (state.activeConversationId !== conversationId) return state;
+        return {
+          messages: cursor ? [...sorted, ...state.messages] : sorted,
+          hasMoreMessages: data.length === 50,
+        };
+      });
       // Mark all loaded messages from others as read on initial load
       if (!cursor) {
         const { activeUserId } = get();

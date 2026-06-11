@@ -552,13 +552,14 @@ function AttachmentView({ attachment }) {
     return (
       <>
         <div
-          className="group relative inline-block cursor-zoom-in overflow-hidden rounded-lg"
+          className="group relative inline-block min-h-48 cursor-zoom-in overflow-hidden rounded-lg"
           onClick={() => setViewerOpen(true)}
         >
           <img
             src={url}
             alt={attachment.original_filename}
-            className="max-h-80 max-w-[min(400px,70vw)] object-cover"
+            decoding="async"
+            className="block max-h-80 max-w-[min(400px,70vw)] object-cover"
           />
           <div className="absolute inset-0 flex items-end justify-end gap-1 bg-gradient-to-t from-black/50 to-transparent p-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
             <Button
@@ -1138,6 +1139,7 @@ export default function ConversationPage() {
   const dragCounterRef = useRef(0);
 
   const messagesEndRef = useRef(null);
+  const messagesContentRef = useRef(null);
   const containerRef = useRef(null);
   const inputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -1145,6 +1147,8 @@ export default function ConversationPage() {
   const loadingMoreRef = useRef(false);
   const wasAtBottomRef = useRef(true);
   const initialLoadRef = useRef(false); // true after first batch of messages is rendered
+  const anchorBottomRef = useRef(false); // keep pinned while media loads on open
+  const anchorTimerRef = useRef(null);
   const scrollIdleTimerRef = useRef(null);
   const draftReadyRef = useRef(false);  // true once the draft for this conv has loaded
   const draftSaveTimerRef = useRef(null);
@@ -1184,9 +1188,34 @@ export default function ConversationPage() {
     return () => clearActiveConversation();
   }, [clearActiveConversation]);
 
+  const scrollContainerToBottom = useCallback((smooth = false) => {
+    const el = containerRef.current;
+    if (!el) return;
+    const top = el.scrollHeight;
+    if (smooth) {
+      el.scrollTo({ top, behavior: 'smooth' });
+    } else {
+      el.scrollTop = top;
+    }
+  }, []);
+
+  const startBottomAnchor = useCallback(() => {
+    anchorBottomRef.current = true;
+    if (anchorTimerRef.current) clearTimeout(anchorTimerRef.current);
+    anchorTimerRef.current = setTimeout(() => {
+      anchorBottomRef.current = false;
+    }, 8000);
+  }, []);
+
   useEffect(() => {
     if (conversationId) {
       initialLoadRef.current = false;
+      prevScrollHeightRef.current = null;
+      loadingMoreRef.current = false;
+      wasAtBottomRef.current = true;
+      anchorBottomRef.current = false;
+      if (anchorTimerRef.current) clearTimeout(anchorTimerRef.current);
+      setShowScrollBtn(false);
       setActiveConversation(conversationId);
     }
     return () => {
@@ -1236,18 +1265,43 @@ export default function ConversationPage() {
   useLayoutEffect(() => {
     if (prevScrollHeightRef.current !== null) return; // handled by the load-more layout effect
     if (loadingMoreRef.current) return;
-    const el = containerRef.current;
-    if (!el || messages.length === 0) return;
+    if (!containerRef.current || messages.length === 0) return;
+
     if (!initialLoadRef.current) {
       // First batch: jump instantly before paint so user never sees the top
-      messagesEndRef.current?.scrollIntoView({ behavior: 'instant', block: 'end' });
+      scrollContainerToBottom(false);
       wasAtBottomRef.current = true;
       initialLoadRef.current = true;
+      startBottomAnchor();
+      setShowScrollBtn(false);
+      requestAnimationFrame(() => scrollContainerToBottom(false));
     } else if (wasAtBottomRef.current) {
-      // New message while already at bottom: smooth scroll
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      scrollContainerToBottom(true);
     }
-  }, [messages]);
+  }, [messages, scrollContainerToBottom, startBottomAnchor]);
+
+  // Catch late layout shifts while still on initial open
+  useLayoutEffect(() => {
+    if (initialLoadRef.current || loadingMessages || messages.length === 0) return;
+    scrollContainerToBottom(false);
+    wasAtBottomRef.current = true;
+    initialLoadRef.current = true;
+    startBottomAnchor();
+    setShowScrollBtn(false);
+  }, [loadingMessages, messages.length, scrollContainerToBottom, startBottomAnchor]);
+
+  // Re-scroll when content height changes (images/videos loading after URL fetch)
+  useEffect(() => {
+    const content = messagesContentRef.current;
+    if (!content) return;
+    const ro = new ResizeObserver(() => {
+      if (anchorBottomRef.current || wasAtBottomRef.current) {
+        scrollContainerToBottom(false);
+      }
+    });
+    ro.observe(content);
+    return () => ro.disconnect();
+  }, [conversationId, scrollContainerToBottom]);
 
   // Restore scroll position after prepending older messages
   useLayoutEffect(() => {
@@ -1264,7 +1318,21 @@ export default function ConversationPage() {
   const handleScroll = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
-    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const atBottom = distanceFromBottom < 100;
+    const userScrolledUp = anchorBottomRef.current && distanceFromBottom > 300;
+
+    if (userScrolledUp) {
+      anchorBottomRef.current = false;
+      if (anchorTimerRef.current) clearTimeout(anchorTimerRef.current);
+    } else if (anchorBottomRef.current && !atBottom) {
+      // Content grew (e.g. image loaded) — stay pinned, don't treat as user scroll
+      scrollContainerToBottom(false);
+      wasAtBottomRef.current = true;
+      setShowScrollBtn(false);
+      return;
+    }
+
     wasAtBottomRef.current = atBottom;
     if (atBottom) {
       setShowScrollBtn(false);
@@ -1274,15 +1342,17 @@ export default function ConversationPage() {
       if (scrollIdleTimerRef.current) clearTimeout(scrollIdleTimerRef.current);
       scrollIdleTimerRef.current = setTimeout(() => setShowScrollBtn(false), 2000);
     }
+    // Don't auto-load older messages until the initial scroll-to-bottom completed
+    if (!initialLoadRef.current) return;
     if (el.scrollTop < 80 && hasMoreMessages && !loadingMoreRef.current) {
       loadingMoreRef.current = true;
       prevScrollHeightRef.current = el.scrollHeight;
       loadMoreMessages();
     }
-  }, [hasMoreMessages, loadMoreMessages]);
+  }, [hasMoreMessages, loadMoreMessages, scrollContainerToBottom]);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    scrollContainerToBottom(true);
   };
 
   const handleSend = async () => {
@@ -1634,6 +1704,7 @@ export default function ConversationPage() {
             onScroll={handleScroll}
             className="h-full overflow-y-auto overflow-x-hidden pb-3"
           >
+            <div ref={messagesContentRef}>
             {loadingMessages && messages.length === 0 && (
               <div className="flex flex-col items-center justify-center gap-2 py-12 text-ink-200">
                 <Spinner size="lg" />
@@ -1685,6 +1756,7 @@ export default function ConversationPage() {
 
             {messageElements}
             <div ref={messagesEndRef} />
+            </div>
           </div>
 
           {/* Scroll to bottom button */}
