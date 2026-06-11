@@ -339,6 +339,41 @@
       "pt": "Português"
     }
   },
+  "broadcasts": {
+    "title": "Broadcasts",
+    "subtitle": "Send mass messages to recipient lists",
+    "create": "New list",
+    "createFirst": "Create first list",
+    "createTitle": "Create broadcast list",
+    "name": "Name",
+    "description": "Description",
+    "selectRecipients": "Initial recipients",
+    "empty": "You have no broadcast lists",
+    "noAccess": "You do not have permission to manage broadcasts",
+    "listMeta": "Broadcast list",
+    "back": "Back",
+    "recipients": "Recipients",
+    "removeRecipient": "Remove recipient",
+    "addRecipients": "Add recipients",
+    "department": "Department",
+    "departmentPlaceholder": "e.g. Sales",
+    "add": "Add",
+    "compose": "Compose message",
+    "bodyPlaceholder": "Write the broadcast message...",
+    "scheduleOptional": "Schedule send (optional)",
+    "schedule": "Schedule",
+    "sendNow": "Send now",
+    "history": "History",
+    "noMessages": "No messages sent yet",
+    "delivered": "{{delivered}}/{{total}} delivered",
+    "status": {
+      "draft": "Draft",
+      "scheduled": "Scheduled",
+      "sending": "Sending",
+      "sent": "Sent",
+      "failed": "Failed"
+    }
+  },
   "sidebar": {
     "chats": "Chats",
     "contacts": "Contacts",
@@ -350,6 +385,7 @@
     "searchConversation": "Search conversation...",
     "noConversations": "No conversations",
     "explore": "Explore channels",
+    "broadcasts": "Broadcasts",
     "saved": "Saved"
   },
   "layout": {
