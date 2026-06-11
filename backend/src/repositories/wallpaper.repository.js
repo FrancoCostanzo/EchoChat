@@ -15,6 +15,15 @@ class WallpaperRepository extends BaseRepository {
     return rows;
   }
 
+  async findOne(userId, scope, scope_key) {
+    const { rows } = await this.query(
+      `SELECT * FROM user_wallpapers
+       WHERE user_id = $1 AND scope = $2 AND scope_key = $3`,
+      [userId, scope, scope_key]
+    );
+    return rows[0] || null;
+  }
+
   async upsert(userId, { scope, scope_key, wallpaper_type, wallpaper_value, storage_object_id }) {
     const { rows } = await this.query(
       `INSERT INTO user_wallpapers

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button, Spinner, Modal, Label } from '@heroui/react';
 import { Upload, X, Check, Trash2, Image as ImageIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -59,6 +59,7 @@ export default function WallpaperPicker({ isOpen, onClose, scope, scopeKey, labe
   const { t } = useTranslation();
   const { wallpapers, setWallpaper, removeWallpaper } = useWallpaperStore();
   const fileInputRef = useRef(null);
+  const pendingUploadRef = useRef(null); // uploaded in this session but not saved yet
 
   const [tab, setTab] = useState('presets'); // 'presets' | 'color' | 'image'
   const [saving, setSaving] = useState(false);
@@ -68,9 +69,22 @@ export default function WallpaperPicker({ isOpen, onClose, scope, scopeKey, labe
   const [selectedPreset, setSelectedPreset] = useState(null);
 
   const current = wallpapers.find((w) => w.scope === scope && w.scope_key === scopeKey);
+  const savedObjectId = current?.wallpaper_type === 'image' ? current.storage_object_id : null;
+
+  const discardOrphanUpload = useCallback((objectId) => {
+    if (!objectId || objectId === savedObjectId) return;
+    storageApi.delete(objectId).catch(() => {});
+  }, [savedObjectId]);
+
+  const handleClose = useCallback(() => {
+    discardOrphanUpload(pendingUploadRef.current);
+    pendingUploadRef.current = null;
+    onClose();
+  }, [discardOrphanUpload, onClose]);
 
   useEffect(() => {
     if (!isOpen) return;
+    pendingUploadRef.current = null;
     if (current?.wallpaper_type === 'preset') {
       setTab('presets');
       setSelectedPreset(current.wallpaper_value);
@@ -99,7 +113,7 @@ export default function WallpaperPicker({ isOpen, onClose, scope, scopeKey, labe
         wallpaper_value: selectedPreset,
         storage_object_id: null,
       });
-      onClose();
+      handleClose();
     } finally {
       setSaving(false);
     }
@@ -113,7 +127,7 @@ export default function WallpaperPicker({ isOpen, onClose, scope, scopeKey, labe
         wallpaper_value: selectedColor,
         storage_object_id: null,
       });
-      onClose();
+      handleClose();
     } finally {
       setSaving(false);
     }
@@ -124,7 +138,9 @@ export default function WallpaperPicker({ isOpen, onClose, scope, scopeKey, labe
     if (!file) return;
     setUploading(true);
     try {
-      const { data } = await storageApi.upload(file, 'image');
+      discardOrphanUpload(pendingUploadRef.current);
+      const { data } = await storageApi.upload(file, 'wallpaper');
+      pendingUploadRef.current = data.id;
       const localUrl = URL.createObjectURL(file);
       setUploadedPreview({ objectId: data.id, url: localUrl });
     } catch {
@@ -144,7 +160,8 @@ export default function WallpaperPicker({ isOpen, onClose, scope, scopeKey, labe
         wallpaper_value: null,
         storage_object_id: uploadedPreview.objectId,
       });
-      onClose();
+      pendingUploadRef.current = null;
+      handleClose();
     } finally {
       setSaving(false);
     }
@@ -154,7 +171,8 @@ export default function WallpaperPicker({ isOpen, onClose, scope, scopeKey, labe
     setSaving(true);
     try {
       await removeWallpaper(scope, scopeKey);
-      onClose();
+      pendingUploadRef.current = null;
+      handleClose();
     } finally {
       setSaving(false);
     }
@@ -178,7 +196,7 @@ export default function WallpaperPicker({ isOpen, onClose, scope, scopeKey, labe
   ];
 
   return (
-    <Modal isOpen={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+    <Modal isOpen={isOpen} onOpenChange={(open) => { if (!open) handleClose(); }}>
       <Modal.Backdrop>
         <Modal.Container placement="center" size="lg">
           <Modal.Dialog>
@@ -333,7 +351,7 @@ export default function WallpaperPicker({ isOpen, onClose, scope, scopeKey, labe
             </Modal.Body>
 
             <Modal.Footer>
-              <Button variant="ghost" onPress={onClose} isDisabled={saving}>
+              <Button variant="ghost" onPress={handleClose} isDisabled={saving}>
                 {t('common.cancel')}
               </Button>
               <Button

@@ -27,6 +27,20 @@ class StorageRepository extends BaseRepository {
     return rows[0] || null;
   }
 
+  async countReferences(objectId) {
+    const { rows } = await this.query(
+      `SELECT (
+         (SELECT COUNT(*) FROM user_wallpapers WHERE storage_object_id = $1) +
+         (SELECT COUNT(*) FROM message_attachments WHERE object_id = $1) +
+         (SELECT COUNT(*) FROM conversations WHERE avatar_object_id = $1) +
+         (SELECT COUNT(*) FROM call_recordings WHERE object_id = $1) +
+         (SELECT COUNT(*) FROM broadcast_messages WHERE object_id = $1)
+       )::int AS ref_count`,
+      [objectId]
+    );
+    return parseInt(rows[0].ref_count, 10);
+  }
+
   async updateProcessingStatus(id, status, error = null) {
     const { rows } = await this.query(
       `UPDATE storage_objects
