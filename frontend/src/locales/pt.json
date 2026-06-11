@@ -328,6 +328,12 @@
     "explore": "Explorar canais",
     "saved": "Salvos"
   },
+  "commandPalette": {
+    "title": "Navegação rápida",
+    "placeholder": "Buscar conversa ou seção...",
+    "noResults": "Sem resultados",
+    "navigation": "Ir para"
+  },
   "imageViewer": {
     "download": "Baixar",
     "openNewTab": "Abrir em nova aba",

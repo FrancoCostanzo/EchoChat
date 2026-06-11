@@ -328,6 +328,12 @@
     "explore": "Explore channels",
     "saved": "Saved"
   },
+  "commandPalette": {
+    "title": "Quick navigation",
+    "placeholder": "Search conversation or section...",
+    "noResults": "No results",
+    "navigation": "Go to"
+  },
   "imageViewer": {
     "download": "Download",
     "openNewTab": "Open in new tab",
