@@ -74,34 +74,141 @@ const EASE_OUT = [0.34, 1, 0.64, 1];
 const SPRING_OUT = [0.34, 1.56, 0.64, 1];
 
 /* ─────────────────────────── File Picker Menu ─────────────────────────── */
-function FilePickerMenu({ onPick, disabled, uploading }) {
+function FilePickerMenu({ onPick, onPoll, disabled, uploading }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState(null);
+  const rootRef = useRef(null);
+  const triggerRef = useRef(null);
   const menuRef = useRef(null);
   const imageRef = useRef(null);
   const videoRef = useRef(null);
   const docRef   = useRef(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
-
   const pick = (ref) => { setOpen(false); ref.current?.click(); };
 
-  const MENU_ITEMS = [
+  const FILE_ITEMS = [
     { icon: Image,    label: t('chat.attachImage'),    ref: imageRef, accept: 'image/*' },
     { icon: Film,     label: t('chat.attachVideo'),    ref: videoRef, accept: 'video/*' },
     { icon: FileText, label: t('chat.attachDocument'), ref: docRef,   accept: '*/*' },
   ];
 
+  const MENU_ITEMS = [
+    ...FILE_ITEMS,
+    ...(onPoll ? [{ icon: BarChart3, label: t('poll.create'), action: onPoll }] : []),
+  ];
+
+  const updateMenuPosition = useCallback(() => {
+    const trigger = triggerRef.current;
+    const menu = menuRef.current;
+    if (!trigger) return;
+
+    const rect = trigger.getBoundingClientRect();
+    const menuHeight = menu?.offsetHeight ?? MENU_ITEMS.length * 40;
+    const menuWidth = menu?.offsetWidth ?? 192;
+    const gap = 8;
+    const vh = window.innerHeight;
+    const vw = window.innerWidth;
+
+    // Prefer opening above the attach button (composer sits at the bottom on mobile)
+    let top = rect.top - menuHeight - gap;
+    if (top < gap) {
+      top = rect.bottom + gap;
+      if (top + menuHeight > vh - gap) {
+        top = Math.max(gap, vh - menuHeight - gap);
+      }
+    }
+
+    let left = rect.left;
+    if (left + menuWidth > vw - gap) left = vw - menuWidth - gap;
+    if (left < gap) left = gap;
+
+    setMenuPos({ left, top });
+  }, [MENU_ITEMS.length]);
+
+  const toggleOpen = useCallback(() => {
+    setOpen((prev) => !prev);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setMenuPos(null);
+      return;
+    }
+    updateMenuPosition();
+    requestAnimationFrame(updateMenuPosition);
+  }, [open, updateMenuPosition]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onReposition = () => updateMenuPosition();
+    window.addEventListener('resize', onReposition);
+    window.addEventListener('scroll', onReposition, true);
+    return () => {
+      window.removeEventListener('resize', onReposition);
+      window.removeEventListener('scroll', onReposition, true);
+    };
+  }, [open, updateMenuPosition]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      const target = e.target;
+      if (menuRef.current?.contains(target)) return;
+      if (triggerRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const timer = setTimeout(() => {
+      document.addEventListener('mousedown', handler);
+      document.addEventListener('touchstart', handler, { passive: true });
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('touchstart', handler);
+    };
+  }, [open]);
+
+  const menu = open && createPortal(
+    <AnimatePresence>
+      <motion.div
+        ref={menuRef}
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: menuPos ? 1 : 0, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.97 }}
+        transition={{ duration: 0.18, ease: 'easeOut' }}
+        style={{
+          position: 'fixed',
+          left: menuPos?.left ?? -9999,
+          top: menuPos?.top ?? -9999,
+          visibility: menuPos ? 'visible' : 'hidden',
+          zIndex: 9999,
+        }}
+        className="min-w-48 overflow-hidden rounded-lg border border-ink-400/40 bg-ink-850 shadow-xl"
+      >
+        {MENU_ITEMS.map(({ icon: Icon, label, ref, action }) => (
+          <Button
+            key={label}
+            variant="ghost"
+            onPress={() => {
+              setOpen(false);
+              if (action) action();
+              else pick(ref);
+            }}
+            className="flex h-auto w-full items-center justify-start gap-3 rounded-none px-3 py-2 text-[14px] text-ink-50 transition-colors hover:bg-blurple-500 hover:text-white"
+          >
+            <Icon size={16} className="shrink-0" />
+            {label}
+          </Button>
+        ))}
+      </motion.div>
+    </AnimatePresence>,
+    document.body,
+  );
+
   return (
-    <div className="relative" ref={menuRef}>
-      {MENU_ITEMS.map(({ ref, accept }) => (
+    <div className="relative shrink-0" ref={rootRef}>
+      {FILE_ITEMS.map(({ ref, accept }) => (
         <input
           key={accept}
           ref={ref}
@@ -112,41 +219,22 @@ function FilePickerMenu({ onPick, disabled, uploading }) {
         />
       ))}
 
-      <Tooltip content={t('chat.attachFile')} placement="top">
+      <div ref={triggerRef} className="shrink-0">
         <Button
           isIconOnly
           variant="ghost"
           isDisabled={disabled}
-          onPress={() => setOpen((p) => !p)}
+          onPress={toggleOpen}
+          aria-label={t('chat.attachFile')}
+          aria-expanded={open}
+          aria-haspopup="menu"
           className="flex h-8 w-8 min-w-0 shrink-0 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
         >
           {uploading ? <Loader size={18} className="animate-spin" /> : <Paperclip size={18} />}
         </Button>
-      </Tooltip>
+      </div>
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: 6, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 4, scale: 0.97 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
-            className="absolute bottom-11 left-0 z-30 min-w-48 overflow-hidden rounded-lg border border-ink-400/40 bg-ink-850 shadow-xl"
-          >
-            {MENU_ITEMS.map(({ icon: Icon, label, ref }) => (
-              <Button
-                key={label}
-                variant="ghost"
-                onPress={() => pick(ref)}
-                className="flex h-auto w-full items-center justify-start gap-3 rounded-none px-3 py-2 text-[14px] text-ink-50 transition-colors hover:bg-blurple-500 hover:text-white"
-              >
-                <Icon size={16} className="shrink-0" />
-                {label}
-              </Button>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {menu}
     </div>
   );
 }
@@ -1685,37 +1773,33 @@ export default function ConversationPage() {
             </div>
           }
         >
-          <FilePickerMenu onPick={handleFilePick} disabled={!!previewFile || sendingFile} uploading={sendingFile} />
-
-          <Tooltip content={t('poll.create')} placement="top">
-            <Button
-              isIconOnly
-              variant="ghost"
-              onPress={() => setShowPollModal(true)}
-              className="flex h-9 w-9 min-w-0 shrink-0 items-center justify-center rounded-md text-ink-200 transition-colors hover:bg-ink-750 hover:text-foreground"
-            >
-              <BarChart3 size={18} />
-            </Button>
-          </Tooltip>
-
-          <Input
-            ref={inputRef}
-            placeholder={isDirect
-              ? t('chat.writeMessage') + ` @${convName}`
-              : t('chat.writeMessage') + ` #${convName}`}
-            value={input}
-            onChange={(e) => {
-              setInput(e.target.value);
-              emitTyping(conversationId, true);
-              if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-              typingTimeoutRef.current = setTimeout(() => {
-                emitTyping(conversationId, false);
-              }, 2000);
-            }}
-            onKeyDown={handleKeyDown}
-            onPaste={handlePaste}
-            className="flex-1 border-none bg-transparent shadow-none outline-none text-[15px] placeholder:text-ink-200"
+          <FilePickerMenu
+            onPick={handleFilePick}
+            onPoll={() => setShowPollModal(true)}
+            disabled={!!previewFile || sendingFile}
+            uploading={sendingFile}
           />
+
+          <div className="min-w-0 flex-1">
+            <Input
+              ref={inputRef}
+              placeholder={isDirect
+                ? t('chat.writeMessage') + ` @${convName}`
+                : t('chat.writeMessage') + ` #${convName}`}
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                emitTyping(conversationId, true);
+                if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                typingTimeoutRef.current = setTimeout(() => {
+                  emitTyping(conversationId, false);
+                }, 2000);
+              }}
+              onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
+              className="w-full min-w-0 border-none bg-transparent shadow-none outline-none text-[15px] placeholder:text-ink-200"
+            />
+          </div>
 
           <EmojiPicker
             onPick={(emoji) => {
@@ -1728,6 +1812,7 @@ export default function ConversationPage() {
             onPress={handleSend}
             isDisabled={!(input ?? '').trim()}
             label={t('chat.send')}
+            className="shrink-0"
           />
         </FloatingComposer>
         </div>

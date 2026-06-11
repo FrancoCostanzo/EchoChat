@@ -457,10 +457,9 @@
   font-size: 14px;
   background: var(--accent);
   color: var(--accent-foreground);
-  padding: 0.5em 0.85em;
-  padding-left: 0.7em;
   display: flex;
   align-items: center;
+  justify-content: center;
   border: none;
   border-radius: 14px;
   overflow: hidden;
@@ -468,6 +467,22 @@
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
+  /* Mobile: icon-only square */
+  width: 2.25rem;
+  height: 2.25rem;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+  padding: 0;
+}
+@media (min-width: 640px) {
+  .send-btn {
+    width: auto;
+    height: auto;
+    min-width: 2.25rem;
+    min-height: 2.25rem;
+    padding: 0.5em 0.85em;
+    padding-left: 0.7em;
+  }
 }
 .send-btn:disabled {
   opacity: 0.45;
@@ -475,9 +490,19 @@
   transform: scale(0.9);
 }
 .send-btn .send-label {
-  display: block;
+  display: none;
   margin-left: 0.35em;
   transition: all 0.3s ease-in-out;
+}
+@media (min-width: 640px) {
+  .send-btn .send-label {
+    display: block;
+  }
+}
+@media (max-width: 639px) {
+  .send-btn:not(:disabled):hover .send-icon {
+    transform: rotate(45deg) scale(1.1);
+  }
 }
 .send-btn .send-icon {
   display: block;

@@ -178,23 +178,26 @@ export default function ThreadPanel({ root, conversationId, onClose }) {
 
       {/* Composer */}
       <div className="border-t border-black/20 p-3">
-        <div className="echo-glass flex items-center gap-2 rounded-xl px-1 transition-shadow focus-within:ring-2 focus-within:ring-accent/55">
-          <Input
-            ref={inputRef}
-            placeholder={t('chat.threadReplyPlaceholder')}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
-              if (e.key === 'Escape') onClose();
-            }}
-            disabled={sending}
-            className="flex-1 border-none bg-transparent shadow-none outline-none text-[14px] placeholder:text-ink-200"
-          />
+        <div className="echo-glass flex min-w-0 items-center gap-1 overflow-hidden rounded-xl px-1 transition-shadow focus-within:ring-2 focus-within:ring-accent/55 sm:gap-2">
+          <div className="min-w-0 flex-1">
+            <Input
+              ref={inputRef}
+              placeholder={t('chat.threadReplyPlaceholder')}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+                if (e.key === 'Escape') onClose();
+              }}
+              disabled={sending}
+              className="w-full min-w-0 border-none bg-transparent shadow-none outline-none text-[14px] placeholder:text-ink-200"
+            />
+          </div>
           <SendButton
             onPress={handleSend}
             isDisabled={!input.trim() || sending}
             label={t('chat.send')}
+            className="shrink-0"
           />
         </div>
       </div>

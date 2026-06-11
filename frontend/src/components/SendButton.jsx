@@ -16,6 +16,7 @@ export default function SendButton({ onPress, isDisabled, label, className = '' 
       type="button"
       onClick={onPress}
       disabled={isDisabled}
+      aria-label={label || undefined}
       className={`send-btn ${className}`}
     >
       <div className="send-svg-wrapper-1">
