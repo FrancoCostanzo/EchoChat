@@ -6,4 +6,5 @@ module.exports = {
   ...require('./poll.model'),
   ...require('./call.model'),
   ...require('./storage.model'),
+  ...require('./admin.model'),
 };

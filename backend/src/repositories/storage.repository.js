@@ -76,6 +76,68 @@ class StorageRepository extends BaseRepository {
     );
     return rows[0] || null;
   }
+
+  async getStats() {
+    const { rows } = await this.query(
+      `SELECT
+         COUNT(*)::int AS total_objects,
+         COALESCE(SUM(file_size_bytes), 0)::bigint AS total_bytes,
+         COUNT(*) FILTER (WHERE processing_status = 'pending')::int AS pending_processing,
+         COUNT(*) FILTER (WHERE processing_status = 'failed')::int AS failed_processing
+       FROM storage_objects`
+    );
+    const byBucket = await this.query(
+      `SELECT bucket_name,
+              COUNT(*)::int AS object_count,
+              COALESCE(SUM(file_size_bytes), 0)::bigint AS total_bytes
+       FROM storage_objects
+       GROUP BY bucket_name
+       ORDER BY total_bytes DESC`
+    );
+    const byType = await this.query(
+      `SELECT object_type,
+              COUNT(*)::int AS object_count,
+              COALESCE(SUM(file_size_bytes), 0)::bigint AS total_bytes
+       FROM storage_objects
+       GROUP BY object_type
+       ORDER BY object_count DESC`
+    );
+    return { summary: rows[0], by_bucket: byBucket.rows, by_type: byType.rows };
+  }
+
+  async listObjects({ bucket, object_type, processing_status, limit = 50, offset = 0 } = {}) {
+    const conditions = ['1=1'];
+    const params = [];
+    let idx = 1;
+
+    if (bucket) {
+      conditions.push(`bucket_name = $${idx}`);
+      params.push(bucket);
+      idx++;
+    }
+    if (object_type) {
+      conditions.push(`object_type = $${idx}`);
+      params.push(object_type);
+      idx++;
+    }
+    if (processing_status) {
+      conditions.push(`processing_status = $${idx}`);
+      params.push(processing_status);
+      idx++;
+    }
+
+    params.push(limit, offset);
+    const { rows } = await this.query(
+      `SELECT so.*, u.display_name AS uploader_display_name
+       FROM storage_objects so
+       LEFT JOIN users u ON u.id = so.uploader_id
+       WHERE ${conditions.join(' AND ')}
+       ORDER BY so.uploaded_at DESC
+       LIMIT $${idx} OFFSET $${idx + 1}`,
+      params
+    );
+    return rows;
+  }
 }
 
 module.exports = new StorageRepository();

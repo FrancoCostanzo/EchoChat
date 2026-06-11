@@ -149,6 +149,89 @@ class UserRepository extends BaseRepository {
     );
     return rows;
   }
+
+  async listUsers({ search, status, department, limit = 50, offset = 0 } = {}) {
+    const conditions = [`status != 'deleted'`];
+    const params = [];
+    let idx = 1;
+
+    if (search) {
+      conditions.push(`(display_name ILIKE $${idx} OR username ILIKE $${idx} OR email ILIKE $${idx})`);
+      params.push(`%${search}%`);
+      idx++;
+    }
+    if (status) {
+      conditions.push(`status = $${idx}`);
+      params.push(status);
+      idx++;
+    }
+    if (department) {
+      conditions.push(`department ILIKE $${idx}`);
+      params.push(`%${department}%`);
+      idx++;
+    }
+
+    params.push(limit, offset);
+    const { rows } = await this.query(
+      `SELECT * FROM users WHERE ${conditions.join(' AND ')}
+       ORDER BY display_name ASC
+       LIMIT $${idx} OFFSET $${idx + 1}`,
+      params
+    );
+    return rows;
+  }
+
+  async updateStatus(id, status) {
+    const { rows } = await this.query(
+      `UPDATE users SET status = $1, updated_at = NOW() WHERE id = $2 AND status != 'deleted' RETURNING *`,
+      [status, id]
+    );
+    return rows[0];
+  }
+
+  async listRoles() {
+    const { rows } = await this.query(
+      `SELECT id, name, display_name, description, priority FROM roles ORDER BY priority DESC`
+    );
+    return rows;
+  }
+
+  async getUserRoles(userId) {
+    const { rows } = await this.query(
+      `SELECT r.id, r.name, r.display_name, ur.granted_at, ur.expires_at
+       FROM user_roles ur
+       JOIN roles r ON r.id = ur.role_id
+       WHERE ur.user_id = $1
+         AND (ur.expires_at IS NULL OR ur.expires_at > NOW())
+       ORDER BY r.priority DESC`,
+      [userId]
+    );
+    return rows;
+  }
+
+  async setUserRoles(userId, roleNames, grantedBy) {
+    await this.query(`DELETE FROM user_roles WHERE user_id = $1`, [userId]);
+    if (!roleNames?.length) return [];
+    const { rows } = await this.query(
+      `INSERT INTO user_roles (user_id, role_id, granted_by)
+       SELECT $1, r.id, $2 FROM roles r WHERE r.name = ANY($3::text[])
+       RETURNING role_id`,
+      [userId, grantedBy, roleNames]
+    );
+    return rows;
+  }
+
+  async countUsersWithRole(roleName) {
+    const { rows } = await this.query(
+      `SELECT COUNT(*)::int AS count
+       FROM user_roles ur
+       JOIN roles r ON r.id = ur.role_id
+       WHERE r.name = $1
+         AND (ur.expires_at IS NULL OR ur.expires_at > NOW())`,
+      [roleName]
+    );
+    return rows[0]?.count || 0;
+  }
 }
 
 module.exports = new UserRepository();
