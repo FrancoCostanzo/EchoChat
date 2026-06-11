@@ -1,5 +1,20 @@
 const BaseRepository = require('./base.repository');
 
+function savedMessageSelect(viewerUserId, params) {
+  if (!viewerUserId) {
+    return 'FALSE AS is_saved, NULL::text AS saved_note';
+  }
+  const idx = params.length + 1;
+  params.push(viewerUserId);
+  return `(EXISTS (
+    SELECT 1 FROM saved_messages sm
+    WHERE sm.message_id = m.id AND sm.user_id = $${idx}
+  )) AS is_saved,
+  (SELECT sm.note FROM saved_messages sm
+   WHERE sm.message_id = m.id AND sm.user_id = $${idx}
+   LIMIT 1) AS saved_note`;
+}
+
 class MessageRepository extends BaseRepository {
   constructor() {
     super('messages');
@@ -16,7 +31,7 @@ class MessageRepository extends BaseRepository {
     return rows[0];
   }
 
-  async findByConversation(conversationId, { cursor, limit = 50, direction = 'before' } = {}) {
+  async findByConversation(conversationId, { cursor, limit = 50, direction = 'before', viewerUserId } = {}) {
     // Thread replies live in their own side panel; the main timeline only
     // shows root messages (with a reply counter aggregated below).
     let condition = 'm.conversation_id = $1 AND m.thread_id IS NULL';
@@ -31,6 +46,7 @@ class MessageRepository extends BaseRepository {
       }
     }
 
+    const savedSql = savedMessageSelect(viewerUserId, params);
     params.push(limit);
     const order = direction === 'before' ? 'DESC' : 'ASC';
 
@@ -73,7 +89,8 @@ class MessageRepository extends BaseRepository {
                    GROUP BY emoji
                  ) r),
                 '[]'
-              ) AS reactions
+              ) AS reactions,
+              ${savedSql}
        FROM messages m
        LEFT JOIN users u ON u.id = m.sender_id
        LEFT JOIN messages rm ON rm.id = m.reply_to_id
@@ -90,7 +107,9 @@ class MessageRepository extends BaseRepository {
     return direction === 'before' ? rows.reverse() : rows;
   }
 
-  async findWithAttachments(messageId) {
+  async findWithAttachments(messageId, viewerUserId) {
+    const params = [messageId];
+    const savedSql = savedMessageSelect(viewerUserId, params);
     const { rows } = await this.query(
       `SELECT m.*,
               u.username AS sender_username,
@@ -128,7 +147,8 @@ class MessageRepository extends BaseRepository {
                    GROUP BY emoji
                  ) r),
                 '[]'
-              ) AS reactions
+              ) AS reactions,
+              ${savedSql}
        FROM messages m
        LEFT JOIN users u ON u.id = m.sender_id
        LEFT JOIN messages rm ON rm.id = m.reply_to_id
@@ -137,14 +157,17 @@ class MessageRepository extends BaseRepository {
        LEFT JOIN storage_objects so ON so.id = ma.object_id
        WHERE m.id = $1
        GROUP BY m.id, u.username, u.display_name, u.avatar_object_key, rm.body, rm.type, ru.display_name`,
-      [messageId]
+      params
     );
     return rows[0] || null;
   }
 
   // All replies of a thread (oldest first), with the same enrichment as the
   // conversation timeline so the thread panel can reuse the message renderer.
-  async findThreadReplies(threadId, { limit = 200 } = {}) {
+  async findThreadReplies(threadId, { limit = 200, viewerUserId } = {}) {
+    const params = [threadId];
+    const savedSql = savedMessageSelect(viewerUserId, params);
+    params.push(limit);
     const { rows } = await this.query(
       `SELECT m.*,
               u.username AS sender_username,
@@ -176,7 +199,8 @@ class MessageRepository extends BaseRepository {
                    GROUP BY emoji
                  ) r),
                 '[]'
-              ) AS reactions
+              ) AS reactions,
+              ${savedSql}
        FROM messages m
        LEFT JOIN users u ON u.id = m.sender_id
        LEFT JOIN message_attachments ma ON ma.message_id = m.id
@@ -184,8 +208,8 @@ class MessageRepository extends BaseRepository {
        WHERE m.thread_id = $1
        GROUP BY m.id, u.username, u.display_name, u.avatar_object_key
        ORDER BY m.sent_at ASC
-       LIMIT $2`,
-      [threadId, limit]
+       LIMIT $${params.length}`,
+      params
     );
     return rows;
   }

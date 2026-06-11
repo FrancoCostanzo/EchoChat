@@ -748,20 +748,20 @@ function MessageContextMenu({ pos, onClose, quickEmojis, onEmoji, items }) {
   );
 }
 
-const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstInGroup, isLastInGroup, onEdit, onDelete, onReply, onReact, onForward, onOpenThread, onRetry, currentUserId, currentUser }) {
+const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstInGroup, isLastInGroup, onEdit, onDelete, onReply, onReact, onForward, onOpenThread, onRetry, onSavedChange, currentUserId, currentUser }) {
   const { t } = useTranslation();
   const [menu, setMenu] = useState(null); // { x, y } | null
-  const [saved, setSaved] = useState(false);
+  const saved = !!message.is_saved;
   const longPressTimer = useRef(null);
 
   const toggleSave = async () => {
     const next = !saved;
-    setSaved(next);
+    onSavedChange(message.id, next);
     try {
       if (next) await messagesApi.save(message.id);
       else await messagesApi.unsave(message.id);
     } catch {
-      setSaved(!next); // revert on failure
+      onSavedChange(message.id, saved);
     }
   };
 
@@ -930,8 +930,11 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
             </>
           )}
 
-          {/* Meta line: edited · time · receipt */}
+          {/* Meta line: saved · edited · time · receipt */}
           <div className={['mt-0.5 flex items-center justify-end gap-1 text-[10px] leading-none', metaClass, isMediaOnly ? 'px-1 pb-0.5' : ''].join(' ')}>
+            {saved && !message.is_deleted && (
+              <BookmarkCheck size={10} className="shrink-0 opacity-90" title={t('chat.savedMessage')} />
+            )}
             {message.is_edited && !message.is_deleted && <span>{t('chat.edited')}</span>}
             <span title={formatFullTime(message.sent_at)}>{formatMessageTime(message.sent_at)}</span>
             {isOwn && !message.is_deleted && <ReceiptIcon message={message} />}
@@ -1120,6 +1123,7 @@ export default function ConversationPage() {
     emitTyping,
     clearActiveConversation,
     conversations,
+    patchMessage,
   } = useChatStore();
 
   const [input, setInput] = useState('');
@@ -1544,6 +1548,10 @@ export default function ConversationPage() {
     setThreadRoot(null);
   }, []);
 
+  const handleSavedChange = useCallback((messageId, isSaved) => {
+    patchMessage(messageId, { is_saved: isSaved });
+  }, [patchMessage]);
+
   const messageElements = useMemo(() => {
     const isDirect = conversation?.type === 'direct';
     return messages.map((msg, index) => {
@@ -1566,12 +1574,13 @@ export default function ConversationPage() {
           onForward={handleForward}
           onOpenThread={handleOpenThread}
           onRetry={retrySendMessage}
+          onSavedChange={handleSavedChange}
           currentUserId={user?.id}
           currentUser={user}
         />
       );
     });
-  }, [messages, user, conversation?.type, handleEdit, handleDeleteRequest, handleReply, handleReact, handleForward, handleOpenThread, retrySendMessage]);
+  }, [messages, user, conversation?.type, handleEdit, handleDeleteRequest, handleReply, handleReact, handleForward, handleOpenThread, retrySendMessage, handleSavedChange]);
 
   if (!conversation) {
     return (
