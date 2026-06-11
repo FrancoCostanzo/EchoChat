@@ -52,7 +52,9 @@ import ThreadPanel from '@/components/ThreadPanel';
 import PollMessage from '@/components/PollMessage';
 import CreatePollModal from '@/components/CreatePollModal';
 import { formatMessageTime, formatFullTime } from '@/lib/dates';
-import { storageApi, messagesApi } from '@/lib/endpoints';
+import FloatingComposer from '@/components/FloatingComposer';
+import PresenceAvatarStack from '@/components/PresenceAvatarStack';
+import { storageApi, messagesApi, conversationsApi } from '@/lib/endpoints';
 
 function downloadBlob(url, filename) {
   fetch(url)
@@ -1043,7 +1045,9 @@ export default function ConversationPage() {
   const [threadRoot, setThreadRoot] = useState(null); // root message of the open thread panel
   const [showPollModal, setShowPollModal] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const dragCounterRef = useRef(0); // tracks nested dragenter/dragleave events
+  const [members, setMembers] = useState([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const dragCounterRef = useRef(0);
 
   const messagesEndRef = useRef(null);
   const containerRef = useRef(null);
@@ -1058,6 +1062,22 @@ export default function ConversationPage() {
   const draftSaveTimerRef = useRef(null);
 
   const conversation = getActiveConversation();
+  const isDirect = conversation?.type === 'direct';
+
+  useEffect(() => {
+    if (!conversationId || !conversation || isDirect) {
+      setMembers([]);
+      return undefined;
+    }
+    let active = true;
+    setLoadingMembers(true);
+    conversationsApi
+      .getMembers(conversationId)
+      .then(({ data }) => { if (active) setMembers(Array.isArray(data) ? data : []); })
+      .catch(() => { if (active) setMembers([]); })
+      .finally(() => { if (active) setLoadingMembers(false); });
+    return () => { active = false; };
+  }, [conversationId, conversation, isDirect]);
 
   // Build typing text for this conversation
   const currentTyping = typingUsers[conversationId] || {};
@@ -1400,7 +1420,6 @@ export default function ConversationPage() {
   }
 
   const convName = conversation.display_name || conversation.name || t('chat.conversation');
-  const isDirect = conversation.type === 'direct';
 
   return (
     <>
@@ -1454,7 +1473,7 @@ export default function ConversationPage() {
             {isDirect ? (
               <>
                 <AtSign size={20} className="shrink-0 text-ink-200" />
-                <h2 className="echo-display truncate text-[17px] font-semibold leading-tight">{convName}</h2>
+                <h2 className="echo-display truncate text-2xl font-semibold tracking-tight leading-tight">{convName}</h2>
                 {conversation.member_presence && (
                   <span className="hidden md:inline-block shrink-0 border-l border-ink-400/40 pl-3 text-[13px] capitalize text-ink-200">
                     {conversation.member_presence}
@@ -1464,7 +1483,7 @@ export default function ConversationPage() {
             ) : (
               <>
                 <Hash size={22} strokeWidth={2.5} className="shrink-0 text-ink-200" />
-                <h2 className="echo-display truncate text-[17px] font-semibold leading-tight">{convName}</h2>
+                <h2 className="echo-display truncate text-2xl font-semibold tracking-tight leading-tight">{convName}</h2>
                 {conversation.member_count && (
                   <span className="hidden md:inline-block shrink-0 border-l border-ink-400/40 pl-3 text-[13px] text-ink-200">
                     {conversation.member_count} {t('chat.members')}
@@ -1644,74 +1663,80 @@ export default function ConversationPage() {
           )}
         </AnimatePresence>
 
-        {/* ── Input area ── */}
-        <div className="px-3 pb-6 pt-1 md:pb-4">
-          <div className="echo-glass echo-composer flex items-center gap-2 rounded-2xl px-1">
-            <FilePickerMenu onPick={handleFilePick} disabled={!!previewFile || sendingFile} uploading={sendingFile} />
+        {/* ── Input area (floating composer) ── */}
+        <FloatingComposer
+          elevationOnFocus
+          footer={
+            <div className="relative h-4">
+              <AnimatePresence initial={false}>
+                {typingText && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -2 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -2 }}
+                    transition={{ duration: 0.16 }}
+                    className="absolute inset-x-0 top-1 flex items-center gap-2 px-2 text-[12px] text-ink-100"
+                  >
+                    <TypingDots />
+                    <span>{typingText}</span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          }
+        >
+          <FilePickerMenu onPick={handleFilePick} disabled={!!previewFile || sendingFile} uploading={sendingFile} />
 
-            <Tooltip content={t('poll.create')} placement="top">
-              <Button
-                isIconOnly
-                variant="ghost"
-                onPress={() => setShowPollModal(true)}
-                className="flex h-9 w-9 min-w-0 shrink-0 items-center justify-center rounded-md text-ink-200 transition-colors hover:bg-ink-750 hover:text-foreground"
-              >
-                <BarChart3 size={18} />
-              </Button>
-            </Tooltip>
+          <Tooltip content={t('poll.create')} placement="top">
+            <Button
+              isIconOnly
+              variant="ghost"
+              onPress={() => setShowPollModal(true)}
+              className="flex h-9 w-9 min-w-0 shrink-0 items-center justify-center rounded-md text-ink-200 transition-colors hover:bg-ink-750 hover:text-foreground"
+            >
+              <BarChart3 size={18} />
+            </Button>
+          </Tooltip>
 
-            <Input
-              ref={inputRef}
-              placeholder={isDirect
-                ? t('chat.writeMessage') + ` @${convName}`
-                : t('chat.writeMessage') + ` #${convName}`}
-              value={input}
-              onChange={(e) => {
-                setInput(e.target.value);
-                emitTyping(conversationId, true);
-                if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-                typingTimeoutRef.current = setTimeout(() => {
-                  emitTyping(conversationId, false);
-                }, 2000);
-              }}
-              onKeyDown={handleKeyDown}
-              onPaste={handlePaste}
-              className="flex-1 border-none bg-transparent shadow-none outline-none text-[15px] placeholder:text-ink-200"
-            />
+          <Input
+            ref={inputRef}
+            placeholder={isDirect
+              ? t('chat.writeMessage') + ` @${convName}`
+              : t('chat.writeMessage') + ` #${convName}`}
+            value={input}
+            onChange={(e) => {
+              setInput(e.target.value);
+              emitTyping(conversationId, true);
+              if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+              typingTimeoutRef.current = setTimeout(() => {
+                emitTyping(conversationId, false);
+              }, 2000);
+            }}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            className="flex-1 border-none bg-transparent shadow-none outline-none text-[15px] placeholder:text-ink-200"
+          />
 
-            <EmojiPicker
-              onPick={(emoji) => {
-                setInput((v) => v + emoji);
-                inputRef.current?.focus();
-              }}
-            />
+          <EmojiPicker
+            onPick={(emoji) => {
+              setInput((v) => v + emoji);
+              inputRef.current?.focus();
+            }}
+          />
 
-            <SendButton
-              onPress={handleSend}
-              isDisabled={!(input ?? '').trim()}
-              label={t('chat.send')}
-            />
-          </div>
-
-          {/* Typing indicator under input */}
-          <div className="relative h-4">
-            <AnimatePresence initial={false}>
-              {typingText && (
-                <motion.div
-                  initial={{ opacity: 0, y: -2 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -2 }}
-                  transition={{ duration: 0.16 }}
-                  className="absolute inset-x-0 top-1 flex items-center gap-2 px-2 text-[12px] text-ink-100"
-                >
-                  <TypingDots />
-                  <span><strong className="text-foreground">{typingNames[0]}</strong> {typingNames.length === 1 ? 'está escribiendo…' : `y ${typingNames.length - 1} más están escribiendo…`}</span>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+          <SendButton
+            onPress={handleSend}
+            isDisabled={!(input ?? '').trim()}
+            label={t('chat.send')}
+          />
+        </FloatingComposer>
         </div>
-        </div>
+
+        <PresenceAvatarStack
+          members={members}
+          loading={loadingMembers}
+          className="mr-1"
+        />
 
         {/* ── Message search panel ── */}
         <AnimatePresence>

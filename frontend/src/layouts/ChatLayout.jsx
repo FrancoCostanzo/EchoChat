@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Button, InputGroup, TextField, Tooltip } from '@heroui/react';
@@ -27,7 +27,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
 import UserAvatar from '@/components/UserAvatar';
-import GuildRail from '@/components/GuildRail';
+import ServerOrbitDock from '@/components/ServerOrbitDock';
 import CommandPalette from '@/components/CommandPalette';
 import CanvasPanel from '@/components/CanvasPanel';
 import { formatMessageTime } from '@/lib/dates';
@@ -430,7 +430,7 @@ function MobileBottomNav() {
   ];
 
   return (
-    <div className="flex items-center justify-around border-t border-black/20 bg-ink-850 px-2 py-2 md:hidden">
+    <div className="flex items-center justify-around border-t border-black/20 bg-ink-850 px-2 py-2 lg:hidden">
       {items.map(({ id, icon: Icon, label, path, active }) => (
         <Button
           key={id}
@@ -455,10 +455,22 @@ export default function ChatLayout() {
   const location = useLocation();
   const pathname = location.pathname;
   const sidebarRef = useRef(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const isOnChatIndex = pathname === '/chat';
   const isConversationRoute = /^\/chat\/.+/.test(pathname);
   const isContentRoute = !isOnChatIndex;
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
+        e.preventDefault();
+        setSidebarOpen((v) => !v);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const startResize = useCallback((e) => {
     e.preventDefault();
@@ -487,26 +499,31 @@ export default function ChatLayout() {
   }, []);
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden text-foreground md:flex-row md:gap-[var(--echo-canvas-gap)] md:p-3">
-      {/* Guild rail — desktop only, floating dock centered on the canvas */}
-      <div className="hidden md:flex md:items-center">
-        <GuildRail />
+    <div className="flex h-screen flex-col overflow-hidden pb-[72px] text-foreground lg:flex-row lg:gap-[var(--echo-canvas-gap)] lg:p-3 lg:pb-3">
+      {/* Orbit dock — desktop: vertical floating rail */}
+      <div className="hidden lg:flex lg:items-center">
+        <ServerOrbitDock glowColor="rgb(124 92 255 / 0.2)" />
       </div>
 
-      {/* Channel/Settings sidebar — floating card with canvas inset */}
+      {/* Channel/Settings sidebar — floating card; Ctrl+\ toggles */}
       <CanvasPanel
         ref={sidebarRef}
         elevation={2}
         radius="lg"
         inset="md"
-        className={`${isContentRoute ? 'hidden md:flex' : 'flex flex-1 md:flex-none'} md:w-72 md:min-w-[220px]`}
+        className={[
+          isContentRoute ? 'hidden lg:flex' : 'flex flex-1 lg:flex-none',
+          'transition-[width,opacity,margin] duration-200 ease-[var(--ease-echo)]',
+          sidebarOpen ? 'lg:w-72 lg:min-w-[220px] lg:opacity-100' : 'lg:w-0 lg:min-w-0 lg:overflow-hidden lg:border-0 lg:!m-0 lg:opacity-0 lg:shadow-none lg:pointer-events-none',
+        ].join(' ')}
+        aria-hidden={!sidebarOpen}
       >
         <Sidebar />
       </CanvasPanel>
 
-      {/* Resize handle — invisible grab strip in the canvas gap */}
+      {/* Resize handle — hidden when sidebar collapsed */}
       <div
-        className="hidden w-1.5 shrink-0 cursor-col-resize self-stretch rounded-full bg-transparent transition-colors hover:bg-accent/45 md:block"
+        className={`hidden w-1.5 shrink-0 cursor-col-resize self-stretch rounded-full bg-transparent transition-colors hover:bg-accent/45 lg:block ${sidebarOpen ? '' : 'lg:hidden'}`}
         onMouseDown={startResize}
         aria-hidden
       />
@@ -518,7 +535,7 @@ export default function ChatLayout() {
         radius="xl"
         inset="md"
         accentGlow
-        className={`${isOnChatIndex ? 'hidden md:flex' : ''} echo-chat-bg min-w-0 flex-1 flex-col`}
+        className={`${isOnChatIndex ? 'hidden lg:flex' : ''} echo-chat-bg min-w-0 flex-1 flex-col`}
       >
         <motion.div
           key={location.pathname}
@@ -531,7 +548,12 @@ export default function ChatLayout() {
         </motion.div>
       </CanvasPanel>
 
-      {/* Mobile bottom nav */}
+      {/* Mobile / tablet bottom orbit dock (<1024px) */}
+      <div className="fixed inset-x-0 bottom-0 z-20 flex justify-center px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:hidden">
+        <ServerOrbitDock orientation="bottom" />
+      </div>
+
+      {/* Mobile bottom nav — secondary routes only */}
       {isContentRoute && !isConversationRoute && <MobileBottomNav />}
 
       {/* Ctrl/Cmd+K quick navigation */}

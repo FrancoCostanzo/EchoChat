@@ -126,7 +126,9 @@
     "threadReplies_one": "{{count}} reply",
     "threadReplies_other": "{{count}} replies",
     "threadNoReplies": "No replies yet. Start the thread!",
-    "threadReplyPlaceholder": "Reply in thread..."
+    "threadReplyPlaceholder": "Reply in thread...",
+    "memberPanel": "Members",
+    "viewMembers": "View members"
   },
   "newConversation": {
     "title": "New conversation",
@@ -327,6 +329,9 @@
     "noConversations": "No conversations",
     "explore": "Explore channels",
     "saved": "Saved"
+  },
+  "layout": {
+    "toggleSidebar": "Show or hide channel panel (Ctrl+\\)"
   },
   "commandPalette": {
     "title": "Quick navigation",
