@@ -374,6 +374,77 @@
       "failed": "Failed"
     }
   },
+  "admin": {
+    "title": "Administration",
+    "noAccess": "You do not have admin permissions",
+    "backToChat": "Back to chat",
+    "sections": {
+      "users": "Users",
+      "settings": "System",
+      "audit": "Audit",
+      "storage": "Storage"
+    },
+    "descriptions": {
+      "users": "Manage accounts, status and roles",
+      "settings": "Global platform configuration",
+      "audit": "Critical action history",
+      "storage": "MinIO inventory and metrics"
+    },
+    "users": {
+      "search": "Search users...",
+      "allStatuses": "All statuses",
+      "create": "New user",
+      "createTitle": "Create user",
+      "editTitle": "Edit user",
+      "edit": "Edit",
+      "delete": "Delete",
+      "confirmDelete": "Delete {{name}}?",
+      "colUser": "User",
+      "colRoles": "Roles",
+      "colStatus": "Status",
+      "colDept": "Department",
+      "username": "Username",
+      "password": "Password",
+      "displayName": "Display name",
+      "email": "Email",
+      "department": "Department",
+      "statusLabel": "Status",
+      "roles": "Roles",
+      "status": {
+        "active": "Active",
+        "inactive": "Inactive",
+        "suspended": "Suspended"
+      }
+    },
+    "settings": {
+      "categories": "Categories",
+      "all": "All",
+      "edit": "Edit"
+    },
+    "audit": {
+      "filterAction": "Filter by action...",
+      "allResults": "All",
+      "success": "Successful",
+      "failed": "Failed",
+      "colTime": "Time",
+      "colActor": "Actor",
+      "colAction": "Action",
+      "colResource": "Resource",
+      "colResult": "OK"
+    },
+    "storage": {
+      "totalObjects": "Objects",
+      "totalSize": "Total size",
+      "pending": "Pending",
+      "failed": "Failed",
+      "byBucket": "By bucket",
+      "recentObjects": "Recent objects",
+      "colFile": "File",
+      "colBucket": "Bucket",
+      "colSize": "Size",
+      "colStatus": "Status"
+    }
+  },
   "sidebar": {
     "chats": "Chats",
     "contacts": "Contacts",
@@ -386,6 +457,7 @@
     "noConversations": "No conversations",
     "explore": "Explore channels",
     "broadcasts": "Broadcasts",
+    "admin": "Administration",
     "saved": "Saved"
   },
   "layout": {

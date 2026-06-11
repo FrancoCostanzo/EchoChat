@@ -15,7 +15,7 @@
 | 4 | Pipeline de media seguro | ⬜ Pendiente |
 | 5 | Llamadas WebRTC reales | ⬜ Pendiente |
 | 6 | Mensajería ya modelada (quick wins) | ✅ Hecho |
-| 7 | Panel de administración | ⬜ Pendiente |
+| 7 | Panel de administración | ✅ Hecho (base) |
 
 Orden recomendado:
 ```
@@ -175,9 +175,27 @@ Fase 0 → Fase 1 → Fase 2 → Fase 3 → (Fase 6 en paralelo) → Fase 4 → 
 
 ## FASE 7 — Panel de administración
 
-| # | Funcionalidad | Esfuerzo | Depende de |
-|---|---|---|---|
-| 7.1 | Gestión de usuarios (alta/baja/suspensión, roles). | M (3-4d) | 0.1 |
-| 7.2 | Editor de `system_settings`. | S (2d) | 0.1 |
-| 7.3 | Visor de audit log con filtros. | S (2d) | 0.2 |
-| 7.4 | Dashboard de storage MinIO. | M (2-3d) | 0.1 |
+| # | Funcionalidad | Esfuerzo | Depende de | Estado |
+|---|---|---|---|---|
+| 7.1 | Gestión de usuarios (alta/baja/suspensión, roles). | M (3-4d) | 0.1 | ✅ |
+| 7.2 | Editor de `system_settings`. | S (2d) | 0.1 | ✅ |
+| 7.3 | Visor de audit log con filtros. | S (2d) | 0.2 | ✅ |
+| 7.4 | Dashboard de storage MinIO. | M (2-3d) | 0.1 | ✅ base |
+
+### Detalle de lo implementado en Fase 7
+
+- **Módulo `/api/admin`** con RBAC (`admin.users`, `admin.settings`,
+  `admin.view_audit`, `admin.storage`): `admin.service/controller/routes`,
+  repos extendidos (`user`, `audit`, `storage`) + `systemSettings.repository`.
+- **7.1 Usuarios** ✅ — listar/filtrar, crear con contraseña y roles, editar
+  perfil/estado/roles, soft-delete; revoca sesiones al suspender; protege último
+  `super_admin`; audit `admin.user_*`.
+- **7.2 Settings** ✅ — `GET/PUT /api/admin/settings/:key` con audit
+  `admin.setting_update`; editor por categoría en UI.
+- **7.3 Audit** ✅ — `GET /api/admin/audit` con filtros (acción, actor, éxito);
+  tabla con actor enriquecido.
+- **7.4 Storage** ✅ base — stats agregados (total bytes, por bucket/tipo,
+  pendientes/fallidos) + listado de objetos recientes desde `storage_objects`.
+- **Frontend** — `AdminPage` (`/admin/:section`) con tabs usuarios/sistema/
+  auditoría/almacenamiento; entrada en dock y Command Palette solo si el usuario
+  tiene permisos admin; `/auth/me` expone `roles` y `permissions`; i18n es/en/pt.

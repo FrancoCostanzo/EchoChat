@@ -9,12 +9,14 @@ import {
   Compass,
   Bookmark,
   Megaphone,
+  Shield,
   Hash,
   AtSign,
   Search,
   CornerDownLeft,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
 
 /* ─────────────────────────────────────────────────────────
@@ -30,13 +32,18 @@ const NAV_ITEMS = [
   { id: 'nav-broadcasts', icon: Megaphone, labelKey: 'sidebar.broadcasts', path: '/broadcasts' },
   { id: 'nav-saved', icon: Bookmark, labelKey: 'sidebar.saved', path: '/saved' },
   { id: 'nav-notifications', icon: Bell, labelKey: 'sidebar.notifications', path: '/notifications' },
+  { id: 'nav-admin', icon: Shield, labelKey: 'sidebar.admin', path: '/admin', adminOnly: true },
   { id: 'nav-settings', icon: Settings, labelKey: 'sidebar.settings', path: '/settings' },
 ];
 
 export default function CommandPalette() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
   const { conversations, setActiveConversation } = useChatStore();
+
+  const canAdmin = (user?.roles || []).includes('super_admin')
+    || (user?.permissions || []).some((p) => p.startsWith('admin.'));
 
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -66,9 +73,10 @@ export default function CommandPalette() {
   const q = query.trim().toLowerCase();
 
   const results = useMemo(() => {
-    const navResults = NAV_ITEMS.filter(
-      (item) => !q || t(item.labelKey).toLowerCase().includes(q),
-    ).map((item) => ({ ...item, type: 'nav', label: t(item.labelKey) }));
+    const navResults = NAV_ITEMS
+      .filter((item) => !item.adminOnly || canAdmin)
+      .filter((item) => !q || t(item.labelKey).toLowerCase().includes(q))
+      .map((item) => ({ ...item, type: 'nav', label: t(item.labelKey) }));
 
     const convResults = conversations
       .filter((c) => {
@@ -86,7 +94,7 @@ export default function CommandPalette() {
       }));
 
     return [...convResults, ...navResults];
-  }, [q, conversations, t]);
+  }, [q, conversations, t, canAdmin]);
 
   useEffect(() => {
     setActiveIndex(0);

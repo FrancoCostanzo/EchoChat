@@ -118,6 +118,19 @@ export const notificationsApi = {
   updatePreferences: (data) => api.put('/notifications/preferences', data),
 };
 
+export const adminApi = {
+  listUsers: (params) => api.get('/admin/users', params),
+  createUser: (data) => api.post('/admin/users', data),
+  updateUser: (userId, data) => api.patch(`/admin/users/${userId}`, data),
+  deleteUser: (userId) => api.delete(`/admin/users/${userId}`),
+  listRoles: () => api.get('/admin/roles'),
+  getSettings: () => api.get('/admin/settings'),
+  updateSetting: (key, value) => api.put(`/admin/settings/${key}`, { value }),
+  getAuditLog: (params) => api.get('/admin/audit', params),
+  getStorageStats: () => api.get('/admin/storage/stats'),
+  listStorageObjects: (params) => api.get('/admin/storage/objects', params),
+};
+
 export const relationshipsApi = {
   create: (data) => api.post('/relationships', data),
   remove: (targetId, type) => api.delete(`/relationships/${targetId}/${type}`),
