@@ -9,4 +9,5 @@ module.exports = {
   ...require('./poll.dto'),
   ...require('./notification.dto'),
   ...require('./relationship.dto'),
+  ...require('./admin.dto'),
 };

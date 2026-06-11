@@ -13,5 +13,6 @@ router.use('/storage', require('./storage.routes'));
 router.use('/broadcasts', require('./broadcast.routes'));
 router.use('/notifications', require('./notification.routes'));
 router.use('/relationships', require('./relationship.routes'));
+router.use('/admin', require('./admin.routes'));
 
 module.exports = router;

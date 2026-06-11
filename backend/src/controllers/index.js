@@ -10,4 +10,5 @@ module.exports = {
   broadcastController: require('./broadcast.controller'),
   notificationController: require('./notification.controller'),
   relationshipController: require('./relationship.controller'),
+  adminController: require('./admin.controller'),
 };

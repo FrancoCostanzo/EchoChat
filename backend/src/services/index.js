@@ -10,4 +10,5 @@ module.exports = {
   broadcastService: require('./broadcast.service'),
   notificationService: require('./notification.service'),
   relationshipService: require('./relationship.service'),
+  adminService: require('./admin.service'),
 };
