@@ -1149,6 +1149,8 @@ export default function ConversationPage() {
   const initialLoadRef = useRef(false); // true after first batch of messages is rendered
   const anchorBottomRef = useRef(false); // keep pinned while media loads on open
   const anchorTimerRef = useRef(null);
+  const prevScrollTopRef = useRef(0);
+  const prevContentHeightRef = useRef(0);
   const scrollIdleTimerRef = useRef(null);
   const draftReadyRef = useRef(false);  // true once the draft for this conv has loaded
   const draftSaveTimerRef = useRef(null);
@@ -1214,6 +1216,8 @@ export default function ConversationPage() {
       loadingMoreRef.current = false;
       wasAtBottomRef.current = true;
       anchorBottomRef.current = false;
+      prevScrollTopRef.current = 0;
+      prevContentHeightRef.current = 0;
       if (anchorTimerRef.current) clearTimeout(anchorTimerRef.current);
       setShowScrollBtn(false);
       setActiveConversation(conversationId);
@@ -1290,12 +1294,16 @@ export default function ConversationPage() {
     setShowScrollBtn(false);
   }, [loadingMessages, messages.length, scrollContainerToBottom, startBottomAnchor]);
 
-  // Re-scroll when content height changes (images/videos loading after URL fetch)
+  // Re-scroll only when content grows (images/videos loading), not on user scroll
   useEffect(() => {
     const content = messagesContentRef.current;
     if (!content) return;
-    const ro = new ResizeObserver(() => {
-      if (anchorBottomRef.current || wasAtBottomRef.current) {
+    prevContentHeightRef.current = content.getBoundingClientRect().height;
+    const ro = new ResizeObserver((entries) => {
+      const h = entries[0]?.contentRect.height ?? 0;
+      const grew = h > prevContentHeightRef.current + 2;
+      prevContentHeightRef.current = h;
+      if (grew && (anchorBottomRef.current || wasAtBottomRef.current)) {
         scrollContainerToBottom(false);
       }
     });
@@ -1318,21 +1326,17 @@ export default function ConversationPage() {
   const handleScroll = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    const atBottom = distanceFromBottom < 100;
-    const userScrolledUp = anchorBottomRef.current && distanceFromBottom > 300;
 
-    if (userScrolledUp) {
+    const scrollTop = el.scrollTop;
+    if (scrollTop < prevScrollTopRef.current - 2) {
+      // User scrolled up — stop auto-pinning to bottom
       anchorBottomRef.current = false;
       if (anchorTimerRef.current) clearTimeout(anchorTimerRef.current);
-    } else if (anchorBottomRef.current && !atBottom) {
-      // Content grew (e.g. image loaded) — stay pinned, don't treat as user scroll
-      scrollContainerToBottom(false);
-      wasAtBottomRef.current = true;
-      setShowScrollBtn(false);
-      return;
     }
+    prevScrollTopRef.current = scrollTop;
 
+    const distanceFromBottom = el.scrollHeight - scrollTop - el.clientHeight;
+    const atBottom = distanceFromBottom < 100;
     wasAtBottomRef.current = atBottom;
     if (atBottom) {
       setShowScrollBtn(false);
@@ -1349,7 +1353,7 @@ export default function ConversationPage() {
       prevScrollHeightRef.current = el.scrollHeight;
       loadMoreMessages();
     }
-  }, [hasMoreMessages, loadMoreMessages, scrollContainerToBottom]);
+  }, [hasMoreMessages, loadMoreMessages]);
 
   const scrollToBottom = () => {
     scrollContainerToBottom(true);
