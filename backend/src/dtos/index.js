@@ -10,4 +10,5 @@ module.exports = {
   ...require('./notification.dto'),
   ...require('./relationship.dto'),
   ...require('./admin.dto'),
+  ...require('./wallpaper.dto'),
 };

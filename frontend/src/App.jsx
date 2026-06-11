@@ -4,6 +4,7 @@ import { Spinner } from '@heroui/react';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
 import { useThemeStore } from '@/stores/themeStore';
+import { useWallpaperStore } from '@/stores/wallpaperStore';
 import ProtectedRoute from '@/components/ProtectedRoute';
 
 const ChatLayout = lazy(() => import('@/layouts/ChatLayout'));
@@ -38,6 +39,7 @@ export default function App() {
   const initSocket = useChatStore((s) => s.initSocket);
   const destroySocket = useChatStore((s) => s.destroySocket);
   const initTheme = useThemeStore((s) => s.init);
+  const fetchWallpapers = useWallpaperStore((s) => s.fetchWallpapers);
 
   useEffect(() => {
     init();
@@ -47,10 +49,11 @@ export default function App() {
   useEffect(() => {
     if (isAuthenticated && !loading) {
       fetchConversations();
+      fetchWallpapers();
       if (token) initSocket(token, user?.id);
       return () => destroySocket();
     }
-  }, [isAuthenticated, loading, fetchConversations, token, user?.id, initSocket, destroySocket]);
+  }, [isAuthenticated, loading, fetchConversations, fetchWallpapers, token, user?.id, initSocket, destroySocket]);
 
   return (
     <Suspense fallback={<PageLoader />}>

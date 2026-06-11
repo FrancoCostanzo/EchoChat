@@ -11,4 +11,5 @@ module.exports = {
   notificationService: require('./notification.service'),
   relationshipService: require('./relationship.service'),
   adminService: require('./admin.service'),
+  wallpaperService: require('./wallpaper.service'),
 };

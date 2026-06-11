@@ -11,4 +11,5 @@ module.exports = {
   notificationController: require('./notification.controller'),
   relationshipController: require('./relationship.controller'),
   adminController: require('./admin.controller'),
+  wallpaperController: require('./wallpaper.controller'),
 };

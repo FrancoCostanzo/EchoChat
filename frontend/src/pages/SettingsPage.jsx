@@ -29,6 +29,7 @@ import {
   Copy,
   RefreshCw,
   KeyRound,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 function parseUserAgent(ua) {
@@ -57,6 +58,8 @@ import { useAuthStore } from '@/stores/authStore';
 import { usersApi, authApi, notificationsApi } from '@/lib/endpoints';
 import UserAvatar from '@/components/UserAvatar';
 import { useThemeStore, ACCENT_COLORS } from '@/stores/themeStore';
+import { useWallpaperStore } from '@/stores/wallpaperStore';
+import WallpaperPicker, { WallpaperPreview } from '@/components/WallpaperPicker';
 import { changeLanguage } from '@/lib/i18n';
 
 const ENTRY_EASE = [0.34, 1.2, 0.64, 1];
@@ -844,9 +847,24 @@ const THEME_MODES = [
   { key: 'system', icon: Monitor },
 ];
 
+const CONV_TYPE_ROWS = [
+  { scope: 'global', scopeKey: 'global', labelKey: 'wallpaper.scopeGlobal' },
+  { scope: 'type', scopeKey: 'direct',      labelKey: 'wallpaper.typeDirect' },
+  { scope: 'type', scopeKey: 'group',       labelKey: 'wallpaper.typeGroup' },
+  { scope: 'type', scopeKey: 'channel',     labelKey: 'wallpaper.typeChannel' },
+  { scope: 'type', scopeKey: 'broadcast',   labelKey: 'wallpaper.typeBroadcast' },
+  { scope: 'type', scopeKey: 'bot',         labelKey: 'wallpaper.typeBot' },
+];
+
 function AppearanceTab() {
   const { t } = useTranslation();
   const { mode, accent, setMode, setAccent } = useThemeStore();
+  const { wallpapers, fetchWallpapers } = useWallpaperStore();
+  const [pickerOpen, setPickerOpen] = useState(null); // { scope, scopeKey, label }
+
+  useEffect(() => {
+    fetchWallpapers();
+  }, [fetchWallpapers]);
 
   return (
     <div className="flex flex-col gap-5">
@@ -886,6 +904,50 @@ function AppearanceTab() {
           ))}
         </div>
       </SettingsCard>
+
+      {/* ── Chat wallpapers ── */}
+      <SettingsCard icon={ImageIcon} title={t('wallpaper.settingsTitle')}>
+        <p className="mb-3 text-xs text-ink-300">{t('wallpaper.settingsHint')}</p>
+        <div className="flex flex-col gap-2">
+          {CONV_TYPE_ROWS.map(({ scope, scopeKey, labelKey }) => {
+            const current = wallpapers.find(
+              (w) => w.scope === scope && w.scope_key === scopeKey
+            );
+            const label = t(labelKey);
+            return (
+              <button
+                key={`${scope}:${scopeKey}`}
+                onClick={() => setPickerOpen({ scope, scopeKey, label })}
+                className="flex w-full items-center gap-3 rounded-xl border border-white/8 bg-ink-800/45 px-4 py-3 text-left transition-colors hover:border-white/14 hover:bg-ink-750/65"
+              >
+                <WallpaperPreview
+                  wallpaper={current}
+                  className="h-10 w-14 shrink-0"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-foreground">{label}</p>
+                  <p className="text-xs text-ink-300">
+                    {current
+                      ? t(`wallpaper.type_${current.wallpaper_type}`)
+                      : t('wallpaper.notSet')}
+                  </p>
+                </div>
+                <Palette size={15} className="shrink-0 text-ink-300" />
+              </button>
+            );
+          })}
+        </div>
+      </SettingsCard>
+
+      {pickerOpen && (
+        <WallpaperPicker
+          isOpen={!!pickerOpen}
+          onClose={() => setPickerOpen(null)}
+          scope={pickerOpen.scope}
+          scopeKey={pickerOpen.scopeKey}
+          label={pickerOpen.label}
+        />
+      )}
     </div>
   );
 }

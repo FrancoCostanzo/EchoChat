@@ -130,7 +130,8 @@
     "threadNoReplies": "No replies yet. Start the thread!",
     "threadReplyPlaceholder": "Reply in thread...",
     "memberPanel": "Members",
-    "viewMembers": "View members"
+    "viewMembers": "View members",
+    "changeWallpaper": "Change wallpaper"
   },
   "newConversation": {
     "title": "New conversation",
@@ -479,5 +480,39 @@
     "reset": "Reset (0)",
     "zoomIn": "Zoom in (+)",
     "resetZoom": "Reset zoom"
+  },
+  "wallpaper": {
+    "title": "Chat wallpaper",
+    "settingsTitle": "Chat wallpaper",
+    "settingsHint": "The most specific wallpaper takes priority: conversation > type > global.",
+    "scopeGlobal": "Global (all chats)",
+    "typeDirect": "Direct messages",
+    "typeGroup": "Groups",
+    "typeChannel": "Channels",
+    "typeBroadcast": "Broadcasts",
+    "typeBot": "Bots",
+    "presets": "Gradients",
+    "solidColor": "Solid color",
+    "image": "Image",
+    "customColor": "Custom color",
+    "uploadHint": "Click to upload an image",
+    "uploading": "Uploading...",
+    "preview": "Preview",
+    "currentlySet": "Wallpaper set",
+    "remove": "Remove wallpaper",
+    "notSet": "Not set (inherited)",
+    "type_preset": "Gradient",
+    "type_color": "Solid color",
+    "type_image": "Custom image",
+    "presetNames": {
+      "midnight": "Midnight",
+      "aurora": "Aurora",
+      "ember": "Ember",
+      "forest": "Forest",
+      "dusk": "Dusk",
+      "ocean": "Ocean",
+      "rose": "Rose",
+      "graphite": "Graphite"
+    }
   }
 }

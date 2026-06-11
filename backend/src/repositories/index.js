@@ -15,4 +15,5 @@ module.exports = {
   auditRepository: require('./audit.repository'),
   relationshipRepository: require('./relationship.repository'),
   systemSettingsRepository: require('./systemSettings.repository'),
+  wallpaperRepository: require('./wallpaper.repository'),
 };
