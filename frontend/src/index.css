@@ -2,9 +2,18 @@
 @import "@heroui/styles";
 
 /* ──────────────────────────────────────────────────────────
-   Discord-inspired design tokens
+   Spatial Canvas ("Lienzo Espacial") — design tokens
+   Spec: docs/SPATIAL_CANVAS.md
    ────────────────────────────────────────────────────────── */
 @theme {
+  /* Semantic palette — dark values; light overrides in html:not(.dark) */
+  --color-echo-canvas: #0b0d14;
+  --color-echo-panel: #151826;
+  --color-echo-accent-brand: #7c5cff;
+  --color-echo-accent-energy: #3ddc97;
+  --color-echo-text: #ededf4;
+  --color-echo-muted: #8a8fa8;
+  --color-echo-danger: #ff6b6b;
   /* Typography — Clash Display for hierarchy only (server/channel names,
      section headers); Satoshi for UI & chat body. Never mix the two roles. */
   --font-sans: "Satoshi", "Inter", system-ui, -apple-system, sans-serif;
@@ -65,11 +74,19 @@
     var(--accent) 55%,
     color-mix(in oklch, var(--accent), black 12%) 100%);
 
-  /* Elevation scale (layered, slightly tinted shadows) */
-  --shadow-e1: 0 1px 2px rgba(0,0,0,0.28), 0 1px 1px rgba(0,0,0,0.18);
-  --shadow-e2: 0 4px 12px -4px rgba(0,0,0,0.45), 0 2px 4px rgba(0,0,0,0.25);
-  --shadow-e3: 0 12px 32px -8px rgba(0,0,0,0.55), 0 4px 10px rgba(0,0,0,0.3);
-  --shadow-glow-accent: 0 8px 28px -8px color-mix(in oklch, var(--accent) 55%, transparent);
+  /* Elevation scale — tinted color shadows (Spatial Canvas, not flat black) */
+  --shadow-e1:
+    0 1px 2px rgb(11 13 20 / 0.5),
+    0 0 0 1px rgb(255 255 255 / 0.04);
+  --shadow-e2:
+    0 4px 16px -4px rgb(124 92 255 / 0.12),
+    0 2px 6px rgb(11 13 20 / 0.35),
+    0 0 0 1px rgb(255 255 255 / 0.06);
+  --shadow-e3:
+    0 8px 32px rgb(124 92 255 / 0.15),
+    0 12px 40px -12px rgb(11 13 20 / 0.55),
+    0 0 0 1px rgb(255 255 255 / 0.07);
+  --shadow-glow-accent: 0 8px 32px rgb(124 92 255 / 0.22);
 
   /* Motion */
   --ease-echo: cubic-bezier(0.22, 1, 0.36, 1);
@@ -83,6 +100,16 @@
   :root {
     --echo-sidebar-width: 288px;
     --echo-guild-rail-width: 72px;
+    --echo-canvas-gap: 0.75rem;
+
+    /* Spatial Canvas semantic aliases (see docs/SPATIAL_CANVAS.md) */
+    --echo-bg-canvas: var(--color-echo-canvas);
+    --echo-bg-panel: var(--color-echo-panel);
+    --echo-accent: var(--color-echo-accent-brand);
+    --echo-accent-energy: var(--color-echo-accent-energy);
+    --echo-text-primary: var(--color-echo-text);
+    --echo-text-muted: var(--color-echo-muted);
+    --echo-danger: var(--color-echo-danger);
 
     /* Hairline border for floating panels — flips with the theme class
        (the `dark:` variant follows the OS here, so it can't be used) */
@@ -141,22 +168,33 @@
     --heroui-default: 220 14% 93%;
   }
 
-  /* ── Ambient backdrop — subtle color glows behind the whole app so
-     surfaces read as floating layers instead of flat grey ── */
+  /* ── Ambient canvas — deep indigo-violet stage; panels float above ── */
   body {
-    background-color: var(--color-ink-950);
+    background-color: var(--echo-bg-canvas);
     background-image:
-      radial-gradient(60rem 60rem at 12% -10%, color-mix(in oklch, var(--accent) 26%, transparent), transparent 60%),
-      radial-gradient(50rem 50rem at 105% 8%, color-mix(in oklch, color-mix(in oklch, var(--accent), white 14%) 20%, transparent), transparent 58%),
-      radial-gradient(55rem 55rem at 88% 112%, color-mix(in oklch, var(--accent) 14%, transparent), transparent 60%);
+      radial-gradient(70rem 70rem at 8% -15%, rgb(124 92 255 / 0.18), transparent 62%),
+      radial-gradient(55rem 55rem at 102% 5%, rgb(61 220 151 / 0.06), transparent 58%),
+      radial-gradient(60rem 60rem at 85% 110%, rgb(124 92 255 / 0.1), transparent 60%);
     background-attachment: fixed;
+    color: var(--echo-text-primary);
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  html:not(.dark) {
+    --color-echo-canvas: #f6f5f1;
+    --color-echo-panel: #ffffff;
+    --color-echo-accent-brand: #6644e8;
+    --color-echo-accent-energy: #0fa968;
+    --color-echo-text: #1a1a2e;
+    --color-echo-muted: #5c5f73;
+    --color-echo-danger: #dc2626;
   }
   html:not(.dark) body {
-    background-color: #eef0f6;
+    background-color: var(--echo-bg-canvas);
     background-image:
-      radial-gradient(60rem 60rem at 12% -10%, color-mix(in oklch, var(--accent) 16%, transparent), transparent 60%),
-      radial-gradient(50rem 50rem at 105% 8%, color-mix(in oklch, var(--accent) 11%, transparent), transparent 58%),
-      radial-gradient(55rem 55rem at 88% 112%, color-mix(in oklch, var(--accent) 9%, transparent), transparent 60%);
+      radial-gradient(70rem 70rem at 8% -15%, rgb(102 68 232 / 0.1), transparent 62%),
+      radial-gradient(55rem 55rem at 102% 5%, rgb(15 169 104 / 0.06), transparent 58%),
+      radial-gradient(60rem 60rem at 85% 110%, rgb(102 68 232 / 0.07), transparent 60%);
   }
 
   /* Smooth scrollbars */
@@ -349,11 +387,24 @@
 
   /* Opaque floating panel (non-glass variant used by CanvasPanel) */
   .echo-panel-solid {
-    background-color: var(--color-ink-800);
-    border: 1px solid color-mix(in oklch, #ffffff 7%, transparent);
+    background-color: color-mix(in oklch, var(--echo-bg-panel) 92%, transparent);
+    border: 1px solid var(--panel-border);
   }
   html:not(.dark) .echo-panel-solid {
+    background-color: var(--echo-bg-panel);
     border-color: color-mix(in oklch, #0c0d0e 8%, transparent);
+  }
+  html:not(.dark) .echo-e2 {
+    box-shadow:
+      0 4px 16px -4px rgb(102 68 232 / 0.1),
+      0 2px 6px rgb(26 26 46 / 0.08),
+      0 0 0 1px rgb(0 0 0 / 0.04);
+  }
+  html:not(.dark) .echo-e3 {
+    box-shadow:
+      0 8px 28px rgb(102 68 232 / 0.12),
+      0 12px 32px -12px rgb(26 26 46 / 0.1),
+      0 0 0 1px rgb(0 0 0 / 0.05);
   }
 
   /* Display hierarchy — Clash Display with tight tracking. Headers only. */
