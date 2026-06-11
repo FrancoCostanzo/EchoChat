@@ -43,6 +43,18 @@ class BroadcastService {
     logger.info({ broadcastMsgId: message.id, broadcastId: listId }, 'Broadcast message created');
     return message;
   }
+
+  async addRecipients(listId, userId, recipientIds) {
+    await this.getListById(listId, userId);
+    await broadcastRepository.addRecipients(listId, recipientIds, userId);
+    return broadcastRepository.getRecipients(listId);
+  }
+
+  async removeRecipient(listId, userId, recipientId) {
+    await this.getListById(listId, userId);
+    await broadcastRepository.removeRecipient(listId, recipientId);
+    return broadcastRepository.getRecipients(listId);
+  }
 }
 
 module.exports = new BroadcastService();

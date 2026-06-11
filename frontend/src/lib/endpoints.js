@@ -103,6 +103,8 @@ export const broadcastsApi = {
   create: (data) => api.post('/broadcasts', data),
   list: () => api.get('/broadcasts'),
   getById: (id) => api.get(`/broadcasts/${id}`),
+  addRecipients: (listId, recipientIds) => api.post(`/broadcasts/${listId}/recipients`, { recipient_ids: recipientIds }),
+  removeRecipient: (listId, userId) => api.delete(`/broadcasts/${listId}/recipients/${userId}`),
   sendMessage: (listId, data) => api.post(`/broadcasts/${listId}/messages`, data),
 };
 
