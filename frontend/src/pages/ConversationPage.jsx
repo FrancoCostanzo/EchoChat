@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, memo } from 'react';
 import { createPortal } from 'react-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button, Input, Dropdown, Label, Spinner, Tooltip, Modal } from '@heroui/react';
 import {
@@ -39,12 +39,14 @@ import {
   BarChart3,
   Upload,
   MessageSquareText,
+  Play,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
 import { useTranslation } from 'react-i18next';
 import UserAvatar from '@/components/UserAvatar';
 import ImageViewer from '@/components/ImageViewer';
+import VideoViewer from '@/components/VideoViewer';
 import PdfPreview from '@/components/PdfPreview';
 import SendButton from '@/components/SendButton';
 import MessageSearchPanel from '@/components/MessageSearchPanel';
@@ -55,6 +57,7 @@ import { formatMessageTime, formatFullTime } from '@/lib/dates';
 import FloatingComposer from '@/components/FloatingComposer';
 import PresenceAvatarStack from '@/components/PresenceAvatarStack';
 import { storageApi, messagesApi, conversationsApi } from '@/lib/endpoints';
+import { EASE_OUT, SPRING_BOUNCY, msgEntryInitial, msgEntryTransition } from '@/lib/motion';
 
 function downloadBlob(url, filename) {
   fetch(url)
@@ -70,7 +73,6 @@ function downloadBlob(url, filename) {
     .catch(() => window.open(url, '_blank'));
 }
 
-const EASE_OUT = [0.34, 1, 0.64, 1];
 const SPRING_OUT = [0.34, 1.56, 0.64, 1];
 
 /* ─────────────────────────── File Picker Menu ─────────────────────────── */
@@ -508,8 +510,14 @@ const _attachmentUrlCache = new Map();
 
 function AttachmentView({ attachment }) {
   const { t } = useTranslation();
+  const reducedMotion = useReducedMotion();
   const [url, setUrl] = useState(() => _attachmentUrlCache.get(attachment.id) ?? null);
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [videoReady, setVideoReady] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
+  const [videoViewerOpen, setVideoViewerOpen] = useState(false);
+  const imageLayoutId = `att-img-${attachment.id}`;
+  const videoLayoutId = `att-vid-${attachment.id}`;
   const isImage =
     attachment.object_type === 'image' || attachment.mime_type?.startsWith('image/');
   const isVideo =
@@ -541,7 +549,7 @@ function AttachmentView({ attachment }) {
   if (!url) {
     return (
       <div
-        className={`animate-pulse rounded-lg bg-ink-800 ${
+        className={`echo-shimmer rounded-lg ${
           isImage || isVideo || isPdf ? 'h-48 w-[280px]' : 'h-9 w-44'
         }`}
       />
@@ -551,17 +559,28 @@ function AttachmentView({ attachment }) {
   if (isImage) {
     return (
       <>
-        <div
+        <motion.div
           className="group relative inline-block min-h-48 cursor-zoom-in overflow-hidden rounded-lg"
           onClick={() => setViewerOpen(true)}
+          whileHover={reducedMotion ? undefined : { scale: 1.015 }}
+          whileTap={reducedMotion ? undefined : { scale: 0.985 }}
+          transition={{ duration: 0.18, ease: EASE_OUT }}
         >
-          <img
+          {!imgLoaded && (
+            <div className="echo-shimmer absolute inset-0 z-0 min-h-48 w-[min(400px,70vw)]" />
+          )}
+          <motion.img
+            layoutId={imageLayoutId}
             src={url}
             alt={attachment.original_filename}
             decoding="async"
-            className="block max-h-80 max-w-[min(400px,70vw)] object-cover"
+            onLoad={() => setImgLoaded(true)}
+            initial={reducedMotion ? false : { opacity: 0 }}
+            animate={{ opacity: imgLoaded ? 1 : 0 }}
+            transition={{ duration: 0.28, ease: EASE_OUT }}
+            className="relative z-10 block max-h-80 max-w-[min(400px,70vw)] object-cover"
           />
-          <div className="absolute inset-0 flex items-end justify-end gap-1 bg-gradient-to-t from-black/50 to-transparent p-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+          <div className="absolute inset-0 z-20 flex items-end justify-end gap-1 bg-gradient-to-t from-black/50 to-transparent p-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
             <Button
               isIconOnly
               variant="ghost"
@@ -572,13 +591,20 @@ function AttachmentView({ attachment }) {
               <Download size={13} />
             </Button>
           </div>
-        </div>
-        {viewerOpen && (
-          <ImageViewer
-            src={url}
-            filename={attachment.original_filename}
-            onClose={() => setViewerOpen(false)}
-          />
+        </motion.div>
+        {typeof document !== 'undefined' && createPortal(
+          <AnimatePresence>
+            {viewerOpen && (
+              <ImageViewer
+                key={attachment.id}
+                src={url}
+                filename={attachment.original_filename}
+                layoutId={imageLayoutId}
+                onClose={() => setViewerOpen(false)}
+              />
+            )}
+          </AnimatePresence>,
+          document.body,
         )}
       </>
     );
@@ -586,23 +612,64 @@ function AttachmentView({ attachment }) {
 
   if (isVideo) {
     return (
-      <div className="group relative overflow-hidden rounded-lg bg-black">
-        <video
-          src={url}
-          controls
-          preload="metadata"
-          className="max-h-80 max-w-[min(400px,70vw)] rounded-lg"
-        />
-        <Button
-          isIconOnly
-          variant="ghost"
-          onPress={() => downloadBlob(url, attachment.original_filename)}
-          className="absolute right-2 top-2 h-auto w-auto min-w-0 rounded-md bg-black/70 p-1.5 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-black/90 group-hover:opacity-100"
-          title={t('common.download')}
+      <>
+        <motion.div
+          className="group relative inline-block min-h-48 cursor-pointer overflow-hidden rounded-lg bg-black"
+          onClick={() => setVideoViewerOpen(true)}
+          whileHover={reducedMotion ? undefined : { scale: 1.015 }}
+          whileTap={reducedMotion ? undefined : { scale: 0.985 }}
+          transition={{ duration: 0.18, ease: EASE_OUT }}
         >
-          <Download size={13} />
-        </Button>
-      </div>
+          {!videoReady && (
+            <div className="echo-shimmer absolute inset-0 z-0 min-h-48 w-[min(400px,70vw)]" />
+          )}
+          <motion.video
+            layoutId={videoLayoutId}
+            src={url}
+            preload="metadata"
+            muted
+            playsInline
+            onLoadedData={() => setVideoReady(true)}
+            initial={reducedMotion ? false : { opacity: 0 }}
+            animate={{ opacity: videoReady ? 1 : 0 }}
+            transition={{ duration: 0.28, ease: EASE_OUT }}
+            className="relative z-10 block max-h-80 max-w-[min(400px,70vw)] rounded-lg object-cover"
+          />
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/25 transition-colors group-hover:bg-black/35">
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/55 text-white shadow-lg backdrop-blur-sm transition-transform duration-200 group-hover:scale-110">
+              <Play size={22} className="ml-0.5" fill="currentColor" />
+            </span>
+          </div>
+          <div
+            className="absolute inset-0 z-30 flex items-end justify-end gap-1 p-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Button
+              isIconOnly
+              variant="ghost"
+              onPress={() => downloadBlob(url, attachment.original_filename)}
+              className="h-auto w-auto min-w-0 rounded-md bg-black/70 p-1.5 text-white backdrop-blur-sm transition-colors hover:bg-black/90"
+              title={t('common.download')}
+            >
+              <Download size={13} />
+            </Button>
+          </div>
+        </motion.div>
+        {typeof document !== 'undefined' && createPortal(
+          <AnimatePresence>
+            {videoViewerOpen && (
+              <VideoViewer
+                key={attachment.id}
+                src={url}
+                filename={attachment.original_filename}
+                layoutId={videoLayoutId}
+                onClose={() => setVideoViewerOpen(false)}
+              />
+            )}
+          </AnimatePresence>,
+          document.body,
+        )}
+      </>
     );
   }
 
@@ -655,11 +722,39 @@ function ReactionPill({ emoji, count, mine, onClick }) {
 
 // Delivery receipt — only rendered on the user's own (accent) bubbles.
 function ReceiptIcon({ message }) {
-  if (message._status === 'sending') return <Loader size={13} className="animate-spin text-white/70" />;
-  if (message._status === 'error')   return <AlertCircle size={13} className="text-red-200" />;
-  if (message.read_count > 0)        return <CheckCheck size={13} className="text-sky-300" />;
-  if (message.delivered_count > 0)   return <CheckCheck size={13} className="text-white/70" />;
-  return <Check size={13} className="text-white/70" />;
+  const reducedMotion = useReducedMotion();
+  const key = message._status === 'sending'
+    ? 'sending'
+    : message._status === 'error'
+      ? 'error'
+      : message.read_count > 0
+        ? 'read'
+        : message.delivered_count > 0
+          ? 'delivered'
+          : 'sent';
+
+  const icon = (() => {
+    if (message._status === 'sending') return <Loader size={13} className="animate-spin text-white/70" />;
+    if (message._status === 'error') return <AlertCircle size={13} className="text-red-200" />;
+    if (message.read_count > 0) return <CheckCheck size={13} className="text-sky-300" />;
+    if (message.delivered_count > 0) return <CheckCheck size={13} className="text-white/70" />;
+    return <Check size={13} className="text-white/70" />;
+  })();
+
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.span
+        key={key}
+        className="inline-flex"
+        initial={reducedMotion ? false : { opacity: 0, scale: 0.5, y: 2 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={reducedMotion ? undefined : { opacity: 0, scale: 0.6 }}
+        transition={reducedMotion ? { duration: 0.01 } : SPRING_BOUNCY}
+      >
+        {icon}
+      </motion.span>
+    </AnimatePresence>
+  );
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -708,9 +803,9 @@ function MessageContextMenu({ pos, onClose, quickEmojis, onEmoji, items }) {
       <div className="pointer-events-none fixed inset-0 z-80" aria-hidden />
       <motion.div
         ref={ref}
-        initial={{ opacity: 0, scale: 0.94 }}
-        animate={{ opacity: coords.ready ? 1 : 0, scale: coords.ready ? 1 : 0.94 }}
-        transition={{ duration: 0.13, ease: [0.34, 1.56, 0.64, 1] }}
+        initial={{ opacity: 0, scale: 0.92, y: 6 }}
+        animate={{ opacity: coords.ready ? 1 : 0, scale: coords.ready ? 1 : 0.92, y: coords.ready ? 0 : 6 }}
+        transition={SPRING_BOUNCY}
         style={{ left: coords.left, top: coords.top, transformOrigin: 'top left' }}
         className="echo-glass-strong pointer-events-auto fixed z-80 w-56 overflow-hidden rounded-2xl p-1.5"
       >
@@ -770,8 +865,9 @@ function buildMessageMenuItems({
   ];
 }
 
-const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstInGroup, isLastInGroup, isContextOpen, onOpenContextMenu, onEdit, onDelete, onReply, onReact, onForward, onOpenThread, onRetry, currentUserId, currentUser }) {
+const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstInGroup, isLastInGroup, isContextOpen, shouldAnimateEntry, onOpenContextMenu, onScrollToReply, onEdit, onDelete, onReply, onReact, onForward, onOpenThread, onRetry, currentUserId, currentUser }) {
   const { t } = useTranslation();
+  const reducedMotion = useReducedMotion();
   const saved = !!message.is_saved;
   const longPressTimer = useRef(null);
 
@@ -823,12 +919,14 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
 
   const metaClass = isOwn ? 'echo-on-accent-muted' : 'text-ink-200';
 
+  const justSent = isOwn && message._status === 'sent';
+
   return (
     <motion.div
       id={`msg-${message.id}`}
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.18, ease: 'easeOut' }}
+      initial={msgEntryInitial(isOwn, shouldAnimateEntry, reducedMotion)}
+      animate={{ opacity: 1, y: 0, x: 0, scale: 1 }}
+      transition={msgEntryTransition(isOwn, reducedMotion)}
       onContextMenu={openMenu}
       onTouchStart={handleTouchStart}
       onTouchEnd={cancelLongPress}
@@ -855,18 +953,35 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
         'relative flex min-w-0 max-w-[82%] flex-col sm:max-w-[68%]',
         isOwn ? 'items-end' : 'items-start',
       ].join(' ')}>
-        <div className={bubbleClass}>
+        <motion.div
+          className={bubbleClass}
+          animate={
+            reducedMotion || !justSent
+              ? undefined
+              : { scale: [1, 1.018, 1], transition: { duration: 0.35, ease: EASE_OUT } }
+          }
+        >
           {/* Sender name (group chats, first in group) */}
           {showName && (
             <p className="mb-0.5 text-[13px] font-semibold text-blurple-400">{displayName}</p>
           )}
 
-          {/* Reply preview */}
+          {/* Reply preview — click to jump to the original message */}
           {message.reply_to_id && (message.reply_to_body || message.reply_to_type) && (
-            <div className={[
-              'mb-1 flex flex-col gap-0.5 rounded-md border-l-[3px] px-2 py-1 text-[12px]',
-              isOwn ? 'border-white/70 bg-black/15' : 'border-blurple-400 bg-black/10',
-            ].join(' ')}>
+            <button
+              type="button"
+              title={t('chat.jumpToOriginal')}
+              onClick={(e) => {
+                e.stopPropagation();
+                onScrollToReply(message.reply_to_id);
+              }}
+              className={[
+                'echo-press mb-1 flex w-full flex-col gap-0.5 rounded-md border-l-[3px] px-2 py-1 text-left text-[12px] transition-colors',
+                isOwn
+                  ? 'border-white/70 bg-black/15 hover:bg-black/25'
+                  : 'border-blurple-400 bg-black/10 hover:bg-black/20',
+              ].join(' ')}
+            >
               {message.reply_to_sender && (
                 <span className={isOwn ? 'font-semibold text-white/90' : 'font-semibold text-blurple-400'}>
                   {message.reply_to_sender}
@@ -877,7 +992,7 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
                   ? <span className="inline-flex items-center gap-1"><Paperclip size={11} />{t('chat.attachedFile')}</span>
                   : message.reply_to_body}
               </span>
-            </div>
+            </button>
           )}
 
           {/* Deleted */}
@@ -932,7 +1047,7 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
             <span title={formatFullTime(message.sent_at)}>{formatMessageTime(message.sent_at)}</span>
             {isOwn && !message.is_deleted && <ReceiptIcon message={message} />}
           </div>
-        </div>
+        </motion.div>
 
         {/* Retry (own, error) */}
         {isOwn && message._status === 'error' && (
@@ -1119,6 +1234,8 @@ export default function ConversationPage() {
   const [forwardTarget, setForwardTarget] = useState(null); // message being forwarded
   const [threadRoot, setThreadRoot] = useState(null); // root message of the open thread panel
   const [contextMenu, setContextMenu] = useState(null); // { messageId, x, y } | null
+  const [sendPulse, setSendPulse] = useState(false);
+  const sendPulseTimerRef = useRef(null);
   const [showPollModal, setShowPollModal] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [members, setMembers] = useState([]);
@@ -1360,6 +1477,9 @@ export default function ConversationPage() {
     } else {
       const data = { conversation_id: conversationId, body, type: 'text' };
       if (replyTo) data.reply_to_id = replyTo.id;
+      if (sendPulseTimerRef.current) clearTimeout(sendPulseTimerRef.current);
+      setSendPulse(true);
+      sendPulseTimerRef.current = setTimeout(() => setSendPulse(false), 400);
       await sendMessage(data, user);
       setReplyTo(null);
       // The message was sent — drop any saved draft for this conversation
@@ -1460,6 +1580,71 @@ export default function ConversationPage() {
     }
   }, [acceptDroppedFile]);
 
+  // Scroll to a message and briefly highlight it (search, reply, etc.)
+  const scrollToMessage = useCallback((id, { closeSearch = false } = {}) => {
+    const el = document.getElementById(`msg-${id}`);
+    if (!el) return;
+
+    const container = containerRef.current;
+    if (container) {
+      const elRect = el.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      const top = container.scrollTop
+        + (elRect.top - containerRect.top)
+        - (container.clientHeight / 2)
+        + (elRect.height / 2);
+      container.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    } else {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    el.animate(
+      [
+        { backgroundColor: 'rgba(88, 101, 242, 0)' },
+        { backgroundColor: 'rgba(88, 101, 242, 0.22)', offset: 0.2 },
+        { backgroundColor: 'rgba(88, 101, 242, 0.22)', offset: 0.5 },
+        { backgroundColor: 'rgba(88, 101, 242, 0)' },
+      ],
+      { duration: 1600, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+    );
+
+    if (closeSearch && window.innerWidth < 768) setSearchOpen(false);
+  }, []);
+
+  const handleJumpToMessage = useCallback((id) => {
+    scrollToMessage(id, { closeSearch: true });
+  }, [scrollToMessage]);
+
+  const focusMessageById = useCallback(async (id) => {
+    if (!id) return;
+
+    const tryScroll = () => {
+      const el = document.getElementById(`msg-${id}`);
+      if (el) {
+        scrollToMessage(id);
+        return true;
+      }
+      return false;
+    };
+
+    if (tryScroll()) return;
+
+    let attempts = 0;
+    while (
+      useChatStore.getState().hasMoreMessages
+      && !useChatStore.getState().messages.some((m) => m.id === id)
+      && attempts < 15
+    ) {
+      await useChatStore.getState().loadMoreMessages();
+      attempts += 1;
+    }
+
+    await new Promise((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(resolve));
+    });
+    tryScroll();
+  }, [scrollToMessage]);
+
   const handleEdit = useCallback((msg) => {
     if (!msg.body) return;
     setEditing(msg);
@@ -1471,8 +1656,11 @@ export default function ConversationPage() {
   const handleReply = useCallback((msg) => {
     setReplyTo(msg);
     setEditing(null);
-    setTimeout(() => inputRef.current?.focus(), 50);
-  }, []);
+    setTimeout(() => {
+      focusMessageById(msg.id);
+      inputRef.current?.focus();
+    }, 80);
+  }, [focusMessageById]);
 
   // Opens confirm modal instead of deleting immediately
   const handleDeleteRequest = useCallback((msg) => {
@@ -1499,25 +1687,6 @@ export default function ConversationPage() {
     setEditing(null);
     setInput('');
   };
-
-  // Scroll to a message by id (used by the search panel). Briefly highlights it
-  // when the message is currently loaded in the DOM. The flash is done with the
-  // Web Animations API so no global CSS is needed.
-  const handleJumpToMessage = useCallback((id) => {
-    const el = document.getElementById(`msg-${id}`);
-    if (!el) return;
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    el.animate(
-      [
-        { backgroundColor: 'rgba(88, 101, 242, 0)' },
-        { backgroundColor: 'rgba(88, 101, 242, 0.22)', offset: 0.2 },
-        { backgroundColor: 'rgba(88, 101, 242, 0.22)', offset: 0.5 },
-        { backgroundColor: 'rgba(88, 101, 242, 0)' },
-      ],
-      { duration: 1600, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
-    );
-    if (window.innerWidth < 768) setSearchOpen(false);
-  }, []);
 
   const handleForward = useCallback((msg) => setForwardTarget(msg), []);
 
@@ -1592,7 +1761,13 @@ export default function ConversationPage() {
           isFirstInGroup={isFirstInGroup}
           isLastInGroup={isLastInGroup}
           isContextOpen={contextMenu?.messageId === msg.id}
+          shouldAnimateEntry={
+            index === messages.length - 1
+            || msg._status === 'sending'
+            || !!msg._animateIn
+          }
           onOpenContextMenu={handleOpenContextMenu}
+          onScrollToReply={focusMessageById}
           onEdit={handleEdit}
           onDelete={handleDeleteRequest}
           onReply={handleReply}
@@ -1605,7 +1780,7 @@ export default function ConversationPage() {
         />
       );
     });
-  }, [messages, user, conversation?.type, contextMenu?.messageId, handleOpenContextMenu, handleEdit, handleDeleteRequest, handleReply, handleReact, handleForward, handleOpenThread, retrySendMessage]);
+  }, [messages, user, conversation?.type, contextMenu?.messageId, handleOpenContextMenu, focusMessageById, handleEdit, handleDeleteRequest, handleReply, handleReact, handleForward, handleOpenThread, retrySendMessage]);
 
   if (!conversation) {
     return (
@@ -1818,26 +1993,43 @@ export default function ConversationPage() {
         <AnimatePresence initial={false}>
           {(replyTo || editing) && (
             <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 8 }}
-              transition={{ duration: 0.2, ease: EASE_OUT }}
+              initial={{ opacity: 0, y: 10, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.98 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 28 }}
               className="relative mx-3 -mb-2 flex items-center gap-3 rounded-t-lg border-b border-ink-900 bg-ink-800 px-4 py-1.5 text-[13px]"
             >
               <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${editing ? 'bg-echo-idle text-eclipse' : 'bg-blurple-500 text-white'}`}>
                 {editing ? <Pencil size={11} /> : <CornerUpLeft size={11} />}
               </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-ink-100">
-                  <span className="font-semibold text-foreground">
-                    {editing ? t('chat.editingMessage') : t('chat.replyingTo', { name: replyTo.sender_display_name })}
-                  </span>
-                  {' — '}
-                  <span className="text-ink-200">
-                    {editing ? editing.body : replyTo.body}
-                  </span>
-                </p>
-              </div>
+              {replyTo && !editing ? (
+                <button
+                  type="button"
+                  title={t('chat.jumpToOriginal')}
+                  onClick={() => focusMessageById(replyTo.id)}
+                  className="echo-press min-w-0 flex-1 rounded-md px-1 py-0.5 text-left transition-colors hover:bg-ink-750/80"
+                >
+                  <p className="truncate text-ink-100">
+                    <span className="font-semibold text-foreground">
+                      {t('chat.replyingTo', { name: replyTo.sender_display_name })}
+                    </span>
+                    {' — '}
+                    <span className="text-ink-200">{replyTo.body}</span>
+                  </p>
+                </button>
+              ) : (
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-ink-100">
+                    <span className="font-semibold text-foreground">
+                      {editing ? t('chat.editingMessage') : t('chat.replyingTo', { name: replyTo.sender_display_name })}
+                    </span>
+                    {' — '}
+                    <span className="text-ink-200">
+                      {editing ? editing.body : replyTo.body}
+                    </span>
+                  </p>
+                </div>
+              )}
               <Button
                 isIconOnly
                 variant="ghost"
@@ -1922,6 +2114,7 @@ export default function ConversationPage() {
             onPress={handleSend}
             isDisabled={!(input ?? '').trim()}
             label={t('chat.send')}
+            pulse={sendPulse}
             className="shrink-0"
           />
         </FloatingComposer>

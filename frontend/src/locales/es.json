@@ -98,6 +98,7 @@
     "react": "Reaccionar",
     "copyText": "Copiar texto",
     "reply": "Responder",
+    "jumpToOriginal": "Ir al mensaje original",
     "save": "Guardar mensaje",
     "savedMessage": "Mensaje guardado",
     "forward": "Reenviar",
