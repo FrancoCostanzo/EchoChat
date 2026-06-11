@@ -89,6 +89,70 @@ function AnimatedCheck({ children, className }) {
   );
 }
 
+/** Card shell for settings sections — Spatial Canvas surface */
+function SettingsCard({ icon: Icon, title, children }) {
+  return (
+    <div className="echo-panel-solid echo-e1 rounded-2xl border border-(--panel-border) p-5">
+      <div className="mb-4 flex items-center gap-2.5">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/15">
+          <Icon size={14} className="text-accent" />
+        </div>
+        <h3 className="echo-display text-sm font-semibold">{title}</h3>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Unified option button for settings pickers (theme, accent, language, presence).
+ * Always full-width; checkmark in a consistent position when selected.
+ */
+function SettingsOptionButton({
+  selected,
+  onPress,
+  disabled = false,
+  variant = 'row',
+  children,
+  className = '',
+}) {
+  const isTile = variant === 'tile';
+
+  return (
+    <Button
+      variant="ghost"
+      isDisabled={disabled}
+      onPress={onPress}
+      className={[
+        'relative !box-border !flex !w-full !max-w-none !h-auto min-h-[44px] rounded-xl border transition-colors duration-150',
+        '[--button-bg-hover:transparent] [--button-bg-pressed:transparent]',
+        selected
+          ? 'border-accent/55 bg-accent/10 echo-ring-soft text-foreground'
+          : 'border-white/8 bg-ink-800/45 text-ink-100 hover:border-white/14 hover:bg-ink-750/65 hover:text-foreground',
+        isTile
+          ? '!flex-col !items-center !justify-center gap-2.5 !px-3 !py-5 min-h-[96px]'
+          : '!flex-row !items-center !justify-start gap-3 !px-4 !py-3.5 text-left',
+        className,
+      ].join(' ')}
+    >
+      {children}
+      <AnimatePresence>
+        {selected && (
+          <AnimatedCheck
+            className={
+              isTile
+                ? 'pointer-events-none absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-accent-foreground'
+                : 'pointer-events-none ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground'
+            }
+          >
+            <Check size={11} strokeWidth={3} />
+          </AnimatedCheck>
+        )}
+      </AnimatePresence>
+    </Button>
+  );
+}
+
 function ProfileTab() {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
@@ -785,79 +849,42 @@ function AppearanceTab() {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Theme mode card */}
-      <div className="rounded-2xl border border-border bg-background-secondary p-5">
-        <div className="mb-4 flex items-center gap-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft">
-            <Sun size={14} className="text-accent" />
-          </div>
-          <h3 className="text-sm font-semibold">{t('settings.theme')}</h3>
-        </div>
-        <div className="grid grid-cols-3 gap-3">
+      <SettingsCard icon={Sun} title={t('settings.theme')}>
+        <div className="grid grid-cols-3 gap-2">
           {THEME_MODES.map(({ key, icon: Icon }) => (
-            <Button
+            <SettingsOptionButton
               key={key}
-              variant="ghost"
+              selected={mode === key}
               onPress={() => setMode(key)}
-              className={`relative flex h-auto flex-col items-center gap-2.5 rounded-xl border-2 p-4 [--button-bg-hover:transparent] [--button-bg-pressed:transparent] hover:scale-[1.03] active:scale-[0.96] ${
-                mode === key
-                  ? 'border-accent bg-accent-soft text-accent shadow-sm scale-[1.03]'
-                  : 'border-border text-muted hover:border-border-secondary hover:text-foreground'
-              }`}
+              variant="tile"
             >
-              <AnimatePresence>
-                {mode === key && (
-                  <AnimatedCheck className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-accent">
-                    <Check size={10} strokeWidth={3} className="text-accent-foreground" />
-                  </AnimatedCheck>
-                )}
-              </AnimatePresence>
-              <Icon size={22} />
-              <span className="text-xs font-medium">{t(`settings.${key}`)}</span>
-            </Button>
+              <Icon size={22} className="shrink-0 text-current" />
+              <span className="text-xs font-semibold">{t(`settings.${key}`)}</span>
+            </SettingsOptionButton>
           ))}
         </div>
-      </div>
+      </SettingsCard>
 
-      {/* Accent color card */}
-      <div className="rounded-2xl border border-border bg-background-secondary p-5">
-        <div className="mb-4 flex items-center gap-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft">
-            <Palette size={14} className="text-accent" />
-          </div>
-          <h3 className="text-sm font-semibold">{t('settings.accentColor')}</h3>
-        </div>
-        <div className="grid grid-cols-3 gap-3">
+      <SettingsCard icon={Palette} title={t('settings.accentColor')}>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {ACCENT_COLORS.map(({ key, color }) => (
-            <Button
+            <SettingsOptionButton
               key={key}
-              variant="ghost"
+              selected={accent === key}
               onPress={() => setAccent(key)}
-              className={`flex h-auto items-center justify-start gap-3 rounded-xl border-2 p-3 [--button-bg-hover:transparent] [--button-bg-pressed:transparent] hover:scale-[1.03] active:scale-[0.96] ${
-                accent === key
-                  ? 'border-accent bg-accent-soft shadow-sm scale-[1.03]'
-                  : 'border-border hover:border-border-secondary'
-              }`}
             >
-              <motion.span
-                animate={accent === key ? { scale: [1, 1.18, 0.92, 1] } : { scale: 1 }}
-                transition={{ duration: 0.3, ease: BOUNCE_EASE }}
-                className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full ring-2 ring-offset-2 ring-offset-background"
-                style={{ backgroundColor: color, ringColor: color }}
-              >
-                <AnimatePresence>
-                  {accent === key && (
-                    <AnimatedCheck className="text-white">
-                      <Check size={12} strokeWidth={3} />
-                    </AnimatedCheck>
-                  )}
-                </AnimatePresence>
-              </motion.span>
-              <span className="text-sm font-medium">{t(`settings.accentColors.${key}`)}</span>
-            </Button>
+              <span
+                className="flex h-7 w-7 shrink-0 rounded-full ring-1 ring-white/15"
+                style={{ backgroundColor: color }}
+                aria-hidden
+              />
+              <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                {t(`settings.accentColors.${key}`)}
+              </span>
+            </SettingsOptionButton>
           ))}
         </div>
-      </div>
+      </SettingsCard>
     </div>
   );
 }
@@ -889,89 +916,57 @@ function PresenceTab() {
   };
 
   return (
-    <div className="rounded-2xl border border-border bg-background-secondary p-5">
-      <div className="mb-4 flex items-center gap-2.5">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft">
-          <Wifi size={14} className="text-accent" />
-        </div>
-        <h3 className="text-sm font-semibold">{t('settings.presenceStatus')}</h3>
-      </div>
+    <SettingsCard icon={Wifi} title={t('settings.presenceStatus')}>
       <div className="flex flex-col gap-2">
         {PRESENCE_OPTIONS.map(({ key, dotClass, icon: Icon }) => (
-          <Button
+          <SettingsOptionButton
             key={key}
-            variant="ghost"
-            isDisabled={loading}
+            selected={presence === key}
+            disabled={loading}
             onPress={() => handleUpdate(key)}
-            className={`flex h-auto items-center justify-start gap-3 rounded-xl border-2 px-4 py-3 text-left [--button-bg-hover:transparent] [--button-bg-pressed:transparent] hover:scale-[1.01] active:scale-[0.98] ${
-              presence === key
-                ? 'border-accent bg-accent-soft scale-[1.01]'
-                : 'border-border hover:border-border-secondary'
-            }`}
           >
             <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${dotClass}`} />
-            <Icon size={15} className="shrink-0 text-muted" />
-            <span className="flex-1 text-sm font-medium">{t(`settings.presenceOptions.${key}`)}</span>
-            <AnimatePresence>
-              {presence === key && (
-                <AnimatedCheck className="text-accent">
-                  <Check size={14} />
-                </AnimatedCheck>
-              )}
-            </AnimatePresence>
-          </Button>
+            <Icon size={15} className="shrink-0 text-ink-200" />
+            <span className="min-w-0 flex-1 text-sm font-medium">
+              {t(`settings.presenceOptions.${key}`)}
+            </span>
+          </SettingsOptionButton>
         ))}
       </div>
-    </div>
+    </SettingsCard>
   );
 }
 
 const LANGUAGES = [
-  { key: 'es', label: 'Español',    flag: '🇪🇸', region: 'Latinoamérica / España' },
-  { key: 'en', label: 'English',    flag: '🇺🇸', region: 'United States' },
-  { key: 'pt', label: 'Português',  flag: '🇧🇷', region: 'Brasil' },
+  { key: 'es', code: 'ES', label: 'Español', region: 'Latinoamérica / España' },
+  { key: 'en', code: 'EN', label: 'English', region: 'United States' },
+  { key: 'pt', code: 'PT', label: 'Português', region: 'Brasil' },
 ];
 
 function LanguageTab() {
   const { t, i18n } = useTranslation();
-  const currentLang = i18n.language;
+  const currentLang = (i18n.language || 'es').split('-')[0];
 
   return (
-    <div className="rounded-2xl border border-border bg-background-secondary p-5">
-      <div className="mb-4 flex items-center gap-2.5">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft">
-          <Globe size={14} className="text-accent" />
-        </div>
-        <h3 className="text-sm font-semibold">{t('settings.language')}</h3>
-      </div>
+    <SettingsCard icon={Globe} title={t('settings.language')}>
       <div className="flex flex-col gap-2">
-        {LANGUAGES.map(({ key, label, flag, region }) => (
-          <Button
+        {LANGUAGES.map(({ key, code, label, region }) => (
+          <SettingsOptionButton
             key={key}
-            variant="ghost"
+            selected={currentLang === key}
             onPress={() => changeLanguage(key)}
-            className={`flex h-auto items-center justify-start gap-4 rounded-xl border-2 px-4 py-3 [--button-bg-hover:transparent] [--button-bg-pressed:transparent] hover:scale-[1.01] active:scale-[0.98] ${
-              currentLang === key
-                ? 'border-accent bg-accent-soft scale-[1.01]'
-                : 'border-border hover:border-border-secondary'
-            }`}
           >
-            <span className="text-2xl leading-none">{flag}</span>
-            <div className="flex-1 text-left">
-              <p className="text-sm font-medium">{label}</p>
-              <p className="text-xs text-muted">{region}</p>
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-ink-700 text-xs font-bold tracking-wide text-foreground">
+              {code}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold">{label}</p>
+              <p className="truncate text-xs text-ink-200">{region}</p>
             </div>
-            <AnimatePresence>
-              {currentLang === key && (
-                <AnimatedCheck className="text-accent">
-                  <Check size={14} />
-                </AnimatedCheck>
-              )}
-            </AnimatePresence>
-          </Button>
+          </SettingsOptionButton>
         ))}
       </div>
-    </div>
+    </SettingsCard>
   );
 }
 
