@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { conversationsApi, messagesApi } from '@/lib/endpoints';
 import { connectSocket, disconnectSocket, getSocket } from '@/lib/socket';
+import { useAuthStore } from '@/stores/authStore';
 
 // Tracks in-flight fetchMessages calls by conversationId so that concurrent
 // calls (e.g. React StrictMode's double-invoke) await the same Promise instead
@@ -146,6 +147,7 @@ export const useChatStore = create((set, get) => ({
       get().applyPollUpdate(messageId, poll, { preserveVotes: true });
     });
 
+    socket.off('presence:changed');
     socket.on('presence:changed', ({ userId, presence }) => {
       set((state) => ({
         onlineUsers: { ...state.onlineUsers, [userId]: presence },
@@ -155,6 +157,9 @@ export const useChatStore = create((set, get) => ({
             : c,
         ),
       }));
+      if (userId === get().activeUserId) {
+        useAuthStore.getState().updateUser({ presence });
+      }
     });
   },
 
