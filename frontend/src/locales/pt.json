@@ -220,6 +220,34 @@
     "multiple": "Escolha várias",
     "totalVotes": "{{count}} votos"
   },
+  "code": {
+    "sendTitle": "Enviar código",
+    "send": "Enviar código",
+    "language": "Linguagem",
+    "snippet": "Código",
+    "placeholder": "Cole ou digite seu snippet aqui…",
+    "copy": "Copiar código",
+    "copied": "Copiado",
+    "sendError": "Não foi possível enviar o código",
+    "lang": {
+      "plaintext": "Texto simples",
+      "javascript": "JavaScript",
+      "typescript": "TypeScript",
+      "python": "Python",
+      "sql": "SQL",
+      "json": "JSON",
+      "bash": "Bash",
+      "html": "HTML",
+      "css": "CSS",
+      "java": "Java",
+      "go": "Go",
+      "rust": "Rust",
+      "php": "PHP",
+      "csharp": "C#",
+      "yaml": "YAML",
+      "markdown": "Markdown"
+    }
+  },
   "contacts": {
     "title": "Contatos",
     "contacts": "Contatos",

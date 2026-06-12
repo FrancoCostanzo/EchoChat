@@ -16,7 +16,7 @@
 | 5 | Llamadas WebRTC reales | ⬜ Pendiente |
 | 6 | Mensajería ya modelada (quick wins) | ✅ Hecho |
 | 7 | Panel de administración | ✅ Hecho (base) |
-| 8 | Formato enriquecido y contenido | 🟡 En progreso (8.1–8.2 ✅) |
+| 8 | Formato enriquecido y contenido | 🟡 En progreso (8.1–8.3 ✅) |
 
 Orden recomendado:
 ```
@@ -218,7 +218,7 @@ Fase 0 → Fase 1 → Fase 2 → Fase 3 → (Fase 6 en paralelo) → Fase 8 → 
 
 | Bloque | Tema | Estado |
 |--------|------|--------|
-| 8.A | Motor de renderizado + composer rico | 🟡 En progreso (8.1–8.2 ✅) |
+| 8.A | Motor de renderizado + composer rico | 🟡 En progreso (8.1–8.3 ✅) |
 | 8.B | Menciones y enlaces enriquecidos | ⬜ |
 | 8.C | Tipos de mensaje especiales | ⬜ |
 | 8.D | Jobs y métricas pendientes | ⬜ |
@@ -234,7 +234,7 @@ Orden recomendado dentro de la fase:
 |---|---|---|---|---|
 | 8.1 | **Renderizado Markdown** en burbujas (`body_format: markdown`). | S (1-2d) | — | ✅ |
 | 8.2 | **Barra de formato inline** en el composer: negrita, cursiva, tachado, código inline. | S (2d) | 8.1 | ✅ |
-| 8.3 | **Bloques de código**: mensaje tipo código + syntax highlight + copiar. | M (2-3d) | 8.1 | ⬜ |
+| 8.3 | **Bloques de código**: mensaje tipo código + syntax highlight + copiar. | M (2-3d) | 8.1 | ✅ |
 | 8.4 | **@Menciones**: autocompletado, resaltado, notificación `message.mention`. | S (2d) | 8.1 | ⬜ |
 | 8.5 | **Preview de links** (job async → `link_preview` JSONB). | S–M (2d) | 0.3, 8.1 | ⬜ |
 | 8.6 | **Mensajes de ubicación** (tipo `location` + mapa estático). | S (1-2d) | — | ⬜ |
@@ -252,6 +252,10 @@ Orden recomendado dentro de la fase:
 - **8.2 Barra de formato** ✅ — `FormatToolbar` en composer principal y panel de hilos: botones
   negrita/cursiva/tachado/código inline; atajos Ctrl+B / Ctrl+I / Ctrl+E; textarea multilínea
   (Enter envía, Shift+Enter nueva línea). i18n es/en/pt.
+- **8.3 Bloques de código** ✅ — tipo `code` en BD (migración `005_add_message_type_code.sql`);
+  DTO/service con `metadata.language` y límite 20k chars; `CodeMessage` con syntax highlight
+  (`react-syntax-highlighter`) y botón copiar; `CreateCodeModal` desde menú adjuntar; detección
+  al pegar bloques ` ```lang `; integrado en conversación, hilos y guardados. i18n es/en/pt.
 
 ---
 

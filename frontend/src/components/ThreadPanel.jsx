@@ -8,6 +8,7 @@ import { getSocket } from '@/lib/socket';
 import UserAvatar from '@/components/UserAvatar';
 import SendButton from '@/components/SendButton';
 import MessageBody from '@/components/MessageBody';
+import CodeMessage from '@/components/CodeMessage';
 import FormatToolbar, { handleFormatShortcut } from '@/components/FormatToolbar';
 import DynamicMessageInput from '@/components/DynamicMessageInput';
 import { detectBodyFormat } from '@/lib/markdown';
@@ -30,14 +31,16 @@ function ThreadMessage({ msg, isRoot = false }) {
           </span>
           <span className="shrink-0 text-[10px] text-ink-200">{formatMessageTime(msg.sent_at)}</span>
         </div>
-        {msg.body && (
+        {msg.type === 'code' && msg.body ? (
+          <CodeMessage message={msg} variant="other" />
+        ) : msg.body ? (
           <MessageBody
             body={msg.body}
             bodyFormat={msg.body_format}
             variant="other"
             size="sm"
           />
-        )}
+        ) : null}
         {msg.attachments?.length > 0 && (
           <p className="mt-0.5 inline-flex items-center gap-1 text-[12px] italic text-ink-200">
             <Paperclip size={11} />

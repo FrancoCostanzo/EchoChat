@@ -2,11 +2,21 @@ const Joi = require('joi');
 
 const sendMessageDto = Joi.object({
   conversation_id: Joi.string().uuid().required(),
-  type: Joi.string().valid('text', 'media', 'location', 'contact', 'poll', 'forwarded').default('text'),
-  body: Joi.string().max(10000).when('type', {
-    is: 'text',
-    then: Joi.required(),
-    otherwise: Joi.allow(null, ''),
+  type: Joi.string()
+    .valid('text', 'media', 'location', 'contact', 'poll', 'forwarded', 'code')
+    .default('text'),
+  body: Joi.when('type', {
+    switch: [
+      {
+        is: 'code',
+        then: Joi.string().max(20000).required(),
+      },
+      {
+        is: 'text',
+        then: Joi.string().max(10000).required(),
+      },
+    ],
+    otherwise: Joi.string().max(10000).allow(null, ''),
   }),
   body_format: Joi.string().valid('plain', 'markdown', 'html').default('plain'),
   reply_to_id: Joi.string().uuid().allow(null),

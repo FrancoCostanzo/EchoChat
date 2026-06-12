@@ -37,6 +37,7 @@ import {
   FileText,
   Send,
   BarChart3,
+  Code2,
   Upload,
   MessageSquareText,
   Play,
@@ -54,7 +55,9 @@ import SendButton from '@/components/SendButton';
 import MessageSearchPanel from '@/components/MessageSearchPanel';
 import ThreadPanel from '@/components/ThreadPanel';
 import PollMessage from '@/components/PollMessage';
+import CodeMessage from '@/components/CodeMessage';
 import CreatePollModal from '@/components/CreatePollModal';
+import CreateCodeModal from '@/components/CreateCodeModal';
 import WallpaperPicker from '@/components/WallpaperPicker';
 import { PRESETS } from '@/components/WallpaperPicker';
 import { formatMessageTime, formatFullTime } from '@/lib/dates';
@@ -63,6 +66,7 @@ import MessageBody from '@/components/MessageBody';
 import FormatToolbar, { handleFormatShortcut } from '@/components/FormatToolbar';
 import DynamicMessageInput from '@/components/DynamicMessageInput';
 import { detectBodyFormat } from '@/lib/markdown';
+import { parseCodeFence } from '@/lib/codeLanguages';
 import PresenceAvatarStack from '@/components/PresenceAvatarStack';
 import { storageApi, messagesApi, conversationsApi } from '@/lib/endpoints';
 import { EASE_OUT, SPRING_BOUNCY, msgEntryInitial, msgEntryTransition } from '@/lib/motion';
@@ -84,7 +88,7 @@ function downloadBlob(url, filename) {
 const SPRING_OUT = [0.34, 1.56, 0.64, 1];
 
 /* ─────────────────────────── File Picker Menu ─────────────────────────── */
-function FilePickerMenu({ onPick, onPoll, disabled, uploading }) {
+function FilePickerMenu({ onPick, onPoll, onCode, disabled, uploading }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState(null);
@@ -105,6 +109,7 @@ function FilePickerMenu({ onPick, onPoll, disabled, uploading }) {
 
   const MENU_ITEMS = [
     ...FILE_ITEMS,
+    ...(onCode ? [{ icon: Code2, label: t('code.sendTitle'), action: onCode }] : []),
     ...(onPoll ? [{ icon: BarChart3, label: t('poll.create'), action: onPoll }] : []),
   ];
 
@@ -1016,8 +1021,13 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
                 <PollMessage message={message} currentUserId={currentUserId} />
               )}
 
+              {/* Code snippet */}
+              {message.type === 'code' && message.body && (
+                <CodeMessage message={message} variant={isOwn ? 'own' : 'other'} />
+              )}
+
               {/* Body */}
-              {message.type !== 'media' && message.type !== 'poll' && message.body && (
+              {message.type !== 'media' && message.type !== 'poll' && message.type !== 'code' && message.body && (
                 <MessageBody
                   body={message.body}
                   bodyFormat={message.body_format}
@@ -1247,6 +1257,8 @@ export default function ConversationPage() {
   const [sendPulse, setSendPulse] = useState(false);
   const sendPulseTimerRef = useRef(null);
   const [showPollModal, setShowPollModal] = useState(false);
+  const [showCodeModal, setShowCodeModal] = useState(false);
+  const [codeModalInitial, setCodeModalInitial] = useState({ body: '', language: 'plaintext' });
   const [isDragging, setIsDragging] = useState(false);
   const [members, setMembers] = useState([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
@@ -1650,16 +1662,24 @@ export default function ConversationPage() {
 
   const handlePaste = useCallback((e) => {
     const items = e.clipboardData?.items;
-    if (!items) return;
-    for (const item of items) {
-      if (item.kind === 'file') {
-        const file = item.getAsFile();
-        if (file) {
-          e.preventDefault();
-          acceptDroppedFile(file);
-          break;
+    if (items) {
+      for (const item of items) {
+        if (item.kind === 'file') {
+          const file = item.getAsFile();
+          if (file) {
+            e.preventDefault();
+            acceptDroppedFile(file);
+            return;
+          }
         }
       }
+    }
+    const text = e.clipboardData?.getData('text/plain');
+    const parsed = parseCodeFence(text);
+    if (parsed) {
+      e.preventDefault();
+      setCodeModalInitial(parsed);
+      setShowCodeModal(true);
     }
   }, [acceptDroppedFile]);
 
@@ -1902,6 +1922,14 @@ export default function ConversationPage() {
         isOpen={showPollModal}
         conversationId={conversationId}
         onClose={() => setShowPollModal(false)}
+      />
+
+      <CreateCodeModal
+        isOpen={showCodeModal}
+        conversationId={conversationId}
+        initialBody={codeModalInitial.body}
+        initialLanguage={codeModalInitial.language}
+        onClose={() => setShowCodeModal(false)}
       />
 
       {wallpaperPickerOpen && (
@@ -2183,6 +2211,10 @@ export default function ConversationPage() {
               <FilePickerMenu
                 onPick={handleFilePick}
                 onPoll={() => setShowPollModal(true)}
+                onCode={() => {
+                  setCodeModalInitial({ body: '', language: 'plaintext' });
+                  setShowCodeModal(true);
+                }}
                 disabled={!!previewFile || sendingFile}
                 uploading={sendingFile}
               />
