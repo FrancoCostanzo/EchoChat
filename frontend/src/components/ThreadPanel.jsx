@@ -1,12 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Button, Input, Spinner } from '@heroui/react';
+import { Button, Spinner } from '@heroui/react';
 import { X, Paperclip, MessageSquareText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { messagesApi } from '@/lib/endpoints';
 import { getSocket } from '@/lib/socket';
 import UserAvatar from '@/components/UserAvatar';
 import SendButton from '@/components/SendButton';
+import MessageBody from '@/components/MessageBody';
+import FormatToolbar, { handleFormatShortcut } from '@/components/FormatToolbar';
+import DynamicMessageInput from '@/components/DynamicMessageInput';
+import { detectBodyFormat } from '@/lib/markdown';
 import { formatMessageTime } from '@/lib/dates';
 
 function ThreadMessage({ msg, isRoot = false }) {
@@ -27,9 +31,12 @@ function ThreadMessage({ msg, isRoot = false }) {
           <span className="shrink-0 text-[10px] text-ink-200">{formatMessageTime(msg.sent_at)}</span>
         </div>
         {msg.body && (
-          <p className="wrap-break-word whitespace-pre-wrap text-[14px] leading-[1.4] text-ink-50">
-            {msg.body}
-          </p>
+          <MessageBody
+            body={msg.body}
+            bodyFormat={msg.body_format}
+            variant="other"
+            size="sm"
+          />
         )}
         {msg.attachments?.length > 0 && (
           <p className="mt-0.5 inline-flex items-center gap-1 text-[12px] italic text-ink-200">
@@ -101,10 +108,12 @@ export default function ThreadPanel({ root, conversationId, onClose }) {
     if (!body || sending) return;
     setSending(true);
     try {
+      const bodyFormat = detectBodyFormat(body);
       const { data } = await messagesApi.send({
         conversation_id: conversationId,
         type: 'text',
         body,
+        body_format: bodyFormat,
         thread_id: root.id,
       });
       setReplies((prev) =>
@@ -178,27 +187,33 @@ export default function ThreadPanel({ root, conversationId, onClose }) {
 
       {/* Composer */}
       <div className="border-t border-black/20 p-3">
-        <div className="echo-glass flex min-w-0 items-center gap-1 overflow-hidden rounded-xl px-1 transition-shadow focus-within:ring-2 focus-within:ring-accent/55 sm:gap-2">
-          <div className="min-w-0 flex-1">
-            <Input
+        <div className="echo-glass flex min-w-0 flex-col overflow-hidden rounded-xl px-1 transition-shadow focus-within:ring-2 focus-within:ring-accent/55">
+          <FormatToolbar
+            inputRef={inputRef}
+            onChange={setInput}
+            disabled={sending}
+          />
+          <div className="flex min-w-0 items-end gap-1 px-1 pb-1 sm:gap-2">
+            <DynamicMessageInput
               ref={inputRef}
+              size="sm"
               placeholder={t('chat.threadReplyPlaceholder')}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
+                if (handleFormatShortcut(e, inputRef, setInput, t)) return;
                 if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
                 if (e.key === 'Escape') onClose();
               }}
               disabled={sending}
-              className="w-full min-w-0 border-none bg-transparent shadow-none outline-none text-[14px] placeholder:text-ink-200"
+            />
+            <SendButton
+              onPress={handleSend}
+              isDisabled={!input.trim() || sending}
+              label={t('chat.send')}
+              className="shrink-0"
             />
           </div>
-          <SendButton
-            onPress={handleSend}
-            isDisabled={!input.trim() || sending}
-            label={t('chat.send')}
-            className="shrink-0"
-          />
         </div>
       </div>
     </motion.aside>

@@ -29,7 +29,7 @@ export default function FloatingComposer({
     <div className={`px-2 pb-4 pt-1 sm:px-3 sm:pb-6 md:pb-4 ${className}`}>
       <div
         className={[
-          'echo-glass echo-composer flex min-h-[44px] w-full min-w-0 items-center gap-1 overflow-visible rounded-2xl px-1 sm:gap-2 sm:px-2',
+          'echo-glass echo-composer flex min-h-[44px] w-full min-w-0 items-stretch gap-1 overflow-visible rounded-2xl px-1 sm:gap-2 sm:px-2',
           elevationOnFocus && focused ? 'echo-e2 echo-composer-focused' : 'echo-e1',
         ].join(' ')}
         style={accentStyle}

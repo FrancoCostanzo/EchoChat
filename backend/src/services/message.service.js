@@ -10,6 +10,7 @@ const {
 } = require('../repositories');
 const { NotFoundError, ForbiddenError, BadRequestError } = require('../errors');
 const { toMessageResponse, toSavedMessageResponse, toDraftResponse, toPollResponse } = require('../models');
+const { resolveBodyFormat } = require('../utils/markdown.util');
 const { minioClient } = require('../config/minio');
 
 // Lazy-load to avoid circular dependency (socket → services → message.service → socket)
@@ -36,6 +37,7 @@ class MessageService {
     const message = await messageRepository.create({
       ...data,
       sender_id: userId,
+      body_format: resolveBodyFormat(data.body, data.body_format),
     });
 
     // Add attachments if any
@@ -111,12 +113,13 @@ class MessageService {
     return toMessageResponse(message);
   }
 
-  async update(messageId, userId, body) {
+  async update(messageId, userId, body, bodyFormat) {
     const message = await messageRepository.findById(messageId);
     if (!message) throw new NotFoundError('Message');
     if (message.sender_id !== userId) throw new ForbiddenError('Can only edit your own messages');
 
-    const updated = await messageRepository.updateBody(messageId, body, userId);
+    const format = resolveBodyFormat(body, bodyFormat);
+    const updated = await messageRepository.updateBody(messageId, body, userId, format);
     logger.info({ messageId }, 'Message edited');
 
     const response = toMessageResponse(updated);

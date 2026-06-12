@@ -2,7 +2,7 @@
 
 > Objetivo: cerrar la brecha entre lo que el schema/README prometen y lo implementado,
 > con foco en caso de uso **intranet corporativa** (canales, broadcasts, RBAC, audit, push).
-> Esfuerzo total aprox: **95-115 días-dev**. Bloque "se siente empresarial" (Fases 0-3): **35-45 días**.
+> Esfuerzo total aprox: **115-141 días-dev** (incl. Fase 8: ~20-26 d). Bloque "se siente empresarial" (Fases 0-3): **35-45 días**.
 
 ## Estado de avance
 
@@ -16,11 +16,15 @@
 | 5 | Llamadas WebRTC reales | ⬜ Pendiente |
 | 6 | Mensajería ya modelada (quick wins) | ✅ Hecho |
 | 7 | Panel de administración | ✅ Hecho (base) |
+| 8 | Formato enriquecido y contenido | 🟡 En progreso (8.1–8.2 ✅) |
 
 Orden recomendado:
 ```
-Fase 0 → Fase 1 → Fase 2 → Fase 3 → (Fase 6 en paralelo) → Fase 4 → Fase 7 → Fase 5
+Fase 0 → Fase 1 → Fase 2 → Fase 3 → (Fase 6 en paralelo) → Fase 8 → Fase 4 → Fase 7 → Fase 5
 ```
+
+> **Fase 8** puede iniciarse en paralelo con Fase 2 una vez cerrada la base de jobs (0.3).
+> Esfuerzo total Fase 8: **~20-26 días-dev**.
 
 ---
 
@@ -199,3 +203,269 @@ Fase 0 → Fase 1 → Fase 2 → Fase 3 → (Fase 6 en paralelo) → Fase 4 → 
 - **Frontend** — `AdminPage` (`/admin/:section`) con tabs usuarios/sistema/
   auditoría/almacenamiento; entrada en dock y Command Palette solo si el usuario
   tiene permisos admin; `/auth/me` expone `roles` y `permissions`; i18n es/en/pt.
+
+---
+
+## FASE 8 — Formato enriquecido y contenido del mensaje
+
+> Objetivo: cerrar la brecha entre lo que el schema/DTO ya permiten (`body_format`,
+> `link_preview`, tipos `location`/`contact`, preferencia `message.mention`) y lo que
+> el usuario ve al escribir y leer. Incluye **markdown**, **formato inline** (negrita,
+> cursiva, tachado), **bloques de código**, menciones, previews, tipos especiales y
+> dos pendientes transversales (retención + métricas de broadcast).
+
+### Estado de avance Fase 8
+
+| Bloque | Tema | Estado |
+|--------|------|--------|
+| 8.A | Motor de renderizado + composer rico | 🟡 En progreso (8.1–8.2 ✅) |
+| 8.B | Menciones y enlaces enriquecidos | ⬜ |
+| 8.C | Tipos de mensaje especiales | ⬜ |
+| 8.D | Jobs y métricas pendientes | ⬜ |
+
+Orden recomendado dentro de la fase:
+```
+8.1 → 8.2 → 8.3 → (8.4 en paralelo con 8.2) → 8.5 → 8.6 → 8.7 → 8.8 → 8.9
+```
+
+### Resumen de tareas
+
+| # | Funcionalidad | Esfuerzo | Depende de | Estado |
+|---|---|---|---|---|
+| 8.1 | **Renderizado Markdown** en burbujas (`body_format: markdown`). | S (1-2d) | — | ✅ |
+| 8.2 | **Barra de formato inline** en el composer: negrita, cursiva, tachado, código inline. | S (2d) | 8.1 | ✅ |
+| 8.3 | **Bloques de código**: mensaje tipo código + syntax highlight + copiar. | M (2-3d) | 8.1 | ⬜ |
+| 8.4 | **@Menciones**: autocompletado, resaltado, notificación `message.mention`. | S (2d) | 8.1 | ⬜ |
+| 8.5 | **Preview de links** (job async → `link_preview` JSONB). | S–M (2d) | 0.3, 8.1 | ⬜ |
+| 8.6 | **Mensajes de ubicación** (tipo `location` + mapa estático). | S (1-2d) | — | ⬜ |
+| 8.7 | **Mensajes de contacto** (tipo `contact` + tarjeta vCard). | S (1-2d) | — | ⬜ |
+| 8.8 | **Retención de mensajes** (`message_retention_days` + job). | S (1-2d) | 0.3 | ⬜ |
+| 8.9 | **Sincronizar `total_read`** en broadcasts desde read receipts. | S (1d) | 3.3 | ⬜ |
+
+### Detalle de lo implementado en Fase 8 (parcial)
+
+- **8.1 Renderizado Markdown** ✅ — `MessageBody` (`react-markdown` + `remark-gfm`): plain vs
+  markdown según `body_format`; estilos para negrita, cursiva, tachado, código inline, bloques,
+  listas, blockquote y links seguros. Integrado en `ConversationPage`, `ThreadPanel` y
+  `SavedMessagesPage`. Detección automática en envío/edición vía `detectBodyFormat` /
+  `backend/src/utils/markdown.util.js`.
+- **8.2 Barra de formato** ✅ — `FormatToolbar` en composer principal y panel de hilos: botones
+  negrita/cursiva/tachado/código inline; atajos Ctrl+B / Ctrl+I / Ctrl+E; textarea multilínea
+  (Enter envía, Shift+Enter nueva línea). i18n es/en/pt.
+
+---
+
+### Bloque 8.A — Motor de renderizado y composer rico
+
+#### 8.1 Renderizado Markdown en burbujas
+
+**Estado actual:** `body_format` acepta `plain | markdown | html` en DTO y BD; el frontend
+muestra `body` como texto plano.
+
+**Entregables:**
+- Componente `MessageBody` que según `body_format` renderice:
+  - `plain` → texto escapado (comportamiento actual).
+  - `markdown` → parser seguro (p. ej. `react-markdown` + `remark-gfm`; **sin** HTML crudo).
+  - `html` → reservado/futuro; rechazar en envío hasta tener sanitización (`DOMPurify`).
+- Estilos en burbujas: párrafos, listas, blockquote, enlaces externos (`target="_blank"`,
+  `rel="noopener noreferrer"`).
+- Aplicar en `ConversationPage`, `ThreadPanel`, `SavedMessagesPage`, previews de reenvío.
+- Al enviar texto normal desde el composer, persistir `body_format: 'markdown'` si contiene
+  sintaxis markdown; si no, `plain` (retrocompatible).
+
+**Archivos clave:** `frontend/src/components/MessageBody.jsx`, burbujas en `ConversationPage.jsx`.
+
+---
+
+#### 8.2 Barra de formato inline (negrita, cursiva, tachado, código inline)
+
+**Sintaxis objetivo (estilo Slack/Discord):**
+
+| Acción | Markdown | Atajo (opcional) |
+|--------|----------|------------------|
+| Negrita | `**texto**` | Ctrl+B |
+| Cursiva | `*texto*` | Ctrl+I |
+| Tachado | `~~texto~~` | — |
+| Código inline | `` `código` `` | Ctrl+E |
+
+**Entregables:**
+- Toolbar sobre el composer (`FormatToolbar`): botones Bold / Italic / Strikethrough / Code.
+- Insertar o envolver la selección actual del `<textarea>` con los delimitadores markdown.
+- Preview en vivo opcional (toggle) reutilizando `MessageBody`.
+- i18n es/en/pt + tooltips de atajos.
+- Edición de mensajes: conservar `body_format` al editar.
+
+**Depende de 8.1** para que el usuario vea el resultado formateado en la burbuja.
+
+---
+
+#### 8.3 Bloques de código (mensaje dedicado)
+
+**Objetivo:** poder enviar un snippet completo como mensaje de código (no solo inline),
+con resaltado de sintaxis y botón copiar — útil para IT, devs y soporte.
+
+**Modelo de datos (recomendado):**
+
+```sql
+-- Migración: ampliar CHECK de messages.type
+ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_type_check;
+ALTER TABLE messages ADD CONSTRAINT messages_type_check
+  CHECK (type IN ('text','media','location','contact','system','poll',
+                  'forwarded','deleted_placeholder','code'));
+```
+
+- Tipo `code` con `body` = contenido del snippet (sin fences).
+- `metadata`: `{ "language": "javascript" | "sql" | "plaintext" | ... }`.
+- Alternativa sin migración: mensaje `text` + `metadata.code_block: true`; la UI trata
+  el caso igual. **Preferir tipo `code`** para filtros, búsqueda y render dedicado.
+
+**Entregables backend:**
+- Ampliar `sendMessageDto.type` con `'code'`.
+- Validación: `body` requerido, max 20 000 chars para snippets largos.
+- `body_format` ignorado o forzado a `plain` en tipo `code`.
+
+**Entregables frontend:**
+- Modo **“Enviar como código”** en el composer: textarea monoespaciado + selector de lenguaje.
+- Burbuja `CodeMessage`: fondo oscuro/claro según tema, `react-syntax-highlighter` (o
+  `shiki` ligero), botón **Copiar** con feedback toast.
+- Atajo: pegar bloque con triple backtick detectado → sugerir modo código.
+- i18n es/en/pt.
+
+**Archivos clave:** `CodeMessage.jsx`, composer en `ConversationPage.jsx`,
+`message.dto.js`, migración SQL.
+
+---
+
+### Bloque 8.B — Menciones y enlaces enriquecidos
+
+#### 8.4 @Menciones
+
+**Estado actual:** preferencia `message.mention` en UI de notificaciones; sin parseo ni envío.
+
+**Formato de almacenamiento (recomendado):**
+- Texto visible: `@María García` o mención corta `@maria.garcia`.
+- `metadata.mentions`: `[{ "user_id": "uuid", "offset": 0, "length": 12 }]`
+  para resaltado preciso y notificaciones sin re-parsear.
+
+**Entregables backend:**
+- Al enviar: detectar `@display_name` o token `<@uuid>`; validar que el usuario es miembro
+  de la conversación; persistir en `metadata.mentions`.
+- Notificación in-app tipo `mention` respetando `notification_preferences`.
+- Socket `notification:new` al mencionado.
+- Endpoint auxiliar opcional: `GET /conversations/:id/members/search?q=` (o reutilizar
+  miembros cargados en cliente).
+
+**Entregables frontend:**
+- Autocompletado `@` en composer (lista de miembros filtrable).
+- Resaltado en `MessageBody`: clase `mention` con color accent + click → perfil/DM.
+- Badge “te mencionaron” en lista de conversaciones (opcional, S+).
+
+---
+
+#### 8.5 Preview de links
+
+**Estado actual:** columna `link_preview JSONB` en `messages`; sin población.
+
+**Entregables backend:**
+- Tras `sendMessage`, si el body contiene URL HTTP(S), encolar job `link-preview-fetch`.
+- Job: GET con timeout, parse Open Graph / `<title>` / `<meta description>` / imagen;
+  guardar `{ url, title, description, image_url, site_name }` en `link_preview`.
+- Emitir socket `message:link_preview` para actualizar la burbuja sin recargar.
+- Límites: SSRF guard (solo URLs públicas, bloquear IPs privadas), cache 24 h por URL.
+- No fetch si el mensaje es solo un adjunto o tipo `code`.
+
+**Entregables frontend:**
+- Componente `LinkPreviewCard` bajo el texto del mensaje (imagen + título + dominio).
+- Skeleton mientras `link_preview` es null y hay URL detectada.
+
+**Depende de 0.3** (infra jobs) y **8.1** (URLs dentro de markdown renderizado).
+
+---
+
+### Bloque 8.C — Tipos de mensaje especiales
+
+#### 8.6 Mensajes de ubicación
+
+**Estado actual:** tipo `location` en DTO; sin UI.
+
+**Entregables:**
+- Composer: botón “Ubicación” → modal con mapa (Leaflet o Mapbox) o “Usar mi ubicación”
+  (`navigator.geolocation`).
+- `metadata`: `{ "lat": number, "lng": number, "label": string? }`.
+- Burbuja: mini-mapa estático (tile provider) + enlace a Google/OSM maps.
+- Permiso denegado: mensaje de error i18n.
+
+**Esfuerzo:** S (1-2d).
+
+---
+
+#### 8.7 Mensajes de contacto
+
+**Estado actual:** tipo `contact` en DTO; módulo `relationships` y `ContactsPage` existen.
+
+**Entregables:**
+- Composer: “Compartir contacto” → picker de contactos EchoChat o usuario de la org.
+- `metadata`: `{ "user_id": "uuid" }` (referencia interna; no duplicar PII).
+- Burbuja `ContactCard`: avatar, nombre, departamento, botones “Ver perfil” / “Mensaje”.
+- Reutilizar datos de `GET /users/:id` o miembros en cache.
+
+**Esfuerzo:** S (1-2d).
+
+---
+
+### Bloque 8.D — Jobs y métricas pendientes
+
+#### 8.8 Retención de mensajes
+
+**Estado actual:** `system_settings.message_retention_days` (0 = sin límite); comentario
+pendiente en `backend/src/jobs/index.js`.
+
+**Entregables:**
+- Job `message-retention` (diario): leer setting; soft-delete (`is_deleted`) mensajes
+  con `sent_at` anterior al umbral.
+- Opcional: hard-delete adjuntos huérfanos vía job existente de storage.
+- Audit `message.retention_purge` con conteo.
+- Documentar en Admin → Sistema el efecto del setting.
+
+**Depende de 0.3.**
+
+---
+
+#### 8.9 Sincronizar `total_read` en broadcasts
+
+**Estado actual:** Fase 3.3 registra entregas; `total_read` no se actualiza desde read receipts.
+
+**Entregables:**
+- Al marcar conversación/DM de broadcast como leída, incrementar contador en
+  `broadcast_deliveries` y denormalizado `broadcast_messages.total_read`.
+- UI en `BroadcastsPage`: barra entregado/leído coherente con datos reales.
+- Idempotente: un recipient solo cuenta una vez.
+
+**Depende de 3.3** (tracking base).
+
+---
+
+### Criterios de aceptación (Fase 8 completa)
+
+- [ ] Escribir `**hola**` y ver **hola** en negrita; `~~x~~` tachado; `` `fn()` `` inline.
+- [ ] Enviar mensaje tipo código con lenguaje JS/Python y copiar al portapapeles.
+- [ ] `@usuario` notifica al mencionado si tiene preferencia activa.
+- [ ] URL en mensaje muestra tarjeta preview tras unos segundos.
+- [ ] Compartir ubicación y contacto desde el composer.
+- [ ] Con `message_retention_days = 90`, mensajes antiguos se soft-eliminan en job nocturno.
+- [ ] Métricas de broadcast reflejan lecturas reales.
+
+### Dependencias npm sugeridas (frontend)
+
+| Paquete | Uso |
+|---------|-----|
+| `react-markdown` + `remark-gfm` | Render markdown seguro |
+| `react-syntax-highlighter` | Highlight bloques de código |
+| `leaflet` / `react-leaflet` | Selector de ubicación (opcional) |
+
+### Notas de seguridad
+
+- **No** habilitar `body_format: html` hasta sanitizar con allowlist estricta.
+- Link preview job: protección SSRF obligatoria.
+- Menciones: solo miembros de la conversación; ignorar `@` en bloques de código.
+- Markdown: desactivar HTML embebido en el parser (`skipHtml` / sin `rehype-raw`).

@@ -140,7 +140,18 @@
     "threadReplyPlaceholder": "Responder en el hilo...",
     "memberPanel": "Miembros",
     "viewMembers": "Ver miembros",
-    "changeWallpaper": "Cambiar fondo"
+    "changeWallpaper": "Cambiar fondo",
+    "formatToolbar": "Formato de texto",
+    "format": {
+      "bold": "Negrita",
+      "italic": "Cursiva",
+      "strikethrough": "Tachado",
+      "code": "Código inline",
+      "placeholder": "texto",
+      "preview": "Vista previa",
+      "showPreview": "Mostrar vista previa",
+      "hidePreview": "Ocultar vista previa"
+    }
   },
   "newConversation": {
     "title": "Nueva conversación",

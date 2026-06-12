@@ -131,7 +131,18 @@
     "threadReplyPlaceholder": "Responder no tópico...",
     "memberPanel": "Membros",
     "viewMembers": "Ver membros",
-    "changeWallpaper": "Alterar plano de fundo"
+    "changeWallpaper": "Alterar plano de fundo",
+    "formatToolbar": "Formatação de texto",
+    "format": {
+      "bold": "Negrito",
+      "italic": "Itálico",
+      "strikethrough": "Tachado",
+      "code": "Código inline",
+      "placeholder": "texto",
+      "preview": "Pré-visualização",
+      "showPreview": "Mostrar pré-visualização",
+      "hidePreview": "Ocultar pré-visualização"
+    }
   },
   "newConversation": {
     "title": "Nova conversa",

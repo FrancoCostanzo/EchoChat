@@ -27,7 +27,12 @@ class MessageController {
   }
 
   async update(req, res) {
-    const message = await messageService.update(req.params.messageId, req.user.id, req.body.body);
+    const message = await messageService.update(
+      req.params.messageId,
+      req.user.id,
+      req.body.body,
+      req.body.body_format,
+    );
     res.json({ status: 'success', data: message });
   }
 

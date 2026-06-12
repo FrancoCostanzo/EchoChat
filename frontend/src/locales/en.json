@@ -131,7 +131,18 @@
     "threadReplyPlaceholder": "Reply in thread...",
     "memberPanel": "Members",
     "viewMembers": "View members",
-    "changeWallpaper": "Change wallpaper"
+    "changeWallpaper": "Change wallpaper",
+    "formatToolbar": "Text formatting",
+    "format": {
+      "bold": "Bold",
+      "italic": "Italic",
+      "strikethrough": "Strikethrough",
+      "code": "Inline code",
+      "placeholder": "text",
+      "preview": "Preview",
+      "showPreview": "Show preview",
+      "hidePreview": "Hide preview"
+    }
   },
   "newConversation": {
     "title": "New conversation",

@@ -5,6 +5,7 @@ import { Bookmark, BookmarkX, Hash, MessageSquare } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { messagesApi } from '@/lib/endpoints';
 import UserAvatar from '@/components/UserAvatar';
+import MessageBody from '@/components/MessageBody';
 import { formatMessageTime } from '@/lib/dates';
 
 export default function SavedMessagesPage() {
@@ -93,7 +94,14 @@ export default function SavedMessagesPage() {
                   </Button>
                 </div>
 
-                {m.body && <p className="whitespace-pre-wrap break-words text-sm text-foreground">{m.body}</p>}
+                {m.body && (
+                  <MessageBody
+                    body={m.body}
+                    bodyFormat={m.body_format}
+                    variant="other"
+                    size="sm"
+                  />
+                )}
 
                 {m.saved_note && (
                   <p className="rounded-lg bg-ink-700 px-3 py-2 text-xs text-ink-100">
