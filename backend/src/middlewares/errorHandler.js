@@ -32,6 +32,15 @@ function errorHandler(err, req, res, _next) {
     });
   }
 
+  // PG check constraint (e.g. message type not yet migrated)
+  if (err.code === '23514') {
+    logger.warn({ err, path: req.path }, 'Check constraint violation');
+    return res.status(StatusCodes.BAD_REQUEST).json({
+      status: 'error',
+      message: 'Tipo de mensaje no soportado en la base de datos. Ejecutá la migración 005_add_message_type_code.sql',
+    });
+  }
+
   // Unknown/programming errors — don't leak internals
   logger.error({ err, path: req.path, method: req.method }, 'Unhandled error');
   res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({

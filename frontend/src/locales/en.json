@@ -220,6 +220,34 @@
     "multiple": "Pick several",
     "totalVotes": "{{count}} votes"
   },
+  "code": {
+    "sendTitle": "Send code",
+    "send": "Send code",
+    "language": "Language",
+    "snippet": "Code",
+    "placeholder": "Paste or type your snippet here…",
+    "copy": "Copy code",
+    "copied": "Copied",
+    "sendError": "Could not send code",
+    "lang": {
+      "plaintext": "Plain text",
+      "javascript": "JavaScript",
+      "typescript": "TypeScript",
+      "python": "Python",
+      "sql": "SQL",
+      "json": "JSON",
+      "bash": "Bash",
+      "html": "HTML",
+      "css": "CSS",
+      "java": "Java",
+      "go": "Go",
+      "rust": "Rust",
+      "php": "PHP",
+      "csharp": "C#",
+      "yaml": "YAML",
+      "markdown": "Markdown"
+    }
+  },
   "contacts": {
     "title": "Contacts",
     "contacts": "Contacts",

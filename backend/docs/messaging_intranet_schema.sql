@@ -304,7 +304,7 @@ CREATE TABLE messages (
     sender_id        UUID REFERENCES users(id),      -- NULL = mensaje del sistema
 
     type             VARCHAR(30) DEFAULT 'text'
-                     CHECK (type IN ('text','media','location','contact','system','poll','forwarded','deleted_placeholder')),
+                     CHECK (type IN ('text','media','location','contact','system','poll','forwarded','deleted_placeholder','code')),
 
     -- Contenido de texto
     body             TEXT,

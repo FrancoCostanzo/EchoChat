@@ -34,10 +34,16 @@ class MessageService {
       if (root.thread_id) data.thread_id = root.thread_id;
     }
 
+    if (data.type === 'code') {
+      data.body_format = 'plain';
+      const lang = data.metadata?.language || 'plaintext';
+      data.metadata = { ...data.metadata, language: lang };
+    }
+
     const message = await messageRepository.create({
       ...data,
       sender_id: userId,
-      body_format: resolveBodyFormat(data.body, data.body_format),
+      body_format: data.type === 'code' ? 'plain' : resolveBodyFormat(data.body, data.body_format),
     });
 
     // Add attachments if any
