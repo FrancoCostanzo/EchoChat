@@ -299,6 +299,7 @@ export const useChatStore = create((set, get) => ({
       sender_id: senderInfo?.id,
       sender_display_name: senderInfo?.display_name,
       body: data.type === 'media' ? null : (data.body || null),
+      body_format: data.body_format || 'plain',
       type: data.type || 'text',
       sent_at: new Date().toISOString(),
       is_edited: false,
@@ -360,11 +361,15 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-  editMessage: async (messageId, body) => {
-    await messagesApi.edit(messageId, body);
+  editMessage: async (messageId, body, bodyFormat) => {
+    const payload = { body, body_format: bodyFormat };
+    const res = await messagesApi.edit(messageId, payload);
+    const updated = res.data;
     set((state) => ({
       messages: state.messages.map((m) =>
-        m.id === messageId ? { ...m, body, is_edited: true } : m,
+        m.id === messageId
+          ? { ...m, body, body_format: updated.body_format ?? bodyFormat, is_edited: true }
+          : m,
       ),
     }));
   },

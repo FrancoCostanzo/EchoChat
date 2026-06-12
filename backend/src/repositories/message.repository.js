@@ -222,7 +222,7 @@ class MessageRepository extends BaseRepository {
     return rows[0]?.count ?? 0;
   }
 
-  async updateBody(id, body, editedBy) {
+  async updateBody(id, body, editedBy, bodyFormat) {
     // Save edit history
     const original = await this.findById(id);
     if (original && original.body) {
@@ -233,8 +233,8 @@ class MessageRepository extends BaseRepository {
     }
 
     const { rows } = await this.query(
-      `UPDATE messages SET body = $1, is_edited = TRUE, edited_at = NOW() WHERE id = $2 RETURNING *`,
-      [body, id]
+      `UPDATE messages SET body = $1, body_format = $2, is_edited = TRUE, edited_at = NOW() WHERE id = $3 RETURNING *`,
+      [body, bodyFormat || 'plain', id]
     );
     return rows[0];
   }

@@ -59,6 +59,10 @@ import WallpaperPicker from '@/components/WallpaperPicker';
 import { PRESETS } from '@/components/WallpaperPicker';
 import { formatMessageTime, formatFullTime } from '@/lib/dates';
 import FloatingComposer from '@/components/FloatingComposer';
+import MessageBody from '@/components/MessageBody';
+import FormatToolbar, { handleFormatShortcut } from '@/components/FormatToolbar';
+import DynamicMessageInput from '@/components/DynamicMessageInput';
+import { detectBodyFormat } from '@/lib/markdown';
 import PresenceAvatarStack from '@/components/PresenceAvatarStack';
 import { storageApi, messagesApi, conversationsApi } from '@/lib/endpoints';
 import { EASE_OUT, SPRING_BOUNCY, msgEntryInitial, msgEntryTransition } from '@/lib/motion';
@@ -1014,13 +1018,15 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
 
               {/* Body */}
               {message.type !== 'media' && message.type !== 'poll' && message.body && (
-                <p className={[
-                  'wrap-break-word whitespace-pre-wrap text-[15px] leading-[1.4]',
-                  message._status === 'sending' ? 'opacity-70' : '',
-                  message._status === 'error' ? (isOwn ? 'text-red-100' : 'text-echo-dnd') : '',
-                ].join(' ')}>
-                  {message.body}
-                </p>
+                <MessageBody
+                  body={message.body}
+                  bodyFormat={message.body_format}
+                  variant={isOwn ? 'own' : 'other'}
+                  className={[
+                    message._status === 'sending' ? 'opacity-70' : '',
+                    message._status === 'error' ? (isOwn ? 'text-red-100' : 'text-echo-dnd') : '',
+                  ].filter(Boolean).join(' ')}
+                />
               )}
 
               {/* Attachments */}
@@ -1543,10 +1549,12 @@ export default function ConversationPage() {
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
 
     if (editing) {
-      await editMessage(editing.id, body);
+      const bodyFormat = detectBodyFormat(body);
+      await editMessage(editing.id, body, bodyFormat);
       setEditing(null);
     } else {
-      const data = { conversation_id: conversationId, body, type: 'text' };
+      const bodyFormat = detectBodyFormat(body);
+      const data = { conversation_id: conversationId, body, type: 'text', body_format: bodyFormat };
       if (replyTo) data.reply_to_id = replyTo.id;
       if (sendPulseTimerRef.current) clearTimeout(sendPulseTimerRef.current);
       setSendPulse(true);
@@ -1561,6 +1569,7 @@ export default function ConversationPage() {
   };
 
   const handleKeyDown = (e) => {
+    if (handleFormatShortcut(e, inputRef, setInput, t)) return;
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -1592,7 +1601,10 @@ export default function ConversationPage() {
         attachment_ids: [storageObj.id],
         _filename: file.name,
       };
-      if (caption) msgData.body = caption;
+      if (caption) {
+        msgData.body = caption;
+        msgData.body_format = detectBodyFormat(caption);
+      }
       await sendMessage(msgData, user);
     } catch (err) {
       console.error('Upload failed:', err);
@@ -2161,48 +2173,54 @@ export default function ConversationPage() {
             </div>
           }
         >
-          <FilePickerMenu
-            onPick={handleFilePick}
-            onPoll={() => setShowPollModal(true)}
-            disabled={!!previewFile || sendingFile}
-            uploading={sendingFile}
-          />
-
-          <div className="min-w-0 flex-1">
-            <Input
-              ref={inputRef}
-              placeholder={isDirect
-                ? t('chat.writeMessage') + ` @${convName}`
-                : t('chat.writeMessage') + ` #${convName}`}
-              value={input}
-              onChange={(e) => {
-                setInput(e.target.value);
-                emitTyping(conversationId, true);
-                if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-                typingTimeoutRef.current = setTimeout(() => {
-                  emitTyping(conversationId, false);
-                }, 2000);
-              }}
-              onKeyDown={handleKeyDown}
-              onPaste={handlePaste}
-              className="w-full min-w-0 border-none bg-transparent shadow-none outline-none text-[15px] placeholder:text-ink-200"
+          <div className="flex min-w-0 w-full flex-1 flex-col">
+            <FormatToolbar
+              inputRef={inputRef}
+              onChange={setInput}
+              disabled={!!previewFile || sendingFile}
             />
+            <div className="flex min-w-0 flex-1 items-end gap-1 sm:gap-2">
+              <FilePickerMenu
+                onPick={handleFilePick}
+                onPoll={() => setShowPollModal(true)}
+                disabled={!!previewFile || sendingFile}
+                uploading={sendingFile}
+              />
+
+              <DynamicMessageInput
+                ref={inputRef}
+                placeholder={isDirect
+                  ? t('chat.writeMessage') + ` @${convName}`
+                  : t('chat.writeMessage') + ` #${convName}`}
+                value={input}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  emitTyping(conversationId, true);
+                  if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                  typingTimeoutRef.current = setTimeout(() => {
+                    emitTyping(conversationId, false);
+                  }, 2000);
+                }}
+                onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
+              />
+
+              <EmojiPicker
+                onPick={(emoji) => {
+                  setInput((v) => v + emoji);
+                  inputRef.current?.focus();
+                }}
+              />
+
+              <SendButton
+                onPress={handleSend}
+                isDisabled={!(input ?? '').trim()}
+                label={t('chat.send')}
+                pulse={sendPulse}
+                className="shrink-0"
+              />
+            </div>
           </div>
-
-          <EmojiPicker
-            onPick={(emoji) => {
-              setInput((v) => v + emoji);
-              inputRef.current?.focus();
-            }}
-          />
-
-          <SendButton
-            onPress={handleSend}
-            isDisabled={!(input ?? '').trim()}
-            label={t('chat.send')}
-            pulse={sendPulse}
-            className="shrink-0"
-          />
         </FloatingComposer>
         </div>
 

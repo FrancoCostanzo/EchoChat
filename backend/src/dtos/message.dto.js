@@ -18,6 +18,7 @@ const sendMessageDto = Joi.object({
 
 const updateMessageDto = Joi.object({
   body: Joi.string().max(10000).required(),
+  body_format: Joi.string().valid('plain', 'markdown', 'html').optional(),
 });
 
 const reactionDto = Joi.object({
