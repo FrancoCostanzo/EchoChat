@@ -9,6 +9,7 @@ import {
   Modal,
   Spinner,
   Tabs,
+  toast,
 } from '@heroui/react';
 import {
   Shield,
@@ -25,6 +26,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { adminApi } from '@/lib/endpoints';
 import { useAuthStore } from '@/stores/authStore';
+import { useConfirm } from '@/components/ConfirmProvider';
 import UserAvatar from '@/components/UserAvatar';
 import { formatMessageTime } from '@/lib/dates';
 
@@ -71,6 +73,7 @@ function AdminCard({ icon: Icon, title, children }) {
 
 /* ── 7.1 Users ── */
 function UsersTab({ t }) {
+  const confirm = useConfirm();
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -158,12 +161,20 @@ function UsersTab({ t }) {
   };
 
   const handleDelete = async (user) => {
-    if (!window.confirm(t('admin.users.confirmDelete', { name: user.display_name }))) return;
+    const ok = await confirm({
+      status: 'danger',
+      title: t('admin.users.confirmDeleteTitle'),
+      message: t('admin.users.confirmDelete', { name: user.display_name }),
+      confirmLabel: t('common.delete'),
+    });
+    if (!ok) return;
     try {
       await adminApi.deleteUser(user.id);
+      toast.success(t('admin.users.deleted', { name: user.display_name }));
       await load();
     } catch (err) {
       setError(err.message);
+      toast.danger(err.message);
     }
   };
 

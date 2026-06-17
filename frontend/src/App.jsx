@@ -1,11 +1,12 @@
 import { useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { Spinner } from '@heroui/react';
+import { Spinner, Toast } from '@heroui/react';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { useWallpaperStore } from '@/stores/wallpaperStore';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import { ConfirmProvider } from '@/components/ConfirmProvider';
 
 const ChatLayout = lazy(() => import('@/layouts/ChatLayout'));
 const LoginPage = lazy(() => import('@/pages/LoginPage'));
@@ -56,7 +57,9 @@ export default function App() {
   }, [isAuthenticated, loading, fetchConversations, fetchWallpapers, token, user?.id, initSocket, destroySocket]);
 
   return (
-    <Suspense fallback={<PageLoader />}>
+    <ConfirmProvider>
+      <Toast.Provider placement="bottom-right" />
+      <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
@@ -84,6 +87,7 @@ export default function App() {
 
         <Route path="*" element={<Navigate to="/chat" replace />} />
       </Routes>
-    </Suspense>
+      </Suspense>
+    </ConfirmProvider>
   );
 }

@@ -19,6 +19,15 @@
     "done": "Done",
     "clear": "Clear"
   },
+  "confirm": {
+    "defaultTitle": "Are you sure?",
+    "defaultConfirm": "Confirm"
+  },
+  "logout": {
+    "confirmTitle": "Sign out",
+    "confirmMessage": "Do you want to sign out? You'll need to sign in again to access your account.",
+    "success": "Signed out"
+  },
   "auth": {
     "loginTitle": "Sign in to your account",
     "registerTitle": "Create your account",
@@ -440,7 +449,9 @@
       "editTitle": "Edit user",
       "edit": "Edit",
       "delete": "Delete",
-      "confirmDelete": "Delete {{name}}?",
+      "confirmDeleteTitle": "Delete user",
+      "confirmDelete": "{{name}} will be permanently deleted. This action cannot be undone.",
+      "deleted": "{{name}} was deleted",
       "colUser": "User",
       "colRoles": "Roles",
       "colStatus": "Status",
