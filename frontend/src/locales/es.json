@@ -19,6 +19,15 @@
     "done": "Listo",
     "clear": "Limpiar"
   },
+  "confirm": {
+    "defaultTitle": "¿Estás seguro?",
+    "defaultConfirm": "Confirmar"
+  },
+  "logout": {
+    "confirmTitle": "Cerrar sesión",
+    "confirmMessage": "¿Querés cerrar tu sesión? Vas a tener que volver a iniciar sesión para acceder a tu cuenta.",
+    "success": "Sesión cerrada"
+  },
   "auth": {
     "loginTitle": "Iniciá sesión en tu cuenta",
     "twoFactorTitle": "Verificación en dos pasos",
@@ -449,7 +458,9 @@
       "editTitle": "Editar usuario",
       "edit": "Editar",
       "delete": "Eliminar",
-      "confirmDelete": "¿Eliminar a {{name}}?",
+      "confirmDeleteTitle": "Eliminar usuario",
+      "confirmDelete": "Se eliminará a {{name}} de forma permanente. Esta acción no se puede deshacer.",
+      "deleted": "Se eliminó a {{name}}",
       "colUser": "Usuario",
       "colRoles": "Roles",
       "colStatus": "Estado",

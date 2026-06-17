@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Button, Tooltip } from '@heroui/react';
+import { Button, Tooltip, toast } from '@heroui/react';
 import {
   MessageSquare,
   Users,
@@ -15,6 +15,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
+import { useConfirm } from '@/components/ConfirmProvider';
 import CanvasPanel from '@/components/CanvasPanel';
 
 /* ─────────────────────────────────────────────────────────
@@ -78,6 +79,7 @@ export default function ServerOrbitDock({
   const location = useLocation();
   const logout = useAuthStore((s) => s.logout);
   const user = useAuthStore((s) => s.user);
+  const confirm = useConfirm();
   const conversations = useChatStore((s) => s.conversations);
 
   const canAdmin = (user?.roles || []).includes('super_admin')
@@ -98,7 +100,15 @@ export default function ServerOrbitDock({
   const brandActive = isChat && !isNew;
 
   const handleLogout = async () => {
+    const ok = await confirm({
+      status: 'warning',
+      title: t('logout.confirmTitle'),
+      message: t('logout.confirmMessage'),
+      confirmLabel: t('sidebar.logout'),
+    });
+    if (!ok) return;
     await logout();
+    toast.success(t('logout.success'));
     navigate('/login');
   };
 

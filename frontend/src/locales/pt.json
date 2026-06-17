@@ -19,6 +19,15 @@
     "done": "Pronto",
     "clear": "Limpar"
   },
+  "confirm": {
+    "defaultTitle": "Tem certeza?",
+    "defaultConfirm": "Confirmar"
+  },
+  "logout": {
+    "confirmTitle": "Sair",
+    "confirmMessage": "Deseja sair? Você precisará entrar novamente para acessar sua conta.",
+    "success": "Sessão encerrada"
+  },
   "auth": {
     "loginTitle": "Entre na sua conta",
     "registerTitle": "Crie sua conta",
@@ -440,7 +449,9 @@
       "editTitle": "Editar usuário",
       "edit": "Editar",
       "delete": "Excluir",
-      "confirmDelete": "Excluir {{name}}?",
+      "confirmDeleteTitle": "Excluir usuário",
+      "confirmDelete": "{{name}} será excluído permanentemente. Esta ação não pode ser desfeita.",
+      "deleted": "{{name}} foi excluído",
       "colUser": "Usuário",
       "colRoles": "Papéis",
       "colStatus": "Status",
