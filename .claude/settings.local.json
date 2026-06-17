@@ -25,7 +25,8 @@
       "Bash(node -e \"['es','en','pt'].forEach\\(l=>JSON.parse\\(require\\('fs'\\).readFileSync\\('src/locales/'+l+'.json','utf8'\\)\\)\\);console.log\\('locales JSON OK'\\)\")",
       "Bash(gh pr create --base feat/canales --head feat/quick-wins --title 'Feat 🆕 Fase 6 — Mensajes guardados y borradores' --body ' *)",
       "mcp__heroui-react__get_component_source_code",
-      "mcp__heroui-react__get_component_source_styles"
+      "mcp__heroui-react__get_component_source_styles",
+      "PowerShell(ls -Name | Where-Object { $_ -ne 'node_modules' })"
     ]
   }
 }
