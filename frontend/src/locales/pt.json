@@ -456,6 +456,7 @@
       "colRoles": "Papéis",
       "colStatus": "Status",
       "colDept": "Departamento",
+      "colActions": "Ações",
       "username": "Usuário",
       "password": "Senha",
       "displayName": "Nome exibido",
