@@ -46,6 +46,14 @@ const STATUS_CHIP_COLOR = {
   suspended: 'danger',
 };
 
+// Storage processing_status values per DB CHECK: pending/processing/ready/failed.
+const STORAGE_STATUS_COLOR = {
+  ready: 'success',
+  processing: 'accent',
+  pending: 'warning',
+  failed: 'danger',
+};
+
 /* Reusable HeroUI Select — replaces raw <select> across the admin tabs. */
 function AdminSelect({ value, onChange, ariaLabel, items, className = 'min-w-[170px]' }) {
   return (
@@ -662,7 +670,7 @@ function StorageTab({ t }) {
                     <Table.Cell className="font-mono">{o.bucket_name}</Table.Cell>
                     <Table.Cell>{formatBytes(o.file_size_bytes)}</Table.Cell>
                     <Table.Cell>
-                      <Chip size="sm" variant="soft" color={o.processing_status === 'completed' ? 'success' : 'warning'}>
+                      <Chip size="sm" variant="soft" color={STORAGE_STATUS_COLOR[o.processing_status] || 'warning'}>
                         {o.processing_status}
                       </Chip>
                     </Table.Cell>
