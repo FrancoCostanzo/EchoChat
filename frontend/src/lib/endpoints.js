@@ -2,6 +2,7 @@ import { api } from './api';
 
 export const authApi = {
   register: (data) => api.post('/auth/register', data),
+  getRegistrationStatus: () => api.get('/auth/registration-status'),
   login: (data) => api.post('/auth/login', data),
   logout: () => api.post('/auth/logout'),
   logoutAll: (keepCurrent = false) => api.post(`/auth/logout-all${keepCurrent ? '?keepCurrent=true' : ''}`),
@@ -122,8 +123,11 @@ export const adminApi = {
   listUsers: (params) => api.get('/admin/users', params),
   createUser: (data) => api.post('/admin/users', data),
   updateUser: (userId, data) => api.patch(`/admin/users/${userId}`, data),
+  resetUserPassword: (userId, password) => api.patch(`/admin/users/${userId}/password`, { password }),
   deleteUser: (userId) => api.delete(`/admin/users/${userId}`),
   listRoles: () => api.get('/admin/roles'),
+  getLdapStatus: () => api.get('/admin/ldap/status'),
+  syncLdap: () => api.post('/admin/ldap/sync'),
   getSettings: () => api.get('/admin/settings'),
   updateSetting: (key, value) => api.put(`/admin/settings/${key}`, { value }),
   getAuditLog: (params) => api.get('/admin/audit', params),

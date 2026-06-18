@@ -55,6 +55,14 @@ CREATE TABLE users (
     last_seen_at     TIMESTAMPTZ,
     timezone         VARCHAR(50) DEFAULT 'America/Argentina/Cordoba',
     locale           VARCHAR(10) DEFAULT 'es-AR',
+
+    -- Proveedor de autenticación. 'local' = contraseña en user_credentials (bcrypt);
+    -- 'ldap' = la identidad vino de un directorio y el login valida por bind LDAP.
+    auth_provider    VARCHAR(20) NOT NULL DEFAULT 'local'
+                     CHECK (auth_provider IN ('local','ldap')),
+    -- Identificador estable del directorio (ej: objectGUID en hex). NULL para locales.
+    external_id      VARCHAR(255),
+
     metadata         JSONB DEFAULT '{}',    -- Extensible sin migraciones
     created_at       TIMESTAMPTZ DEFAULT NOW(),
     updated_at       TIMESTAMPTZ DEFAULT NOW()
@@ -694,6 +702,8 @@ CREATE TABLE system_settings (
 CREATE INDEX idx_users_display_name_trgm ON users USING GIN (display_name gin_trgm_ops);
 CREATE INDEX idx_users_status ON users(status) WHERE status != 'deleted';
 CREATE INDEX idx_users_presence ON users(presence, last_seen_at);
+-- Identidad LDAP única (los usuarios locales tienen external_id NULL y no compiten)
+CREATE UNIQUE INDEX idx_users_external_id ON users(external_id) WHERE external_id IS NOT NULL;
 
 -- Sesiones
 CREATE INDEX idx_sessions_token ON user_sessions(token_hash) WHERE is_active = TRUE;
@@ -951,7 +961,9 @@ INSERT INTO system_settings (key, value, description, category) VALUES
     ('require_call_consent',       'true',  'Requerir consentimiento explícito para grabar', 'calls'),
     ('message_retention_days',     '0',     'Días de retención de mensajes (0 = sin límite)', 'general'),
     ('presence_timeout_minutes',   '5',     'Minutos de inactividad para pasar a "away"', 'general'),
-    ('max_broadcast_recipients',   '1000',  'Máximo de destinatarios en una difusión', 'broadcast');
+    ('max_broadcast_recipients',   '1000',  'Máximo de destinatarios en una difusión', 'broadcast'),
+    -- Seguridad / altas
+    ('allow_registration',         'true',  'Permitir el auto-registro público de usuarios (POST /auth/register)', 'security');
 
 -- =============================================================================
 -- COMENTARIOS DE TABLAS

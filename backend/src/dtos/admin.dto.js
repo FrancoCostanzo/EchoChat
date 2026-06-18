@@ -19,6 +19,10 @@ const adminUpdateUserDto = Joi.object({
   role_names: Joi.array().items(Joi.string()),
 }).min(1);
 
+const adminResetPasswordDto = Joi.object({
+  password: Joi.string().min(8).max(128).required(),
+});
+
 const adminUpdateSettingDto = Joi.object({
   value: Joi.alternatives()
     .try(Joi.string(), Joi.number(), Joi.boolean(), Joi.array(), Joi.object())
@@ -28,5 +32,6 @@ const adminUpdateSettingDto = Joi.object({
 module.exports = {
   adminCreateUserDto,
   adminUpdateUserDto,
+  adminResetPasswordDto,
   adminUpdateSettingDto,
 };

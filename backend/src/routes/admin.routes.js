@@ -5,6 +5,7 @@ const {
   adminCreateUserDto,
   adminUpdateUserDto,
   adminUpdateSettingDto,
+  adminResetPasswordDto,
 } = require('../dtos');
 
 const router = Router();
@@ -14,8 +15,13 @@ router.use(authenticate);
 router.get('/users', requirePermission('admin.users'), (req, res) => adminController.listUsers(req, res));
 router.post('/users', requirePermission('admin.users'), validate(adminCreateUserDto), (req, res) => adminController.createUser(req, res));
 router.patch('/users/:userId', requirePermission('admin.users'), validate(adminUpdateUserDto), (req, res) => adminController.updateUser(req, res));
+router.patch('/users/:userId/password', requirePermission('admin.users'), validate(adminResetPasswordDto), (req, res) => adminController.resetUserPassword(req, res));
 router.delete('/users/:userId', requirePermission('admin.users'), (req, res) => adminController.deleteUser(req, res));
 router.get('/roles', requirePermission('admin.users'), (req, res) => adminController.listRoles(req, res));
+
+// LDAP — importación manual de usuarios
+router.get('/ldap/status', requirePermission('admin.users'), (req, res) => adminController.getLdapStatus(req, res));
+router.post('/ldap/sync', requirePermission('admin.users'), (req, res) => adminController.syncLdap(req, res));
 
 // 7.2 — System settings
 router.get('/settings', requirePermission('admin.settings'), (req, res) => adminController.getSettings(req, res));
