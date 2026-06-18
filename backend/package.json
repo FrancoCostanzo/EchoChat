@@ -33,6 +33,7 @@
     "http-status-codes": "^2.3.0",
     "joi": "^18.1.2",
     "jsonwebtoken": "^9.0.3",
+    "ldapts": "^8.1.8",
     "minio": "^8.0.7",
     "multer": "^2.1.1",
     "node-cron": "^4.2.1",

@@ -12,4 +12,5 @@ module.exports = {
   relationshipService: require('./relationship.service'),
   adminService: require('./admin.service'),
   wallpaperService: require('./wallpaper.service'),
+  ldapService: require('./ldap.service'),
 };

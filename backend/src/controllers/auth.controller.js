@@ -11,6 +11,11 @@ class AuthController {
     });
   }
 
+  async registrationStatus(req, res) {
+    const allow = await authService.isRegistrationAllowed();
+    res.json({ status: 'success', data: { allow_registration: allow } });
+  }
+
   async login(req, res) {
     const result = await authService.login(req.body, req.ip, req.get('user-agent'));
 

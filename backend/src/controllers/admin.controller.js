@@ -44,9 +44,33 @@ class AdminController {
     res.json({ status: 'success', data: user });
   }
 
+  async resetUserPassword(req, res) {
+    const result = await adminService.resetUserPassword(
+      req.user.id,
+      req.params.userId,
+      req.body.password,
+      req.ip,
+      req.get('user-agent'),
+    );
+    res.json({ status: 'success', data: result });
+  }
+
   async listRoles(req, res) {
     const roles = await adminService.listRoles();
     res.json({ status: 'success', data: roles });
+  }
+
+  async getLdapStatus(req, res) {
+    res.json({ status: 'success', data: adminService.getLdapStatus() });
+  }
+
+  async syncLdap(req, res) {
+    const summary = await adminService.importLdapUsers(
+      req.user.id,
+      req.ip,
+      req.get('user-agent'),
+    );
+    res.json({ status: 'success', data: summary });
   }
 
   async getSettings(req, res) {

@@ -1,6 +1,8 @@
 const bcrypt = require('bcrypt');
 const logger = require('../config/logger');
 const { minioClient } = require('../config/minio');
+// Require directo (no vía ../services) para evitar dependencia circular.
+const ldapService = require('./ldap.service');
 const {
   userRepository,
   credentialRepository,
@@ -162,8 +164,83 @@ class AdminService {
     return toAdminUserResponse(deleted, []);
   }
 
+  async resetUserPassword(actorId, userId, newPassword, ip, userAgent) {
+    const user = await userRepository.findById(userId);
+    if (!user || user.status === 'deleted') throw new NotFoundError('User');
+    if (user.auth_provider === 'ldap') {
+      throw new BadRequestError('Los usuarios LDAP gestionan su contraseña en el directorio');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+    const creds = await credentialRepository.findByUserId(userId);
+    if (creds) {
+      await credentialRepository.updatePassword(userId, passwordHash);
+    } else {
+      await credentialRepository.create(userId, passwordHash);
+    }
+    // Forzar re-login en todos los dispositivos del usuario.
+    await sessionRepository.deactivateAllForUser(userId);
+
+    await auditRepository.log({
+      actor_id: actorId,
+      action: 'admin.user_reset_password',
+      resource_type: 'user',
+      resource_id: userId,
+      ip_address: ip,
+      user_agent: userAgent,
+    });
+
+    logger.info({ userId, actorId }, 'Admin reset user password');
+    return { id: userId };
+  }
+
   async listRoles() {
     return userRepository.listRoles();
+  }
+
+  // ── LDAP (importación manual) ───────────────────────────────────────────
+
+  getLdapStatus() {
+    return ldapService.status();
+  }
+
+  async importLdapUsers(actorId, ip, userAgent) {
+    const entries = await ldapService.fetchAllUsers();
+    let created = 0;
+    let updated = 0;
+    let failed = 0;
+
+    for (const entry of entries) {
+      try {
+        const { created: wasCreated } = await userRepository.upsertLdapUser(entry);
+        if (wasCreated) {
+          created += 1;
+          // Rol estándar para los recién importados; en updates no tocamos roles.
+          const fresh = await userRepository.findByExternalId(entry.external_id);
+          await userRepository.setUserRoles(fresh.id, ['user'], actorId);
+        } else {
+          updated += 1;
+        }
+      } catch (err) {
+        failed += 1;
+        logger.warn({ err, username: entry.username }, 'LDAP user import failed');
+      }
+    }
+
+    const summary = { total: entries.length, created, updated, failed };
+
+    await auditRepository.log({
+      actor_id: actorId,
+      action: 'admin.ldap_sync',
+      resource_type: 'system',
+      resource_id: null,
+      ip_address: ip,
+      user_agent: userAgent,
+      data_after: summary,
+    });
+
+    logger.info({ actorId, ...summary }, 'LDAP import completed');
+    return summary;
   }
 
   async _guardLastSuperAdmin(userId, newRoleNames) {

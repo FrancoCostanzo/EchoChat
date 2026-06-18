@@ -5,8 +5,10 @@ const { TOTP, NobleCryptoPlugin, ScureBase32Plugin, generateSecret, generateURI 
 const QRCode = require('qrcode');
 const config = require('../config');
 const logger = require('../config/logger');
-const { userRepository, credentialRepository, sessionRepository, auditRepository } = require('../repositories');
-const { UnauthorizedError, ConflictError, BadRequestError } = require('../errors');
+const { userRepository, credentialRepository, sessionRepository, auditRepository, systemSettingsRepository } = require('../repositories');
+const { UnauthorizedError, ConflictError, BadRequestError, ForbiddenError } = require('../errors');
+// Require directo para evitar el ciclo services/index → auth.service.
+const ldapService = require('./ldap.service');
 
 const SALT_ROUNDS = 12;
 const APP_NAME = 'EchoChat';
@@ -14,6 +16,10 @@ const totp = new TOTP({ crypto: new NobleCryptoPlugin(), base32: new ScureBase32
 
 class AuthService {
   async register(data, ip, userAgent) {
+    if (!(await this.isRegistrationAllowed())) {
+      throw new ForbiddenError('El registro de nuevos usuarios está deshabilitado');
+    }
+
     const existing = await userRepository.findByUsername(data.username);
     if (existing) throw new ConflictError('Username already taken');
 
@@ -51,6 +57,26 @@ class AuthService {
     if (!user) throw new UnauthorizedError('Invalid credentials');
     if (user.status !== 'active') throw new UnauthorizedError('Account is not active');
 
+    // Usuarios LDAP: la contraseña se valida por bind contra el directorio.
+    // No tienen fila en user_credentials ni 2FA local en esta fase.
+    if (user.auth_provider === 'ldap') {
+      const ldapUser = await ldapService.authenticate(username, password);
+      if (!ldapUser) {
+        await auditRepository.log({
+          actor_id: user.id,
+          action: 'user.login',
+          resource_type: 'user',
+          resource_id: user.id,
+          ip_address: ip,
+          user_agent: userAgent,
+          success: false,
+          error_message: 'Invalid LDAP credentials',
+        });
+        throw new UnauthorizedError('Invalid credentials');
+      }
+      return this._createSession(user, { device_name, device_type }, ip, userAgent);
+    }
+
     const creds = await credentialRepository.findByUserId(user.id);
     if (!creds) throw new UnauthorizedError('Invalid credentials');
 
@@ -84,6 +110,12 @@ class AuthService {
       return { requires_2fa: true, temp_token: tempToken };
     }
 
+    return this._createSession(user, { device_name, device_type }, ip, userAgent);
+  }
+
+  // Emite token + sesión, marca presencia y audita un login exitoso.
+  // Compartido por el camino local (sin 2FA) y el camino LDAP.
+  async _createSession(user, { device_name, device_type }, ip, userAgent) {
     const token = this._generateToken(user);
     const tokenHash = this._hashToken(token);
     const expiresAt = this._getTokenExpiry();
@@ -109,8 +141,15 @@ class AuthService {
       user_agent: userAgent,
     });
 
-    logger.info({ userId: user.id }, 'User logged in');
+    logger.info({ userId: user.id, provider: user.auth_provider || 'local' }, 'User logged in');
     return { user, token, expires_at: expiresAt };
+  }
+
+  // Lee el toggle `allow_registration` (system_settings). Default permisivo si falta.
+  async isRegistrationAllowed() {
+    const setting = await systemSettingsRepository.findByKey('allow_registration');
+    if (!setting) return true;
+    return setting.value !== false && setting.value !== 'false';
   }
 
   async logout(userId, tokenHash) {

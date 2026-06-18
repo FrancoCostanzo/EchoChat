@@ -80,7 +80,9 @@
       "weak": "Weak",
       "fair": "Fair",
       "strong": "Strong"
-    }
+    },
+    "registrationDisabledTitle": "Registration disabled",
+    "registrationDisabled": "New user registration is disabled. Ask an administrator for an account."
   },
   "chat": {
     "empty": "Select a conversation or create a new one",
@@ -468,7 +470,21 @@
         "active": "Active",
         "inactive": "Inactive",
         "suspended": "Suspended"
-      }
+      },
+      "filterDept": "Department",
+      "importLdap": "Import from LDAP",
+      "importResult": "LDAP import: {{created}} new, {{updated}} updated, {{failed}} failed",
+      "allowRegistration": "Allow self-registration",
+      "allowRegistrationHint": "When off, nobody can create their own account from the sign-up screen. Admins can still add users.",
+      "colProvider": "Source",
+      "ldap": "LDAP",
+      "local": "Local",
+      "loadMore": "Load more",
+      "resetPassword": "Reset password",
+      "resetPasswordTitle": "Reset password",
+      "resetPasswordFor": "Set a new password for {{name}}.",
+      "newPassword": "New password",
+      "passwordReset": "Password reset for {{name}}"
     },
     "settings": {
       "categories": "Categories",

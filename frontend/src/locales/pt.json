@@ -80,7 +80,9 @@
       "weak": "Fraca",
       "fair": "Regular",
       "strong": "Forte"
-    }
+    },
+    "registrationDisabledTitle": "Cadastro desativado",
+    "registrationDisabled": "O cadastro de novos usuários está desativado. Peça uma conta a um administrador."
   },
   "chat": {
     "empty": "Selecione uma conversa ou crie uma nova",
@@ -468,7 +470,21 @@
         "active": "Ativo",
         "inactive": "Inativo",
         "suspended": "Suspenso"
-      }
+      },
+      "filterDept": "Departamento",
+      "importLdap": "Importar do LDAP",
+      "importResult": "Importação LDAP: {{created}} novos, {{updated}} atualizados, {{failed}} com erro",
+      "allowRegistration": "Permitir auto-registro",
+      "allowRegistrationHint": "Quando desativado, ninguém pode criar a própria conta na tela de cadastro. Os administradores ainda podem adicionar usuários.",
+      "colProvider": "Origem",
+      "ldap": "LDAP",
+      "local": "Local",
+      "loadMore": "Carregar mais",
+      "resetPassword": "Redefinir senha",
+      "resetPasswordTitle": "Redefinir senha",
+      "resetPasswordFor": "Defina uma nova senha para {{name}}.",
+      "newPassword": "Nova senha",
+      "passwordReset": "Senha de {{name}} redefinida"
     },
     "settings": {
       "categories": "Categorias",

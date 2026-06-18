@@ -13,6 +13,7 @@ import {
   Modal,
   Select,
   Spinner,
+  Switch,
   Table,
   Tabs,
   toast,
@@ -28,6 +29,8 @@ import {
   Trash2,
   Search,
   AlertCircle,
+  RefreshCw,
+  KeyRound,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { adminApi } from '@/lib/endpoints';
@@ -38,6 +41,7 @@ import { formatMessageTime } from '@/lib/dates';
 
 const ENTRY_EASE = [0.22, 1, 0.36, 1];
 const USER_STATUSES = ['active', 'inactive', 'suspended'];
+const USERS_PAGE_SIZE = 25;
 
 // Chip color per user status (HeroUI Chip palette: accent/success/warning/danger/default).
 const STATUS_CHIP_COLOR = {
@@ -125,35 +129,126 @@ function UsersTab({ t }) {
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [deptFilter, setDeptFilter] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [editUser, setEditUser] = useState(null);
   const [form, setForm] = useState({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  // LDAP import + registro
+  const [ldapEnabled, setLdapEnabled] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [registrationAllowed, setRegistrationAllowed] = useState(true);
+  const [togglingReg, setTogglingReg] = useState(false);
+  // Reset de contraseña (solo usuarios locales)
+  const [resetUser, setResetUser] = useState(null);
+  const [resetPw, setResetPw] = useState('');
+  const [resetting, setResetting] = useState(false);
+
+  const buildParams = useCallback((offset) => {
+    const params = { limit: USERS_PAGE_SIZE, offset };
+    if (search.trim()) params.search = search.trim();
+    if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
+    if (deptFilter.trim()) params.department = deptFilter.trim();
+    return params;
+  }, [search, statusFilter, deptFilter]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const params = {};
-      if (search.trim()) params.search = search.trim();
-      if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
       const [usersRes, rolesRes] = await Promise.all([
-        adminApi.listUsers(params),
+        adminApi.listUsers(buildParams(0)),
         adminApi.listRoles(),
       ]);
       setUsers(usersRes.data);
       setRoles(rolesRes.data);
+      setHasMore(usersRes.data.length === USERS_PAGE_SIZE);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [search, statusFilter]);
+  }, [buildParams]);
+
+  const loadMore = useCallback(async () => {
+    setLoadingMore(true);
+    try {
+      const res = await adminApi.listUsers(buildParams(users.length));
+      setUsers((prev) => [...prev, ...res.data]);
+      setHasMore(res.data.length === USERS_PAGE_SIZE);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [buildParams, users.length]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Estado de LDAP y del toggle de auto-registro (una vez).
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const [statusRes, settingsRes] = await Promise.all([
+          adminApi.getLdapStatus().catch(() => ({ data: { enabled: false } })),
+          adminApi.getSettings().catch(() => ({ data: [] })),
+        ]);
+        if (!alive) return;
+        setLdapEnabled(Boolean(statusRes.data?.enabled));
+        const reg = (settingsRes.data || []).find((s) => s.key === 'allow_registration');
+        if (reg) setRegistrationAllowed(reg.value !== false && reg.value !== 'false');
+      } catch { /* noop */ }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  const handleToggleRegistration = async (next) => {
+    setTogglingReg(true);
+    setRegistrationAllowed(next); // optimista
+    try {
+      await adminApi.updateSetting('allow_registration', next);
+    } catch (err) {
+      setRegistrationAllowed(!next); // revertir
+      toast.danger(err.message);
+    } finally {
+      setTogglingReg(false);
+    }
+  };
+
+  const handleImportLdap = async () => {
+    setImporting(true);
+    try {
+      const res = await adminApi.syncLdap();
+      const { created = 0, updated = 0, failed = 0 } = res.data || {};
+      toast.success(t('admin.users.importResult', { created, updated, failed }));
+      await load();
+    } catch (err) {
+      toast.danger(err.message);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetUser) return;
+    setResetting(true);
+    try {
+      await adminApi.resetUserPassword(resetUser.id, resetPw);
+      toast.success(t('admin.users.passwordReset', { name: resetUser.display_name }));
+      setResetUser(null);
+      setResetPw('');
+    } catch (err) {
+      toast.danger(err.message);
+    } finally {
+      setResetting(false);
+    }
+  };
 
   const openCreate = () => {
     setForm({ username: '', display_name: '', email: '', password: '', department: '', role_names: ['user'] });
@@ -229,10 +324,16 @@ function UsersTab({ t }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
-        <div className="relative min-w-[200px] flex-1">
+        <div className="relative min-w-[180px] flex-1">
           <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-200" />
           <Input className="pl-9" placeholder={t('admin.users.search')} value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
+        <Input
+          className="min-w-[150px]"
+          placeholder={t('admin.users.filterDept')}
+          value={deptFilter}
+          onChange={(e) => setDeptFilter(e.target.value)}
+        />
         <AdminSelect
           ariaLabel={t('admin.users.allStatuses')}
           value={statusFilter}
@@ -242,10 +343,25 @@ function UsersTab({ t }) {
             ...USER_STATUSES.map((s) => ({ id: s, label: t(`admin.users.status.${s}`) })),
           ]}
         />
+        {ldapEnabled && (
+          <Button variant="secondary" className="gap-2" isPending={importing} onPress={handleImportLdap}>
+            <RefreshCw size={16} /> {t('admin.users.importLdap')}
+          </Button>
+        )}
         <Button className="gap-2" onPress={openCreate}>
           <Plus size={16} /> {t('admin.users.create')}
         </Button>
       </div>
+
+      <Card className="flex flex-wrap items-center justify-between gap-3 p-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium">{t('admin.users.allowRegistration')}</p>
+          <p className="text-xs text-ink-200">{t('admin.users.allowRegistrationHint')}</p>
+        </div>
+        <Switch isSelected={registrationAllowed} isDisabled={togglingReg} onChange={handleToggleRegistration}>
+          <Switch.Control><Switch.Thumb /></Switch.Control>
+        </Switch>
+      </Card>
 
       {error && <p className="text-sm text-echo-dnd">{error}</p>}
 
@@ -254,25 +370,33 @@ function UsersTab({ t }) {
       ) : (
         <Table>
           <Table.ScrollContainer>
-            <Table.Content aria-label={t('admin.sections.users')} className="min-w-[640px]">
+            <Table.Content aria-label={t('admin.sections.users')} className="min-w-[760px]">
               <Table.Header>
                 <Table.Column isRowHeader>{t('admin.users.colUser')}</Table.Column>
+                <Table.Column>{t('admin.users.colProvider')}</Table.Column>
                 <Table.Column>{t('admin.users.colRoles')}</Table.Column>
                 <Table.Column>{t('admin.users.colStatus')}</Table.Column>
                 <Table.Column>{t('admin.users.colDept')}</Table.Column>
                 <Table.Column className="text-end">{t('admin.users.colActions')}</Table.Column>
               </Table.Header>
               <Table.Body>
-                {users.map((u) => (
+                {users.map((u) => {
+                  const isLdap = u.auth_provider === 'ldap';
+                  return (
                   <Table.Row key={u.id} id={u.id}>
                     <Table.Cell>
                       <div className="flex items-center gap-2">
                         <UserAvatar user={u} size="xs" />
-                        <div>
+                        <div className="min-w-0">
                           <p className="font-medium">{u.display_name}</p>
-                          <p className="text-xs text-muted">@{u.username}</p>
+                          <p className="truncate text-xs text-muted">{u.email || `@${u.username}`}</p>
                         </div>
                       </div>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <Chip size="sm" variant="soft" color={isLdap ? 'accent' : 'default'}>
+                        {isLdap ? t('admin.users.ldap') : t('admin.users.local')}
+                      </Chip>
                     </Table.Cell>
                     <Table.Cell>
                       <div className="flex flex-wrap gap-1">
@@ -290,17 +414,38 @@ function UsersTab({ t }) {
                     <Table.Cell>
                       <div className="flex justify-end gap-1">
                         <Button size="sm" variant="secondary" onPress={() => openEdit(u)}>{t('admin.users.edit')}</Button>
+                        {!isLdap && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            isIconOnly
+                            aria-label={t('admin.users.resetPassword')}
+                            title={t('admin.users.resetPassword')}
+                            onPress={() => { setResetUser(u); setResetPw(''); }}
+                          >
+                            <KeyRound size={14} />
+                          </Button>
+                        )}
                         <Button size="sm" variant="danger-soft" isIconOnly aria-label={t('admin.users.delete')} onPress={() => handleDelete(u)}>
                           <Trash2 size={14} />
                         </Button>
                       </div>
                     </Table.Cell>
                   </Table.Row>
-                ))}
+                  );
+                })}
               </Table.Body>
             </Table.Content>
           </Table.ScrollContainer>
         </Table>
+      )}
+
+      {!loading && hasMore && (
+        <div className="flex justify-center">
+          <Button variant="secondary" isPending={loadingMore} onPress={loadMore}>
+            {t('admin.users.loadMore')}
+          </Button>
+        </div>
       )}
 
       <UserFormModal
@@ -328,6 +473,37 @@ function UsersTab({ t }) {
         busy={busy}
         t={t}
       />
+
+      <Modal isOpen={!!resetUser} onOpenChange={(o) => { if (!o) setResetUser(null); }}>
+        <Modal.Backdrop>
+          <Modal.Container placement="center" size="sm">
+            <Modal.Dialog>
+              <Modal.Header>
+                <Modal.Heading>{t('admin.users.resetPasswordTitle')}</Modal.Heading>
+                <Modal.CloseTrigger />
+              </Modal.Header>
+              <Modal.Body className="flex flex-col gap-3">
+                <p className="text-sm text-ink-200">
+                  {t('admin.users.resetPasswordFor', { name: resetUser?.display_name || '' })}
+                </p>
+                <Field label={t('admin.users.newPassword')}>
+                  <Input
+                    type="password"
+                    value={resetPw}
+                    onChange={(e) => setResetPw(e.target.value)}
+                  />
+                </Field>
+              </Modal.Body>
+              <Modal.Footer>
+                <Button variant="ghost" onPress={() => setResetUser(null)}>{t('common.cancel')}</Button>
+                <Button isPending={resetting} isDisabled={resetPw.length < 8} onPress={handleResetPassword}>
+                  {t('admin.users.resetPassword')}
+                </Button>
+              </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal>
     </div>
   );
 }

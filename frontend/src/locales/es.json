@@ -89,7 +89,9 @@
       "weak": "Débil",
       "fair": "Regular",
       "strong": "Fuerte"
-    }
+    },
+    "registrationDisabledTitle": "Registro deshabilitado",
+    "registrationDisabled": "El registro de nuevos usuarios está deshabilitado. Pedile una cuenta a un administrador."
   },
   "chat": {
     "empty": "Seleccioná una conversación o creá una nueva",
@@ -477,7 +479,21 @@
         "active": "Activo",
         "inactive": "Inactivo",
         "suspended": "Suspendido"
-      }
+      },
+      "filterDept": "Departamento",
+      "importLdap": "Importar de LDAP",
+      "importResult": "Importación LDAP: {{created}} nuevos, {{updated}} actualizados, {{failed}} con error",
+      "allowRegistration": "Permitir auto-registro",
+      "allowRegistrationHint": "Si está desactivado, nadie puede crear su propia cuenta desde la pantalla de registro. Los administradores pueden seguir dando de alta usuarios.",
+      "colProvider": "Origen",
+      "ldap": "LDAP",
+      "local": "Local",
+      "loadMore": "Cargar más",
+      "resetPassword": "Restablecer contraseña",
+      "resetPasswordTitle": "Restablecer contraseña",
+      "resetPasswordFor": "Definí una nueva contraseña para {{name}}.",
+      "newPassword": "Nueva contraseña",
+      "passwordReset": "Contraseña de {{name}} restablecida"
     },
     "settings": {
       "categories": "Categorías",

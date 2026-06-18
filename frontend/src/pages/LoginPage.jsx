@@ -1,9 +1,10 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, InputGroup, TextField, Label, FieldError, Button, Spinner, InputOTP, REGEXP_ONLY_DIGITS } from '@heroui/react';
 import { MessageCircle, Eye, EyeOff, AlertCircle, ShieldCheck, ArrowLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
+import { authApi } from '@/lib/endpoints';
 
 // ── TOTP step ────────────────────────────────────────────────────────────────
 function TotpStep({ onCancel }) {
@@ -136,6 +137,15 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [registrationAllowed, setRegistrationAllowed] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    authApi.getRegistrationStatus()
+      .then((res) => { if (alive) setRegistrationAllowed(res.data?.allow_registration !== false); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
   const validate = (values) => {
     const errors = {};
@@ -268,7 +278,7 @@ export default function LoginPage() {
           </Card.Content>
         </Card>
 
-        {step === 'credentials' && (
+        {step === 'credentials' && registrationAllowed && (
           <p className="mt-6 text-center text-sm text-muted">
             {t('auth.noAccount')}{' '}
             <Link to="/register" className="font-medium text-accent hover:underline">

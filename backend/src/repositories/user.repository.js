@@ -21,14 +21,51 @@ class UserRepository extends BaseRepository {
     return rows[0] || null;
   }
 
-  async create({ username, display_name, email, phone_extension, department, job_title }) {
+  async create({ username, display_name, email, phone_extension, department, job_title, auth_provider, external_id }) {
     const { rows } = await this.query(
-      `INSERT INTO users (username, display_name, email, phone_extension, department, job_title)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO users (username, display_name, email, phone_extension, department, job_title, auth_provider, external_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
-      [username, display_name, email || null, phone_extension || null, department || null, job_title || null]
+      [
+        username, display_name, email || null, phone_extension || null,
+        department || null, job_title || null,
+        auth_provider || 'local', external_id || null,
+      ]
     );
     return rows[0];
+  }
+
+  async findByExternalId(externalId) {
+    const { rows } = await this.query(
+      'SELECT * FROM users WHERE external_id = $1',
+      [externalId]
+    );
+    return rows[0] || null;
+  }
+
+  // Inserta o actualiza un usuario LDAP identificado por external_id.
+  // Devuelve { user, created } para que el caller pueda contar altas vs. updates.
+  async upsertLdapUser({ external_id, username, display_name, email, department, job_title }) {
+    const existing = await this.findByExternalId(external_id);
+    if (existing) {
+      const { rows } = await this.query(
+        `UPDATE users
+         SET display_name = $2,
+             email = $3,
+             department = $4,
+             job_title = $5,
+             updated_at = NOW()
+         WHERE external_id = $1
+         RETURNING *`,
+        [external_id, display_name, email || null, department || null, job_title || null]
+      );
+      return { user: rows[0], created: false };
+    }
+    const user = await this.create({
+      username, display_name, email, department, job_title,
+      auth_provider: 'ldap', external_id,
+    });
+    return { user, created: true };
   }
 
   async updateProfile(id, fields) {
