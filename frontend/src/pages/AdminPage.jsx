@@ -4,10 +4,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Button,
   Card,
+  Checkbox,
+  Chip,
   Input,
   InputGroup,
+  Label,
+  ListBox,
   Modal,
+  Select,
   Spinner,
+  Table,
   Tabs,
   toast,
 } from '@heroui/react';
@@ -32,6 +38,40 @@ import { formatMessageTime } from '@/lib/dates';
 
 const ENTRY_EASE = [0.22, 1, 0.36, 1];
 const USER_STATUSES = ['active', 'inactive', 'suspended'];
+
+// Chip color per user status (HeroUI Chip palette: accent/success/warning/danger/default).
+const STATUS_CHIP_COLOR = {
+  active: 'success',
+  inactive: 'default',
+  suspended: 'danger',
+};
+
+/* Reusable HeroUI Select — replaces raw <select> across the admin tabs. */
+function AdminSelect({ value, onChange, ariaLabel, items, className = 'min-w-[170px]' }) {
+  return (
+    <Select
+      aria-label={ariaLabel}
+      value={value}
+      onChange={(v) => onChange(String(v))}
+      className={className}
+    >
+      <Select.Trigger>
+        <Select.Value />
+        <Select.Indicator />
+      </Select.Trigger>
+      <Select.Popover>
+        <ListBox>
+          {items.map(({ id, label }) => (
+            <ListBox.Item key={id} id={id} textValue={label}>
+              {label}
+              <ListBox.ItemIndicator />
+            </ListBox.Item>
+          ))}
+        </ListBox>
+      </Select.Popover>
+    </Select>
+  );
+}
 
 function formatBytes(bytes) {
   const n = Number(bytes) || 0;
@@ -78,7 +118,7 @@ function UsersTab({ t }) {
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [createOpen, setCreateOpen] = useState(false);
   const [editUser, setEditUser] = useState(null);
   const [form, setForm] = useState({});
@@ -91,7 +131,7 @@ function UsersTab({ t }) {
     try {
       const params = {};
       if (search.trim()) params.search = search.trim();
-      if (statusFilter) params.status = statusFilter;
+      if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
       const [usersRes, rolesRes] = await Promise.all([
         adminApi.listUsers(params),
         adminApi.listRoles(),
@@ -185,16 +225,15 @@ function UsersTab({ t }) {
           <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-200" />
           <Input className="pl-9" placeholder={t('admin.users.search')} value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-        <select
+        <AdminSelect
+          ariaLabel={t('admin.users.allStatuses')}
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-lg border border-ink-600 bg-ink-800 px-3 py-2 text-sm"
-        >
-          <option value="">{t('admin.users.allStatuses')}</option>
-          {USER_STATUSES.map((s) => (
-            <option key={s} value={s}>{t(`admin.users.status.${s}`)}</option>
-          ))}
-        </select>
+          onChange={setStatusFilter}
+          items={[
+            { id: 'all', label: t('admin.users.allStatuses') },
+            ...USER_STATUSES.map((s) => ({ id: s, label: t(`admin.users.status.${s}`) })),
+          ]}
+        />
         <Button className="gap-2" onPress={openCreate}>
           <Plus size={16} /> {t('admin.users.create')}
         </Button>
@@ -205,57 +244,55 @@ function UsersTab({ t }) {
       {loading ? (
         <div className="flex justify-center py-12"><Spinner size="lg" /></div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-ink-700/60">
-          <table className="w-full min-w-[640px] text-left text-sm">
-            <thead className="bg-ink-800/80 text-xs text-ink-200">
-              <tr>
-                <th className="px-4 py-3">{t('admin.users.colUser')}</th>
-                <th className="px-4 py-3">{t('admin.users.colRoles')}</th>
-                <th className="px-4 py-3">{t('admin.users.colStatus')}</th>
-                <th className="px-4 py-3">{t('admin.users.colDept')}</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => (
-                <tr key={u.id} className="border-t border-ink-700/40 hover:bg-ink-800/30">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <UserAvatar user={u} size="xs" />
-                      <div>
-                        <p className="font-medium">{u.display_name}</p>
-                        <p className="text-xs text-ink-200">@{u.username}</p>
+        <Table>
+          <Table.ScrollContainer>
+            <Table.Content aria-label={t('admin.sections.users')} className="min-w-[640px]">
+              <Table.Header>
+                <Table.Column isRowHeader>{t('admin.users.colUser')}</Table.Column>
+                <Table.Column>{t('admin.users.colRoles')}</Table.Column>
+                <Table.Column>{t('admin.users.colStatus')}</Table.Column>
+                <Table.Column>{t('admin.users.colDept')}</Table.Column>
+                <Table.Column className="text-end">{t('admin.users.colActions')}</Table.Column>
+              </Table.Header>
+              <Table.Body>
+                {users.map((u) => (
+                  <Table.Row key={u.id} id={u.id}>
+                    <Table.Cell>
+                      <div className="flex items-center gap-2">
+                        <UserAvatar user={u} size="xs" />
+                        <div>
+                          <p className="font-medium">{u.display_name}</p>
+                          <p className="text-xs text-muted">@{u.username}</p>
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {(u.roles || []).map((r) => (
-                        <span key={r} className="rounded-full bg-ink-700 px-2 py-0.5 text-[10px] font-medium">{r}</span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                      u.status === 'active' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'
-                    }`}>
-                      {t(`admin.users.status.${u.status}`, u.status)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-ink-200">{u.department || '—'}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-end gap-1">
-                      <Button size="sm" variant="secondary" onPress={() => openEdit(u)}>{t('admin.users.edit')}</Button>
-                      <Button size="sm" variant="ghost" isIconOnly aria-label={t('admin.users.delete')} onPress={() => handleDelete(u)}>
-                        <Trash2 size={14} className="text-echo-dnd" />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <div className="flex flex-wrap gap-1">
+                        {(u.roles || []).map((r) => (
+                          <Chip key={r} size="sm" variant="soft">{r}</Chip>
+                        ))}
+                      </div>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <Chip size="sm" variant="soft" color={STATUS_CHIP_COLOR[u.status] || 'default'}>
+                        {t(`admin.users.status.${u.status}`, u.status)}
+                      </Chip>
+                    </Table.Cell>
+                    <Table.Cell className="text-muted">{u.department || '—'}</Table.Cell>
+                    <Table.Cell>
+                      <div className="flex justify-end gap-1">
+                        <Button size="sm" variant="secondary" onPress={() => openEdit(u)}>{t('admin.users.edit')}</Button>
+                        <Button size="sm" variant="danger-soft" isIconOnly aria-label={t('admin.users.delete')} onPress={() => handleDelete(u)}>
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
+                    </Table.Cell>
+                  </Table.Row>
+                ))}
+              </Table.Body>
+            </Table.Content>
+          </Table.ScrollContainer>
+        </Table>
       )}
 
       <UserFormModal
@@ -319,29 +356,31 @@ function UserFormModal({ open, onClose, title, form, setForm, roles, toggleRole,
               </Field>
               {!isCreate && (
                 <Field label={t('admin.users.statusLabel')}>
-                  <select
+                  <AdminSelect
+                    ariaLabel={t('admin.users.statusLabel')}
+                    className="w-full"
                     value={form.status || 'active'}
-                    onChange={(e) => setForm({ ...form, status: e.target.value })}
-                    className="w-full rounded-lg border border-ink-600 bg-ink-800 px-3 py-2 text-sm"
-                  >
-                    {USER_STATUSES.map((s) => (
-                      <option key={s} value={s}>{t(`admin.users.status.${s}`)}</option>
-                    ))}
-                  </select>
+                    onChange={(v) => setForm({ ...form, status: v })}
+                    items={USER_STATUSES.map((s) => ({ id: s, label: t(`admin.users.status.${s}`) }))}
+                  />
                 </Field>
               )}
               <div>
-                <p className="mb-2 text-xs font-medium text-ink-200">{t('admin.users.roles')}</p>
-                <div className="flex flex-wrap gap-2">
+                <p className="mb-2 text-xs font-medium text-muted">{t('admin.users.roles')}</p>
+                <div className="flex flex-wrap gap-3">
                   {roles.map((r) => (
-                    <label key={r.id} className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-ink-600 px-2 py-1 text-xs">
-                      <input
-                        type="checkbox"
-                        checked={(form.role_names || []).includes(r.name)}
-                        onChange={() => toggleRole(r.name)}
-                      />
-                      {r.display_name || r.name}
-                    </label>
+                    <Checkbox
+                      key={r.id}
+                      isSelected={(form.role_names || []).includes(r.name)}
+                      onChange={() => toggleRole(r.name)}
+                    >
+                      <Checkbox.Content>
+                        <Checkbox.Control>
+                          <Checkbox.Indicator />
+                        </Checkbox.Control>
+                        {r.display_name || r.name}
+                      </Checkbox.Content>
+                    </Checkbox>
                   ))}
                 </div>
               </div>
@@ -475,14 +514,14 @@ function AuditTab({ t }) {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [action, setAction] = useState('');
-  const [success, setSuccess] = useState('');
+  const [success, setSuccess] = useState('all');
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const params = { limit: 100 };
       if (action.trim()) params.action = action.trim();
-      if (success) params.success = success;
+      if (success && success !== 'all') params.success = success;
       const res = await adminApi.getAuditLog(params);
       setEntries(res.data);
     } finally {
@@ -501,52 +540,53 @@ function AuditTab({ t }) {
           value={action}
           onChange={(e) => setAction(e.target.value)}
         />
-        <select
+        <AdminSelect
+          ariaLabel={t('admin.audit.allResults')}
           value={success}
-          onChange={(e) => setSuccess(e.target.value)}
-          className="rounded-lg border border-ink-600 bg-ink-800 px-3 py-2 text-sm"
-        >
-          <option value="">{t('admin.audit.allResults')}</option>
-          <option value="true">{t('admin.audit.success')}</option>
-          <option value="false">{t('admin.audit.failed')}</option>
-        </select>
+          onChange={setSuccess}
+          items={[
+            { id: 'all', label: t('admin.audit.allResults') },
+            { id: 'true', label: t('admin.audit.success') },
+            { id: 'false', label: t('admin.audit.failed') },
+          ]}
+        />
       </div>
 
       {loading ? (
         <div className="flex justify-center py-12"><Spinner size="lg" /></div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-ink-700/60">
-          <table className="w-full min-w-[720px] text-left text-sm">
-            <thead className="bg-ink-800/80 text-xs text-ink-200">
-              <tr>
-                <th className="px-3 py-2">{t('admin.audit.colTime')}</th>
-                <th className="px-3 py-2">{t('admin.audit.colActor')}</th>
-                <th className="px-3 py-2">{t('admin.audit.colAction')}</th>
-                <th className="px-3 py-2">{t('admin.audit.colResource')}</th>
-                <th className="px-3 py-2">{t('admin.audit.colResult')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entries.map((e) => (
-                <tr key={e.id} className="border-t border-ink-700/40">
-                  <td className="whitespace-nowrap px-3 py-2 text-xs text-ink-200">
-                    {formatMessageTime(e.created_at)}
-                  </td>
-                  <td className="px-3 py-2">{e.actor_display_name || e.actor_username || '—'}</td>
-                  <td className="px-3 py-2 font-mono text-xs">{e.action}</td>
-                  <td className="px-3 py-2 text-xs text-ink-200">
-                    {e.resource_type}{e.resource_id ? ` / ${e.resource_id.slice(0, 8)}…` : ''}
-                  </td>
-                  <td className="px-3 py-2">
-                    <span className={e.success ? 'text-emerald-300' : 'text-echo-dnd'}>
-                      {e.success ? '✓' : '✗'}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table>
+          <Table.ScrollContainer>
+            <Table.Content aria-label={t('admin.sections.audit')} className="min-w-[720px]">
+              <Table.Header>
+                <Table.Column isRowHeader>{t('admin.audit.colTime')}</Table.Column>
+                <Table.Column>{t('admin.audit.colActor')}</Table.Column>
+                <Table.Column>{t('admin.audit.colAction')}</Table.Column>
+                <Table.Column>{t('admin.audit.colResource')}</Table.Column>
+                <Table.Column>{t('admin.audit.colResult')}</Table.Column>
+              </Table.Header>
+              <Table.Body>
+                {entries.map((e) => (
+                  <Table.Row key={e.id} id={e.id}>
+                    <Table.Cell className="whitespace-nowrap text-xs text-muted">
+                      {formatMessageTime(e.created_at)}
+                    </Table.Cell>
+                    <Table.Cell>{e.actor_display_name || e.actor_username || '—'}</Table.Cell>
+                    <Table.Cell className="font-mono text-xs">{e.action}</Table.Cell>
+                    <Table.Cell className="text-xs text-muted">
+                      {e.resource_type}{e.resource_id ? ` / ${e.resource_id.slice(0, 8)}…` : ''}
+                    </Table.Cell>
+                    <Table.Cell>
+                      <Chip size="sm" variant="soft" color={e.success ? 'success' : 'danger'}>
+                        {e.success ? t('admin.audit.success') : t('admin.audit.failed')}
+                      </Chip>
+                    </Table.Cell>
+                  </Table.Row>
+                ))}
+              </Table.Body>
+            </Table.Content>
+          </Table.ScrollContainer>
+        </Table>
       )}
     </div>
   );
@@ -603,31 +643,35 @@ function StorageTab({ t }) {
       )}
 
       <AdminCard icon={HardDrive} title={t('admin.storage.recentObjects')}>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[600px] text-left text-xs">
-            <thead className="text-ink-200">
-              <tr>
-                <th className="pb-2 pr-3">{t('admin.storage.colFile')}</th>
-                <th className="pb-2 pr-3">{t('admin.storage.colBucket')}</th>
-                <th className="pb-2 pr-3">{t('admin.storage.colSize')}</th>
-                <th className="pb-2">{t('admin.storage.colStatus')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {objects.map((o) => (
-                <tr key={o.id} className="border-t border-ink-700/40">
-                  <td className="py-2 pr-3">
-                    <p className="truncate font-medium">{o.original_filename || o.object_key}</p>
-                    <p className="text-ink-200">{o.uploader_display_name || '—'}</p>
-                  </td>
-                  <td className="py-2 pr-3 font-mono">{o.bucket_name}</td>
-                  <td className="py-2 pr-3">{formatBytes(o.file_size_bytes)}</td>
-                  <td className="py-2">{o.processing_status}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table variant="secondary">
+          <Table.ScrollContainer>
+            <Table.Content aria-label={t('admin.storage.recentObjects')} className="min-w-[600px]">
+              <Table.Header>
+                <Table.Column isRowHeader>{t('admin.storage.colFile')}</Table.Column>
+                <Table.Column>{t('admin.storage.colBucket')}</Table.Column>
+                <Table.Column>{t('admin.storage.colSize')}</Table.Column>
+                <Table.Column>{t('admin.storage.colStatus')}</Table.Column>
+              </Table.Header>
+              <Table.Body>
+                {objects.map((o) => (
+                  <Table.Row key={o.id} id={o.id}>
+                    <Table.Cell>
+                      <p className="truncate font-medium">{o.original_filename || o.object_key}</p>
+                      <p className="text-muted">{o.uploader_display_name || '—'}</p>
+                    </Table.Cell>
+                    <Table.Cell className="font-mono">{o.bucket_name}</Table.Cell>
+                    <Table.Cell>{formatBytes(o.file_size_bytes)}</Table.Cell>
+                    <Table.Cell>
+                      <Chip size="sm" variant="soft" color={o.processing_status === 'completed' ? 'success' : 'warning'}>
+                        {o.processing_status}
+                      </Chip>
+                    </Table.Cell>
+                  </Table.Row>
+                ))}
+              </Table.Body>
+            </Table.Content>
+          </Table.ScrollContainer>
+        </Table>
       </AdminCard>
     </div>
   );

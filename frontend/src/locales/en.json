@@ -456,6 +456,7 @@
       "colRoles": "Roles",
       "colStatus": "Status",
       "colDept": "Department",
+      "colActions": "Actions",
       "username": "Username",
       "password": "Password",
       "displayName": "Display name",

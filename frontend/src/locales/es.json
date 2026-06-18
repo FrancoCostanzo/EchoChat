@@ -465,6 +465,7 @@
       "colRoles": "Roles",
       "colStatus": "Estado",
       "colDept": "Departamento",
+      "colActions": "Acciones",
       "username": "Usuario",
       "password": "Contraseña",
       "displayName": "Nombre visible",
