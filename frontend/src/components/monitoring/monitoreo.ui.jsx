@@ -12,20 +12,19 @@ import {
 export const InfoTooltip = ({ content, placement = 'top' }) => {
   if (!content) return null;
   return (
-    <Tooltip
-      content={(
-        <div className="text-xs max-w-72 leading-relaxed whitespace-pre-line p-0.5">
+    <Tooltip delay={300} closeDelay={100}>
+      <Tooltip.Trigger
+        aria-label="Más información"
+        className="inline-flex cursor-help align-middle"
+      >
+        <Info className="w-3.5 h-3.5 text-default-400 hover:text-default-600 transition-colors" />
+      </Tooltip.Trigger>
+      <Tooltip.Content showArrow placement={placement}>
+        <Tooltip.Arrow />
+        <div className="max-w-72 px-1 py-0.5 text-xs leading-relaxed whitespace-pre-line">
           {content}
         </div>
-      )}
-      placement={placement}
-      delay={300}
-      closeDelay={100}
-      showArrow
-    >
-      <span className="inline-flex cursor-help align-middle">
-        <Info className="w-3.5 h-3.5 text-default-400 hover:text-default-600 transition-colors" />
-      </span>
+      </Tooltip.Content>
     </Tooltip>
   );
 };

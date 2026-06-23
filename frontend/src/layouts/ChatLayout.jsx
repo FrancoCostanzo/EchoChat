@@ -4,9 +4,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Button, InputGroup, TextField, Tooltip } from '@heroui/react';
 import {
   MessageSquare,
-  Users,
   Bell,
-  Settings,
   LogOut,
   Search,
   Plus,
@@ -457,46 +455,6 @@ function Sidebar() {
 }
 
 /* ─────────────────────────────────────────────────────────
-   Mobile bottom nav (keeps functionality on small screens)
-   ───────────────────────────────────────────────────────── */
-function MobileBottomNav() {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  const pathname = location.pathname;
-  const isChats = pathname === '/chat';
-  const isContacts = pathname.startsWith('/contacts');
-  const isNotifications = pathname.startsWith('/notifications');
-  const isSettings = pathname.startsWith('/settings');
-
-  const items = [
-    { id: 'chats', icon: MessageSquare, label: t('sidebar.chats'), path: '/chat', active: isChats },
-    { id: 'contacts', icon: Users, label: t('sidebar.contacts'), path: '/contacts', active: isContacts },
-    { id: 'notifications', icon: Bell, label: t('sidebar.notifications'), path: '/notifications', active: isNotifications },
-    { id: 'settings', icon: Settings, label: t('sidebar.settings'), path: '/settings', active: isSettings },
-  ];
-
-  return (
-    <div className="flex items-center justify-around border-t border-black/20 bg-ink-850 px-2 py-2 lg:hidden">
-      {items.map(({ id, icon: Icon, label, path, active }) => (
-        <Button
-          key={id}
-          variant="ghost"
-          onPress={() => navigate(path)}
-          className={`flex h-auto flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-[10px] font-medium transition-colors hover:bg-transparent ${
-            active ? 'text-accent' : 'text-ink-200'
-          }`}
-        >
-          <Icon size={20} />
-          <span>{label}</span>
-        </Button>
-      ))}
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────
    Root Layout
    ───────────────────────────────────────────────────────── */
 export default function ChatLayout() {
@@ -506,7 +464,6 @@ export default function ChatLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const isOnChatIndex = pathname === '/chat';
-  const isConversationRoute = /^\/chat\/.+/.test(pathname);
   const isContentRoute = !isOnChatIndex;
 
   useEffect(() => {
@@ -547,7 +504,7 @@ export default function ChatLayout() {
   }, []);
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden pb-[72px] text-foreground lg:flex-row lg:gap-[var(--echo-canvas-gap)] lg:p-3 lg:pb-3">
+    <div className="flex h-screen flex-col overflow-hidden pb-[calc(4.5rem+env(safe-area-inset-bottom))] text-foreground lg:flex-row lg:gap-[var(--echo-canvas-gap)] lg:p-3 lg:pb-3">
       {/* Orbit dock — desktop: vertical floating rail */}
       <div className="hidden lg:flex lg:items-center">
         <ServerOrbitDock glowColor="rgb(124 92 255 / 0.2)" />
@@ -600,9 +557,6 @@ export default function ChatLayout() {
       <div className="fixed inset-x-0 bottom-0 z-20 flex justify-center px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:hidden">
         <ServerOrbitDock orientation="bottom" />
       </div>
-
-      {/* Mobile bottom nav — secondary routes only */}
-      {isContentRoute && !isConversationRoute && <MobileBottomNav />}
 
       {/* Ctrl/Cmd+K quick navigation */}
       <CommandPalette />
