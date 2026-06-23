@@ -32,6 +32,34 @@ const config = {
     publicUseSSL: (process.env.MINIO_PUBLIC_USE_SSL || process.env.MINIO_USE_SSL) === 'true',
   },
 
+  ldap: {
+    enabled: process.env.LDAP_ENABLED === 'true',
+    url: process.env.LDAP_URL || '',                       // ej: ldap://dc.empresa.local:389
+    bindDn: process.env.LDAP_BIND_DN || '',                // cuenta de servicio
+    bindPassword: process.env.LDAP_BIND_PASSWORD || '',
+    baseDn: process.env.LDAP_BASE_DN || '',                // base de búsqueda de usuarios
+    // {{username}} se reemplaza por el usuario en authenticate(); en fetchAllUsers se usa tal cual.
+    userFilter: process.env.LDAP_USER_FILTER || '(objectClass=person)',
+    timeoutMs: parseInt(process.env.LDAP_TIMEOUT_MS, 10) || 10000,
+    tlsRejectUnauthorized: process.env.LDAP_TLS_REJECT_UNAUTHORIZED !== 'false',
+    attr: {
+      username: process.env.LDAP_ATTR_USERNAME || 'sAMAccountName',
+      displayName: process.env.LDAP_ATTR_DISPLAY_NAME || 'displayName',
+      email: process.env.LDAP_ATTR_EMAIL || 'mail',
+      department: process.env.LDAP_ATTR_DEPARTMENT || 'department',
+      jobTitle: process.env.LDAP_ATTR_JOB_TITLE || 'title',
+      // Atributo del id estable. objectGUID (AD) viene binario → se serializa a hex.
+      externalId: process.env.LDAP_ATTR_EXTERNAL_ID || 'objectGUID',
+    },
+  },
+
+  // Cifrado de contenido de mensajes en reposo (AES-256-GCM). La clave maestra
+  // (32 bytes en base64) deriva la clave de cifrado y la de búsqueda (índice ciego).
+  messageEnc: {
+    key: process.env.MESSAGE_ENC_KEY,
+    keyId: process.env.MESSAGE_ENC_KEY_ID || 'v1',
+  },
+
   cors: {
     origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
   },

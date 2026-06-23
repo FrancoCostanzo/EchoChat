@@ -16,6 +16,7 @@ function toUserResponse(row) {
     last_seen_at: row.last_seen_at,
     timezone: row.timezone,
     locale: row.locale,
+    auth_provider: row.auth_provider || 'local',
     created_at: row.created_at,
   };
 }

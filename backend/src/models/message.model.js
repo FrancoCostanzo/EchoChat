@@ -12,6 +12,7 @@ function toMessageResponse(row) {
     reply_to_type: row.reply_to_type ?? null,
     reply_to_sender: row.reply_to_sender ?? null,
     thread_id: row.thread_id,
+    thread_count: parseInt(row.thread_count, 10) || 0,
     forwarded_from_id: row.forwarded_from_id,
     is_edited: row.is_edited,
     edited_at: row.edited_at,
@@ -30,7 +31,32 @@ function toMessageResponse(row) {
     // Read receipt counts (sent → delivered → read)
     delivered_count: parseInt(row.delivered_count, 10) || 0,
     read_count: parseInt(row.read_count, 10) || 0,
+    // Saved/bookmarked by the viewing user (when joined in the query)
+    is_saved: row.is_saved === true || row.is_saved === 't',
+    saved_note: row.saved_note ?? null,
   };
 }
 
-module.exports = { toMessageResponse };
+function toSavedMessageResponse(row) {
+  if (!row) return null;
+  return {
+    ...toMessageResponse(row),
+    saved_note: row.saved_note ?? null,
+    saved_at: row.saved_at,
+    conversation_name: row.conversation_name ?? null,
+    conversation_type: row.conversation_type ?? null,
+  };
+}
+
+function toDraftResponse(row) {
+  if (!row) return null;
+  return {
+    conversation_id: row.conversation_id,
+    body: row.body,
+    reply_to_id: row.reply_to_id,
+    pending_attachments: row.pending_attachments ?? [],
+    updated_at: row.updated_at,
+  };
+}
+
+module.exports = { toMessageResponse, toSavedMessageResponse, toDraftResponse };

@@ -29,6 +29,7 @@ const BUCKETS = [
   'messaging-thumbnails',
   'messaging-recordings',
   'messaging-stickers',
+  'messaging-wallpapers',
 ];
 
 async function ensureBuckets() {

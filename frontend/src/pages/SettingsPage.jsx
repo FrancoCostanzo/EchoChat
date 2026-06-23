@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Input, Button, Spinner, InputOTP, REGEXP_ONLY_DIGITS } from '@heroui/react';
+import { Input, Button, Spinner, InputOTP, REGEXP_ONLY_DIGITS, Switch } from '@heroui/react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Monitor,
@@ -16,6 +16,7 @@ import {
   WifiOff,
   Clock,
   MinusCircle,
+  Bell,
   BellOff,
   Camera,
   ArrowLeft,
@@ -28,6 +29,7 @@ import {
   Copy,
   RefreshCw,
   KeyRound,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 function parseUserAgent(ua) {
@@ -53,9 +55,11 @@ function parseUserAgent(ua) {
 }
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
-import { usersApi, authApi } from '@/lib/endpoints';
+import { usersApi, authApi, notificationsApi } from '@/lib/endpoints';
 import UserAvatar from '@/components/UserAvatar';
 import { useThemeStore, ACCENT_COLORS } from '@/stores/themeStore';
+import { useWallpaperStore } from '@/stores/wallpaperStore';
+import WallpaperPicker, { WallpaperPreview } from '@/components/WallpaperPicker';
 import { changeLanguage } from '@/lib/i18n';
 
 const ENTRY_EASE = [0.34, 1.2, 0.64, 1];
@@ -86,6 +90,70 @@ function AnimatedCheck({ children, className }) {
     >
       {children}
     </motion.span>
+  );
+}
+
+/** Card shell for settings sections — Spatial Canvas surface */
+function SettingsCard({ icon: Icon, title, children }) {
+  return (
+    <div className="echo-panel-solid echo-e1 rounded-2xl border border-(--panel-border) p-5">
+      <div className="mb-4 flex items-center gap-2.5">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/15">
+          <Icon size={14} className="text-accent" />
+        </div>
+        <h3 className="echo-display text-sm font-semibold">{title}</h3>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Unified option button for settings pickers (theme, accent, language, presence).
+ * Always full-width; checkmark in a consistent position when selected.
+ */
+function SettingsOptionButton({
+  selected,
+  onPress,
+  disabled = false,
+  variant = 'row',
+  children,
+  className = '',
+}) {
+  const isTile = variant === 'tile';
+
+  return (
+    <Button
+      variant="ghost"
+      isDisabled={disabled}
+      onPress={onPress}
+      className={[
+        'relative !box-border !flex !w-full !max-w-none !h-auto min-h-[44px] rounded-xl border transition-colors duration-150',
+        '[--button-bg-hover:transparent] [--button-bg-pressed:transparent]',
+        selected
+          ? 'border-accent/55 bg-accent/10 echo-ring-soft text-foreground'
+          : 'border-white/8 bg-ink-800/45 text-ink-100 hover:border-white/14 hover:bg-ink-750/65 hover:text-foreground',
+        isTile
+          ? '!flex-col !items-center !justify-center gap-2.5 !px-3 !py-5 min-h-[96px]'
+          : '!flex-row !items-center !justify-start gap-3 !px-4 !py-3.5 text-left',
+        className,
+      ].join(' ')}
+    >
+      {children}
+      <AnimatePresence>
+        {selected && (
+          <AnimatedCheck
+            className={
+              isTile
+                ? 'pointer-events-none absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-accent-foreground'
+                : 'pointer-events-none ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground'
+            }
+          >
+            <Check size={11} strokeWidth={3} />
+          </AnimatedCheck>
+        )}
+      </AnimatePresence>
+    </Button>
   );
 }
 
@@ -154,11 +222,11 @@ function ProfileTab() {
             <div className="rounded-full ring-4 ring-background">
               <UserAvatar user={user} size="lg" showStatus />
             </div>
-            <button
-              type="button"
-              onClick={() => avatarInputRef.current?.click()}
-              disabled={avatarLoading}
-              className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity hover:opacity-100 disabled:cursor-not-allowed"
+            <Button
+              variant="ghost"
+              onPress={() => avatarInputRef.current?.click()}
+              isDisabled={avatarLoading}
+              className="absolute inset-0 flex h-full w-full items-center justify-center rounded-full bg-black/40 p-0 opacity-0 transition-opacity hover:bg-black/40 hover:opacity-100 disabled:cursor-not-allowed"
               title={t('settings.changeAvatar')}
             >
               {avatarLoading ? (
@@ -166,7 +234,7 @@ function ProfileTab() {
               ) : (
                 <Camera size={18} className="text-white" />
               )}
-            </button>
+            </Button>
             <input
               ref={avatarInputRef}
               type="file"
@@ -404,14 +472,15 @@ function TwoFactorCard() {
               <code className="break-all text-sm font-mono tracking-widest text-foreground select-all">
                 {setupData.secret}
               </code>
-              <button
-                type="button"
-                onClick={copySecret}
-                className="shrink-0 text-muted hover:text-foreground"
+              <Button
+                isIconOnly
+                variant="ghost"
+                onPress={copySecret}
+                className="h-auto w-auto min-w-0 shrink-0 p-0 text-muted hover:bg-transparent hover:text-foreground"
                 title={t('common.copy')}
               >
                 {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />}
-              </button>
+              </Button>
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
@@ -778,83 +847,107 @@ const THEME_MODES = [
   { key: 'system', icon: Monitor },
 ];
 
+const CONV_TYPE_ROWS = [
+  { scope: 'global', scopeKey: 'global', labelKey: 'wallpaper.scopeGlobal' },
+  { scope: 'type', scopeKey: 'direct',      labelKey: 'wallpaper.typeDirect' },
+  { scope: 'type', scopeKey: 'group',       labelKey: 'wallpaper.typeGroup' },
+  { scope: 'type', scopeKey: 'channel',     labelKey: 'wallpaper.typeChannel' },
+  { scope: 'type', scopeKey: 'broadcast',   labelKey: 'wallpaper.typeBroadcast' },
+  { scope: 'type', scopeKey: 'bot',         labelKey: 'wallpaper.typeBot' },
+];
+
 function AppearanceTab() {
   const { t } = useTranslation();
   const { mode, accent, setMode, setAccent } = useThemeStore();
+  const { wallpapers, fetchWallpapers } = useWallpaperStore();
+  const [pickerOpen, setPickerOpen] = useState(null); // { scope, scopeKey, label }
+
+  useEffect(() => {
+    fetchWallpapers();
+  }, [fetchWallpapers]);
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Theme mode card */}
-      <div className="rounded-2xl border border-border bg-background-secondary p-5">
-        <div className="mb-4 flex items-center gap-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft">
-            <Sun size={14} className="text-accent" />
-          </div>
-          <h3 className="text-sm font-semibold">{t('settings.theme')}</h3>
-        </div>
-        <div className="grid grid-cols-3 gap-3">
+      <SettingsCard icon={Sun} title={t('settings.theme')}>
+        <div className="grid grid-cols-3 gap-2">
           {THEME_MODES.map(({ key, icon: Icon }) => (
-            <button
+            <SettingsOptionButton
               key={key}
-              onClick={() => setMode(key)}
-              className={`relative flex flex-col items-center gap-2.5 rounded-xl border-2 p-4 hover:scale-[1.03] active:scale-[0.96] ${
-                mode === key
-                  ? 'border-accent bg-accent-soft text-accent shadow-sm scale-[1.03]'
-                  : 'border-border text-muted hover:border-border-secondary hover:text-foreground'
-              }`}
+              selected={mode === key}
+              onPress={() => setMode(key)}
+              variant="tile"
             >
-              <AnimatePresence>
-                {mode === key && (
-                  <AnimatedCheck className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-accent">
-                    <Check size={10} strokeWidth={3} className="text-accent-foreground" />
-                  </AnimatedCheck>
-                )}
-              </AnimatePresence>
-              <Icon size={22} />
-              <span className="text-xs font-medium">{t(`settings.${key}`)}</span>
-            </button>
+              <Icon size={22} className="shrink-0 text-current" />
+              <span className="text-xs font-semibold">{t(`settings.${key}`)}</span>
+            </SettingsOptionButton>
           ))}
         </div>
-      </div>
+      </SettingsCard>
 
-      {/* Accent color card */}
-      <div className="rounded-2xl border border-border bg-background-secondary p-5">
-        <div className="mb-4 flex items-center gap-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft">
-            <Palette size={14} className="text-accent" />
-          </div>
-          <h3 className="text-sm font-semibold">{t('settings.accentColor')}</h3>
-        </div>
-        <div className="grid grid-cols-3 gap-3">
+      <SettingsCard icon={Palette} title={t('settings.accentColor')}>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {ACCENT_COLORS.map(({ key, color }) => (
-            <button
+            <SettingsOptionButton
               key={key}
-              onClick={() => setAccent(key)}
-              className={`flex items-center gap-3 rounded-xl border-2 p-3 hover:scale-[1.03] active:scale-[0.96] ${
-                accent === key
-                  ? 'border-accent bg-accent-soft shadow-sm scale-[1.03]'
-                  : 'border-border hover:border-border-secondary'
-              }`}
+              selected={accent === key}
+              onPress={() => setAccent(key)}
             >
-              <motion.span
-                animate={accent === key ? { scale: [1, 1.18, 0.92, 1] } : { scale: 1 }}
-                transition={{ duration: 0.3, ease: BOUNCE_EASE }}
-                className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full ring-2 ring-offset-2 ring-offset-background"
-                style={{ backgroundColor: color, ringColor: color }}
-              >
-                <AnimatePresence>
-                  {accent === key && (
-                    <AnimatedCheck className="text-white">
-                      <Check size={12} strokeWidth={3} />
-                    </AnimatedCheck>
-                  )}
-                </AnimatePresence>
-              </motion.span>
-              <span className="text-sm font-medium">{t(`settings.accentColors.${key}`)}</span>
-            </button>
+              <span
+                className="flex h-7 w-7 shrink-0 rounded-full ring-1 ring-white/15"
+                style={{ backgroundColor: color }}
+                aria-hidden
+              />
+              <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                {t(`settings.accentColors.${key}`)}
+              </span>
+            </SettingsOptionButton>
           ))}
         </div>
-      </div>
+      </SettingsCard>
+
+      {/* ── Chat wallpapers ── */}
+      <SettingsCard icon={ImageIcon} title={t('wallpaper.settingsTitle')}>
+        <p className="mb-3 text-xs text-ink-300">{t('wallpaper.settingsHint')}</p>
+        <div className="flex flex-col gap-2">
+          {CONV_TYPE_ROWS.map(({ scope, scopeKey, labelKey }) => {
+            const current = wallpapers.find(
+              (w) => w.scope === scope && w.scope_key === scopeKey
+            );
+            const label = t(labelKey);
+            return (
+              <button
+                key={`${scope}:${scopeKey}`}
+                onClick={() => setPickerOpen({ scope, scopeKey, label })}
+                className="flex w-full items-center gap-3 rounded-xl border border-white/8 bg-ink-800/45 px-4 py-3 text-left transition-colors hover:border-white/14 hover:bg-ink-750/65"
+              >
+                <WallpaperPreview
+                  wallpaper={current}
+                  className="h-10 w-14 shrink-0"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-foreground">{label}</p>
+                  <p className="text-xs text-ink-300">
+                    {current
+                      ? t(`wallpaper.type_${current.wallpaper_type}`)
+                      : t('wallpaper.notSet')}
+                  </p>
+                </div>
+                <Palette size={15} className="shrink-0 text-ink-300" />
+              </button>
+            );
+          })}
+        </div>
+      </SettingsCard>
+
+      {pickerOpen && (
+        <WallpaperPicker
+          isOpen={!!pickerOpen}
+          onClose={() => setPickerOpen(null)}
+          scope={pickerOpen.scope}
+          scopeKey={pickerOpen.scopeKey}
+          label={pickerOpen.label}
+        />
+      )}
     </div>
   );
 }
@@ -886,86 +979,236 @@ function PresenceTab() {
   };
 
   return (
-    <div className="rounded-2xl border border-border bg-background-secondary p-5">
-      <div className="mb-4 flex items-center gap-2.5">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft">
-          <Wifi size={14} className="text-accent" />
-        </div>
-        <h3 className="text-sm font-semibold">{t('settings.presenceStatus')}</h3>
-      </div>
+    <SettingsCard icon={Wifi} title={t('settings.presenceStatus')}>
       <div className="flex flex-col gap-2">
         {PRESENCE_OPTIONS.map(({ key, dotClass, icon: Icon }) => (
-          <button
+          <SettingsOptionButton
             key={key}
+            selected={presence === key}
             disabled={loading}
-            onClick={() => handleUpdate(key)}
-            className={`flex items-center gap-3 rounded-xl border-2 px-4 py-3 text-left hover:scale-[1.01] active:scale-[0.98] disabled:opacity-60 ${
-              presence === key
-                ? 'border-accent bg-accent-soft scale-[1.01]'
-                : 'border-border hover:border-border-secondary'
-            }`}
+            onPress={() => handleUpdate(key)}
           >
             <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${dotClass}`} />
-            <Icon size={15} className="shrink-0 text-muted" />
-            <span className="flex-1 text-sm font-medium">{t(`settings.presenceOptions.${key}`)}</span>
-            <AnimatePresence>
-              {presence === key && (
-                <AnimatedCheck className="text-accent">
-                  <Check size={14} />
-                </AnimatedCheck>
-              )}
-            </AnimatePresence>
-          </button>
+            <Icon size={15} className="shrink-0 text-ink-200" />
+            <span className="min-w-0 flex-1 text-sm font-medium">
+              {t(`settings.presenceOptions.${key}`)}
+            </span>
+          </SettingsOptionButton>
         ))}
       </div>
-    </div>
+    </SettingsCard>
   );
 }
 
 const LANGUAGES = [
-  { key: 'es', label: 'Español',    flag: '🇪🇸', region: 'Latinoamérica / España' },
-  { key: 'en', label: 'English',    flag: '🇺🇸', region: 'United States' },
-  { key: 'pt', label: 'Português',  flag: '🇧🇷', region: 'Brasil' },
+  { key: 'es', code: 'ES', label: 'Español', region: 'Latinoamérica / España' },
+  { key: 'en', code: 'EN', label: 'English', region: 'United States' },
+  { key: 'pt', code: 'PT', label: 'Português', region: 'Brasil' },
 ];
 
 function LanguageTab() {
   const { t, i18n } = useTranslation();
-  const currentLang = i18n.language;
+  const currentLang = (i18n.language || 'es').split('-')[0];
 
   return (
-    <div className="rounded-2xl border border-border bg-background-secondary p-5">
-      <div className="mb-4 flex items-center gap-2.5">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft">
-          <Globe size={14} className="text-accent" />
-        </div>
-        <h3 className="text-sm font-semibold">{t('settings.language')}</h3>
-      </div>
+    <SettingsCard icon={Globe} title={t('settings.language')}>
       <div className="flex flex-col gap-2">
-        {LANGUAGES.map(({ key, label, flag, region }) => (
-          <button
+        {LANGUAGES.map(({ key, code, label, region }) => (
+          <SettingsOptionButton
             key={key}
-            onClick={() => changeLanguage(key)}
-            className={`flex items-center gap-4 rounded-xl border-2 px-4 py-3 hover:scale-[1.01] active:scale-[0.98] ${
-              currentLang === key
-                ? 'border-accent bg-accent-soft scale-[1.01]'
-                : 'border-border hover:border-border-secondary'
-            }`}
+            selected={currentLang === key}
+            onPress={() => changeLanguage(key)}
           >
-            <span className="text-2xl leading-none">{flag}</span>
-            <div className="flex-1 text-left">
-              <p className="text-sm font-medium">{label}</p>
-              <p className="text-xs text-muted">{region}</p>
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-ink-700 text-xs font-bold tracking-wide text-foreground">
+              {code}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold">{label}</p>
+              <p className="truncate text-xs text-ink-200">{region}</p>
             </div>
-            <AnimatePresence>
-              {currentLang === key && (
-                <AnimatedCheck className="text-accent">
-                  <Check size={14} />
-                </AnimatedCheck>
-              )}
-            </AnimatePresence>
-          </button>
+          </SettingsOptionButton>
         ))}
       </div>
+    </SettingsCard>
+  );
+}
+
+const NOTIFICATION_EVENT_TYPES = [
+  'message.direct',
+  'message.group',
+  'message.mention',
+  'channel.join_request',
+  'broadcast',
+  'call.incoming',
+];
+
+const DEFAULT_PREF = {
+  in_app_enabled: true,
+  push_enabled: true,
+  email_enabled: false,
+  quiet_hours_start: null,
+  quiet_hours_end: null,
+};
+
+function formatTimeForInput(value) {
+  if (!value) return '';
+  const str = String(value);
+  return str.length >= 5 ? str.slice(0, 5) : str;
+}
+
+function NotificationsTab() {
+  const { t } = useTranslation();
+  const [prefs, setPrefs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(null);
+  const [quietStart, setQuietStart] = useState('');
+  const [quietEnd, setQuietEnd] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    notificationsApi
+      .getPreferences()
+      .then(({ data }) => {
+        if (!active) return;
+        const rows = Array.isArray(data) ? data : [];
+        setPrefs(rows);
+        const sample = rows.find((p) => p.quiet_hours_start || p.quiet_hours_end) || rows[0];
+        setQuietStart(formatTimeForInput(sample?.quiet_hours_start));
+        setQuietEnd(formatTimeForInput(sample?.quiet_hours_end));
+      })
+      .catch(() => { if (active) setPrefs([]); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  const getPref = (eventType) => {
+    const row = prefs.find((p) => p.event_type === eventType);
+    return { event_type: eventType, ...DEFAULT_PREF, ...row };
+  };
+
+  const persistPref = async (eventType, patch) => {
+    setSaving(eventType);
+    try {
+      const body = { ...getPref(eventType), ...patch, event_type: eventType };
+      const { data } = await notificationsApi.updatePreferences(body);
+      setPrefs((prev) => [...prev.filter((p) => p.event_type !== eventType), data]);
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const saveQuietHours = async () => {
+    setSaving('quiet');
+    try {
+      const start = quietStart || null;
+      const end = quietEnd || null;
+      const results = await Promise.all(
+        NOTIFICATION_EVENT_TYPES.map((eventType) =>
+          notificationsApi.updatePreferences({
+            ...getPref(eventType),
+            event_type: eventType,
+            quiet_hours_start: start,
+            quiet_hours_end: end,
+          }),
+        ),
+      );
+      setPrefs(results.map((r) => r.data));
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-16">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-5">
+      <SettingsCard icon={Bell} title={t('settings.notifications.title')}>
+        <p className="mb-4 text-xs text-ink-200">{t('settings.notifications.subtitle')}</p>
+        <div className="flex flex-col gap-3">
+          {NOTIFICATION_EVENT_TYPES.map((eventType) => {
+            const pref = getPref(eventType);
+            const busy = saving === eventType;
+            return (
+              <div
+                key={eventType}
+                className="rounded-xl border border-white/8 bg-ink-800/45 px-4 py-3"
+              >
+                <p className="mb-3 text-sm font-semibold text-foreground">
+                  {t(`settings.notifications.events.${eventType}`)}
+                </p>
+                <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:gap-6">
+                  <Switch
+                    isSelected={pref.in_app_enabled}
+                    isDisabled={busy}
+                    onChange={(v) => persistPref(eventType, { in_app_enabled: v })}
+                  >
+                    <Switch.Control><Switch.Thumb /></Switch.Control>
+                    <Switch.Content>{t('settings.notifications.inApp')}</Switch.Content>
+                  </Switch>
+                  <Switch
+                    isSelected={pref.push_enabled}
+                    isDisabled={busy}
+                    onChange={(v) => persistPref(eventType, { push_enabled: v })}
+                  >
+                    <Switch.Control><Switch.Thumb /></Switch.Control>
+                    <Switch.Content>{t('settings.notifications.push')}</Switch.Content>
+                  </Switch>
+                  <Switch
+                    isSelected={pref.email_enabled}
+                    isDisabled={busy}
+                    onChange={(v) => persistPref(eventType, { email_enabled: v })}
+                  >
+                    <Switch.Control><Switch.Thumb /></Switch.Control>
+                    <Switch.Content>{t('settings.notifications.email')}</Switch.Content>
+                  </Switch>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </SettingsCard>
+
+      <SettingsCard icon={BellOff} title={t('settings.notifications.quietHours')}>
+        <p className="mb-4 text-xs text-ink-200">{t('settings.notifications.quietHoursDesc')}</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="flex-1">
+            <label className="mb-1 block text-xs font-medium text-ink-200">
+              {t('settings.notifications.quietStart')}
+            </label>
+            <Input
+              type="time"
+              value={quietStart}
+              onChange={(e) => setQuietStart(e.target.value)}
+              className="w-full"
+            />
+          </div>
+          <div className="flex-1">
+            <label className="mb-1 block text-xs font-medium text-ink-200">
+              {t('settings.notifications.quietEnd')}
+            </label>
+            <Input
+              type="time"
+              value={quietEnd}
+              onChange={(e) => setQuietEnd(e.target.value)}
+              className="w-full"
+            />
+          </div>
+          <Button
+            variant="secondary"
+            isPending={saving === 'quiet'}
+            onPress={saveQuietHours}
+            className="shrink-0"
+          >
+            {t('settings.notifications.saveQuietHours')}
+          </Button>
+        </div>
+      </SettingsCard>
     </div>
   );
 }
@@ -974,6 +1217,7 @@ const TAB_COMPONENTS = {
   profile:    ProfileTab,
   appearance: AppearanceTab,
   language:   LanguageTab,
+  notifications: NotificationsTab,
   security:   SecurityTab,
   presence:   PresenceTab,
 };
@@ -982,6 +1226,7 @@ const MOBILE_SETTINGS_NAV = [
   { id: 'profile',    icon: User    },
   { id: 'appearance', icon: Palette },
   { id: 'language',   icon: Globe   },
+  { id: 'notifications', icon: Bell },
   { id: 'security',   icon: Shield  },
   { id: 'presence',   icon: Wifi    },
 ];
@@ -993,9 +1238,9 @@ export default function SettingsPage() {
   const TabContent = TAB_COMPONENTS[tab] || ProfileTab;
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto">
+    <div className="flex h-full min-h-0 flex-col">
       {/* Mobile settings header */}
-      <div className="flex items-center gap-2 border-b border-separator px-3 py-3 md:hidden">
+      <div className="echo-chat-bg relative z-10 flex shrink-0 items-center gap-2 border-b border-separator px-3 py-3 lg:hidden">
         <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/chat')}>
           <ArrowLeft size={16} />
         </Button>
@@ -1003,12 +1248,13 @@ export default function SettingsPage() {
       </div>
 
       {/* Mobile tab navigation */}
-      <div className="flex gap-1 overflow-x-auto border-b border-separator px-3 py-2 md:hidden">
+      <div className="echo-chat-bg relative z-10 flex shrink-0 gap-1 overflow-x-auto border-b border-separator px-3 py-2 lg:hidden">
         {MOBILE_SETTINGS_NAV.map(({ id, icon: Icon }) => (
-          <button
+          <Button
             key={id}
-            onClick={() => navigate(`/settings/${id}`)}
-            className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+            variant="ghost"
+            onPress={() => navigate(`/settings/${id}`)}
+            className={`flex h-auto shrink-0 items-center justify-start gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
               tab === id
                 ? 'bg-accent-soft text-accent'
                 : 'text-muted hover:bg-default'
@@ -1016,26 +1262,28 @@ export default function SettingsPage() {
           >
             <Icon size={13} />
             {t(`settings.tabs.${id}`)}
-          </button>
+          </Button>
         ))}
       </div>
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={tab}
-          initial={{ opacity: 0, x: 18, scale: 0.98 }}
-          animate={{ opacity: 1, x: 0, scale: 1 }}
-          exit={{ opacity: 0, x: -12, scale: 0.98 }}
-          transition={{ duration: 0.22, ease: ENTRY_EASE }}
-          className="mx-auto w-full max-w-xl px-4 py-4 md:px-6 md:py-6"
-        >
-          <div className="mb-5 hidden md:block">
-            <h1 className="text-xl font-bold text-foreground">{t(`settings.tabs.${tab}`)}</h1>
-            <p className="mt-0.5 text-sm text-muted">{t(`settings.descriptions.${tab}`)}</p>
-          </div>
-          <TabContent />
-        </motion.div>
-      </AnimatePresence>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={tab}
+            initial={{ opacity: 0, x: 18, scale: 0.98 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: -12, scale: 0.98 }}
+            transition={{ duration: 0.22, ease: ENTRY_EASE }}
+            className="mx-auto w-full max-w-xl px-4 py-4 md:px-6 md:py-6"
+          >
+            <div className="mb-5 hidden lg:block">
+              <h1 className="text-xl font-bold text-foreground">{t(`settings.tabs.${tab}`)}</h1>
+              <p className="mt-0.5 text-sm text-muted">{t(`settings.descriptions.${tab}`)}</p>
+            </div>
+            <TabContent />
+          </motion.div>
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

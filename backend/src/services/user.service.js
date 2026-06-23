@@ -30,8 +30,12 @@ class UserService {
     const user = await userRepository.findById(userId);
     if (!user) throw new NotFoundError('User');
     const creds = await credentialRepository.findByUserId(userId);
+    const [permissions, roles] = await Promise.all([
+      userRepository.getPermissionCodes(userId),
+      userRepository.getRoleNames(userId),
+    ]);
     const profile = await withAvatarUrl(toUserResponse(user));
-    return { ...profile, totp_enabled: creds?.totp_enabled ?? false };
+    return { ...profile, totp_enabled: creds?.totp_enabled ?? false, roles, permissions };
   }
 
   async updateProfile(userId, data) {

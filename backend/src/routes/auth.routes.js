@@ -5,6 +5,7 @@ const { registerDto, loginDto, changePasswordDto, totpEnableDto, totpDisableDto,
 
 const router = Router();
 
+router.get('/registration-status', (req, res) => authController.registrationStatus(req, res));
 router.post('/register', validate(registerDto), (req, res) => authController.register(req, res));
 router.post('/login', validate(loginDto), (req, res) => authController.login(req, res));
 router.post('/2fa/challenge', validate(totpChallengeDto), (req, res) => authController.verify2faChallenge(req, res));

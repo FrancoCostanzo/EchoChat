@@ -1,9 +1,10 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, InputGroup, TextField, Label, FieldError, Button, Spinner, InputOTP, REGEXP_ONLY_DIGITS } from '@heroui/react';
 import { MessageCircle, Eye, EyeOff, AlertCircle, ShieldCheck, ArrowLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
+import { authApi } from '@/lib/endpoints';
 
 // ── TOTP step ────────────────────────────────────────────────────────────────
 function TotpStep({ onCancel }) {
@@ -93,13 +94,13 @@ function TotpStep({ onCancel }) {
         )}
       </div>
 
-      <button
-        type="button"
-        className="text-left text-xs text-accent hover:underline"
-        onClick={() => { setUseBackup((v) => !v); setCode(''); setError(''); }}
+      <Button
+        variant="ghost"
+        className="h-auto w-fit min-w-0 justify-start self-start bg-transparent p-0 text-left text-xs font-normal text-accent hover:bg-transparent hover:underline"
+        onPress={() => { setUseBackup((v) => !v); setCode(''); setError(''); }}
       >
         {useBackup ? t('auth.useTotpCode') : t('auth.useBackupCode')}
-      </button>
+      </Button>
 
       <Button type="submit" isPending={loading} className="w-full">
         {({ isPending }) =>
@@ -111,14 +112,14 @@ function TotpStep({ onCancel }) {
         }
       </Button>
 
-      <button
-        type="button"
-        className="flex items-center gap-1.5 self-center text-sm text-muted hover:text-foreground"
-        onClick={onCancel}
+      <Button
+        variant="ghost"
+        className="flex h-auto items-center gap-1.5 self-center bg-transparent p-0 text-sm font-normal text-muted hover:bg-transparent hover:text-foreground"
+        onPress={onCancel}
       >
         <ArrowLeft size={14} />
         {t('auth.backToLogin')}
-      </button>
+      </Button>
     </form>
   );
 }
@@ -136,6 +137,15 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [registrationAllowed, setRegistrationAllowed] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    authApi.getRegistrationStatus()
+      .then((res) => { if (alive) setRegistrationAllowed(res.data?.allow_registration !== false); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
   const validate = (values) => {
     const errors = {};
@@ -268,7 +278,7 @@ export default function LoginPage() {
           </Card.Content>
         </Card>
 
-        {step === 'credentials' && (
+        {step === 'credentials' && registrationAllowed && (
           <p className="mt-6 text-center text-sm text-muted">
             {t('auth.noAccount')}{' '}
             <Link to="/register" className="font-medium text-accent hover:underline">

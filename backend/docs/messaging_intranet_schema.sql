@@ -55,6 +55,14 @@ CREATE TABLE users (
     last_seen_at     TIMESTAMPTZ,
     timezone         VARCHAR(50) DEFAULT 'America/Argentina/Cordoba',
     locale           VARCHAR(10) DEFAULT 'es-AR',
+
+    -- Proveedor de autenticación. 'local' = contraseña en user_credentials (bcrypt);
+    -- 'ldap' = la identidad vino de un directorio y el login valida por bind LDAP.
+    auth_provider    VARCHAR(20) NOT NULL DEFAULT 'local'
+                     CHECK (auth_provider IN ('local','ldap')),
+    -- Identificador estable del directorio (ej: objectGUID en hex). NULL para locales.
+    external_id      VARCHAR(255),
+
     metadata         JSONB DEFAULT '{}',    -- Extensible sin migraciones
     created_at       TIMESTAMPTZ DEFAULT NOW(),
     updated_at       TIMESTAMPTZ DEFAULT NOW()
@@ -304,7 +312,7 @@ CREATE TABLE messages (
     sender_id        UUID REFERENCES users(id),      -- NULL = mensaje del sistema
 
     type             VARCHAR(30) DEFAULT 'text'
-                     CHECK (type IN ('text','media','location','contact','system','poll','forwarded','deleted_placeholder')),
+                     CHECK (type IN ('text','media','location','contact','system','poll','forwarded','deleted_placeholder','code')),
 
     -- Contenido de texto
     body             TEXT,
@@ -333,8 +341,9 @@ CREATE TABLE messages (
     -- {url, title, description, image_url, site_name}
     link_preview     JSONB,
 
-    -- Vector de búsqueda full-text en español (actualizado por trigger)
-    search_vector    TSVECTOR,
+    -- Nota: el contenido (body) se guarda CIFRADO (AES-256-GCM, ver
+    -- src/utils/crypto.util.js). La búsqueda usa el índice ciego
+    -- message_search_tokens en vez de un TSVECTOR en claro.
 
     metadata         JSONB DEFAULT '{}',
     sent_at          TIMESTAMPTZ DEFAULT NOW(),
@@ -348,6 +357,15 @@ CREATE TABLE message_edits (
     body_before      TEXT NOT NULL,
     edited_by        UUID NOT NULL REFERENCES users(id),
     edited_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Índice ciego de búsqueda: HMAC-SHA256 de cada token normalizado del body.
+-- Permite búsqueda server-side (igualdad por token, AND) sin guardar el texto
+-- en claro. Lo mantiene la aplicación (src/utils/crypto.util.js).
+CREATE TABLE message_search_tokens (
+    message_id  UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+    token       TEXT NOT NULL,
+    PRIMARY KEY (message_id, token)
 );
 
 -- Estado de entrega y lectura por usuario ("doble tilde")
@@ -694,6 +712,8 @@ CREATE TABLE system_settings (
 CREATE INDEX idx_users_display_name_trgm ON users USING GIN (display_name gin_trgm_ops);
 CREATE INDEX idx_users_status ON users(status) WHERE status != 'deleted';
 CREATE INDEX idx_users_presence ON users(presence, last_seen_at);
+-- Identidad LDAP única (los usuarios locales tienen external_id NULL y no compiten)
+CREATE UNIQUE INDEX idx_users_external_id ON users(external_id) WHERE external_id IS NOT NULL;
 
 -- Sesiones
 CREATE INDEX idx_sessions_token ON user_sessions(token_hash) WHERE is_active = TRUE;
@@ -714,7 +734,7 @@ CREATE INDEX idx_messages_conversation ON messages(conversation_id, sent_at DESC
 CREATE INDEX idx_messages_sender ON messages(sender_id, sent_at DESC);
 CREATE INDEX idx_messages_reply ON messages(reply_to_id) WHERE reply_to_id IS NOT NULL;
 CREATE INDEX idx_messages_thread ON messages(thread_id) WHERE thread_id IS NOT NULL;
-CREATE INDEX idx_messages_search ON messages USING GIN(search_vector);  -- Full-text
+CREATE INDEX idx_message_search_tokens_token ON message_search_tokens(token);  -- Índice ciego
 
 -- Miembros de conversaciones
 CREATE INDEX idx_conv_members_user ON conversation_members(user_id)
@@ -801,19 +821,6 @@ $$;
 CREATE TRIGGER trg_call_duration
     BEFORE UPDATE ON calls FOR EACH ROW
     EXECUTE FUNCTION fn_calculate_call_duration();
-
--- Actualizar search_vector en mensajes al insertar o modificar el body
-CREATE OR REPLACE FUNCTION fn_update_message_search_vector()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-BEGIN
-    NEW.search_vector := to_tsvector('spanish', COALESCE(NEW.body, ''));
-    RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER trg_messages_search_vector
-    BEFORE INSERT OR UPDATE OF body ON messages FOR EACH ROW
-    EXECUTE FUNCTION fn_update_message_search_vector();
 
 -- Actualizar counter de miembros en channel_settings al entrar/salir
 CREATE OR REPLACE FUNCTION fn_update_channel_member_count()
@@ -951,7 +958,9 @@ INSERT INTO system_settings (key, value, description, category) VALUES
     ('require_call_consent',       'true',  'Requerir consentimiento explícito para grabar', 'calls'),
     ('message_retention_days',     '0',     'Días de retención de mensajes (0 = sin límite)', 'general'),
     ('presence_timeout_minutes',   '5',     'Minutos de inactividad para pasar a "away"', 'general'),
-    ('max_broadcast_recipients',   '1000',  'Máximo de destinatarios en una difusión', 'broadcast');
+    ('max_broadcast_recipients',   '1000',  'Máximo de destinatarios en una difusión', 'broadcast'),
+    -- Seguridad / altas
+    ('allow_registration',         'true',  'Permitir el auto-registro público de usuarios (POST /auth/register)', 'security');
 
 -- =============================================================================
 -- COMENTARIOS DE TABLAS

@@ -10,13 +10,14 @@ import { Send } from 'lucide-react';
  * @param {string}   [label]    - Optional visible label (e.g. "Send").
  * @param {string}   [className]- Extra classes for the root button.
  */
-export default function SendButton({ onPress, isDisabled, label, className = '' }) {
+export default function SendButton({ onPress, isDisabled, label, className = '', pulse = false }) {
   return (
     <button
       type="button"
       onClick={onPress}
       disabled={isDisabled}
-      className={`send-btn ${className}`}
+      aria-label={label || undefined}
+      className={`send-btn ${pulse ? 'send-btn--pulse' : ''} ${className}`.trim()}
     >
       <div className="send-svg-wrapper-1">
         <div className="send-svg-wrapper">
