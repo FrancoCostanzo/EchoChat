@@ -1,4 +1,5 @@
 const BaseRepository = require('./base.repository');
+const { encrypt, decrypt } = require('../utils/crypto.util');
 
 // User-scoped saved/bookmarked messages (table: saved_messages).
 class SavedMessageRepository extends BaseRepository {
@@ -12,8 +13,9 @@ class SavedMessageRepository extends BaseRepository {
        VALUES ($1, $2, $3)
        ON CONFLICT (user_id, message_id) DO UPDATE SET note = $3, saved_at = NOW()
        RETURNING *`,
-      [userId, messageId, note || null]
+      [userId, messageId, encrypt(note || null)]
     );
+    if (rows[0]) rows[0].note = decrypt(rows[0].note);
     return rows[0];
   }
 
@@ -44,6 +46,11 @@ class SavedMessageRepository extends BaseRepository {
        LIMIT $2 OFFSET $3`,
       [userId, limit, offset]
     );
+    // Tanto el cuerpo del mensaje (m.body) como la nota personal van cifrados.
+    for (const row of rows) {
+      row.body = decrypt(row.body);
+      row.saved_note = decrypt(row.saved_note);
+    }
     return rows;
   }
 }
