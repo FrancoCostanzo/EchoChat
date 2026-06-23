@@ -206,8 +206,13 @@ const VistaHttp = ({ dashboard }) => {
                     <Table.Row key={item.id} id={String(item.id)}>
                       <Table.Cell><HttpRouteLabel route={item.route} /></Table.Cell>
                       <Table.Cell className="text-center">
-                        <Tooltip content={item.message || `HTTP ${item.statusCode}`} placement="top">
-                          <Chip size="sm" color="danger" variant="flat">{item.statusCode}</Chip>
+                        <Tooltip>
+                          <Tooltip.Trigger>
+                            <Chip size="sm" color="danger" variant="flat">{item.statusCode}</Chip>
+                          </Tooltip.Trigger>
+                          <Tooltip.Content placement="top">
+                            {item.message || `HTTP ${item.statusCode}`}
+                          </Tooltip.Content>
                         </Tooltip>
                       </Table.Cell>
                       <Table.Cell className="text-right tabular-nums">{item.timestampLabel}</Table.Cell>

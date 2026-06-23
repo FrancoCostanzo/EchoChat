@@ -1238,9 +1238,9 @@ export default function SettingsPage() {
   const TabContent = TAB_COMPONENTS[tab] || ProfileTab;
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto">
+    <div className="flex h-full min-h-0 flex-col">
       {/* Mobile settings header */}
-      <div className="flex items-center gap-2 border-b border-separator px-3 py-3 md:hidden">
+      <div className="echo-chat-bg relative z-10 flex shrink-0 items-center gap-2 border-b border-separator px-3 py-3 lg:hidden">
         <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/chat')}>
           <ArrowLeft size={16} />
         </Button>
@@ -1248,7 +1248,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Mobile tab navigation */}
-      <div className="flex gap-1 overflow-x-auto border-b border-separator px-3 py-2 md:hidden">
+      <div className="echo-chat-bg relative z-10 flex shrink-0 gap-1 overflow-x-auto border-b border-separator px-3 py-2 lg:hidden">
         {MOBILE_SETTINGS_NAV.map(({ id, icon: Icon }) => (
           <Button
             key={id}
@@ -1266,22 +1266,24 @@ export default function SettingsPage() {
         ))}
       </div>
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={tab}
-          initial={{ opacity: 0, x: 18, scale: 0.98 }}
-          animate={{ opacity: 1, x: 0, scale: 1 }}
-          exit={{ opacity: 0, x: -12, scale: 0.98 }}
-          transition={{ duration: 0.22, ease: ENTRY_EASE }}
-          className="mx-auto w-full max-w-xl px-4 py-4 md:px-6 md:py-6"
-        >
-          <div className="mb-5 hidden md:block">
-            <h1 className="text-xl font-bold text-foreground">{t(`settings.tabs.${tab}`)}</h1>
-            <p className="mt-0.5 text-sm text-muted">{t(`settings.descriptions.${tab}`)}</p>
-          </div>
-          <TabContent />
-        </motion.div>
-      </AnimatePresence>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={tab}
+            initial={{ opacity: 0, x: 18, scale: 0.98 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: -12, scale: 0.98 }}
+            transition={{ duration: 0.22, ease: ENTRY_EASE }}
+            className="mx-auto w-full max-w-xl px-4 py-4 md:px-6 md:py-6"
+          >
+            <div className="mb-5 hidden lg:block">
+              <h1 className="text-xl font-bold text-foreground">{t(`settings.tabs.${tab}`)}</h1>
+              <p className="mt-0.5 text-sm text-muted">{t(`settings.descriptions.${tab}`)}</p>
+            </div>
+            <TabContent />
+          </motion.div>
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
