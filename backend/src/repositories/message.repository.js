@@ -1,23 +1,73 @@
 const BaseRepository = require('./base.repository');
+const { encrypt, decrypt, searchTokens, searchQueryTokens } = require('../utils/crypto.util');
+
+// Descifra in-place las columnas con contenido de usuario que puedan venir en una
+// fila de mensaje, para que el resto de la app siempre vea texto plano.
+function decryptRow(row) {
+  if (!row) return row;
+  if ('body' in row) row.body = decrypt(row.body);
+  if ('reply_to_body' in row) row.reply_to_body = decrypt(row.reply_to_body);
+  if ('saved_note' in row) row.saved_note = decrypt(row.saved_note);
+  return row;
+}
+
+function savedMessageSelect(viewerUserId, params) {
+  if (!viewerUserId) {
+    return 'FALSE AS is_saved, NULL::text AS saved_note';
+  }
+  const idx = params.length + 1;
+  params.push(viewerUserId);
+  return `(EXISTS (
+    SELECT 1 FROM saved_messages sm
+    WHERE sm.message_id = m.id AND sm.user_id = $${idx}
+  )) AS is_saved,
+  (SELECT sm.note FROM saved_messages sm
+   WHERE sm.message_id = m.id AND sm.user_id = $${idx}
+   LIMIT 1) AS saved_note`;
+}
 
 class MessageRepository extends BaseRepository {
   constructor() {
     super('messages');
   }
 
-  async create({ conversation_id, sender_id, type, body, body_format, reply_to_id, thread_id, forwarded_from_id, metadata }) {
-    const { rows } = await this.query(
-      `INSERT INTO messages (conversation_id, sender_id, type, body, body_format, reply_to_id, thread_id, forwarded_from_id, metadata)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       RETURNING *`,
-      [conversation_id, sender_id, type || 'text', body || null, body_format || 'plain',
-       reply_to_id || null, thread_id || null, forwarded_from_id || null, metadata || {}]
-    );
-    return rows[0];
+  // findById se usa en todo el service (forward, updateBody, etc.); lo
+  // sobreescribimos para que el body salga siempre descifrado.
+  async findById(id) {
+    return decryptRow(await super.findById(id));
   }
 
-  async findByConversation(conversationId, { cursor, limit = 50, direction = 'before' } = {}) {
-    let condition = 'm.conversation_id = $1';
+  // Reconstruye el índice ciego de búsqueda (HMAC de tokens) de un mensaje a
+  // partir de su texto plano. Se llama tras crear/editar.
+  async _setSearchTokens(messageId, plainBody) {
+    await this.query('DELETE FROM message_search_tokens WHERE message_id = $1', [messageId]);
+    const tokens = searchTokens(plainBody);
+    if (tokens.length === 0) return;
+    await this.query(
+      `INSERT INTO message_search_tokens (message_id, token)
+       SELECT $1, t FROM unnest($2::text[]) AS t
+       ON CONFLICT (message_id, token) DO NOTHING`,
+      [messageId, tokens]
+    );
+  }
+
+  async create({ conversation_id, sender_id, type, body, body_format, reply_to_id, thread_id, forwarded_from_id, forwarded_from_conv, metadata }) {
+    const plainBody = body || null;
+    const { rows } = await this.query(
+      `INSERT INTO messages (conversation_id, sender_id, type, body, body_format, reply_to_id, thread_id, forwarded_from_id, forwarded_from_conv, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING *`,
+      [conversation_id, sender_id, type || 'text', encrypt(plainBody), body_format || 'plain',
+       reply_to_id || null, thread_id || null, forwarded_from_id || null, forwarded_from_conv || null, metadata || {}]
+    );
+    await this._setSearchTokens(rows[0].id, plainBody);
+    return decryptRow(rows[0]);
+  }
+
+  async findByConversation(conversationId, { cursor, limit = 50, direction = 'before', viewerUserId } = {}) {
+    // Thread replies live in their own side panel; the main timeline only
+    // shows root messages (with a reply counter aggregated below).
+    let condition = 'm.conversation_id = $1 AND m.thread_id IS NULL';
     const params = [conversationId];
 
     if (cursor) {
@@ -29,6 +79,7 @@ class MessageRepository extends BaseRepository {
       }
     }
 
+    const savedSql = savedMessageSelect(viewerUserId, params);
     params.push(limit);
     const order = direction === 'before' ? 'DESC' : 'ASC';
 
@@ -58,6 +109,7 @@ class MessageRepository extends BaseRepository {
               -- Receipt aggregation: count of delivered and read per message
               (SELECT COUNT(*) FROM message_receipts mr WHERE mr.message_id = m.id AND mr.delivered_at IS NOT NULL) AS delivered_count,
               (SELECT COUNT(*) FROM message_receipts mr WHERE mr.message_id = m.id AND mr.read_at IS NOT NULL) AS read_count,
+              (SELECT COUNT(*) FROM messages tm WHERE tm.thread_id = m.id AND tm.is_deleted = FALSE)::int AS thread_count,
               -- Reactions aggregation
               COALESCE(
                 (SELECT json_agg(json_build_object('emoji', r.emoji, 'count', r.cnt, 'user_ids', r.user_ids))
@@ -70,7 +122,8 @@ class MessageRepository extends BaseRepository {
                    GROUP BY emoji
                  ) r),
                 '[]'
-              ) AS reactions
+              ) AS reactions,
+              ${savedSql}
        FROM messages m
        LEFT JOIN users u ON u.id = m.sender_id
        LEFT JOIN messages rm ON rm.id = m.reply_to_id
@@ -84,10 +137,13 @@ class MessageRepository extends BaseRepository {
       params
     );
 
+    rows.forEach(decryptRow);
     return direction === 'before' ? rows.reverse() : rows;
   }
 
-  async findWithAttachments(messageId) {
+  async findWithAttachments(messageId, viewerUserId) {
+    const params = [messageId];
+    const savedSql = savedMessageSelect(viewerUserId, params);
     const { rows } = await this.query(
       `SELECT m.*,
               u.username AS sender_username,
@@ -113,6 +169,7 @@ class MessageRepository extends BaseRepository {
               ) AS attachments,
               (SELECT COUNT(*) FROM message_receipts mr WHERE mr.message_id = m.id AND mr.delivered_at IS NOT NULL) AS delivered_count,
               (SELECT COUNT(*) FROM message_receipts mr WHERE mr.message_id = m.id AND mr.read_at IS NOT NULL) AS read_count,
+              (SELECT COUNT(*) FROM messages tm WHERE tm.thread_id = m.id AND tm.is_deleted = FALSE)::int AS thread_count,
               COALESCE(
                 (SELECT json_agg(json_build_object('emoji', r.emoji, 'count', r.cnt, 'user_ids', r.user_ids))
                  FROM (
@@ -124,7 +181,8 @@ class MessageRepository extends BaseRepository {
                    GROUP BY emoji
                  ) r),
                 '[]'
-              ) AS reactions
+              ) AS reactions,
+              ${savedSql}
        FROM messages m
        LEFT JOIN users u ON u.id = m.sender_id
        LEFT JOIN messages rm ON rm.id = m.reply_to_id
@@ -133,26 +191,89 @@ class MessageRepository extends BaseRepository {
        LEFT JOIN storage_objects so ON so.id = ma.object_id
        WHERE m.id = $1
        GROUP BY m.id, u.username, u.display_name, u.avatar_object_key, rm.body, rm.type, ru.display_name`,
-      [messageId]
+      params
     );
-    return rows[0] || null;
+    return decryptRow(rows[0]) || null;
   }
 
-  async updateBody(id, body, editedBy) {
-    // Save edit history
+  // All replies of a thread (oldest first), with the same enrichment as the
+  // conversation timeline so the thread panel can reuse the message renderer.
+  async findThreadReplies(threadId, { limit = 200, viewerUserId } = {}) {
+    const params = [threadId];
+    const savedSql = savedMessageSelect(viewerUserId, params);
+    params.push(limit);
+    const { rows } = await this.query(
+      `SELECT m.*,
+              u.username AS sender_username,
+              u.display_name AS sender_display_name,
+              u.avatar_object_key AS sender_avatar_key,
+              COALESCE(
+                json_agg(
+                  json_build_object(
+                    'id', so.id,
+                    'object_type', so.object_type,
+                    'original_filename', so.original_filename,
+                    'mime_type', so.mime_type,
+                    'file_size_bytes', so.file_size_bytes,
+                    'image_width', so.image_width,
+                    'image_height', so.image_height,
+                    'duration_ms', so.duration_ms
+                  ) ORDER BY ma.sort_order
+                ) FILTER (WHERE ma.id IS NOT NULL),
+                '[]'
+              ) AS attachments,
+              COALESCE(
+                (SELECT json_agg(json_build_object('emoji', r.emoji, 'count', r.cnt, 'user_ids', r.user_ids))
+                 FROM (
+                   SELECT emoji,
+                          COUNT(*)::text AS cnt,
+                          json_agg(user_id) AS user_ids
+                   FROM message_reactions
+                   WHERE message_id = m.id
+                   GROUP BY emoji
+                 ) r),
+                '[]'
+              ) AS reactions,
+              ${savedSql}
+       FROM messages m
+       LEFT JOIN users u ON u.id = m.sender_id
+       LEFT JOIN message_attachments ma ON ma.message_id = m.id
+       LEFT JOIN storage_objects so ON so.id = ma.object_id
+       WHERE m.thread_id = $1
+       GROUP BY m.id, u.username, u.display_name, u.avatar_object_key
+       ORDER BY m.sent_at ASC
+       LIMIT $${params.length}`,
+      params
+    );
+    rows.forEach(decryptRow);
+    return rows;
+  }
+
+  async countThreadReplies(threadId) {
+    const { rows } = await this.query(
+      `SELECT COUNT(*)::int AS count FROM messages WHERE thread_id = $1 AND is_deleted = FALSE`,
+      [threadId]
+    );
+    return rows[0]?.count ?? 0;
+  }
+
+  async updateBody(id, body, editedBy, bodyFormat) {
+    // Save edit history (el body anterior, ya en texto plano vía findById, se
+    // vuelve a cifrar antes de guardarlo en el historial).
     const original = await this.findById(id);
     if (original && original.body) {
       await this.query(
         `INSERT INTO message_edits (message_id, body_before, edited_by) VALUES ($1, $2, $3)`,
-        [id, original.body, editedBy]
+        [id, encrypt(original.body), editedBy]
       );
     }
 
     const { rows } = await this.query(
-      `UPDATE messages SET body = $1, is_edited = TRUE, edited_at = NOW() WHERE id = $2 RETURNING *`,
-      [body, id]
+      `UPDATE messages SET body = $1, body_format = $2, is_edited = TRUE, edited_at = NOW() WHERE id = $3 RETURNING *`,
+      [encrypt(body || null), bodyFormat || 'plain', id]
     );
-    return rows[0];
+    await this._setSearchTokens(id, body || null);
+    return decryptRow(rows[0]);
   }
 
   async softDelete(id, deletedBy) {
@@ -162,18 +283,33 @@ class MessageRepository extends BaseRepository {
        WHERE id = $1 RETURNING *`,
       [id, deletedBy]
     );
-    return rows[0];
+    // El contenido desaparece → quitamos sus tokens del índice de búsqueda.
+    await this.query('DELETE FROM message_search_tokens WHERE message_id = $1', [id]);
+    return decryptRow(rows[0]);
   }
 
+  // Returns only attachment objects that are NOT shared with another message
+  // (e.g. forwarded copies reference the same object_id). Callers use this to
+  // physically remove MinIO files without breaking the original message.
   async getAttachmentObjects(messageId) {
     const { rows } = await this.query(
       `SELECT so.bucket_name, so.object_key, so.thumbnail_bucket, so.thumbnail_key, ma.id AS attachment_id, so.id AS object_id
        FROM message_attachments ma
        JOIN storage_objects so ON so.id = ma.object_id
-       WHERE ma.message_id = $1`,
+       WHERE ma.message_id = $1
+         AND (SELECT COUNT(*) FROM message_attachments ma2 WHERE ma2.object_id = ma.object_id) = 1`,
       [messageId]
     );
     return rows;
+  }
+
+  // Object ids attached to a message (used to clone attachments when forwarding)
+  async getAttachmentObjectIds(messageId) {
+    const { rows } = await this.query(
+      `SELECT object_id FROM message_attachments WHERE message_id = $1 ORDER BY sort_order`,
+      [messageId]
+    );
+    return rows.map((r) => r.object_id);
   }
 
   async deleteAttachments(messageId) {
@@ -197,7 +333,7 @@ class MessageRepository extends BaseRepository {
 
   async toggleReaction(messageId, userId, emoji) {
     const { rows } = await this.query(
-      `SELECT id, emoji FROM message_reactions WHERE message_id = $1 AND user_id = $2`,
+      `SELECT emoji FROM message_reactions WHERE message_id = $1 AND user_id = $2`,
       [messageId, userId]
     );
     const existing = rows[0];
@@ -268,6 +404,21 @@ class MessageRepository extends BaseRepository {
     return rows[0] || { delivered_count: 0, read_count: 0 };
   }
 
+  // Recibos por usuario (entregado/leído) de un mensaje, para la vista
+  // "Información del mensaje". El emisor no genera recibo de sí mismo.
+  async getReceipts(messageId) {
+    const { rows } = await this.query(
+      `SELECT mr.user_id, mr.delivered_at, mr.read_at,
+              u.display_name, u.username
+       FROM message_receipts mr
+       JOIN users u ON u.id = mr.user_id
+       WHERE mr.message_id = $1
+       ORDER BY mr.read_at DESC NULLS LAST, mr.delivered_at DESC NULLS LAST`,
+      [messageId]
+    );
+    return rows;
+  }
+
   async getReceiptCountsBatch(messageIds) {
     if (!messageIds.length) return {};
     const { rows } = await this.query(
@@ -287,17 +438,26 @@ class MessageRepository extends BaseRepository {
   }
 
   async search(conversationId, term, limit = 20) {
+    // Búsqueda server-side sobre el índice ciego: el término se tokeniza y se
+    // convierte a HMAC igual que al indexar. Semántica AND (deben aparecer todos
+    // los tokens). Sin ranking ni stemming (trade-off del cifrado en reposo).
+    const tokens = searchQueryTokens(term);
+    if (tokens.length === 0) return [];
     const { rows } = await this.query(
       `SELECT m.*, u.username AS sender_username, u.display_name AS sender_display_name
        FROM messages m
+       JOIN message_search_tokens t ON t.message_id = m.id
        LEFT JOIN users u ON u.id = m.sender_id
        WHERE m.conversation_id = $1
          AND m.is_deleted = FALSE
-         AND m.search_vector @@ plainto_tsquery('spanish', $2)
-       ORDER BY ts_rank(m.search_vector, plainto_tsquery('spanish', $2)) DESC
-       LIMIT $3`,
-      [conversationId, term, limit]
+         AND t.token = ANY($2::text[])
+       GROUP BY m.id, u.username, u.display_name
+       HAVING COUNT(DISTINCT t.token) = $3
+       ORDER BY m.sent_at DESC
+       LIMIT $4`,
+      [conversationId, tokens, tokens.length, limit]
     );
+    rows.forEach(decryptRow);
     return rows;
   }
 
@@ -331,6 +491,7 @@ class MessageRepository extends BaseRepository {
        ORDER BY pm.pinned_at DESC`,
       [conversationId]
     );
+    rows.forEach(decryptRow);
     return rows;
   }
 }

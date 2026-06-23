@@ -1,76 +1,231 @@
 @import "tailwindcss";
 @import "@heroui/styles";
 
-/* ── SendButton ── */
-.send-btn {
-  font-family: inherit;
-  font-size: 14px;
-  background: var(--accent);
-  color: var(--accent-foreground);
-  padding: 0.5em 0.85em;
-  padding-left: 0.7em;
-  display: flex;
-  align-items: center;
-  border: none;
-  border-radius: 14px;
-  overflow: hidden;
-  transition: all 0.2s;
-  cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
+/* ──────────────────────────────────────────────────────────
+   Spatial Canvas ("Lienzo Espacial") — design tokens
+   Spec: docs/SPATIAL_CANVAS.md
+   ────────────────────────────────────────────────────────── */
+@theme {
+  /* Semantic palette — dark values; light overrides in html:not(.dark) */
+  --color-echo-canvas: #0b0d14;
+  --color-echo-panel: #151826;
+  --color-echo-accent-brand: #7c5cff;
+  --color-echo-accent-energy: #3ddc97;
+  --color-echo-text: #ededf4;
+  --color-echo-muted: #8a8fa8;
+  --color-echo-danger: #ff6b6b;
+  /* Typography — Clash Display for hierarchy only (server/channel names,
+     section headers); Satoshi for UI & chat body. Never mix the two roles. */
+  --font-sans: "Satoshi", "Inter", system-ui, -apple-system, sans-serif;
+  --font-display: "Clash Display", "Satoshi", "Inter", system-ui, sans-serif;
+
+  /* Neutral slate-violet (dark, richer & deeper than flat Discord grey) */
+  --color-ink-950: #0d0e15;   /* guild rail / deepest */
+  --color-ink-900: #12131c;   /* deep surfaces */
+  --color-ink-850: #171823;   /* panels / popovers */
+  --color-ink-800: #1d1f2b;   /* channel list */
+  --color-ink-750: #23252f;   /* hover surfaces */
+  --color-ink-700: #282a36;   /* chat area */
+  --color-ink-600: #32343f;   /* hover */
+  --color-ink-500: #3b3d4a;
+  --color-ink-400: #474a59;   /* dividers */
+  --color-ink-300: #6a6d80;
+  --color-ink-200: #9398ad;   /* muted text */
+  --color-ink-100: #b9bdcf;   /* secondary text */
+  --color-ink-50:  #e2e4ef;   /* hi-contrast text */
+  --color-ink-0:   #f5f6fb;   /* primary text */
+
+  /* Brand blurple */
+  --color-blurple-50:  #eef0fe;
+  --color-blurple-100: #dbe0fd;
+  --color-blurple-200: #bcc4fb;
+  --color-blurple-300: #929df8;
+  --color-blurple-400: #7882f4;
+  --color-blurple-500: #5865f2;   /* Discord blurple */
+  --color-blurple-600: #4752c4;
+  --color-blurple-700: #3c45a5;
+  --color-blurple-800: #2e3580;
+  --color-blurple-900: #252a63;
+
+  /* Status */
+  --color-echo-online: #23a55a;
+  --color-echo-idle:   #f0b232;
+  --color-echo-dnd:    #f23f43;
+  --color-echo-offline:#80848e;
+
+  /* Vibrant secondary accents (for color pops, badges, gradients) */
+  --color-violet-500: #8b5cf6;
+  --color-violet-400: #a78bfa;
+  --color-fuchsia-500: #d946ef;
+  --color-cyan-400: #22d3ee;
+  --color-amber-400: #fbbf24;
+
+  /* Brand gradients — derived from the user-selected --accent so the whole UI
+     follows the chosen palette (resolved at point of use). */
+  --gradient-brand: linear-gradient(135deg,
+    color-mix(in oklch, var(--accent), white 14%) 0%,
+    var(--accent) 52%,
+    color-mix(in oklch, var(--accent), black 16%) 100%);
+  --gradient-brand-soft: linear-gradient(135deg,
+    color-mix(in oklch, var(--accent) 24%, transparent),
+    color-mix(in oklch, var(--accent) 10%, transparent));
+  --gradient-own-bubble: linear-gradient(140deg,
+    color-mix(in oklch, var(--accent), white 10%) 0%,
+    var(--accent) 55%,
+    color-mix(in oklch, var(--accent), black 12%) 100%);
+
+  /* Elevation scale — tinted color shadows (Spatial Canvas, not flat black) */
+  --shadow-e1:
+    0 1px 2px rgb(11 13 20 / 0.5),
+    0 0 0 1px rgb(255 255 255 / 0.04);
+  --shadow-e2:
+    0 4px 16px -4px rgb(124 92 255 / 0.12),
+    0 2px 6px rgb(11 13 20 / 0.35),
+    0 0 0 1px rgb(255 255 255 / 0.06);
+  --shadow-e3:
+    0 8px 32px rgb(124 92 255 / 0.15),
+    0 12px 40px -12px rgb(11 13 20 / 0.55),
+    0 0 0 1px rgb(255 255 255 / 0.07);
+  --shadow-glow-accent: 0 8px 32px rgb(124 92 255 / 0.22);
+
+  /* Motion */
+  --ease-echo: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.send-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  transform: scale(0.9);
-}
-
-.send-btn .send-label {
-  display: block;
-  margin-left: 0.35em;
-  transition: all 0.3s ease-in-out;
-}
-
-.send-btn .send-icon {
-  display: block;
-  transform-origin: center center;
-  transition: transform 0.3s ease-in-out;
-}
-
-.send-btn:not(:disabled):hover .send-svg-wrapper {
-  animation: send-fly 0.6s ease-in-out infinite alternate;
-}
-
-.send-btn:not(:disabled):hover .send-icon {
-  transform: translateX(1.2em) rotate(45deg) scale(1.1);
-}
-
-.send-btn:not(:disabled):hover .send-label {
-  transform: translateX(5em);
-}
-
-.send-btn:not(:disabled):active {
-  transform: scale(0.95);
-}
-
-@keyframes send-fly {
-  from { transform: translateY(0.1em); }
-  to   { transform: translateY(-0.1em); }
-}
-
+/* ──────────────────────────────────────────────────────────
+   Base
+   ────────────────────────────────────────────────────────── */
 @layer base {
   :root {
-    --echo-sidebar-width: 320px;
+    --echo-sidebar-width: 288px;
+    --echo-guild-rail-width: 72px;
+    --echo-canvas-gap: 0.75rem;
+
+    /* Spatial Canvas semantic aliases (see docs/SPATIAL_CANVAS.md) */
+    --echo-bg-canvas: var(--color-echo-canvas);
+    --echo-bg-panel: var(--color-echo-panel);
+    --echo-accent: var(--color-echo-accent-brand);
+    --echo-accent-energy: var(--color-echo-accent-energy);
+    --echo-text-primary: var(--color-echo-text);
+    --echo-text-muted: var(--color-echo-muted);
+    --echo-danger: var(--color-echo-danger);
+
+    /* Hairline border for floating panels — flips with the theme class
+       (the `dark:` variant follows the OS here, so it can't be used) */
+    --panel-border: color-mix(in oklch, #ffffff 7%, transparent);
+
+    --snow: #ffffff;
+    --eclipse: #0c0d0e;
+
+    /* Default accent: Discord blurple */
+    --accent: oklch(0.57 0.20 275);
+    --accent-foreground: var(--snow);
   }
 
-  /* Estilo del cursor para botones */
+  /* ── Dark mode — deep slate-violet ── */
+  html.dark {
+    --heroui-background: 231 19% 9%;          /* #12131c */
+    --heroui-background-secondary: 230 19% 14%; /* #1d1f2b */
+    --heroui-surface: 230 16% 19%;            /* #282a36 */
+    --heroui-foreground: 230 40% 97%;         /* #f5f6fb */
+    --heroui-muted: 228 17% 77%;              /* #b9bdcf */
+    --heroui-separator: 230 21% 12%;          /* #171823 */
+    --heroui-border: 230 13% 22%;             /* #32343f */
+    --heroui-default: 230 13% 22%;            /* #32343f hover bg */
+  }
+
+  /* ── Light mode — remap the ink scale to coherent light surfaces ──
+     The `--color-ink-*` tokens are defined dark in @theme; here we override
+     them (and the HeroUI surface tokens) so every `ink-*` utility flips to a
+     light value when the `.dark` class is absent. `html:not(.dark)` outranks
+     the `:root` defaults emitted by @theme. */
+  html:not(.dark) {
+    --panel-border: color-mix(in oklch, #0c0d0e 8%, transparent);
+
+    --color-ink-950: #d7d9dd;   /* guild rail */
+    --color-ink-900: #e8eaed;   /* deep surfaces / inputs */
+    --color-ink-850: #ebedef;   /* panels / popovers */
+    --color-ink-800: #f2f3f5;   /* channel list */
+    --color-ink-750: #e5e7ea;   /* hover */
+    --color-ink-700: #ffffff;   /* chat area */
+    --color-ink-600: #e7e9ec;   /* active / hover */
+    --color-ink-500: #d9dbdf;
+    --color-ink-400: #c9ccd1;   /* dividers */
+    --color-ink-300: #b1b6bd;
+    --color-ink-200: #5d6067;   /* muted text */
+    --color-ink-100: #4a4d54;   /* secondary text */
+    --color-ink-50:  #2e3035;   /* hi-contrast text */
+    --color-ink-0:   #1a1b1e;   /* primary text */
+
+    --heroui-background: 0 0% 100%;
+    --heroui-background-secondary: 220 14% 96%;
+    --heroui-surface: 0 0% 100%;
+    --heroui-foreground: 225 7% 11%;
+    --heroui-muted: 220 5% 40%;
+    --heroui-separator: 220 13% 91%;
+    --heroui-border: 220 13% 88%;
+    --heroui-default: 220 14% 93%;
+  }
+
+  /* ── Ambient canvas — deep indigo-violet stage; panels float above ── */
+  body {
+    background-color: var(--echo-bg-canvas);
+    background-image:
+      radial-gradient(70rem 70rem at 8% -15%, rgb(124 92 255 / 0.18), transparent 62%),
+      radial-gradient(55rem 55rem at 102% 5%, rgb(61 220 151 / 0.06), transparent 58%),
+      radial-gradient(60rem 60rem at 85% 110%, rgb(124 92 255 / 0.1), transparent 60%);
+    background-attachment: fixed;
+    color: var(--echo-text-primary);
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  html:not(.dark) {
+    --color-echo-canvas: #f6f5f1;
+    --color-echo-panel: #ffffff;
+    --color-echo-accent-brand: #6644e8;
+    --color-echo-accent-energy: #0fa968;
+    --color-echo-text: #1a1a2e;
+    --color-echo-muted: #5c5f73;
+    --color-echo-danger: #dc2626;
+  }
+  html:not(.dark) body {
+    background-color: var(--echo-bg-canvas);
+    background-image:
+      radial-gradient(70rem 70rem at 8% -15%, rgb(102 68 232 / 0.1), transparent 62%),
+      radial-gradient(55rem 55rem at 102% 5%, rgb(15 169 104 / 0.06), transparent 58%),
+      radial-gradient(60rem 60rem at 85% 110%, rgb(102 68 232 / 0.07), transparent 60%);
+  }
+
+  /* Smooth scrollbars */
+  *::-webkit-scrollbar { width: 8px; height: 8px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb {
+    background: var(--color-ink-400, rgba(120,120,120,0.25));
+    border-radius: 8px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--color-ink-300, rgba(120,120,120,0.45));
+  }
+  html:not(.dark) *::-webkit-scrollbar-thumb {
+    background: rgba(0,0,0,0.15);
+  }
+
+  /* Cursor on interactive */
   button:not(:disabled),
-  [role="button"]:not(:disabled) {
-    cursor: pointer;
+  [role="button"]:not(:disabled) { cursor: pointer; }
+
+  /* Text selection uses accent */
+  ::selection {
+    background: color-mix(in oklch, var(--accent) 45%, transparent);
+    color: var(--accent-foreground);
   }
 
-  /* ── Accent color palettes ── */
+  /* ── Accent palettes ── */
+  :root[data-accent="blurple"] {
+    --accent: oklch(0.57 0.20 275);
+    --accent-foreground: var(--snow);
+  }
   :root[data-accent="blue"] {
     --accent: oklch(0.6204 0.195 253.83);
     --accent-foreground: var(--snow);
@@ -95,4 +250,305 @@
     --accent: oklch(0.70 0.136 220.49);
     --accent-foreground: var(--eclipse);
   }
+}
+
+/* ──────────────────────────────────────────────────────────
+   Reusable utilities
+   ────────────────────────────────────────────────────────── */
+@layer utilities {
+  /* ── Glass surfaces — translucent panels with blur + top highlight so the
+     ambient backdrop bleeds through and surfaces feel layered ── */
+  .echo-glass {
+    background-color: color-mix(in oklch, var(--color-ink-800) 72%, transparent);
+    backdrop-filter: blur(16px) saturate(1.4);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
+    border: 1px solid color-mix(in oklch, #ffffff 8%, transparent);
+    box-shadow: var(--shadow-e2), inset 0 1px 0 color-mix(in oklch, #ffffff 6%, transparent);
+  }
+  .echo-glass-strong {
+    background-color: color-mix(in oklch, var(--color-ink-850) 82%, transparent);
+    backdrop-filter: blur(22px) saturate(1.5);
+    -webkit-backdrop-filter: blur(22px) saturate(1.5);
+    border: 1px solid color-mix(in oklch, #ffffff 10%, transparent);
+    box-shadow: var(--shadow-e3), inset 0 1px 0 color-mix(in oklch, #ffffff 8%, transparent);
+  }
+  html:not(.dark) .echo-glass,
+  html:not(.dark) .echo-glass-strong {
+    border-color: color-mix(in oklch, #0c0d0e 8%, transparent);
+    box-shadow: var(--shadow-e2);
+  }
+
+  /* Ambient surface backgrounds — opaque base + baked-in colour glow so the
+     big panels read with depth/colour instead of flat grey (no perf cost) */
+  .echo-chat-bg {
+    background-color: var(--color-ink-700);
+    background-image:
+      radial-gradient(75rem 38rem at 50% -18%, color-mix(in oklch, var(--accent) 14%, transparent), transparent 70%),
+      radial-gradient(55rem 55rem at 100% 115%, color-mix(in oklch, var(--accent) 9%, transparent), transparent 68%);
+  }
+  .echo-sidebar-bg {
+    background-color: var(--color-ink-800);
+    background-image:
+      radial-gradient(40rem 30rem at 0% 0%, color-mix(in oklch, var(--accent) 10%, transparent), transparent 70%),
+      radial-gradient(40rem 40rem at 100% 100%, color-mix(in oklch, var(--accent) 7%, transparent), transparent 70%);
+  }
+
+  /* Brand gradient fills */
+  .echo-grad-brand { background-image: var(--gradient-brand); }
+  .echo-grad-brand-soft { background-image: var(--gradient-brand-soft); }
+  .echo-grad-own { background-image: var(--gradient-own-bubble); }
+
+  /* Gradient text (headings / brand) */
+  .echo-grad-text {
+    background-image: var(--gradient-brand);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Elevation helpers */
+  .echo-e1 { box-shadow: var(--shadow-e1); }
+  .echo-e2 { box-shadow: var(--shadow-e2); }
+  .echo-e3 { box-shadow: var(--shadow-e3); }
+
+  /* Accent glow ring (focus / active emphasis) */
+  .echo-ring-accent {
+    box-shadow: 0 0 0 1px color-mix(in oklch, var(--accent) 55%, transparent), var(--shadow-glow-accent);
+  }
+
+  /* Accent-driven glows (single box-shadow each — don't combine with Tailwind ring/shadow) */
+  .echo-glow-own {
+    box-shadow:
+      0 4px 18px -6px color-mix(in oklch, var(--accent) 48%, transparent),
+      inset 0 0 0 1px color-mix(in oklch, #ffffff 12%, transparent);
+  }
+  .echo-glow-md { box-shadow: 0 4px 16px -4px color-mix(in oklch, var(--accent) 58%, transparent); }
+  .echo-glow-sm { box-shadow: 0 0 12px -4px color-mix(in oklch, var(--accent) 60%, transparent); }
+
+  /* Inset accent hairline for active list items (composes with a background) */
+  .echo-ring-soft { box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--accent) 35%, transparent); }
+
+  /* Selected emphasis via outline (no box-shadow conflict) */
+  .echo-selected { outline: 2px solid color-mix(in oklch, var(--accent) 70%, #ffffff 8%); outline-offset: 1px; }
+
+  /* Text on top of an accent fill (respects --accent-foreground for light palettes) */
+  .echo-on-accent { color: var(--accent-foreground); }
+  .echo-on-accent-muted { color: color-mix(in oklch, var(--accent-foreground), transparent 32%); }
+
+  /* Press feedback (spring scale) */
+  .echo-press { transition: transform 140ms var(--ease-spring), background-color 140ms var(--ease-echo), box-shadow 140ms var(--ease-echo); }
+  .echo-press:active { transform: scale(0.94); }
+
+  /* Guild-rail active pill indicator (Discord-style) */
+  .echo-pill {
+    @apply pointer-events-none absolute left-0 top-1/2 h-2 w-1 -translate-y-1/2 rounded-r-full bg-foreground opacity-0 transition-all duration-200;
+  }
+  .echo-pill-hover { @apply h-5 opacity-60; }
+  .echo-pill-active { @apply h-10 opacity-100; }
+
+  /* Subtle glow for emphasis */
+  .echo-glow-accent {
+    box-shadow: 0 0 0 1px color-mix(in oklch, var(--accent) 40%, transparent),
+                0 8px 24px -8px color-mix(in oklch, var(--accent) 35%, transparent);
+  }
+
+  /* Fade-in util */
+  .echo-fade-in {
+    animation: echo-fade-in 180ms var(--ease-echo);
+  }
+
+  /* Hover-lift */
+  .echo-lift {
+    transition: transform 120ms var(--ease-echo), background-color 120ms var(--ease-echo);
+  }
+  .echo-lift:hover { transform: translateY(-1px); }
+  .echo-lift:active { transform: translateY(0) scale(0.98); }
+
+  /* Message row toolbar */
+  .echo-msg-row { @apply relative; }
+  .echo-msg-toolbar {
+    @apply absolute -top-4 right-4 flex gap-0.5 rounded-lg border border-ink-400/40 bg-ink-850 px-1 py-1 shadow-md transition-all duration-150;
+  }
+  .echo-msg-toolbar[data-show="false"] {
+    @apply pointer-events-none opacity-0 translate-y-1;
+  }
+  .echo-msg-toolbar[data-show="true"] {
+    @apply opacity-100 translate-y-0;
+  }
+
+  /* Typing dots */
+  .echo-typing-dot {
+    animation: echo-typing 1.2s infinite ease-in-out;
+  }
+  .echo-typing-dot:nth-child(2) { animation-delay: 0.15s; }
+  .echo-typing-dot:nth-child(3) { animation-delay: 0.3s; }
+
+  /* ── Spatial Canvas surfaces ── */
+
+  /* Opaque floating panel (non-glass variant used by CanvasPanel) */
+  .echo-panel-solid {
+    background-color: color-mix(in oklch, var(--echo-bg-panel) 92%, transparent);
+    border: 1px solid var(--panel-border);
+  }
+  html:not(.dark) .echo-panel-solid {
+    background-color: var(--echo-bg-panel);
+    border-color: color-mix(in oklch, #0c0d0e 8%, transparent);
+  }
+  html:not(.dark) .echo-e2 {
+    box-shadow:
+      0 4px 16px -4px rgb(102 68 232 / 0.1),
+      0 2px 6px rgb(26 26 46 / 0.08),
+      0 0 0 1px rgb(0 0 0 / 0.04);
+  }
+  html:not(.dark) .echo-e3 {
+    box-shadow:
+      0 8px 28px rgb(102 68 232 / 0.12),
+      0 12px 32px -12px rgb(26 26 46 / 0.1),
+      0 0 0 1px rgb(0 0 0 / 0.05);
+  }
+
+  /* Display hierarchy — Clash Display with tight tracking. Headers only. */
+  .echo-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+
+  /* Floating composer — gains elevation while the user is typing */
+  .echo-composer {
+    transition: transform 200ms var(--ease-echo), box-shadow 200ms var(--ease-echo);
+  }
+  .echo-composer:focus-within,
+  .echo-composer-focused {
+    transform: translateY(-2px);
+    box-shadow:
+      var(--shadow-e2),
+      0 0 0 1.5px color-mix(in oklch, var(--composer-accent, var(--accent)) 55%, transparent),
+      0 10px 32px -10px color-mix(in oklch, var(--composer-accent, var(--accent)) 35%, transparent);
+  }
+}
+
+/* Respect reduced motion: drop glow/lift transitions and decorative loops */
+@media (prefers-reduced-motion: reduce) {
+  .echo-press, .echo-lift, .echo-composer { transition: none; }
+  .echo-composer:focus-within,
+  .echo-composer-focused { transform: none; }
+  .echo-typing-dot { animation: none; }
+  .echo-fade-in { animation: none; }
+  .echo-shimmer { animation: none; }
+  .send-btn.send-btn--pulse { animation: none; }
+}
+
+/* ──────────────────────────────────────────────────────────
+   Keyframes
+   ────────────────────────────────────────────────────────── */
+@keyframes echo-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes echo-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.echo-shimmer {
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklch, var(--echo-bg-panel, #1a1b1e) 92%, transparent) 0%,
+    color-mix(in oklch, #ffffff 8%, var(--echo-bg-panel, #1a1b1e)) 50%,
+    color-mix(in oklch, var(--echo-bg-panel, #1a1b1e) 92%, transparent) 100%
+  );
+  background-size: 200% 100%;
+  animation: echo-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes echo-typing {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
+  30%            { transform: translateY(-3px); opacity: 1; }
+}
+
+/* ──────────────────────────────────────────────────────────
+   SendButton (original — animated arrow)
+   ────────────────────────────────────────────────────────── */
+.send-btn {
+  font-family: inherit;
+  font-size: 14px;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 14px;
+  overflow: hidden;
+  transition: all 0.2s;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  /* Mobile: icon-only square */
+  width: 2.25rem;
+  height: 2.25rem;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+  padding: 0;
+}
+@media (min-width: 640px) {
+  .send-btn {
+    width: auto;
+    height: auto;
+    min-width: 2.25rem;
+    min-height: 2.25rem;
+    padding: 0.5em 0.85em;
+    padding-left: 0.7em;
+  }
+}
+.send-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: scale(0.9);
+}
+.send-btn .send-label {
+  display: none;
+  margin-left: 0.35em;
+  transition: all 0.3s ease-in-out;
+}
+@media (min-width: 640px) {
+  .send-btn .send-label {
+    display: block;
+  }
+}
+@media (max-width: 639px) {
+  .send-btn:not(:disabled):hover .send-icon {
+    transform: rotate(45deg) scale(1.1);
+  }
+}
+.send-btn .send-icon {
+  display: block;
+  transform-origin: center center;
+  transition: transform 0.3s ease-in-out;
+}
+.send-btn:not(:disabled):hover .send-svg-wrapper {
+  animation: send-fly 0.6s ease-in-out infinite alternate;
+}
+.send-btn:not(:disabled):hover .send-icon {
+  transform: translateX(1.2em) rotate(45deg) scale(1.1);
+}
+.send-btn:not(:disabled):hover .send-label {
+  transform: translateX(5em);
+}
+.send-btn:not(:disabled):active {
+  transform: scale(0.92);
+  filter: brightness(1.08);
+}
+.send-btn.send-btn--pulse:not(:disabled) {
+  animation: send-pulse 0.38s ease-out;
+}
+@keyframes send-pulse {
+  0%   { transform: scale(1); box-shadow: 0 0 0 0 color-mix(in oklch, var(--accent) 55%, transparent); }
+  45%  { transform: scale(0.9); box-shadow: 0 0 0 6px color-mix(in oklch, var(--accent) 0%, transparent); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 transparent; }
+}
+@keyframes send-fly {
+  from { transform: translateY(0.1em); }
+  to   { transform: translateY(-0.1em); }
 }

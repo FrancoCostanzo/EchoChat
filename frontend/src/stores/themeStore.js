@@ -16,7 +16,7 @@ function loadPreference() {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) return JSON.parse(saved);
   } catch { /* ignore */ }
-  return { mode: 'system', accent: 'blue' };
+  return { mode: 'dark', accent: 'blurple' };
 }
 
 function savePreference(pref) {
@@ -28,12 +28,13 @@ applyTheme(initial.mode);
 document.documentElement.setAttribute('data-accent', initial.accent);
 
 export const ACCENT_COLORS = [
-  { key: 'blue',   label: 'Azul',     color: '#006FEE' },
-  { key: 'violet', label: 'Violeta',   color: '#7828C8' },
-  { key: 'green',  label: 'Verde',     color: '#17C964' },
-  { key: 'rose',   label: 'Rosa',      color: '#F31260' },
-  { key: 'orange', label: 'Naranja',   color: '#F5A524' },
-  { key: 'cyan',   label: 'Cian',      color: '#06B7DB' },
+  { key: 'blurple', label: 'Blurple',  color: '#5865F2' },
+  { key: 'blue',    label: 'Azul',     color: '#006FEE' },
+  { key: 'violet',  label: 'Violeta',  color: '#7828C8' },
+  { key: 'green',   label: 'Verde',    color: '#17C964' },
+  { key: 'rose',    label: 'Rosa',     color: '#F31260' },
+  { key: 'orange',  label: 'Naranja',  color: '#F5A524' },
+  { key: 'cyan',    label: 'Cian',     color: '#06B7DB' },
 ];
 
 export const useThemeStore = create((set, get) => ({

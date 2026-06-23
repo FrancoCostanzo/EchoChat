@@ -11,6 +11,8 @@
 [![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
 [![MinIO](https://img.shields.io/badge/MinIO-C72E49?style=for-the-badge&logo=minio&logoColor=white)](https://min.io/)
 [![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![Electron](https://img.shields.io/badge/Electron-47848F?style=for-the-badge&logo=electron&logoColor=white)](https://www.electronjs.org/)
+[![React Native](https://img.shields.io/badge/React_Native-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactnative.dev/)
 [![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue?style=for-the-badge)](https://opensource.org/licenses/ISC)
 
@@ -22,7 +24,7 @@
 
 <br/>
 
-[Características](#-características) · [Tech Stack](#-tech-stack) · [Arquitectura](#-arquitectura) · [Despliegue](#-despliegue-con-docker) · [Instalación Dev](#-instalación-desarrollo) · [Variables de Entorno](#-variables-de-entorno) · [Scripts](#-scripts) · [Base de Datos](#-base-de-datos) · [API](#-api-endpoints) · [Websockets](#-eventos-en-tiempo-real-socketio)
+[Características](#-características) · [Plataformas](#-plataformas) · [Tech Stack](#-tech-stack) · [Arquitectura](#-arquitectura) · [Despliegue](#-despliegue-con-docker) · [Instalación Dev](#-instalación-desarrollo) · [Backend](#-backend--guía-de-desarrollo) · [Frontend](#-frontend--guía-de-desarrollo) · [Cursor AI](#-cursor-ai-mcp-y-agentes) · [Git](#-git--commits-y-colaboración) · [Variables de Entorno](#-variables-de-entorno) · [Scripts](#-scripts) · [Base de Datos](#-base-de-datos) · [API](#-api-endpoints) · [Websockets](#-eventos-en-tiempo-real-socketio)
 
 </div>
 
@@ -94,11 +96,8 @@
 ### 📁 Almacenamiento de Archivos
 - Subida de archivos a MinIO (S3-compatible)
 - Soporte: imágenes, videos, audio, documentos, grabaciones
-- Thumbnails automáticos para imágenes/videos
-- URLs prefirmadas con TTL para acceso seguro
-- Deduplicación por hash SHA256
-- Eliminación de metadatos EXIF por privacidad
-- Infraestructura para escaneo antivirus
+- URLs prefirmadas con TTL para acceso seguro (con caché y limpieza automática)
+- 🔧 *Planificado:* thumbnails automáticos, deduplicación por SHA256, strip de EXIF y escaneo antivirus (ver `docs/ROADMAP.md`, Fase 4)
 
 </td>
 <td width="50%">
@@ -118,8 +117,10 @@
 
 ### 🔐 Autenticación y Seguridad
 - JWT con access y refresh tokens
+- Autenticación de dos factores (2FA TOTP) con códigos de respaldo
 - Hashing de contraseñas con bcrypt
 - Gestión de sesiones multi-dispositivo
+- RBAC aplicado por endpoint (permisos globales) y por conversación (roles)
 - RBAC con permisos globales y por conversación
 - Helmet para headers HTTP seguros
 - Rate limiting (100 req / 15 min)
@@ -171,7 +172,23 @@
 
 <br/>
 
-## 🛠 Tech Stack
+## � Plataformas
+
+| Plataforma | Tecnología | Estado |
+|------------|-----------|--------|
+| **Web** | React 19 + Vite | ✅ En desarrollo (`v1.0.0-alpha.1`) |
+| **Desktop** (Windows, macOS, Linux) | Electron | 🔧 Planificado |
+| **Mobile** (iOS, Android) | React Native + Expo | 🔧 Planificado |
+
+Las tres plataformas comparten el mismo backend y reutilizan la mayoría de la lógica de negocio del frontend.
+
+<br/>
+
+---
+
+<br/>
+
+## �🛠 Tech Stack
 
 <table>
 <tr>
@@ -225,6 +242,21 @@
   <img src="https://img.shields.io/badge/CORS-00ACC1?style=flat-square" alt="CORS"/>
 </td>
 </tr>
+<tr>
+<td><strong>Desktop</strong></td>
+<td>
+  <img src="https://img.shields.io/badge/Electron-47848F?style=flat-square&logo=electron&logoColor=white" alt="Electron"/>
+</td>
+</tr>
+<tr>
+<td><strong>Mobile</strong></td>
+<td>
+  <img src="https://img.shields.io/badge/React_Native-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React Native"/>
+  <img src="https://img.shields.io/badge/Expo-000020?style=flat-square&logo=expo&logoColor=white" alt="Expo"/>
+</td>
+</tr>
+<tr>
+<td><strong>Infraestructura</strong></td>
 </table>
 
 <br/>
@@ -536,6 +568,237 @@ La aplicación estará disponible en **http://localhost:5173** 🚀
 
 <br/>
 
+## 🖥 Backend — Guía de desarrollo
+
+### Stack y responsabilidades
+
+| Tecnología | Uso en EchoChat |
+|------------|-----------------|
+| **Express 4** | API REST bajo `/api` |
+| **Socket.IO 4** | Mensajes, typing, presencia, llamadas en tiempo real |
+| **PostgreSQL 15+** | Persistencia (30+ tablas) |
+| **MinIO** | Archivos S3-compatible (avatares, adjuntos, grabaciones) |
+| **Joi** | Validación de entrada en DTOs |
+| **JWT + bcrypt** | Autenticación y sesiones |
+| **Pino** | Logging estructurado |
+
+### Estructura de carpetas
+
+```
+backend/src/
+├── app.js              # Express: middlewares globales y montaje de rutas
+├── server.js           # Arranque HTTP, jobs cron, shutdown graceful
+├── socket.js           # Autenticación JWT en sockets y eventos realtime
+├── config/             # PostgreSQL pool, MinIO client, logger
+├── routes/             # Definición de endpoints
+├── controllers/        # req/res HTTP (sin lógica de negocio)
+├── services/           # Reglas de negocio
+├── repositories/       # Queries SQL (prepared statements)
+├── models/             # Transformadores toXxxResponse()
+├── dtos/               # Esquemas Joi por operación
+├── middlewares/        # authenticate, authorize, validate, rateLimit
+├── errors/             # AppError y jerarquía de errores
+└── jobs/               # Tareas programadas (presencia, URLs prefirmadas)
+```
+
+### Flujo de una petición HTTP
+
+```
+Route → validate(dto) → authenticate → authorize → Controller → Service → Repository → PostgreSQL
+                                           ↓
+                                     Model (transform)
+                                           ↓
+                                      Response JSON
+```
+
+### Convenciones clave
+
+- **Archivos:** `camelCase.tipo.js` — p. ej. `message.controller.js`, `user.repository.js`
+- **Código JS:** `camelCase` · **BD:** columnas en `snake_case`
+- **Errores:** lanzar `AppError`; el `errorHandler` centraliza la respuesta HTTP
+- **RBAC:** permisos globales (`authorize`) y roles por conversación en services
+- **No saltar capas:** un controller nunca llama directo a un repository
+
+### Arrancar y depurar
+
+```bash
+cd backend
+cp .env.example .env    # Ajustar DB_*, JWT_SECRET, MinIO, CORS
+npm install
+npm run dev             # nodemon + pino-pretty en :3000
+```
+
+| Comando | Descripción |
+|---------|-------------|
+| `npm run dev` | Desarrollo con hot-reload |
+| `npm start` | Producción (sin pretty logs) |
+
+Health check: `GET http://localhost:3000/api/health`
+
+Probar endpoints: colección Bruno en `tooling/bruno/`.
+
+<br/>
+
+---
+
+<br/>
+
+## 🎨 Frontend — Guía de desarrollo
+
+### Stack y responsabilidades
+
+| Tecnología | Uso en EchoChat |
+|------------|-----------------|
+| **React 19** | UI declarativa, Suspense + lazy routes |
+| **Vite 8** | Dev server, HMR, build de producción |
+| **Tailwind CSS 4** | Estilos utility-first |
+| **HeroUI 3** | Componentes accesibles (Button, Modal, Input, etc.) |
+| **Zustand 5** | Estado global por dominio |
+| **React Router 7** | Navegación SPA |
+| **Socket.IO Client** | Eventos en tiempo real |
+| **i18next** | Español, inglés y portugués |
+| **Framer Motion** | Transiciones y animaciones |
+| **Lucide React** | Iconografía |
+
+### Estructura de carpetas
+
+```
+frontend/src/
+├── App.jsx             # Rutas y providers
+├── main.jsx            # Punto de entrada React
+├── index.css           # Tokens CSS, tema claro/oscuro, acentos
+├── pages/              # Vistas (LoginPage, ConversationPage, …)
+├── layouts/            # ChatLayout y shells
+├── components/         # Piezas reutilizables (GuildRail, ThreadPanel, …)
+├── stores/             # authStore, chatStore, themeStore
+├── lib/                # api.js, socket.js, endpoints.js, i18n
+└── locales/            # es.json · en.json · pt.json
+```
+
+### Proxy de desarrollo (Vite)
+
+El frontend en `:5173` proxifica al backend en `:3000`:
+
+| Ruta en el browser | Destino |
+|--------------------|---------|
+| `/api/*` | `http://localhost:3000/api/*` |
+| `/socket.io/*` | WebSocket → `:3000` |
+
+No hace falta configurar CORS en desarrollo si usas el dev server de Vite.
+
+### Convenciones clave
+
+- **Alias:** `@/` → `src/` (ver `vite.config.js`)
+- **Componentes:** funcionales, props destructuradas, `export default`
+- **Stores:** un store por dominio; selectores atómicos `useStore((s) => s.campo)`
+- **i18n obligatorio:** todo texto visible en **es**, **en** y **pt** — usar `useTranslation()`
+- **Páginas:** lazy import en `App.jsx` para code splitting
+
+### Arrancar
+
+```bash
+cd frontend
+cp .env.example .env    # Si aplica variables VITE_*
+npm install
+npm run dev             # http://localhost:5173
+```
+
+| Comando | Descripción |
+|---------|-------------|
+| `npm run dev` | Servidor de desarrollo |
+| `npm run build` | Build estático para producción |
+| `npm run preview` | Preview del build |
+
+Guía de estilos detallada: `docs/STYLE_GUIDE.md` (sección Frontend).
+
+<br/>
+
+---
+
+<br/>
+
+## 🤖 Cursor AI — MCP y agentes
+
+EchoChat incluye configuración para que **Cursor Agent** use herramientas MCP y siga convenciones del proyecto.
+
+### Archivos relevantes
+
+| Archivo | Propósito |
+|---------|-----------|
+| `.cursor/mcp.json` | Servidores MCP del proyecto (HeroUI, PostgreSQL) |
+| `AGENTS.md` | Instrucciones persistentes para el agente de Cursor |
+| `docs/STYLE_GUIDE.md` | Convenciones de código backend y frontend |
+
+### Servidores MCP configurados
+
+| Servidor | Para qué sirve |
+|----------|----------------|
+| `heroui-react` | Documentación, props y estilos de componentes HeroUI |
+| `postgres-echochat` | Consultas read-only al esquema PostgreSQL de EchoChat |
+
+### Activar MCP en Cursor
+
+1. Asegurate de tener **Node.js ≥ 18** instalado.
+2. En `backend/.env`, define `DATABASE_URL` (necesario solo para el MCP de Postgres):
+
+   ```env
+   DATABASE_URL=postgresql://echochat:tu_password@localhost:5432/echochat
+   ```
+
+3. **Reinicia Cursor** tras cambiar `.cursor/mcp.json`.
+4. Verifica en **Settings → Tools & MCP** que los servidores estén activos.
+5. Si falla alguno: panel **Output** → canal **MCP Logs**.
+
+El agente usa estas herramientas automáticamente cuando son relevantes (p. ej. consultar props de un componente HeroUI o inspeccionar tablas de la BD).
+
+> `frontend/.vscode/mcp.json` es formato VS Code/Copilot. Cursor usa `.cursor/mcp.json` en la raíz del repositorio.
+
+<br/>
+
+---
+
+<br/>
+
+## 🌿 Git — Commits y colaboración
+
+### Reglas para agentes y colaboradores
+
+- **Nunca crear PRs automáticamente** — los abre el maintainer manualmente.
+- **No ejecutar `git commit` ni `git push`** sin pedido explícito.
+- Ramas de feature/fix desde `develop`; **no commitear directo a `main`**.
+
+### Formato de commits
+
+Cuando se pida un commit, usar:
+
+```
+Tipo <emoji>: descripción en español
+```
+
+La descripción debe explicar el **por qué**, no solo el qué.
+
+| Tipo | Emoji | Uso | Ejemplo |
+|------|-------|-----|---------|
+| **Feat** | 🆕 | Funcionalidad nueva | `Feat 🆕: Nuevo menú para crear un usuario` |
+| **Fix** | 🔧 | Corrección de error | `Fix 🔧: corregir cálculo de stock mínimo` |
+| **Fix** | 🐛 | Bug / hotfix | `Fix 🐛: resolver crash en login LDAP` |
+| **Refactor** | ♻️ | Refactor sin cambio funcional | `Refactor ♻️: extraer lógica a service` |
+| **Style** | 🎨 | Formato/estilo de código | `Style 🎨: ordenar imports en routesConfig` |
+| **Docs** | 🗒️ | Documentación | `Docs 🗒️: actualizar README con nuevas rutas` |
+| **Clean** | 🧹 | Mantenimiento | `Clean 🧹: actualizar dependencias` |
+| **Perf** | ⚡ | Mejora de rendimiento | `Perf ⚡: optimizar query con índice` |
+| **Release** | 🎉 | Nueva versión de producción | `Release 🎉: v3.0.2` |
+| **Test** | ✅ | Agregar o corregir tests | `Test ✅: tests para notificaciones` |
+| **Dependencies** | 📦 | Actualización de dependencias | `Dependencies 📦: actualizar pg a v8.21` |
+
+Convención de ramas: `feat/nombre-corto`, `fix/nombre-corto`, `hotfix/...` (desde `main`). Detalle completo en `docs/STYLE_GUIDE.md`.
+
+<br/>
+
+---
+
+<br/>
+
 ## 🔧 Variables de Entorno
 
 Para **desarrollo** local, crear un archivo `backend/.env`. Para **producción** con Docker, editar `.env` en la raíz del proyecto (ver `.env.example`).
@@ -777,9 +1040,12 @@ Todas las rutas están bajo el prefijo `/api`.
 
 ```
 EchoChat/
-├── � docker-compose.yml          # Orquestación (perfiles: postgres, minio)
-├── 📄 .env.example                # Template de configuración
-├── 📁 api-collection/            # Colección de API (Postman)
+├── 📄 AGENTS.md                   # Instrucciones para Cursor Agent
+├── 📁 .cursor/
+│   └── 📄 mcp.json                # Servidores MCP (HeroUI, PostgreSQL)
+├── 📄 docker-compose.yml          # Orquestación (perfiles: postgres, minio)
+├── 📄 .env.example                # Template de configuración Docker
+├── 📁 tooling/bruno/              # Colección de API (Bruno / OpenCollection)
 ├── 📁 backend/
 │   ├── 📄 Dockerfile              # Imagen Docker del backend
 │   ├── 📄 .dockerignore
@@ -818,6 +1084,9 @@ EchoChat/
 │   ├── 📄 vite.config.js
 │   └── 📄 package.json
 └── 📁 docs/                       # Documentación adicional
+    ├── 📄 STYLE_GUIDE.md
+    ├── 📄 SPATIAL_CANVAS.md       # Sistema visual Lienzo Espacial
+    └── 📄 ROADMAP.md
 ```
 
 <br/>

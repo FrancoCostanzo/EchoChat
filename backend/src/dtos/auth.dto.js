@@ -35,9 +35,37 @@ const changePasswordDto = Joi.object({
   new_password: Joi.string().min(8).max(128).required(),
 });
 
+// 2FA DTOs
+const totpChallengeDto = Joi.object({
+  temp_token: Joi.string().required(),
+  code: Joi.string().min(5).max(15).required(),
+  device_name: Joi.string().max(100).allow(null, ''),
+  device_type: Joi.string().valid('web', 'desktop', 'mobile', 'api').default('web'),
+});
+
+const totpEnableDto = Joi.object({
+  code: Joi.string().length(6).pattern(/^\d{6}$/).required()
+    .messages({ 'string.pattern.base': 'Code must be 6 digits' }),
+});
+
+const totpDisableDto = Joi.object({
+  password: Joi.string().required(),
+  code: Joi.string().length(6).pattern(/^\d{6}$/).required()
+    .messages({ 'string.pattern.base': 'Code must be 6 digits' }),
+});
+
+const totpRegenerateDto = Joi.object({
+  code: Joi.string().length(6).pattern(/^\d{6}$/).required()
+    .messages({ 'string.pattern.base': 'Code must be 6 digits' }),
+});
+
 module.exports = {
   registerDto,
   loginDto,
   updateProfileDto,
   changePasswordDto,
+  totpChallengeDto,
+  totpEnableDto,
+  totpDisableDto,
+  totpRegenerateDto,
 };

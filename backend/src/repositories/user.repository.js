@@ -21,14 +21,51 @@ class UserRepository extends BaseRepository {
     return rows[0] || null;
   }
 
-  async create({ username, display_name, email, phone_extension, department, job_title }) {
+  async create({ username, display_name, email, phone_extension, department, job_title, auth_provider, external_id }) {
     const { rows } = await this.query(
-      `INSERT INTO users (username, display_name, email, phone_extension, department, job_title)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO users (username, display_name, email, phone_extension, department, job_title, auth_provider, external_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
-      [username, display_name, email || null, phone_extension || null, department || null, job_title || null]
+      [
+        username, display_name, email || null, phone_extension || null,
+        department || null, job_title || null,
+        auth_provider || 'local', external_id || null,
+      ]
     );
     return rows[0];
+  }
+
+  async findByExternalId(externalId) {
+    const { rows } = await this.query(
+      'SELECT * FROM users WHERE external_id = $1',
+      [externalId]
+    );
+    return rows[0] || null;
+  }
+
+  // Inserta o actualiza un usuario LDAP identificado por external_id.
+  // Devuelve { user, created } para que el caller pueda contar altas vs. updates.
+  async upsertLdapUser({ external_id, username, display_name, email, department, job_title }) {
+    const existing = await this.findByExternalId(external_id);
+    if (existing) {
+      const { rows } = await this.query(
+        `UPDATE users
+         SET display_name = $2,
+             email = $3,
+             department = $4,
+             job_title = $5,
+             updated_at = NOW()
+         WHERE external_id = $1
+         RETURNING *`,
+        [external_id, display_name, email || null, department || null, job_title || null]
+      );
+      return { user: rows[0], created: false };
+    }
+    const user = await this.create({
+      username, display_name, email, department, job_title,
+      auth_provider: 'ldap', external_id,
+    });
+    return { user, created: true };
   }
 
   async updateProfile(id, fields) {
@@ -79,6 +116,65 @@ class UserRepository extends BaseRepository {
     return rows[0];
   }
 
+  // ── RBAC ────────────────────────────────────────────────────────────────
+  // Distinct permission codes granted to a user through their (non-expired) roles.
+  async getPermissionCodes(userId) {
+    const { rows } = await this.query(
+      `SELECT DISTINCT p.code
+       FROM user_roles ur
+       JOIN role_permissions rp ON rp.role_id = ur.role_id
+       JOIN permissions p ON p.id = rp.permission_id
+       WHERE ur.user_id = $1
+         AND (ur.expires_at IS NULL OR ur.expires_at > NOW())`,
+      [userId]
+    );
+    return rows.map((r) => r.code);
+  }
+
+  // Role names held by a user (highest priority first), excluding expired grants.
+  async getRoleNames(userId) {
+    const { rows } = await this.query(
+      `SELECT r.name
+       FROM user_roles ur
+       JOIN roles r ON r.id = ur.role_id
+       WHERE ur.user_id = $1
+         AND (ur.expires_at IS NULL OR ur.expires_at > NOW())
+       ORDER BY r.priority DESC`,
+      [userId]
+    );
+    return rows.map((r) => r.name);
+  }
+
+  // Flip users who have been inactive for `minutes` from 'online' to 'away'.
+  // Returns the affected user ids so the caller can broadcast presence changes.
+  async markStaleOnlineAsAway(minutes) {
+    const { rows } = await this.query(
+      `UPDATE users
+       SET presence = 'away'
+       WHERE presence = 'online'
+         AND last_seen_at IS NOT NULL
+         AND last_seen_at < NOW() - ($1 * INTERVAL '1 minute')
+       RETURNING id`,
+      [minutes]
+    );
+    return rows.map((r) => r.id);
+  }
+
+  async hasPermission(userId, code) {
+    const { rows } = await this.query(
+      `SELECT 1
+       FROM user_roles ur
+       JOIN role_permissions rp ON rp.role_id = ur.role_id
+       JOIN permissions p ON p.id = rp.permission_id
+       WHERE ur.user_id = $1
+         AND p.code = $2
+         AND (ur.expires_at IS NULL OR ur.expires_at > NOW())
+       LIMIT 1`,
+      [userId, code]
+    );
+    return rows.length > 0;
+  }
+
   async search(term, limit = 20, offset = 0) {
     const { rows } = await this.query(
       `SELECT * FROM users
@@ -89,6 +185,89 @@ class UserRepository extends BaseRepository {
       [`%${term}%`, limit, offset]
     );
     return rows;
+  }
+
+  async listUsers({ search, status, department, limit = 50, offset = 0 } = {}) {
+    const conditions = [`status != 'deleted'`];
+    const params = [];
+    let idx = 1;
+
+    if (search) {
+      conditions.push(`(display_name ILIKE $${idx} OR username ILIKE $${idx} OR email ILIKE $${idx})`);
+      params.push(`%${search}%`);
+      idx++;
+    }
+    if (status) {
+      conditions.push(`status = $${idx}`);
+      params.push(status);
+      idx++;
+    }
+    if (department) {
+      conditions.push(`department ILIKE $${idx}`);
+      params.push(`%${department}%`);
+      idx++;
+    }
+
+    params.push(limit, offset);
+    const { rows } = await this.query(
+      `SELECT * FROM users WHERE ${conditions.join(' AND ')}
+       ORDER BY display_name ASC
+       LIMIT $${idx} OFFSET $${idx + 1}`,
+      params
+    );
+    return rows;
+  }
+
+  async updateStatus(id, status) {
+    const { rows } = await this.query(
+      `UPDATE users SET status = $1, updated_at = NOW() WHERE id = $2 AND status != 'deleted' RETURNING *`,
+      [status, id]
+    );
+    return rows[0];
+  }
+
+  async listRoles() {
+    const { rows } = await this.query(
+      `SELECT id, name, display_name, description, priority FROM roles ORDER BY priority DESC`
+    );
+    return rows;
+  }
+
+  async getUserRoles(userId) {
+    const { rows } = await this.query(
+      `SELECT r.id, r.name, r.display_name, ur.granted_at, ur.expires_at
+       FROM user_roles ur
+       JOIN roles r ON r.id = ur.role_id
+       WHERE ur.user_id = $1
+         AND (ur.expires_at IS NULL OR ur.expires_at > NOW())
+       ORDER BY r.priority DESC`,
+      [userId]
+    );
+    return rows;
+  }
+
+  async setUserRoles(userId, roleNames, grantedBy) {
+    await this.query(`DELETE FROM user_roles WHERE user_id = $1`, [userId]);
+    if (!roleNames?.length) return [];
+    const { rows } = await this.query(
+      `INSERT INTO user_roles (user_id, role_id, granted_by)
+       SELECT $1, r.id, $2 FROM roles r WHERE r.name = ANY($3::text[])
+       RETURNING role_id`,
+      [userId, grantedBy, roleNames]
+    );
+    return rows;
+  }
+
+  async countUsersWithRole(roleName) {
+    const { rows } = await this.query(
+      `SELECT COUNT(*)::int AS count
+       FROM user_roles ur
+       JOIN roles r ON r.id = ur.role_id
+       WHERE r.name = $1
+         AND (ur.expires_at IS NULL OR ur.expires_at > NOW())`,
+      [roleName]
+    );
+    return rows[0]?.count || 0;
   }
 }
 

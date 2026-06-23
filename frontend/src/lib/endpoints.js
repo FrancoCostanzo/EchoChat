@@ -2,13 +2,20 @@ import { api } from './api';
 
 export const authApi = {
   register: (data) => api.post('/auth/register', data),
+  getRegistrationStatus: () => api.get('/auth/registration-status'),
   login: (data) => api.post('/auth/login', data),
   logout: () => api.post('/auth/logout'),
-  logoutAll: () => api.post('/auth/logout-all'),
+  logoutAll: (keepCurrent = false) => api.post(`/auth/logout-all${keepCurrent ? '?keepCurrent=true' : ''}`),
   me: () => api.get('/auth/me'),
   changePassword: (data) => api.put('/auth/password', data),
   getSessions: () => api.get('/auth/sessions'),
   revokeSession: (id) => api.delete(`/auth/sessions/${id}`),
+  // 2FA
+  setup2fa: () => api.post('/auth/2fa/setup'),
+  enable2fa: (code) => api.post('/auth/2fa/enable', { code }),
+  disable2fa: (password, code) => api.post('/auth/2fa/disable', { password, code }),
+  verify2faChallenge: (data) => api.post('/auth/2fa/challenge', data),
+  regenerateBackupCodes: (code) => api.post('/auth/2fa/backup-codes/regenerate', { code }),
 };
 
 export const usersApi = {
@@ -32,10 +39,22 @@ export const conversationsApi = {
   markAsRead: (id, messageId) => api.post(`/conversations/${id}/read`, messageId ? { message_id: messageId } : {}),
 };
 
+export const channelsApi = {
+  create: (data) => api.post('/channels', data),
+  discover: (params) => api.get('/channels/discover', params),
+  getById: (id) => api.get(`/channels/${id}`),
+  updateSettings: (id, data) => api.put(`/channels/${id}/settings`, data),
+  join: (id, message) => api.post(`/channels/${id}/join`, message ? { message } : {}),
+  listRequests: (id, params) => api.get(`/channels/${id}/requests`, params),
+  reviewRequest: (id, requestId, status) => api.put(`/channels/${id}/requests/${requestId}`, { status }),
+};
+
 export const messagesApi = {
   send: (data) => api.post('/messages', data),
   getById: (id) => api.get(`/messages/${id}`),
-  edit: (id, body) => api.put(`/messages/${id}`, { body }),
+  getThread: (id) => api.get(`/messages/${id}/thread`),
+  getInfo: (id) => api.get(`/messages/${id}/info`),
+  edit: (id, data) => api.put(`/messages/${id}`, data),
   delete: (id) => api.delete(`/messages/${id}`),
   addReaction: (id, emoji) => api.post(`/messages/${id}/reactions`, { emoji }),
   removeReaction: (id, emoji) => api.delete(`/messages/${id}/reactions/${emoji}`),
@@ -45,6 +64,24 @@ export const messagesApi = {
   getPinned: (convId) => api.get(`/messages/conversation/${convId}/pinned`),
   pin: (convId, msgId) => api.post(`/messages/conversation/${convId}/pin/${msgId}`),
   unpin: (convId, msgId) => api.delete(`/messages/conversation/${convId}/pin/${msgId}`),
+  // Forwarding
+  forward: (msgId, conversationIds) => api.post(`/messages/${msgId}/forward`, { conversation_ids: conversationIds }),
+  // Saved messages
+  listSaved: (params) => api.get('/messages/saved', params),
+  save: (msgId, note) => api.post(`/messages/${msgId}/save`, note ? { note } : {}),
+  unsave: (msgId) => api.delete(`/messages/${msgId}/save`),
+  // Drafts
+  listDrafts: () => api.get('/messages/drafts'),
+  getDraft: (convId) => api.get(`/messages/conversation/${convId}/draft`),
+  saveDraft: (convId, data) => api.put(`/messages/conversation/${convId}/draft`, data),
+  deleteDraft: (convId) => api.delete(`/messages/conversation/${convId}/draft`),
+};
+
+export const pollsApi = {
+  create: (data) => api.post('/polls', data),
+  vote: (pollId, optionIds) => api.post(`/polls/${pollId}/vote`, { option_ids: optionIds }),
+  retract: (pollId) => api.delete(`/polls/${pollId}/vote`),
+  close: (pollId) => api.post(`/polls/${pollId}/close`),
 };
 
 export const callsApi = {
@@ -68,6 +105,9 @@ export const broadcastsApi = {
   create: (data) => api.post('/broadcasts', data),
   list: () => api.get('/broadcasts'),
   getById: (id) => api.get(`/broadcasts/${id}`),
+  getMessages: (listId) => api.get(`/broadcasts/${listId}/messages`),
+  addRecipients: (listId, data) => api.post(`/broadcasts/${listId}/recipients`, data),
+  removeRecipient: (listId, userId) => api.delete(`/broadcasts/${listId}/recipients/${userId}`),
   sendMessage: (listId, data) => api.post(`/broadcasts/${listId}/messages`, data),
 };
 
@@ -80,10 +120,40 @@ export const notificationsApi = {
   updatePreferences: (data) => api.put('/notifications/preferences', data),
 };
 
+export const adminApi = {
+  listUsers: (params) => api.get('/admin/users', params),
+  createUser: (data) => api.post('/admin/users', data),
+  updateUser: (userId, data) => api.patch(`/admin/users/${userId}`, data),
+  resetUserPassword: (userId, password) => api.patch(`/admin/users/${userId}/password`, { password }),
+  deleteUser: (userId) => api.delete(`/admin/users/${userId}`),
+  listRoles: () => api.get('/admin/roles'),
+  getLdapStatus: () => api.get('/admin/ldap/status'),
+  syncLdap: () => api.post('/admin/ldap/sync'),
+  getSettings: () => api.get('/admin/settings'),
+  updateSetting: (key, value) => api.put(`/admin/settings/${key}`, { value }),
+  getAuditLog: (params) => api.get('/admin/audit', params),
+  getStorageStats: () => api.get('/admin/storage/stats'),
+  listStorageObjects: (params) => api.get('/admin/storage/objects', params),
+};
+
 export const relationshipsApi = {
   create: (data) => api.post('/relationships', data),
   remove: (targetId, type) => api.delete(`/relationships/${targetId}/${type}`),
   getContacts: () => api.get('/relationships/contacts'),
   getBlocked: () => api.get('/relationships/blocked'),
   getFavorites: () => api.get('/relationships/favorites'),
+};
+
+export const wallpaperApi = {
+  getAll: () => api.get('/preferences/wallpapers'),
+  upsert: (data) => api.put('/preferences/wallpapers', data),
+  remove: (scope, scopeKey) => api.delete(`/preferences/wallpapers/${scope}/${encodeURIComponent(scopeKey)}`),
+};
+
+export const monitoringApi = {
+  getDashboard: () => api.get('/monitoring/dashboard'),
+  getHealth: () => api.get('/monitoring/health'),
+  getDatabase: () => api.get('/monitoring/database'),
+  getSystem: () => api.get('/monitoring/system'),
+  getHistory: (range = '24h') => api.get('/monitoring/history', { range }),
 };

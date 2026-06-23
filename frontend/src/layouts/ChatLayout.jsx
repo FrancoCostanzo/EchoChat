@@ -1,187 +1,233 @@
-import { useState, useCallback, useRef } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Button, InputGroup, TextField, Tooltip } from '@heroui/react';
 import {
   MessageSquare,
-  Users,
   Bell,
-  Settings,
   LogOut,
   Search,
   Plus,
   Hash,
+  AtSign,
   User,
   Palette,
   Globe,
   Shield,
   Wifi,
   ArrowLeft,
+  Cog,
+  Mic,
+  Headphones,
+  X,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
 import UserAvatar from '@/components/UserAvatar';
+import ServerOrbitDock from '@/components/ServerOrbitDock';
+import CommandPalette from '@/components/CommandPalette';
+import CanvasPanel from '@/components/CanvasPanel';
 import { formatMessageTime } from '@/lib/dates';
 
-const SIDEBAR_TRANSITION = { duration: 0.2, ease: 'easeOut' };
-const CONTENT_TRANSITION = { duration: 0.2, ease: 'easeOut' };
+const CONTENT_TRANSITION = { duration: 0.2, ease: [0.22, 1, 0.36, 1] };
 
-function AnimatedSidebar({ children }) {
+/* Three bouncing dots used in the sidebar typing indicator. */
+function SidebarTypingDots() {
   return (
-    <motion.div
-      initial={{ opacity: 0, x: -12 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={SIDEBAR_TRANSITION}
-      className="flex h-full w-full flex-col border-r border-separator bg-surface"
-    >
-      {children}
-    </motion.div>
+    <span className="flex shrink-0 items-center gap-0.5 text-accent">
+      {[0, 1, 2].map((index) => (
+        <motion.span
+          key={index}
+          animate={{ y: [0, -2, 0], opacity: [0.35, 1, 0.35] }}
+          transition={{
+            duration: 1.2,
+            ease: 'easeInOut',
+            repeat: Number.POSITIVE_INFINITY,
+            delay: index * 0.15,
+          }}
+          className="inline-block h-1 w-1 rounded-full bg-current"
+        />
+      ))}
+    </span>
   );
 }
 
-function ConversationItem({ conversation, isActive, onClick, t, animIndex = 0 }) {
+/* ─────────────────────────────────────────────────────────
+   ConversationItem — row in the channel/DM list
+   ───────────────────────────────────────────────────────── */
+function ConversationItem({ conversation, isActive, onClick, t, animIndex = 0, typingNames = [] }) {
   const isDirect = conversation.type === 'direct';
   const name = conversation.display_name || conversation.name || t('sidebar.noName');
   const lastMsg = conversation.last_message_body;
   const time = conversation.last_message_at;
   const unread = conversation.unread_count || 0;
+  const hasUnread = unread > 0;
+
+  // "Escribiendo…" tiene prioridad sobre el preview del último mensaje. En DMs ya
+  // se sabe quién es; en grupos mostramos el nombre (o "varios" si son varios).
+  let typingText = null;
+  if (typingNames.length > 0) {
+    if (isDirect) typingText = t('sidebar.typing');
+    else if (typingNames.length === 1) typingText = t('sidebar.someoneTyping', { name: typingNames[0] });
+    else typingText = t('sidebar.severalTyping');
+  }
 
   return (
     <motion.button
       onClick={onClick}
-      initial={{ opacity: 0, y: 8 }}
+      initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2, ease: 'easeOut', delay: Math.min(animIndex, 10) * 0.025 }}
-      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-default ${
-        isActive ? 'bg-default' : ''
-      }`}
+      transition={{ duration: 0.18, ease: 'easeOut', delay: Math.min(animIndex, 12) * 0.015 }}
+      className={[
+        'group relative flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors',
+        isActive
+          ? 'echo-grad-brand-soft echo-ring-soft text-foreground'
+          : hasUnread
+            ? 'text-foreground hover:bg-ink-750'
+            : 'text-ink-100 hover:bg-ink-750 hover:text-foreground',
+      ].join(' ')}
     >
+      {/* Active / unread bar indicator */}
+      {(hasUnread || isActive) && (
+        <span className={`absolute -left-2 top-1/2 -translate-y-1/2 rounded-r-full bg-accent transition-all ${isActive ? 'h-6 w-1' : 'h-2 w-1'}`} />
+      )}
+
+      {/* Avatar / icon */}
       <div className="relative shrink-0">
         {isDirect ? (
           <UserAvatar
-            user={{ display_name: name, presence: conversation.member_presence, avatar_url: conversation.other_avatar_url }}
+            user={{
+              display_name: name,
+              presence: conversation.member_presence,
+              avatar_url: conversation.other_avatar_url,
+            }}
+            size="sm"
             showStatus
           />
         ) : (
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft">
-            <Hash size={18} className="text-accent" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-ink-700 text-ink-100 group-hover:bg-ink-600">
+            <Hash size={16} strokeWidth={2.5} />
           </div>
         )}
       </div>
 
       <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between">
-          <span className={`truncate text-sm ${unread > 0 ? 'font-semibold' : 'font-medium'}`}>
+        <div className="flex items-center justify-between gap-2">
+          <span
+            className={`truncate text-[15px] leading-tight ${hasUnread || isActive ? 'font-semibold' : 'font-medium'}`}
+          >
             {name}
           </span>
           {time && (
-            <span className="ml-2 shrink-0 text-xs text-muted">
+            <span className="shrink-0 text-[10px] text-ink-200">
               {formatMessageTime(time)}
             </span>
           )}
         </div>
-        <div className="flex items-center justify-between">
-          <p className="truncate text-xs text-muted">{lastMsg || '\u00A0'}</p>
-          {unread > 0 && (
-            <span className="ml-2 shrink-0 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-[10px] font-bold text-accent-foreground">
-              {unread > 99 ? '99+' : unread}
-            </span>
-          )}
-        </div>
+        {typingText ? (
+          <p className="flex items-center gap-1.5 text-xs text-accent">
+            <SidebarTypingDots />
+            <span className="truncate">{typingText}</span>
+          </p>
+        ) : (
+          lastMsg && <p className="truncate text-xs text-ink-200">{lastMsg}</p>
+        )}
       </div>
+
+      {hasUnread && (
+        <span className="ml-1 flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-echo-dnd px-1.5 text-[10px] font-bold text-white">
+          {unread > 99 ? '99+' : unread}
+        </span>
+      )}
     </motion.button>
   );
 }
 
-const SETTINGS_NAV = [
-  { id: 'profile',    icon: User    },
-  { id: 'appearance', icon: Palette },
-  { id: 'language',   icon: Globe   },
-  { id: 'security',   icon: Shield  },
-  { id: 'presence',   icon: Wifi    },
-];
-
-function SettingsSidebar() {
+/* ─────────────────────────────────────────────────────────
+   UserPanel — bottom of channel list, Discord-style
+   ───────────────────────────────────────────────────────── */
+function UserPanel() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const location = useLocation();
   const user = useAuthStore((s) => s.user);
-  const logout = useAuthStore((s) => s.logout);
-
-  const activeTab = location.pathname.split('/settings/')[1] || 'profile';
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
 
   return (
-    <AnimatedSidebar>
-      {/* Header */}
-      <div className="flex items-center gap-2 border-b border-separator px-3 py-3">
-        <Tooltip delay={0}>
-          <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/chat')}>
-            <ArrowLeft size={16} />
-          </Button>
-          <Tooltip.Content><p>{t('common.back')}</p></Tooltip.Content>
-        </Tooltip>
-        <h2 className="text-sm font-semibold">{t('settings.title')}</h2>
-      </div>
-
-      {/* User card */}
-      <div className="mx-3 mt-3 flex items-center gap-3 rounded-xl border border-border bg-background-secondary px-3 py-2.5">
+    <div className="flex items-center gap-2 bg-ink-850 px-2 py-2">
+      <Button
+        variant="ghost"
+        onPress={() => navigate('/settings/profile')}
+        className="flex h-auto min-w-0 flex-1 items-center justify-start gap-2 rounded-md px-1 py-1 transition-colors hover:bg-ink-800"
+      >
         <UserAvatar user={user} size="sm" showStatus />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold">{user?.display_name}</p>
-          <p className="truncate text-xs text-muted">@{user?.username}</p>
+        <div className="min-w-0 flex-1 text-left">
+          <p className="truncate text-[13px] font-semibold leading-tight">{user?.display_name}</p>
+          <p className="truncate text-[11px] text-ink-200">
+            {user?.presence_message || `@${user?.username}`}
+          </p>
         </div>
-      </div>
+      </Button>
 
-      {/* Nav */}
-      <nav className="mx-2 mt-2 flex flex-col gap-0.5 p-1">
-        {SETTINGS_NAV.map(({ id, icon: Icon }) => (
-          <button
-            key={id}
-            onClick={() => navigate(`/settings/${id}`)}
-            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
-              activeTab === id
-                ? 'bg-accent-soft text-accent'
-                : 'text-muted hover:bg-background-secondary hover:text-foreground'
-            }`}
+      <div className="flex items-center">
+        <Tooltip delay={0} placement="top">
+          <Button isIconOnly size="sm" variant="ghost" className="h-8 w-8 min-w-0">
+            <Mic size={16} className="text-ink-100" />
+          </Button>
+          <Tooltip.Content><p>Mic</p></Tooltip.Content>
+        </Tooltip>
+        <Tooltip delay={0} placement="top">
+          <Button isIconOnly size="sm" variant="ghost" className="h-8 w-8 min-w-0">
+            <Headphones size={16} className="text-ink-100" />
+          </Button>
+          <Tooltip.Content><p>Audio</p></Tooltip.Content>
+        </Tooltip>
+        <Tooltip delay={0} placement="top">
+          <Button
+            isIconOnly
+            size="sm"
+            variant="ghost"
+            className="h-8 w-8 min-w-0"
+            onPress={() => navigate('/settings/profile')}
           >
-            <Icon size={15} />
-            {t(`settings.tabs.${id}`)}
-          </button>
-        ))}
-      </nav>
-
-      {/* Spacer + Logout */}
-      <div className="mt-auto border-t border-separator px-3 py-3">
-        <button
-          onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-danger transition-colors hover:bg-danger/10"
-        >
-          <LogOut size={15} />
-          {t('sidebar.logout')}
-        </button>
+            <Cog size={16} className="text-ink-100" />
+          </Button>
+          <Tooltip.Content><p>{t('sidebar.settings')}</p></Tooltip.Content>
+        </Tooltip>
       </div>
-    </AnimatedSidebar>
+    </div>
   );
 }
 
+/* ─────────────────────────────────────────────────────────
+   ChatSidebar — channel/DM list
+   ───────────────────────────────────────────────────────── */
 function ChatSidebar() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const user = useAuthStore((s) => s.user);
-  const logout = useAuthStore((s) => s.logout);
-  const { conversations, activeConversationId, setActiveConversation } = useChatStore();
+  const { conversations, activeConversationId, setActiveConversation, typingUsers } = useChatStore();
+  const selfId = useAuthStore((s) => s.user?.id);
   const [search, setSearch] = useState('');
 
+  // Nombres de quienes están escribiendo en cada conversación (excluyéndome).
+  const typingNamesFor = useCallback(
+    (conversationId) =>
+      Object.entries(typingUsers[conversationId] || {})
+        .filter(([uid]) => uid !== selfId)
+        .map(([, displayName]) => displayName),
+    [typingUsers, selfId],
+  );
+
+  const query = search.trim().toLowerCase();
   const filtered = conversations.filter((c) => {
+    if (!query) return true;
     const name = (c.display_name || c.name || '').toLowerCase();
-    return name.includes(search.toLowerCase());
+    const lastMsg = (c.last_message_body || '').toLowerCase();
+    return name.includes(query) || lastMsg.includes(query);
   });
+
+  // Split into direct (DMs) and channels/groups
+  const dms = filtered.filter((c) => c.type === 'direct');
+  const rooms = filtered.filter((c) => c.type !== 'direct');
 
   const handleConversationClick = useCallback(
     (id) => {
@@ -191,168 +237,253 @@ function ChatSidebar() {
     [setActiveConversation, navigate],
   );
 
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
-
   return (
-    <AnimatedSidebar>
+    <div className="echo-sidebar-bg flex h-full w-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-separator px-4 py-3">
-        <div className="flex items-center gap-3">
-          <UserAvatar user={user} showStatus size="sm" />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">{user?.display_name}</p>
-            <p className="truncate text-xs text-muted">@{user?.username}</p>
-          </div>
+      <div className="flex h-12 shrink-0 items-center justify-between border-b border-white/5 px-4 shadow-sm">
+        <div className="flex items-center gap-2 min-w-0">
+          <MessageSquare size={18} className="shrink-0 text-accent" />
+          <h2 className="echo-display truncate text-2xl font-semibold tracking-tight">{t('sidebar.chats')}</h2>
         </div>
-        <div className="flex items-center gap-1">
-          <Tooltip delay={0}>
-            <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/chat/new')}>
-              <Plus size={18} />
-            </Button>
-            <Tooltip.Content>
-              <p>{t('sidebar.newChat')}</p>
-            </Tooltip.Content>
-          </Tooltip>
-        </div>
+        <Tooltip delay={0} placement="bottom">
+          <Button
+            isIconOnly
+            size="sm"
+            variant="ghost"
+            className="h-7 w-7 min-w-0"
+            onPress={() => navigate('/chat/new')}
+          >
+            <Plus size={16} />
+          </Button>
+          <Tooltip.Content><p>{t('sidebar.newChat')}</p></Tooltip.Content>
+        </Tooltip>
       </div>
 
       {/* Search */}
-      <div className="px-3 py-2">
-        <TextField fullWidth aria-label={t('sidebar.searchConversation')}>
-          <InputGroup fullWidth variant="secondary">
-            <InputGroup.Prefix>
-              <Search size={15} className="text-muted" />
-            </InputGroup.Prefix>
-            <InputGroup.Input
-              placeholder={t('sidebar.searchConversation')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </InputGroup>
-        </TextField>
+      <div className="px-2 pt-2">
+        <div className="w-full">
+          <TextField fullWidth aria-label={t('sidebar.searchConversation')}>
+            <InputGroup fullWidth variant="secondary" className="h-8 rounded-md bg-ink-900 text-[13px]">
+              <InputGroup.Prefix>
+                <Search size={13} className="text-ink-200" />
+              </InputGroup.Prefix>
+              <InputGroup.Input
+                id="echo-search-input"
+                placeholder={t('sidebar.searchConversation')}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              {search && (
+                <InputGroup.Suffix>
+                  <Button
+                    isIconOnly
+                    variant="ghost"
+                    onPress={() => setSearch('')}
+                    aria-label={t('common.clear')}
+                    className="flex h-4 w-4 min-w-0 items-center justify-center rounded-full p-0 text-ink-200 transition-colors hover:bg-transparent hover:text-foreground"
+                  >
+                    <X size={13} />
+                  </Button>
+                </InputGroup.Suffix>
+              )}
+            </InputGroup>
+          </TextField>
+        </div>
       </div>
 
       {/* Conversation List */}
-      <div className="flex-1 overflow-y-auto px-2">
+      <div className="flex-1 overflow-y-auto px-2 py-2">
         {filtered.length === 0 && (
-          <div className="flex flex-col items-center gap-2 py-8 text-muted">
-            <MessageSquare size={32} />
-            <p className="text-sm">{t('sidebar.noConversations')}</p>
+          <div className="flex flex-col items-center gap-2 px-4 py-12 text-ink-200">
+            <MessageSquare size={28} className="opacity-50" />
+            <p className="text-center text-xs">{t('sidebar.noConversations')}</p>
           </div>
         )}
-        {filtered.map((conv, i) => (
-          <ConversationItem
-            key={conv.id}
-            conversation={conv}
-            isActive={conv.id === activeConversationId}
-            onClick={() => handleConversationClick(conv.id)}
-            t={t}
-            animIndex={i}
-          />
-        ))}
+
+        {dms.length > 0 && (
+          <div className="mb-3">
+            <SectionHeader icon={AtSign} label="Mensajes directos" count={dms.length} />
+            <div className="mt-0.5 flex flex-col gap-0.5">
+              {dms.map((conv, i) => (
+                <ConversationItem
+                  key={conv.id}
+                  conversation={conv}
+                  isActive={conv.id === activeConversationId}
+                  onClick={() => handleConversationClick(conv.id)}
+                  t={t}
+                  animIndex={i}
+                  typingNames={typingNamesFor(conv.id)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {rooms.length > 0 && (
+          <div>
+            <SectionHeader icon={Hash} label="Canales y grupos" count={rooms.length} />
+            <div className="mt-0.5 flex flex-col gap-0.5">
+              {rooms.map((conv, i) => (
+                <ConversationItem
+                  key={conv.id}
+                  conversation={conv}
+                  isActive={conv.id === activeConversationId}
+                  onClick={() => handleConversationClick(conv.id)}
+                  t={t}
+                  animIndex={i}
+                  typingNames={typingNamesFor(conv.id)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Bottom Nav */}
-      <div className="flex items-center justify-around border-t border-separator px-2 py-2">
+      {/* User Panel */}
+      <UserPanel />
+    </div>
+  );
+}
+
+function SectionHeader({ icon: Icon, label, count }) {
+  return (
+    <div className="flex items-center gap-1 px-1 pb-1 pt-2 text-[11px] font-bold uppercase tracking-wider text-ink-200">
+      <Icon size={11} />
+      <span className="truncate">{label}</span>
+      <span className="ml-auto text-[10px] font-semibold">{count}</span>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   Settings sidebar (same slot as ChatSidebar but for settings)
+   ───────────────────────────────────────────────────────── */
+const SETTINGS_NAV = [
+  { id: 'profile',    icon: User    },
+  { id: 'appearance', icon: Palette },
+  { id: 'language',   icon: Globe   },
+  { id: 'notifications', icon: Bell },
+  { id: 'security',   icon: Shield  },
+  { id: 'presence',   icon: Wifi    },
+];
+
+function SettingsSidebar() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const activeTab = location.pathname.split('/settings/')[1] || 'profile';
+
+  return (
+    <div className="echo-sidebar-bg flex h-full w-full flex-col">
+      {/* Header */}
+      <div className="flex h-12 shrink-0 items-center gap-2 border-b border-white/5 px-3 shadow-sm">
         <Tooltip delay={0}>
-          <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/chat')}>
-            <MessageSquare size={18} />
+          <Button
+            isIconOnly
+            size="sm"
+            variant="ghost"
+            className="h-7 w-7 min-w-0"
+            onPress={() => navigate('/chat')}
+          >
+            <ArrowLeft size={16} />
           </Button>
-          <Tooltip.Content><p>{t('sidebar.chats')}</p></Tooltip.Content>
+          <Tooltip.Content><p>{t('common.back')}</p></Tooltip.Content>
         </Tooltip>
-        <Tooltip delay={0}>
-          <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/contacts')}>
-            <Users size={18} />
-          </Button>
-          <Tooltip.Content><p>{t('sidebar.contacts')}</p></Tooltip.Content>
-        </Tooltip>
-        <Tooltip delay={0}>
-          <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/notifications')}>
-            <Bell size={18} />
-          </Button>
-          <Tooltip.Content><p>{t('sidebar.notifications')}</p></Tooltip.Content>
-        </Tooltip>
-        <Tooltip delay={0}>
-          <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/settings')}>
-            <Settings size={18} />
-          </Button>
-          <Tooltip.Content><p>{t('sidebar.settings')}</p></Tooltip.Content>
-        </Tooltip>
-        <Tooltip delay={0}>
-          <Button isIconOnly size="sm" variant="danger" onPress={handleLogout}>
-            <LogOut size={18} />
-          </Button>
-          <Tooltip.Content><p>{t('sidebar.logout')}</p></Tooltip.Content>
-        </Tooltip>
+        <h2 className="echo-display text-[17px] font-semibold">{t('settings.title')}</h2>
       </div>
-    </AnimatedSidebar>
+
+      {/* Nav */}
+      <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2 py-3">
+        <p className="px-2 pb-1 text-[11px] font-bold uppercase tracking-wider text-ink-200">
+          {t('settings.title')}
+        </p>
+        {SETTINGS_NAV.map(({ id, icon: Icon }) => (
+          <Button
+            key={id}
+            variant="ghost"
+            onPress={() => navigate(`/settings/${id}`)}
+            className={[
+              'flex h-auto w-full items-center justify-start gap-3 rounded-lg px-3 py-2 text-[14px] font-medium transition-colors',
+              activeTab === id
+                ? 'echo-grad-brand-soft echo-ring-soft text-foreground'
+                : 'text-ink-100 hover:bg-ink-750 hover:text-foreground',
+            ].join(' ')}
+          >
+            <Icon size={15} />
+            {t(`settings.tabs.${id}`)}
+          </Button>
+        ))}
+      </nav>
+
+      {/* User Panel at bottom */}
+      <UserPanel />
+    </div>
   );
 }
 
 function Sidebar() {
   const location = useLocation();
   const isSettings = location.pathname.startsWith('/settings');
-  return isSettings ? <SettingsSidebar key="settings" /> : <ChatSidebar key="chat" />;
-}
-
-function MobileBottomNav() {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  const pathname = location.pathname;
-  const isChats = pathname === '/chat';
-  const isContacts = pathname.startsWith('/contacts');
-  const isNotifications = pathname.startsWith('/notifications');
-  const isSettings = pathname.startsWith('/settings');
-
-  const items = [
-    { id: 'chats', icon: MessageSquare, label: t('sidebar.chats'), path: '/chat', active: isChats },
-    { id: 'contacts', icon: Users, label: t('sidebar.contacts'), path: '/contacts', active: isContacts },
-    { id: 'notifications', icon: Bell, label: t('sidebar.notifications'), path: '/notifications', active: isNotifications },
-    { id: 'settings', icon: Settings, label: t('sidebar.settings'), path: '/settings', active: isSettings },
-  ];
-
   return (
-    <div className="flex items-center justify-around border-t border-separator bg-surface px-2 py-2 md:hidden">
-      {items.map(({ id, icon: Icon, label, path, active }) => (
-        <button
-          key={id}
-          onClick={() => navigate(path)}
-          className={`flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-[10px] transition-colors ${
-            active ? 'text-accent' : 'text-muted'
-          }`}
+    <AnimatePresence mode="wait">
+      {isSettings ? (
+        <motion.div
+          key="settings"
+          initial={{ opacity: 0, x: -8 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -8 }}
+          transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+          className="h-full w-full"
         >
-          <Icon size={20} />
-          <span>{label}</span>
-        </button>
-      ))}
-    </div>
+          <SettingsSidebar />
+        </motion.div>
+      ) : (
+        <motion.div
+          key="chat"
+          initial={{ opacity: 0, x: -8 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -8 }}
+          transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+          className="h-full w-full"
+        >
+          <ChatSidebar />
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
+/* ─────────────────────────────────────────────────────────
+   Root Layout
+   ───────────────────────────────────────────────────────── */
 export default function ChatLayout() {
   const location = useLocation();
   const pathname = location.pathname;
   const sidebarRef = useRef(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // On mobile: show sidebar only on /chat (index), hide on all "content" routes
-  // Conversation routes: /chat/new, /chat/:id
-  // Other content routes: /contacts, /notifications, /settings/*
   const isOnChatIndex = pathname === '/chat';
-  const isConversationRoute = /^\/chat\/.+/.test(pathname);
   const isContentRoute = !isOnChatIndex;
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
+        e.preventDefault();
+        setSidebarOpen((v) => !v);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const startResize = useCallback((e) => {
     e.preventDefault();
     const startX = e.clientX;
-    const startWidth = sidebarRef.current?.offsetWidth ?? 320;
+    const startWidth = sidebarRef.current?.offsetWidth ?? 288;
 
     const onMove = (ev) => {
-      const newWidth = Math.max(200, Math.min(480, startWidth + ev.clientX - startX));
+      const newWidth = Math.max(220, Math.min(420, startWidth + ev.clientX - startX));
       if (sidebarRef.current) {
         sidebarRef.current.style.width = newWidth + 'px';
         sidebarRef.current.style.minWidth = newWidth + 'px';
@@ -373,36 +504,62 @@ export default function ChatLayout() {
   }, []);
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden md:flex-row">
-      {/* Sidebar: always on desktop, only on /chat index on mobile */}
-      <div
-        ref={sidebarRef}
-        className={`${isContentRoute ? 'hidden md:flex' : 'flex flex-1 md:flex-none'} md:w-80`}
-      >
-        <Sidebar />
+    <div className="flex h-screen flex-col overflow-hidden pb-[calc(4.5rem+env(safe-area-inset-bottom))] text-foreground lg:flex-row lg:gap-[var(--echo-canvas-gap)] lg:p-3 lg:pb-3">
+      {/* Orbit dock — desktop: vertical floating rail */}
+      <div className="hidden lg:flex lg:items-center">
+        <ServerOrbitDock glowColor="rgb(124 92 255 / 0.2)" />
       </div>
 
-      {/* Resize handle - desktop only */}
+      {/* Channel/Settings sidebar — floating card; Ctrl+\ toggles */}
+      <CanvasPanel
+        ref={sidebarRef}
+        elevation={2}
+        radius="lg"
+        inset="md"
+        className={[
+          isContentRoute ? 'hidden lg:flex' : 'flex flex-1 lg:flex-none',
+          'transition-[width,opacity,margin] duration-200 ease-[var(--ease-echo)]',
+          sidebarOpen ? 'lg:w-72 lg:min-w-[220px] lg:opacity-100' : 'lg:w-0 lg:min-w-0 lg:overflow-hidden lg:border-0 lg:!m-0 lg:opacity-0 lg:shadow-none lg:pointer-events-none',
+        ].join(' ')}
+        aria-hidden={!sidebarOpen}
+      >
+        <Sidebar />
+      </CanvasPanel>
+
+      {/* Resize handle — hidden when sidebar collapsed */}
       <div
-        className="hidden md:flex w-1 shrink-0 cursor-col-resize items-stretch bg-separator transition-colors hover:bg-accent/40"
+        className={`hidden w-1.5 shrink-0 cursor-col-resize self-stretch rounded-full bg-transparent transition-colors hover:bg-accent/45 lg:block ${sidebarOpen ? '' : 'lg:hidden'}`}
         onMouseDown={startResize}
+        aria-hidden
       />
 
-      {/* Main content: always on desktop, hidden on /chat index on mobile */}
-      <main className={`${isOnChatIndex ? 'hidden md:block' : ''} flex-1 min-w-0 overflow-hidden`}>
+      {/* Main content — hero card, highest elevation */}
+      <CanvasPanel
+        as="main"
+        elevation={3}
+        radius="xl"
+        inset="md"
+        accentGlow
+        className={`${isOnChatIndex ? 'hidden lg:flex' : ''} echo-chat-bg min-w-0 flex-1 flex-col`}
+      >
         <motion.div
           key={location.pathname}
-          initial={{ opacity: 0, y: 8 }}
+          initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={CONTENT_TRANSITION}
-          className="h-full"
+          className="h-full min-h-0 flex-1"
         >
           <Outlet />
         </motion.div>
-      </main>
+      </CanvasPanel>
 
-      {/* Mobile bottom nav: show on content pages except active conversations */}
-      {isContentRoute && !isConversationRoute && <MobileBottomNav />}
+      {/* Mobile / tablet bottom orbit dock (<1024px) */}
+      <div className="fixed inset-x-0 bottom-0 z-20 flex justify-center px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:hidden">
+        <ServerOrbitDock orientation="bottom" />
+      </div>
+
+      {/* Ctrl/Cmd+K quick navigation */}
+      <CommandPalette />
     </div>
   );
 }
