@@ -1,4 +1,5 @@
 const BaseRepository = require('./base.repository');
+const { decrypt } = require('../utils/crypto.util');
 
 class ConversationRepository extends BaseRepository {
   constructor() {
@@ -87,6 +88,8 @@ class ConversationRepository extends BaseRepository {
        LIMIT $2 OFFSET $3`,
       [userId, limit, offset]
     );
+    // El preview viene del body cifrado del último mensaje → descifrar.
+    for (const row of rows) row.last_message_body = decrypt(row.last_message_body);
     return rows;
   }
 

@@ -15,16 +15,21 @@ class BroadcastRepository extends BaseRepository {
   }
 
   async addRecipients(broadcastListId, userIds, addedBy) {
-    const values = userIds.map((_, i) => `($1, $${i * 2 + 2}, $${i * 2 + 3})`).join(', ');
-    const params = [broadcastListId];
+    if (!userIds?.length) return;
     for (const uid of userIds) {
-      params.push(uid, addedBy);
+      await this.query(
+        `INSERT INTO broadcast_recipients (broadcast_list_id, user_id, added_by)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (broadcast_list_id, user_id) DO NOTHING`,
+        [broadcastListId, uid, addedBy]
+      );
     }
+  }
+
+  async removeRecipient(broadcastListId, userId) {
     await this.query(
-      `INSERT INTO broadcast_recipients (broadcast_list_id, user_id, added_by)
-       VALUES ${values}
-       ON CONFLICT DO NOTHING`,
-      params
+      `DELETE FROM broadcast_recipients WHERE broadcast_list_id = $1 AND user_id = $2`,
+      [broadcastListId, userId]
     );
   }
 
@@ -48,13 +53,72 @@ class BroadcastRepository extends BaseRepository {
   }
 
   async createMessage({ broadcast_list_id, sender_id, body, type, object_id, scheduled_at }) {
+    const isFuture = scheduled_at && new Date(scheduled_at) > new Date();
     const { rows } = await this.query(
       `INSERT INTO broadcast_messages (broadcast_list_id, sender_id, body, type, object_id, scheduled_at, status)
        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
       [broadcast_list_id, sender_id, body, type || 'text', object_id || null,
-       scheduled_at || null, scheduled_at ? 'scheduled' : 'draft']
+       scheduled_at || null, isFuture ? 'scheduled' : 'draft']
     );
     return rows[0];
+  }
+
+  async findMessageById(id) {
+    const { rows } = await this.query(`SELECT * FROM broadcast_messages WHERE id = $1`, [id]);
+    return rows[0] || null;
+  }
+
+  async findMessagesByListId(listId) {
+    const { rows } = await this.query(
+      `SELECT * FROM broadcast_messages WHERE broadcast_list_id = $1 ORDER BY created_at DESC`,
+      [listId]
+    );
+    return rows;
+  }
+
+  async findDueScheduledMessages(limit = 50) {
+    const { rows } = await this.query(
+      `SELECT * FROM broadcast_messages
+       WHERE status = 'scheduled' AND scheduled_at <= NOW()
+       ORDER BY scheduled_at ASC
+       LIMIT $1`,
+      [limit]
+    );
+    return rows;
+  }
+
+  async updateMessageStatus(id, { status, sent_at, total_recipients, total_delivered, total_read }) {
+    const { rows } = await this.query(
+      `UPDATE broadcast_messages
+       SET status = COALESCE($2, status),
+           sent_at = COALESCE($3, sent_at),
+           total_recipients = COALESCE($4, total_recipients),
+           total_delivered = COALESCE($5, total_delivered),
+           total_read = COALESCE($6, total_read)
+       WHERE id = $1 RETURNING *`,
+      [id, status || null, sent_at || null, total_recipients ?? null, total_delivered ?? null, total_read ?? null]
+    );
+    return rows[0];
+  }
+
+  async createDelivery({ broadcast_msg_id, user_id, conversation_id }) {
+    const { rows } = await this.query(
+      `INSERT INTO broadcast_deliveries (broadcast_msg_id, user_id, conversation_id, delivered_at)
+       VALUES ($1, $2, $3, NOW())
+       ON CONFLICT (broadcast_msg_id, user_id) DO UPDATE
+       SET conversation_id = EXCLUDED.conversation_id, delivered_at = NOW()
+       RETURNING *`,
+      [broadcast_msg_id, user_id, conversation_id]
+    );
+    return rows[0];
+  }
+
+  async findUserIdsByDepartment(department) {
+    const { rows } = await this.query(
+      `SELECT id FROM users WHERE department = $1 AND status = 'active'`,
+      [department]
+    );
+    return rows.map((r) => r.id);
   }
 }
 

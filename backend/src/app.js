@@ -10,6 +10,7 @@ const logger = require('./config/logger');
 const { pool } = require('./config/database');
 const routes = require('./routes');
 const { errorHandler } = require('./middlewares');
+const httpMetrics = require('./middlewares/httpMetrics');
 
 const app = express();
 
@@ -56,6 +57,9 @@ app.get('/api/health', async (req, res) => {
   const status = db === 'ok' ? 'ok' : 'degraded';
   res.status(db === 'ok' ? 200 : 503).json({ status, db, timestamp: new Date().toISOString() });
 });
+
+// ── HTTP metrics (in-memory) ────────────────────────────────────────────
+app.use(httpMetrics);
 
 // ── API routes ──────────────────────────────────────────────────────────
 app.use('/api', routes);

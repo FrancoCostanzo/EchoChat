@@ -22,6 +22,8 @@
   "dependencies": {
     "@heroui/react": "^3.1.0",
     "@heroui/styles": "^3.1.0",
+    "chart.js": "^4.5.1",
+    "chartjs-plugin-zoom": "^2.2.0",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.38.0",
     "i18next": "^26.0.4",
@@ -30,7 +32,10 @@
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-i18next": "^17.0.3",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.14.1",
+    "react-syntax-highlighter": "^16.1.1",
+    "remark-gfm": "^4.0.1",
     "socket.io-client": "^4.8.3",
     "zustand": "^5.0.12"
   },

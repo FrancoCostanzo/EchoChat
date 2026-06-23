@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Card, InputGroup, TextField, Label, FieldError, Description, Button, Spinner } from '@heroui/react';
-import { MessageCircle, Eye, EyeOff, AlertCircle, Check, X } from 'lucide-react';
+import { MessageCircle, Eye, EyeOff, AlertCircle, Check, X, Lock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
+import { authApi } from '@/lib/endpoints';
 
 const PASSWORD_RULES = [
   { key: 'minLength', test: (p) => p.length >= 8 },
@@ -71,6 +72,16 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState('');
   const [loading, setLoading] = useState(false);
+  // null = aún consultando; true/false = resultado del backend.
+  const [regAllowed, setRegAllowed] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    authApi.getRegistrationStatus()
+      .then((res) => { if (alive) setRegAllowed(res.data?.allow_registration !== false); })
+      .catch(() => { if (alive) setRegAllowed(true); }); // ante error, no bloqueamos el formulario
+    return () => { alive = false; };
+  }, []);
 
   const errors = useMemo(() => {
     const e = {};
@@ -135,6 +146,33 @@ export default function RegisterPage() {
       setLoading(false);
     }
   };
+
+  if (regAllowed === false) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-background to-background-secondary p-4">
+        <div className="w-full max-w-sm">
+          <div className="mb-8 flex flex-col items-center gap-3">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent shadow-lg shadow-accent/30">
+              <MessageCircle className="h-7 w-7 text-accent-foreground" />
+            </div>
+            <h1 className="text-2xl font-bold">{t('common.appName')}</h1>
+          </div>
+          <Card className="shadow-xl">
+            <Card.Content className="flex flex-col items-center gap-4 p-8 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-default text-muted">
+                <Lock size={22} />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold">{t('auth.registrationDisabledTitle')}</h2>
+                <p className="mt-1 text-sm text-muted">{t('auth.registrationDisabled')}</p>
+              </div>
+              <Button onPress={() => navigate('/login')} className="w-full">{t('auth.goLogin')}</Button>
+            </Card.Content>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-background to-background-secondary p-4">

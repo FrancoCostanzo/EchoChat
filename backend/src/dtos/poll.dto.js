@@ -1,6 +1,7 @@
 const Joi = require('joi');
 
 const createPollDto = Joi.object({
+  conversation_id: Joi.string().uuid().required(),
   question: Joi.string().max(500).required(),
   options: Joi.array().items(Joi.string().max(300)).min(2).max(10).required(),
   is_anonymous: Joi.boolean().default(false),

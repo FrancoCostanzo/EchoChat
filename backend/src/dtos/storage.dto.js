@@ -6,7 +6,7 @@ const uploadMetadataDto = Joi.object({
   file_size_bytes: Joi.number().integer().positive().required(),
   object_type: Joi.string().valid(
     'image', 'video', 'audio', 'voice', 'document',
-    'thumbnail', 'recording', 'sticker', 'avatar', 'gif', 'other'
+    'thumbnail', 'recording', 'sticker', 'avatar', 'gif', 'wallpaper', 'other'
   ).required(),
   image_width: Joi.number().integer().positive().allow(null),
   image_height: Joi.number().integer().positive().allow(null),

@@ -17,6 +17,7 @@
 - [Versionado del Software](#-versionado-del-software)
 - [Guía de Estilos — Backend](#-guía-de-estilos--backend)
 - [Guía de Estilos — Frontend](#-guía-de-estilos--frontend)
+- [Lienzo Espacial (UI)](#-lienzo-espacial-ui)
 - [Guía de Estilos — Desktop (Electron)](#-guía-de-estilos--desktop-electron)
 - [Guía de Estilos — Mobile (React Native)](#-guía-de-estilos--mobile-react-native)
 - [Convenciones Compartidas](#-convenciones-compartidas)
@@ -812,6 +813,28 @@ function LoginPage() {
 - **6 colores de acento:** `blue`, `violet`, `green`, `rose`, `orange`, `cyan`
 - Persistidos en `localStorage`
 - Aplicados vía clases en `document.documentElement`
+
+<br/>
+
+---
+
+<br/>
+
+## 🌌 Lienzo Espacial (UI)
+
+EchoChat usa el sistema visual **Lienzo Espacial** (*Spatial Canvas*): fondo escénico con profundidad, paneles flotantes y jerarquía tipográfica fuerte.
+
+**Documentación completa:** [`docs/SPATIAL_CANVAS.md`](./SPATIAL_CANVAS.md)
+
+Resumen para implementadores:
+
+| Regla | Detalle |
+|-------|---------|
+| Tipografía display | Clash Display — solo headers, nunca cuerpo de mensaje (`.echo-display`) |
+| Tipografía UI/chat | Satoshi 16px / `line-height: 1.6` |
+| Superficies | Siempre `<CanvasPanel />` — no sombras ad-hoc |
+| Elevación | Chat = 3, sidebar = 2, dock = glass |
+| Color | Violeta = identidad; fondos neutros profundos |
 
 <br/>
 

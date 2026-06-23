@@ -19,6 +19,7 @@ const BUCKET_MAP = {
   sticker: 'messaging-stickers',
   avatar: 'messaging-avatars',
   gif: 'messaging-images',
+  wallpaper: 'messaging-wallpapers',
   other: 'messaging-documents',
 };
 
@@ -101,6 +102,20 @@ class StorageService {
     await minioClient.removeObject(obj.bucket_name, obj.object_key);
     await storageRepository.deleteById(objectId);
     logger.info({ objectId }, 'Storage object deleted');
+  }
+
+  /** Remove from MinIO + DB only when no other row references this object. */
+  async deleteIfUnreferenced(objectId) {
+    if (!objectId) return false;
+    const refs = await storageRepository.countReferences(objectId);
+    if (refs > 0) return false;
+    try {
+      await this.delete(objectId);
+      return true;
+    } catch (err) {
+      if (err instanceof NotFoundError) return false;
+      throw err;
+    }
   }
 }
 

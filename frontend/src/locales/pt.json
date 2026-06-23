@@ -19,6 +19,15 @@
     "done": "Pronto",
     "clear": "Limpar"
   },
+  "confirm": {
+    "defaultTitle": "Tem certeza?",
+    "defaultConfirm": "Confirmar"
+  },
+  "logout": {
+    "confirmTitle": "Sair",
+    "confirmMessage": "Deseja sair? Você precisará entrar novamente para acessar sua conta.",
+    "success": "Sessão encerrada"
+  },
   "auth": {
     "loginTitle": "Entre na sua conta",
     "registerTitle": "Crie sua conta",
@@ -71,7 +80,9 @@
       "weak": "Fraca",
       "fair": "Regular",
       "strong": "Forte"
-    }
+    },
+    "registrationDisabledTitle": "Cadastro desativado",
+    "registrationDisabled": "O cadastro de novos usuários está desativado. Peça uma conta a um administrador."
   },
   "chat": {
     "empty": "Selecione uma conversa ou crie uma nova",
@@ -87,12 +98,26 @@
     "loadMore": "Carregar mensagens anteriores",
     "edited": "(editado)",
     "react": "Reagir",
+    "copyText": "Copiar texto",
     "reply": "Responder",
+    "jumpToOriginal": "Ir para a mensagem original",
+    "save": "Salvar mensagem",
+    "savedMessage": "Mensagem salva",
+    "forward": "Encaminhar",
+    "forwardTo": "Encaminhar para",
     "voiceCall": "Chamada de voz",
     "videoCall": "Videochamada",
     "pinnedMessages": "Mensagens fixadas",
     "isTyping": "{{name}} está digitando",
     "areTyping": "{{names}} estão digitando",
+    "messageInfo": "Informações da mensagem",
+    "sent": "Enviada",
+    "delivered": "Entregue",
+    "read": "Lida",
+    "pendingDelivery": "Pendente de entrega",
+    "noReceiptsYet": "Ainda não entregue",
+    "editedAt": "Editada",
+    "infoUnavailable": "Não foi possível carregar",
     "editingMessage": "Editando mensagem",
     "replyingTo": "Respondendo a {{name}}",
     "deleteMessage": "Excluir mensagem",
@@ -106,6 +131,8 @@
     "attachImage": "Imagem",
     "attachVideo": "Vídeo",
     "attachDocument": "Documento",
+    "dropFiles": "Solte para enviar",
+    "dropFilesHint": "Solte os arquivos em qualquer parte do chat",
     "sendFile": "Enviar arquivo",
     "captionPlaceholder": "Adicione uma legenda...",
     "attachedFile": "Arquivo anexado",
@@ -114,7 +141,27 @@
     "searchPlaceholder": "Buscar mensagens...",
     "searchResults": "{{count}} resultados",
     "searchNoResults": "Sem resultados",
-    "searchHint": "Digite para buscar mensagens nesta conversa"
+    "searchHint": "Digite para buscar mensagens nesta conversa",
+    "thread": "Tópico",
+    "replyInThread": "Responder no tópico",
+    "threadReplies_one": "{{count}} resposta",
+    "threadReplies_other": "{{count}} respostas",
+    "threadNoReplies": "Ainda não há respostas. Comece o tópico!",
+    "threadReplyPlaceholder": "Responder no tópico...",
+    "memberPanel": "Membros",
+    "viewMembers": "Ver membros",
+    "changeWallpaper": "Alterar plano de fundo",
+    "formatToolbar": "Formatação de texto",
+    "format": {
+      "bold": "Negrito",
+      "italic": "Itálico",
+      "strikethrough": "Tachado",
+      "code": "Código inline",
+      "placeholder": "texto",
+      "preview": "Pré-visualização",
+      "showPreview": "Mostrar pré-visualização",
+      "hidePreview": "Ocultar pré-visualização"
+    }
   },
   "newConversation": {
     "title": "Nova conversa",
@@ -128,6 +175,97 @@
     "startConversation": "Iniciar conversa",
     "createGroup": "Criar grupo ({{count}})",
     "createChannel": "Criar canal ({{count}})"
+  },
+  "channels": {
+    "explore": "Explorar canais",
+    "exploreSubtitle": "Descubra e entre nos canais da organização",
+    "search": "Buscar canais...",
+    "official": "Oficial",
+    "members": "{{count}} membros",
+    "open": "Abrir",
+    "join": "Entrar",
+    "joining": "Entrando...",
+    "request": "Solicitar acesso",
+    "requested": "Solicitação pendente",
+    "member": "Membro",
+    "inviteOnly": "Somente convite",
+    "empty": "Nenhum canal para mostrar",
+    "categories": {
+      "all": "Todas",
+      "announcements": "Anúncios",
+      "department": "Departamentos",
+      "project": "Projetos",
+      "general": "Geral"
+    },
+    "requestTitle": "Solicitar acesso ao canal",
+    "requestMessage": "Mensagem (opcional)",
+    "requestMessagePlaceholder": "Conte por que você quer entrar...",
+    "sendRequest": "Enviar solicitação",
+    "manageRequests": "Solicitações",
+    "pendingRequests": "Solicitações pendentes",
+    "noRequests": "Não há solicitações pendentes",
+    "approve": "Aprovar",
+    "reject": "Rejeitar",
+    "joinedToast": "Você entrou no canal",
+    "requestSentToast": "Solicitação enviada",
+    "requestApproved": "Solicitação aprovada",
+    "requestRejected": "Solicitação rejeitada",
+    "error": "Ocorreu um erro"
+  },
+  "saved": {
+    "title": "Mensagens salvas",
+    "subtitle": "Suas mensagens marcadas",
+    "empty": "Você não tem mensagens salvas",
+    "note": "Nota",
+    "remove": "Remover dos salvos",
+    "openConversation": "Abrir conversa",
+    "directChat": "Chat direto"
+  },
+  "poll": {
+    "create": "Criar enquete",
+    "question": "Pergunta",
+    "questionPlaceholder": "O que você quer perguntar?",
+    "options": "Opções",
+    "option": "Opção",
+    "addOption": "Adicionar opção",
+    "allowMultiple": "Permitir várias respostas",
+    "makeAnonymous": "Enquete anônima",
+    "vote": "Votar",
+    "retract": "Remover voto",
+    "close": "Fechar enquete",
+    "closed": "Fechada",
+    "anonymous": "Anônima",
+    "single": "Escolha uma",
+    "multiple": "Escolha várias",
+    "totalVotes": "{{count}} votos"
+  },
+  "code": {
+    "sendTitle": "Enviar código",
+    "send": "Enviar código",
+    "language": "Linguagem",
+    "snippet": "Código",
+    "placeholder": "Cole ou digite seu snippet aqui…",
+    "copy": "Copiar código",
+    "copied": "Copiado",
+    "sendError": "Não foi possível enviar o código",
+    "lang": {
+      "plaintext": "Texto simples",
+      "javascript": "JavaScript",
+      "typescript": "TypeScript",
+      "python": "Python",
+      "sql": "SQL",
+      "json": "JSON",
+      "bash": "Bash",
+      "html": "HTML",
+      "css": "CSS",
+      "java": "Java",
+      "go": "Go",
+      "rust": "Rust",
+      "php": "PHP",
+      "csharp": "C#",
+      "yaml": "YAML",
+      "markdown": "Markdown"
+    }
   },
   "contacts": {
     "title": "Contatos",
@@ -155,6 +293,7 @@
       "profile": "Perfil",
       "appearance": "Aparência",
       "language": "Idioma",
+      "notifications": "Notificações",
       "security": "Segurança",
       "presence": "Status"
     },
@@ -162,6 +301,7 @@
       "profile": "Gerencie suas informações pessoais e foto de perfil",
       "appearance": "Personalize o tema e as cores do aplicativo",
       "language": "Escolha o idioma da interface",
+      "notifications": "Configure alertas por canal e horário de silêncio",
       "security": "Senha, autenticação em duas etapas e sessões ativas",
       "presence": "Defina como os outros te veem"
     },
@@ -234,10 +374,189 @@
       "cyan": "Ciano"
     },
     "languageSelector": "Idioma do aplicativo",
+    "notifications": {
+      "title": "Preferências de notificações",
+      "subtitle": "Escolha como receber cada tipo de evento. Push e email serão ativados quando disponíveis.",
+      "inApp": "No app",
+      "push": "Push",
+      "email": "Email",
+      "quietHours": "Horário de silêncio",
+      "quietHoursDesc": "Durante este intervalo não serão enviadas notificações push nem email.",
+      "quietStart": "De",
+      "quietEnd": "Até",
+      "saveQuietHours": "Salvar horário",
+      "events": {
+        "message.direct": "Mensagens diretas",
+        "message.group": "Mensagens de grupo",
+        "message.mention": "Menções",
+        "channel.join_request": "Solicitações de canal",
+        "broadcast": "Difusões",
+        "call.incoming": "Chamadas recebidas"
+      }
+    },
     "languages": {
       "es": "Español",
       "en": "English",
       "pt": "Português"
+    }
+  },
+  "broadcasts": {
+    "title": "Difusões",
+    "subtitle": "Envie mensagens em massa para listas de destinatários",
+    "create": "Nova lista",
+    "createFirst": "Criar primeira lista",
+    "createTitle": "Criar lista de difusão",
+    "name": "Nome",
+    "description": "Descrição",
+    "selectRecipients": "Destinatários iniciais",
+    "empty": "Você não tem listas de difusão",
+    "noAccess": "Você não tem permissão para gerenciar difusões",
+    "listMeta": "Lista de difusão",
+    "back": "Voltar",
+    "recipients": "Destinatários",
+    "removeRecipient": "Remover destinatário",
+    "addRecipients": "Adicionar destinatários",
+    "department": "Departamento",
+    "departmentPlaceholder": "Ex: Vendas",
+    "add": "Adicionar",
+    "compose": "Redigir mensagem",
+    "bodyPlaceholder": "Escreva a mensagem da difusão...",
+    "scheduleOptional": "Agendar envio (opcional)",
+    "schedule": "Agendar",
+    "sendNow": "Enviar agora",
+    "history": "Histórico",
+    "noMessages": "Nenhuma mensagem enviada",
+    "delivered": "{{delivered}}/{{total}} entregues",
+    "status": {
+      "draft": "Rascunho",
+      "scheduled": "Agendado",
+      "sending": "Enviando",
+      "sent": "Enviado",
+      "failed": "Falhou"
+    }
+  },
+  "admin": {
+    "title": "Administração",
+    "noAccess": "Você não tem permissões de administração",
+    "backToChat": "Voltar ao chat",
+    "sections": {
+      "users": "Usuários",
+      "settings": "Sistema",
+      "audit": "Auditoria",
+      "storage": "Armazenamento"
+    },
+    "descriptions": {
+      "users": "Gerencie contas, status e papéis",
+      "settings": "Configuração global da plataforma",
+      "audit": "Histórico de ações críticas",
+      "storage": "Inventário e métricas do MinIO"
+    },
+    "users": {
+      "search": "Buscar usuários...",
+      "allStatuses": "Todos os status",
+      "create": "Novo usuário",
+      "createTitle": "Criar usuário",
+      "editTitle": "Editar usuário",
+      "edit": "Editar",
+      "delete": "Excluir",
+      "confirmDeleteTitle": "Excluir usuário",
+      "confirmDelete": "{{name}} será excluído permanentemente. Esta ação não pode ser desfeita.",
+      "deleted": "{{name}} foi excluído",
+      "colUser": "Usuário",
+      "colRoles": "Papéis",
+      "colStatus": "Status",
+      "colDept": "Departamento",
+      "colActions": "Ações",
+      "username": "Usuário",
+      "password": "Senha",
+      "displayName": "Nome exibido",
+      "email": "Email",
+      "department": "Departamento",
+      "statusLabel": "Status",
+      "roles": "Papéis",
+      "status": {
+        "active": "Ativo",
+        "inactive": "Inativo",
+        "suspended": "Suspenso"
+      },
+      "filterDept": "Departamento",
+      "importLdap": "Importar do LDAP",
+      "importResult": "Importação LDAP: {{created}} novos, {{updated}} atualizados, {{failed}} com erro",
+      "allowRegistration": "Permitir auto-registro",
+      "allowRegistrationHint": "Quando desativado, ninguém pode criar a própria conta na tela de cadastro. Os administradores ainda podem adicionar usuários.",
+      "colProvider": "Origem",
+      "ldap": "LDAP",
+      "local": "Local",
+      "loadMore": "Carregar mais",
+      "resetPassword": "Redefinir senha",
+      "resetPasswordTitle": "Redefinir senha",
+      "resetPasswordFor": "Defina uma nova senha para {{name}}.",
+      "newPassword": "Nova senha",
+      "passwordReset": "Senha de {{name}} redefinida"
+    },
+    "settings": {
+      "categories": "Categorias",
+      "all": "Todas",
+      "edit": "Editar"
+    },
+    "audit": {
+      "filterAction": "Filtrar por ação...",
+      "allResults": "Todos",
+      "success": "Sucesso",
+      "failed": "Falhou",
+      "colTime": "Data",
+      "colActor": "Ator",
+      "colAction": "Ação",
+      "colResource": "Recurso",
+      "colResult": "OK"
+    },
+    "storage": {
+      "totalObjects": "Objetos",
+      "totalSize": "Tamanho total",
+      "pending": "Pendentes",
+      "failed": "Falhou",
+      "byBucket": "Por bucket",
+      "recentObjects": "Objetos recentes",
+      "colFile": "Arquivo",
+      "colBucket": "Bucket",
+      "colSize": "Tamanho",
+      "colStatus": "Status"
+    }
+  },
+  "monitoring": {
+    "title": "Monitoramento do Sistema",
+    "subtitle": "Estado em tempo real do servidor e banco de dados",
+    "loading": "Carregando estado do sistema...",
+    "loadError": "Erro ao carregar dados do sistema",
+    "retry": "Tentar novamente",
+    "refreshBtn": "Atualizar",
+    "refreshInterval": "Intervalo de atualização",
+    "section": "Seção",
+    "sections": "Seções de monitoramento",
+    "overallStatus": "Estado Geral",
+    "statusChip": {
+      "ok": "Sem incidentes",
+      "attention": "Requer atenção",
+      "critical": "Estado crítico"
+    },
+    "tabs": {
+      "server": "Servidor",
+      "database": "Banco de dados",
+      "http": "HTTP",
+      "cron": "Cron / Socket",
+      "trends": "Tendências"
+    },
+    "stats": {
+      "uptime": "Uptime",
+      "pool": "Pool DB",
+      "heap": "Heap",
+      "updated": "Atualização"
+    },
+    "refresh": {
+      "manual": "Manual",
+      "10s": "10s",
+      "30s": "30s",
+      "60s": "60s"
     }
   },
   "sidebar": {
@@ -249,7 +568,24 @@
     "newChat": "Novo chat",
     "noName": "Sem nome",
     "searchConversation": "Buscar conversa...",
-    "noConversations": "Sem conversas"
+    "noConversations": "Sem conversas",
+    "explore": "Explorar canais",
+    "broadcasts": "Difusões",
+    "admin": "Administração",
+    "monitoring": "Monitoramento",
+    "saved": "Salvos",
+    "typing": "digitando…",
+    "someoneTyping": "{{name}} está digitando…",
+    "severalTyping": "vários digitando…"
+  },
+  "layout": {
+    "toggleSidebar": "Mostrar ou ocultar painel de canais (Ctrl+\\)"
+  },
+  "commandPalette": {
+    "title": "Navegação rápida",
+    "placeholder": "Buscar conversa ou seção...",
+    "noResults": "Sem resultados",
+    "navigation": "Ir para"
   },
   "imageViewer": {
     "download": "Baixar",
@@ -259,5 +595,39 @@
     "reset": "Restaurar (0)",
     "zoomIn": "Aumentar (+)",
     "resetZoom": "Restaurar zoom"
+  },
+  "wallpaper": {
+    "title": "Plano de fundo do chat",
+    "settingsTitle": "Plano de fundo do chat",
+    "settingsHint": "O plano de fundo mais específico tem prioridade: conversa > tipo > geral.",
+    "scopeGlobal": "Geral (todos os chats)",
+    "typeDirect": "Mensagens diretas",
+    "typeGroup": "Grupos",
+    "typeChannel": "Canais",
+    "typeBroadcast": "Difusões",
+    "typeBot": "Bots",
+    "presets": "Gradientes",
+    "solidColor": "Cor sólida",
+    "image": "Imagem",
+    "customColor": "Cor personalizada",
+    "uploadHint": "Clique para enviar uma imagem",
+    "uploading": "Enviando...",
+    "preview": "Pré-visualização",
+    "currentlySet": "Plano de fundo definido",
+    "remove": "Remover plano de fundo",
+    "notSet": "Não definido (herdado)",
+    "type_preset": "Gradiente",
+    "type_color": "Cor sólida",
+    "type_image": "Imagem personalizada",
+    "presetNames": {
+      "midnight": "Meia-noite",
+      "aurora": "Aurora",
+      "ember": "Brasa",
+      "forest": "Floresta",
+      "dusk": "Entardecer",
+      "ocean": "Oceano",
+      "rose": "Rosa",
+      "graphite": "Grafite"
+    }
   }
 }

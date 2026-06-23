@@ -1,12 +1,10 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Button, InputGroup, TextField, Tooltip } from '@heroui/react';
 import {
   MessageSquare,
-  Users,
   Bell,
-  Settings,
   LogOut,
   Search,
   Plus,
@@ -27,21 +25,53 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
 import UserAvatar from '@/components/UserAvatar';
-import GuildRail from '@/components/GuildRail';
+import ServerOrbitDock from '@/components/ServerOrbitDock';
+import CommandPalette from '@/components/CommandPalette';
+import CanvasPanel from '@/components/CanvasPanel';
 import { formatMessageTime } from '@/lib/dates';
 
 const CONTENT_TRANSITION = { duration: 0.2, ease: [0.22, 1, 0.36, 1] };
 
+/* Three bouncing dots used in the sidebar typing indicator. */
+function SidebarTypingDots() {
+  return (
+    <span className="flex shrink-0 items-center gap-0.5 text-accent">
+      {[0, 1, 2].map((index) => (
+        <motion.span
+          key={index}
+          animate={{ y: [0, -2, 0], opacity: [0.35, 1, 0.35] }}
+          transition={{
+            duration: 1.2,
+            ease: 'easeInOut',
+            repeat: Number.POSITIVE_INFINITY,
+            delay: index * 0.15,
+          }}
+          className="inline-block h-1 w-1 rounded-full bg-current"
+        />
+      ))}
+    </span>
+  );
+}
+
 /* ─────────────────────────────────────────────────────────
    ConversationItem — row in the channel/DM list
    ───────────────────────────────────────────────────────── */
-function ConversationItem({ conversation, isActive, onClick, t, animIndex = 0 }) {
+function ConversationItem({ conversation, isActive, onClick, t, animIndex = 0, typingNames = [] }) {
   const isDirect = conversation.type === 'direct';
   const name = conversation.display_name || conversation.name || t('sidebar.noName');
   const lastMsg = conversation.last_message_body;
   const time = conversation.last_message_at;
   const unread = conversation.unread_count || 0;
   const hasUnread = unread > 0;
+
+  // "Escribiendo…" tiene prioridad sobre el preview del último mensaje. En DMs ya
+  // se sabe quién es; en grupos mostramos el nombre (o "varios" si son varios).
+  let typingText = null;
+  if (typingNames.length > 0) {
+    if (isDirect) typingText = t('sidebar.typing');
+    else if (typingNames.length === 1) typingText = t('sidebar.someoneTyping', { name: typingNames[0] });
+    else typingText = t('sidebar.severalTyping');
+  }
 
   return (
     <motion.button
@@ -50,17 +80,17 @@ function ConversationItem({ conversation, isActive, onClick, t, animIndex = 0 })
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18, ease: 'easeOut', delay: Math.min(animIndex, 12) * 0.015 }}
       className={[
-        'group relative flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors',
+        'group relative flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors',
         isActive
-          ? 'bg-ink-600 text-foreground'
+          ? 'echo-grad-brand-soft echo-ring-soft text-foreground'
           : hasUnread
             ? 'text-foreground hover:bg-ink-750'
             : 'text-ink-100 hover:bg-ink-750 hover:text-foreground',
       ].join(' ')}
     >
-      {/* Unread bar indicator */}
-      {hasUnread && !isActive && (
-        <span className="absolute -left-2 top-1/2 h-2 w-1 -translate-y-1/2 rounded-r-full bg-foreground" />
+      {/* Active / unread bar indicator */}
+      {(hasUnread || isActive) && (
+        <span className={`absolute -left-2 top-1/2 -translate-y-1/2 rounded-r-full bg-accent transition-all ${isActive ? 'h-6 w-1' : 'h-2 w-1'}`} />
       )}
 
       {/* Avatar / icon */}
@@ -95,8 +125,13 @@ function ConversationItem({ conversation, isActive, onClick, t, animIndex = 0 })
             </span>
           )}
         </div>
-        {lastMsg && (
-          <p className="truncate text-xs text-ink-200">{lastMsg}</p>
+        {typingText ? (
+          <p className="flex items-center gap-1.5 text-xs text-accent">
+            <SidebarTypingDots />
+            <span className="truncate">{typingText}</span>
+          </p>
+        ) : (
+          lastMsg && <p className="truncate text-xs text-ink-200">{lastMsg}</p>
         )}
       </div>
 
@@ -119,10 +154,10 @@ function UserPanel() {
 
   return (
     <div className="flex items-center gap-2 bg-ink-850 px-2 py-2">
-      <button
-        type="button"
-        onClick={() => navigate('/settings/profile')}
-        className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 transition-colors hover:bg-ink-800"
+      <Button
+        variant="ghost"
+        onPress={() => navigate('/settings/profile')}
+        className="flex h-auto min-w-0 flex-1 items-center justify-start gap-2 rounded-md px-1 py-1 transition-colors hover:bg-ink-800"
       >
         <UserAvatar user={user} size="sm" showStatus />
         <div className="min-w-0 flex-1 text-left">
@@ -131,7 +166,7 @@ function UserPanel() {
             {user?.presence_message || `@${user?.username}`}
           </p>
         </div>
-      </button>
+      </Button>
 
       <div className="flex items-center">
         <Tooltip delay={0} placement="top">
@@ -169,8 +204,18 @@ function UserPanel() {
 function ChatSidebar() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { conversations, activeConversationId, setActiveConversation } = useChatStore();
+  const { conversations, activeConversationId, setActiveConversation, typingUsers } = useChatStore();
+  const selfId = useAuthStore((s) => s.user?.id);
   const [search, setSearch] = useState('');
+
+  // Nombres de quienes están escribiendo en cada conversación (excluyéndome).
+  const typingNamesFor = useCallback(
+    (conversationId) =>
+      Object.entries(typingUsers[conversationId] || {})
+        .filter(([uid]) => uid !== selfId)
+        .map(([, displayName]) => displayName),
+    [typingUsers, selfId],
+  );
 
   const query = search.trim().toLowerCase();
   const filtered = conversations.filter((c) => {
@@ -193,12 +238,12 @@ function ChatSidebar() {
   );
 
   return (
-    <div className="flex h-full w-full flex-col bg-ink-800">
+    <div className="echo-sidebar-bg flex h-full w-full flex-col">
       {/* Header */}
-      <div className="flex h-12 shrink-0 items-center justify-between border-b border-black/20 px-4 shadow-sm">
+      <div className="flex h-12 shrink-0 items-center justify-between border-b border-white/5 px-4 shadow-sm">
         <div className="flex items-center gap-2 min-w-0">
-          <MessageSquare size={18} className="shrink-0 text-ink-100" />
-          <h2 className="truncate text-[15px] font-semibold">{t('sidebar.chats')}</h2>
+          <MessageSquare size={18} className="shrink-0 text-accent" />
+          <h2 className="echo-display truncate text-2xl font-semibold tracking-tight">{t('sidebar.chats')}</h2>
         </div>
         <Tooltip delay={0} placement="bottom">
           <Button
@@ -216,11 +261,7 @@ function ChatSidebar() {
 
       {/* Search */}
       <div className="px-2 pt-2">
-        <button
-          type="button"
-          onClick={() => document.getElementById('echo-search-input')?.focus()}
-          className="w-full"
-        >
+        <div className="w-full">
           <TextField fullWidth aria-label={t('sidebar.searchConversation')}>
             <InputGroup fullWidth variant="secondary" className="h-8 rounded-md bg-ink-900 text-[13px]">
               <InputGroup.Prefix>
@@ -234,19 +275,20 @@ function ChatSidebar() {
               />
               {search && (
                 <InputGroup.Suffix>
-                  <button
-                    type="button"
-                    onClick={() => setSearch('')}
+                  <Button
+                    isIconOnly
+                    variant="ghost"
+                    onPress={() => setSearch('')}
                     aria-label={t('common.clear')}
-                    className="flex h-4 w-4 items-center justify-center rounded-full text-ink-200 transition-colors hover:text-foreground"
+                    className="flex h-4 w-4 min-w-0 items-center justify-center rounded-full p-0 text-ink-200 transition-colors hover:bg-transparent hover:text-foreground"
                   >
                     <X size={13} />
-                  </button>
+                  </Button>
                 </InputGroup.Suffix>
               )}
             </InputGroup>
           </TextField>
-        </button>
+        </div>
       </div>
 
       {/* Conversation List */}
@@ -270,6 +312,7 @@ function ChatSidebar() {
                   onClick={() => handleConversationClick(conv.id)}
                   t={t}
                   animIndex={i}
+                  typingNames={typingNamesFor(conv.id)}
                 />
               ))}
             </div>
@@ -288,6 +331,7 @@ function ChatSidebar() {
                   onClick={() => handleConversationClick(conv.id)}
                   t={t}
                   animIndex={i}
+                  typingNames={typingNamesFor(conv.id)}
                 />
               ))}
             </div>
@@ -318,6 +362,7 @@ const SETTINGS_NAV = [
   { id: 'profile',    icon: User    },
   { id: 'appearance', icon: Palette },
   { id: 'language',   icon: Globe   },
+  { id: 'notifications', icon: Bell },
   { id: 'security',   icon: Shield  },
   { id: 'presence',   icon: Wifi    },
 ];
@@ -330,9 +375,9 @@ function SettingsSidebar() {
   const activeTab = location.pathname.split('/settings/')[1] || 'profile';
 
   return (
-    <div className="flex h-full w-full flex-col bg-ink-800">
+    <div className="echo-sidebar-bg flex h-full w-full flex-col">
       {/* Header */}
-      <div className="flex h-12 shrink-0 items-center gap-2 border-b border-black/20 px-3 shadow-sm">
+      <div className="flex h-12 shrink-0 items-center gap-2 border-b border-white/5 px-3 shadow-sm">
         <Tooltip delay={0}>
           <Button
             isIconOnly
@@ -345,7 +390,7 @@ function SettingsSidebar() {
           </Button>
           <Tooltip.Content><p>{t('common.back')}</p></Tooltip.Content>
         </Tooltip>
-        <h2 className="text-[15px] font-semibold">{t('settings.title')}</h2>
+        <h2 className="echo-display text-[17px] font-semibold">{t('settings.title')}</h2>
       </div>
 
       {/* Nav */}
@@ -354,19 +399,20 @@ function SettingsSidebar() {
           {t('settings.title')}
         </p>
         {SETTINGS_NAV.map(({ id, icon: Icon }) => (
-          <button
+          <Button
             key={id}
-            onClick={() => navigate(`/settings/${id}`)}
+            variant="ghost"
+            onPress={() => navigate(`/settings/${id}`)}
             className={[
-              'flex items-center gap-3 rounded-md px-3 py-2 text-[14px] font-medium transition-colors',
+              'flex h-auto w-full items-center justify-start gap-3 rounded-lg px-3 py-2 text-[14px] font-medium transition-colors',
               activeTab === id
-                ? 'bg-ink-600 text-foreground'
+                ? 'echo-grad-brand-soft echo-ring-soft text-foreground'
                 : 'text-ink-100 hover:bg-ink-750 hover:text-foreground',
             ].join(' ')}
           >
             <Icon size={15} />
             {t(`settings.tabs.${id}`)}
-          </button>
+          </Button>
         ))}
       </nav>
 
@@ -409,55 +455,27 @@ function Sidebar() {
 }
 
 /* ─────────────────────────────────────────────────────────
-   Mobile bottom nav (keeps functionality on small screens)
-   ───────────────────────────────────────────────────────── */
-function MobileBottomNav() {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  const pathname = location.pathname;
-  const isChats = pathname === '/chat';
-  const isContacts = pathname.startsWith('/contacts');
-  const isNotifications = pathname.startsWith('/notifications');
-  const isSettings = pathname.startsWith('/settings');
-
-  const items = [
-    { id: 'chats', icon: MessageSquare, label: t('sidebar.chats'), path: '/chat', active: isChats },
-    { id: 'contacts', icon: Users, label: t('sidebar.contacts'), path: '/contacts', active: isContacts },
-    { id: 'notifications', icon: Bell, label: t('sidebar.notifications'), path: '/notifications', active: isNotifications },
-    { id: 'settings', icon: Settings, label: t('sidebar.settings'), path: '/settings', active: isSettings },
-  ];
-
-  return (
-    <div className="flex items-center justify-around border-t border-black/20 bg-ink-850 px-2 py-2 md:hidden">
-      {items.map(({ id, icon: Icon, label, path, active }) => (
-        <button
-          key={id}
-          onClick={() => navigate(path)}
-          className={`flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-[10px] font-medium transition-colors ${
-            active ? 'text-blurple-400' : 'text-ink-200'
-          }`}
-        >
-          <Icon size={20} />
-          <span>{label}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────
    Root Layout
    ───────────────────────────────────────────────────────── */
 export default function ChatLayout() {
   const location = useLocation();
   const pathname = location.pathname;
   const sidebarRef = useRef(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const isOnChatIndex = pathname === '/chat';
-  const isConversationRoute = /^\/chat\/.+/.test(pathname);
   const isContentRoute = !isOnChatIndex;
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
+        e.preventDefault();
+        setSidebarOpen((v) => !v);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const startResize = useCallback((e) => {
     e.preventDefault();
@@ -486,44 +504,62 @@ export default function ChatLayout() {
   }, []);
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-ink-700 text-foreground md:flex-row">
-      {/* Guild rail — desktop only */}
-      <div className="hidden md:flex">
-        <GuildRail />
+    <div className="flex h-screen flex-col overflow-hidden pb-[calc(4.5rem+env(safe-area-inset-bottom))] text-foreground lg:flex-row lg:gap-[var(--echo-canvas-gap)] lg:p-3 lg:pb-3">
+      {/* Orbit dock — desktop: vertical floating rail */}
+      <div className="hidden lg:flex lg:items-center">
+        <ServerOrbitDock glowColor="rgb(124 92 255 / 0.2)" />
       </div>
 
-      {/* Channel/Settings sidebar */}
-      <div
+      {/* Channel/Settings sidebar — floating card; Ctrl+\ toggles */}
+      <CanvasPanel
         ref={sidebarRef}
-        className={`${isContentRoute ? 'hidden md:flex' : 'flex flex-1 md:flex-none'} md:w-72`}
+        elevation={2}
+        radius="lg"
+        inset="md"
+        className={[
+          isContentRoute ? 'hidden lg:flex' : 'flex flex-1 lg:flex-none',
+          'transition-[width,opacity,margin] duration-200 ease-[var(--ease-echo)]',
+          sidebarOpen ? 'lg:w-72 lg:min-w-[220px] lg:opacity-100' : 'lg:w-0 lg:min-w-0 lg:overflow-hidden lg:border-0 lg:!m-0 lg:opacity-0 lg:shadow-none lg:pointer-events-none',
+        ].join(' ')}
+        aria-hidden={!sidebarOpen}
       >
         <Sidebar />
-      </div>
+      </CanvasPanel>
 
-      {/* Resize handle - desktop only */}
+      {/* Resize handle — hidden when sidebar collapsed */}
       <div
-        className="hidden md:block w-[2px] shrink-0 cursor-col-resize bg-ink-900 transition-colors hover:bg-blurple-500/50"
+        className={`hidden w-1.5 shrink-0 cursor-col-resize self-stretch rounded-full bg-transparent transition-colors hover:bg-accent/45 lg:block ${sidebarOpen ? '' : 'lg:hidden'}`}
         onMouseDown={startResize}
         aria-hidden
       />
 
-      {/* Main content */}
-      <main
-        className={`${isOnChatIndex ? 'hidden md:block' : ''} min-w-0 flex-1 overflow-hidden bg-ink-700`}
+      {/* Main content — hero card, highest elevation */}
+      <CanvasPanel
+        as="main"
+        elevation={3}
+        radius="xl"
+        inset="md"
+        accentGlow
+        className={`${isOnChatIndex ? 'hidden lg:flex' : ''} echo-chat-bg min-w-0 flex-1 flex-col`}
       >
         <motion.div
           key={location.pathname}
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={CONTENT_TRANSITION}
-          className="h-full"
+          className="h-full min-h-0 flex-1"
         >
           <Outlet />
         </motion.div>
-      </main>
+      </CanvasPanel>
 
-      {/* Mobile bottom nav */}
-      {isContentRoute && !isConversationRoute && <MobileBottomNav />}
+      {/* Mobile / tablet bottom orbit dock (<1024px) */}
+      <div className="fixed inset-x-0 bottom-0 z-20 flex justify-center px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:hidden">
+        <ServerOrbitDock orientation="bottom" />
+      </div>
+
+      {/* Ctrl/Cmd+K quick navigation */}
+      <CommandPalette />
     </div>
   );
 }
