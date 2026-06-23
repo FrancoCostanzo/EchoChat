@@ -653,19 +653,18 @@ function AttachmentView({ attachment }) {
               <Play size={22} className="ml-0.5" fill="currentColor" />
             </span>
           </div>
-          <div
-            className="absolute inset-0 z-30 flex items-end justify-end gap-1 p-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Button
-              isIconOnly
-              variant="ghost"
-              onPress={() => downloadBlob(url, attachment.original_filename)}
-              className="h-auto w-auto min-w-0 rounded-md bg-black/70 p-1.5 text-white backdrop-blur-sm transition-colors hover:bg-black/90"
-              title={t('common.download')}
-            >
-              <Download size={13} />
-            </Button>
+          <div className="pointer-events-none absolute inset-0 z-30 flex items-end justify-end gap-1 p-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+            <span className="pointer-events-auto" onClick={(e) => e.stopPropagation()}>
+              <Button
+                isIconOnly
+                variant="ghost"
+                onPress={() => downloadBlob(url, attachment.original_filename)}
+                className="h-auto w-auto min-w-0 rounded-md bg-black/70 p-1.5 text-white backdrop-blur-sm transition-colors hover:bg-black/90"
+                title={t('common.download')}
+              >
+                <Download size={13} />
+              </Button>
+            </span>
           </div>
         </motion.div>
         {typeof document !== 'undefined' && createPortal(
