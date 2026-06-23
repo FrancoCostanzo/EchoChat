@@ -532,6 +532,42 @@
       "colStatus": "Estado"
     }
   },
+  "monitoring": {
+    "title": "Monitoreo del Sistema",
+    "subtitle": "Estado en tiempo real del servidor y base de datos",
+    "loading": "Cargando estado del sistema...",
+    "loadError": "Error al cargar datos del sistema",
+    "retry": "Reintentar",
+    "refreshBtn": "Actualizar",
+    "refreshInterval": "Intervalo de actualización",
+    "section": "Sección",
+    "sections": "Secciones de monitoreo",
+    "overallStatus": "Estado General",
+    "statusChip": {
+      "ok": "Sin incidencias",
+      "attention": "Requiere atención",
+      "critical": "Estado crítico"
+    },
+    "tabs": {
+      "server": "Servidor",
+      "database": "Base de datos",
+      "http": "HTTP",
+      "cron": "Cron / Socket",
+      "trends": "Tendencias"
+    },
+    "stats": {
+      "uptime": "Uptime",
+      "pool": "Pool DB",
+      "heap": "Heap",
+      "updated": "Actualización"
+    },
+    "refresh": {
+      "manual": "Manual",
+      "10s": "10s",
+      "30s": "30s",
+      "60s": "60s"
+    }
+  },
   "sidebar": {
     "chats": "Chats",
     "contacts": "Contactos",
@@ -545,6 +581,7 @@
     "explore": "Explorar canales",
     "broadcasts": "Difusiones",
     "admin": "Administración",
+    "monitoring": "Monitoreo",
     "saved": "Guardados",
     "typing": "escribiendo…",
     "someoneTyping": "{{name}} escribiendo…",

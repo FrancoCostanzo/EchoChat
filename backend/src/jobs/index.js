@@ -1,15 +1,12 @@
 const cron = require('node-cron');
 const logger = require('../config/logger');
+const { recordJobRun } = require('../utils/cronJobStatus');
 
-// Background jobs registry. Each job module exports { name, schedule, run }.
-// `schedule` is a standard cron expression. Add future jobs here:
-//   - scheduled broadcasts (Fase 3)
-//   - message retention enforcement (system_settings.message_retention_days)
-//   - async media processing (Fase 4)
 const jobs = [
   require('./presenceTimeout.job'),
   require('./presignedCleanup.job'),
   require('./scheduledBroadcasts.job'),
+  require('./monitoringSnapshot.job'),
 ];
 
 const tasks = [];
@@ -23,7 +20,17 @@ function startJobs() {
     const task = cron.schedule(job.schedule, async () => {
       try {
         await job.run();
+        recordJobRun(job.name, {
+          descripcion: job.descripcion || job.name,
+          resultado: 'success',
+          origen: 'automatica',
+        });
       } catch (err) {
+        recordJobRun(job.name, {
+          descripcion: job.descripcion || job.name,
+          resultado: 'error',
+          origen: 'automatica',
+        });
         logger.warn({ err: err.message, job: job.name }, 'Background job failed');
       }
     });

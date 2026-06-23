@@ -15,5 +15,7 @@ router.use('/notifications', require('./notification.routes'));
 router.use('/relationships', require('./relationship.routes'));
 router.use('/admin', require('./admin.routes'));
 router.use('/preferences/wallpapers', require('./wallpaper.routes'));
+router.use('/health', require('./monitoring.routes').healthRouter);
+router.use('/monitoring', require('./monitoring.routes').monitoringRouter);
 
 module.exports = router;
