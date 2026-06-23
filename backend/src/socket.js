@@ -1,6 +1,7 @@
 const { Server } = require('socket.io');
 const config = require('./config');
 const logger = require('./config/logger');
+const { registerSocket, unregisterSocket } = require('./config/socketStore');
 
 // NOTE: services & repositories are lazy-loaded inside functions to avoid
 // a circular dependency (message.service → socket → services → message.service).
@@ -61,6 +62,7 @@ function initSocket(httpServer) {
   io.on('connection', async (socket) => {
     const userId = socket.userId;
     logger.info({ userId, socketId: socket.id }, 'Socket connected');
+    registerSocket(socket.id, userId);
 
     // Join a personal room for direct events
     socket.join(`user:${userId}`);
@@ -152,6 +154,7 @@ function initSocket(httpServer) {
     // ── Disconnect ──────────────────────────────────────────────────
     socket.on('disconnect', () => {
       logger.info({ userId, socketId: socket.id }, 'Socket disconnected');
+      unregisterSocket(socket.id);
       // Grace period so F5 / tab refresh does not flash offline in DB or /me
       scheduleOffline(userId);
     });

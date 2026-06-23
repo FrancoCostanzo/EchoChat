@@ -1,6 +1,7 @@
 const { Pool } = require('pg');
 const config = require('../config');
 const logger = require('./logger');
+const metricsRegistry = require('../utils/metricsRegistry');
 
 const pool = new Pool({
   host: config.db.host,
@@ -19,6 +20,12 @@ pool.on('connect', () => {
 pool.on('error', (err) => {
   logger.error({ err }, 'Unexpected database pool error');
 });
+
+const originalQuery = pool.query.bind(pool);
+pool.query = (...args) => {
+  metricsRegistry.recordDbQuery();
+  return originalQuery(...args);
+};
 
 /**
  * Execute a callback inside a transaction.

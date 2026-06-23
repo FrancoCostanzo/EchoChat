@@ -149,3 +149,11 @@ export const wallpaperApi = {
   upsert: (data) => api.put('/preferences/wallpapers', data),
   remove: (scope, scopeKey) => api.delete(`/preferences/wallpapers/${scope}/${encodeURIComponent(scopeKey)}`),
 };
+
+export const monitoringApi = {
+  getDashboard: () => api.get('/monitoring/dashboard'),
+  getHealth: () => api.get('/monitoring/health'),
+  getDatabase: () => api.get('/monitoring/database'),
+  getSystem: () => api.get('/monitoring/system'),
+  getHistory: (range = '24h') => api.get('/monitoring/history', { range }),
+};

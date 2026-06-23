@@ -62,7 +62,7 @@ import CreatePollModal from '@/components/CreatePollModal';
 import CreateCodeModal from '@/components/CreateCodeModal';
 import WallpaperPicker from '@/components/WallpaperPicker';
 import { PRESETS } from '@/components/WallpaperPicker';
-import { formatMessageTime, formatFullTime } from '@/lib/dates';
+import { formatMessageTime, formatFullTime, formatDaySeparator } from '@/lib/dates';
 import FloatingComposer from '@/components/FloatingComposer';
 import MessageBody from '@/components/MessageBody';
 import FormatToolbar, { handleFormatShortcut } from '@/components/FormatToolbar';
@@ -878,6 +878,17 @@ function buildMessageMenuItems({
     canEdit && { key: 'edit', icon: Pencil, label: t('common.edit'), onClick: () => { closeMenu(); onEdit(message); } },
     isOwn && { key: 'delete', icon: Trash2, label: t('common.delete'), danger: true, onClick: () => { closeMenu(); onDelete(message); } },
   ];
+}
+
+// Centered date chip inserted between messages whenever the calendar day changes.
+function DaySeparator({ date }) {
+  return (
+    <div className="my-3 flex items-center justify-center">
+      <span className="rounded-full bg-ink-800/80 px-3 py-1 text-[11px] font-medium text-ink-100 shadow-sm backdrop-blur-sm">
+        {formatDaySeparator(date)}
+      </span>
+    </div>
+  );
 }
 
 const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstInGroup, isLastInGroup, isContextOpen, shouldAnimateEntry, onOpenContextMenu, onScrollToReply, onEdit, onDelete, onReply, onReact, onForward, onOpenThread, onRetry, currentUserId, currentUser }) {
@@ -1855,12 +1866,22 @@ export default function ConversationPage() {
 
   const messageElements = useMemo(() => {
     const isDirect = conversation?.type === 'direct';
-    return messages.map((msg, index) => {
+    const dayOf = (m) => (m?.sent_at ? new Date(m.sent_at).toDateString() : null);
+    const els = [];
+    messages.forEach((msg, index) => {
       const prev = messages[index - 1];
       const next = messages[index + 1];
-      const isFirstInGroup = !prev || prev.sender_id !== msg.sender_id;
-      const isLastInGroup  = !next || next.sender_id !== msg.sender_id;
-      return (
+      // Un nuevo día corta el agrupamiento por remitente y agrega un separador.
+      const dayChanged = !prev || dayOf(prev) !== dayOf(msg);
+      const nextDayChanged = !next || dayOf(next) !== dayOf(msg);
+      const isFirstInGroup = dayChanged || prev.sender_id !== msg.sender_id;
+      const isLastInGroup = nextDayChanged || next.sender_id !== msg.sender_id;
+
+      if (dayChanged) {
+        els.push(<DaySeparator key={`day-${msg.id}`} date={msg.sent_at} />);
+      }
+
+      els.push(
         <MessageRow
           key={msg.id}
           message={msg}
@@ -1888,6 +1909,7 @@ export default function ConversationPage() {
         />
       );
     });
+    return els;
   }, [messages, user, conversation?.type, contextMenu?.messageId, handleOpenContextMenu, focusMessageById, handleEdit, handleDeleteRequest, handleReply, handleReact, handleForward, handleOpenThread, retrySendMessage]);
 
   if (!conversation) {

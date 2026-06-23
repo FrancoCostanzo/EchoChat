@@ -523,6 +523,42 @@
       "colStatus": "Status"
     }
   },
+  "monitoring": {
+    "title": "System Monitoring",
+    "subtitle": "Real-time server and database status",
+    "loading": "Loading system status...",
+    "loadError": "Failed to load system data",
+    "retry": "Retry",
+    "refreshBtn": "Refresh",
+    "refreshInterval": "Refresh interval",
+    "section": "Section",
+    "sections": "Monitoring sections",
+    "overallStatus": "Overall Status",
+    "statusChip": {
+      "ok": "No issues",
+      "attention": "Needs attention",
+      "critical": "Critical state"
+    },
+    "tabs": {
+      "server": "Server",
+      "database": "Database",
+      "http": "HTTP",
+      "cron": "Cron / Socket",
+      "trends": "Trends"
+    },
+    "stats": {
+      "uptime": "Uptime",
+      "pool": "DB Pool",
+      "heap": "Heap",
+      "updated": "Last update"
+    },
+    "refresh": {
+      "manual": "Manual",
+      "10s": "10s",
+      "30s": "30s",
+      "60s": "60s"
+    }
+  },
   "sidebar": {
     "chats": "Chats",
     "contacts": "Contacts",
@@ -536,6 +572,7 @@
     "explore": "Explore channels",
     "broadcasts": "Broadcasts",
     "admin": "Administration",
+    "monitoring": "Monitoring",
     "saved": "Saved",
     "typing": "typing…",
     "someoneTyping": "{{name}} is typing…",
