@@ -53,6 +53,7 @@ export const messagesApi = {
   send: (data) => api.post('/messages', data),
   getById: (id) => api.get(`/messages/${id}`),
   getThread: (id) => api.get(`/messages/${id}/thread`),
+  getInfo: (id) => api.get(`/messages/${id}/info`),
   edit: (id, data) => api.put(`/messages/${id}`, data),
   delete: (id) => api.delete(`/messages/${id}`),
   addReaction: (id, emoji) => api.post(`/messages/${id}/reactions`, { emoji }),

@@ -14,6 +14,7 @@ router.get('/drafts', (req, res) => messageController.listDrafts(req, res));
 
 router.get('/:messageId', (req, res) => messageController.getById(req, res));
 router.get('/:messageId/thread', (req, res) => messageController.getThread(req, res));
+router.get('/:messageId/info', (req, res) => messageController.getInfo(req, res));
 router.put('/:messageId', validate(updateMessageDto), (req, res) => messageController.update(req, res));
 router.delete('/:messageId', (req, res) => messageController.delete(req, res));
 
