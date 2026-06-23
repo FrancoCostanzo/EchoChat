@@ -17,6 +17,9 @@
 - [Versionado del Software](#-versionado-del-software)
 - [Guía de Estilos — Backend](#-guía-de-estilos--backend)
 - [Guía de Estilos — Frontend](#-guía-de-estilos--frontend)
+- [Lienzo Espacial (UI)](#-lienzo-espacial-ui)
+- [Guía de Estilos — Desktop (Electron)](#-guía-de-estilos--desktop-electron)
+- [Guía de Estilos — Mobile (React Native)](#-guía-de-estilos--mobile-react-native)
 - [Convenciones Compartidas](#-convenciones-compartidas)
 
 <br/>
@@ -131,7 +134,7 @@ git commit -m "Revert ⏪ Revertir cambio en validación de JWT (#55)"
 Todas se crean desde `develop` (salvo `hotfix/*`, que sale de `main`).
 
 ```
-<tipo>/<descripcion-en-kebab-case>
+<tipo>/<descripción-en-kebab-case>
 ```
 
 | Tipo | Cuándo usarlo | Ejemplo |
@@ -211,7 +214,7 @@ MAJOR.MINOR.PATCH
 git checkout develop
 git checkout -b release/1.3.0
 
-# 2. Actualizar version en package.json (backend y frontend)
+# 2. Actualizar versión en package.json (backend y frontend)
 npm version 1.3.0 --no-git-tag-version
 
 # 3. Commit de versión
@@ -810,6 +813,234 @@ function LoginPage() {
 - **6 colores de acento:** `blue`, `violet`, `green`, `rose`, `orange`, `cyan`
 - Persistidos en `localStorage`
 - Aplicados vía clases en `document.documentElement`
+
+<br/>
+
+---
+
+<br/>
+
+## 🌌 Lienzo Espacial (UI)
+
+EchoChat usa el sistema visual **Lienzo Espacial** (*Spatial Canvas*): fondo escénico con profundidad, paneles flotantes y jerarquía tipográfica fuerte.
+
+**Documentación completa:** [`docs/SPATIAL_CANVAS.md`](./SPATIAL_CANVAS.md)
+
+Resumen para implementadores:
+
+| Regla | Detalle |
+|-------|---------|
+| Tipografía display | Clash Display — solo headers, nunca cuerpo de mensaje (`.echo-display`) |
+| Tipografía UI/chat | Satoshi 16px / `line-height: 1.6` |
+| Superficies | Siempre `<CanvasPanel />` — no sombras ad-hoc |
+| Elevación | Chat = 3, sidebar = 2, dock = glass |
+| Color | Violeta = identidad; fondos neutros profundos |
+
+<br/>
+
+---
+
+<br/>
+
+## 🖥 Guía de Estilos — Desktop (Electron)
+
+### Estructura de Carpetas
+
+```
+desktop/
+├── package.json
+├── electron.vite.config.js    # Build config (electron-vite)
+├── src/
+│   ├── main/                   # Proceso principal (Node.js)
+│   │   ├── index.js            # Punto de entrada del main process
+│   │   ├── window.js           # Creación y gestión de BrowserWindows
+│   │   ├── ipc/                # Handlers IPC (main-side)
+│   │   └── tray.js             # System tray (icono y menú)
+│   ├── preload/                # Scripts de preload (puente seguro)
+│   │   └── index.js
+│   └── renderer/               # El frontend React (misma base que web)
+│       └── (apunta a frontend/src)
+└── resources/
+    └── icon.png                # Ícono de la app
+```
+
+### Proceso Principal vs Renderer
+
+| Proceso | Descripción | Acceso |
+|---------|------------|--------|
+| **Main** | Node.js puro. Crea ventanas, maneja IPC, accede al SO | APIs de Electron + Node |
+| **Preload** | Puente entre main y renderer. Expone APIs seguras vía `contextBridge` | Subconjunto de Electron + DOM |
+| **Renderer** | El frontend React. Idéntico a la versión web | Solo APIs expuestas por preload |
+
+### IPC (Comunicación entre Procesos)
+
+- Canales con nomenclatura `recurso:accion`: `app:minimize`, `notification:show`, `file:save`
+- El renderer **nunca** usa `ipcRenderer` directamente — solo a través de `contextBridge`
+- Handlers en `src/main/ipc/` organizados por feature
+
+```javascript
+// preload/index.js
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('electronAPI', {
+  minimize: () => ipcRenderer.send('app:minimize'),
+  maximize: () => ipcRenderer.send('app:maximize'),
+  close: () => ipcRenderer.send('app:close'),
+  showNotification: (opts) => ipcRenderer.send('notification:show', opts),
+  onDeepLink: (cb) => ipcRenderer.on('app:deep-link', (_, url) => cb(url)),
+});
+
+// renderer (React)
+window.electronAPI.minimize();
+```
+
+### Nomenclatura
+
+| Elemento | Convención | Ejemplo |
+|----------|-----------|--------|
+| Archivos del main process | `camelCase.js` | `window.js`, `tray.js` |
+| Handlers IPC | `camelCase.ipc.js` | `notification.ipc.js` |
+| Canales IPC | `recurso:accion` | `app:minimize`, `file:save` |
+| Variables de entorno | `ELECTRON_` prefijo | `ELECTRON_IS_DEV` |
+
+### Seguridad
+
+- `nodeIntegration: false` y `contextIsolation: true` siempre
+- Nunca exponer APIs de Node.js directamente al renderer
+- Validar todos los argumentos recibidos vía IPC en el main process
+- `webSecurity: true` (no deshabilitar nunca en producción)
+
+### Reutilización de Código
+
+- El renderer apunta directamente a `frontend/src` — misma base de código
+- Detectar entorno con `window.electronAPI !== undefined`
+- Features exclusivas de desktop (notificaciones nativas, tray, shortcuts) se inyectan solo en Electron
+
+```javascript
+// Detectar si estamos en Electron
+export const isElectron = () => typeof window !== 'undefined' && !!window.electronAPI;
+
+// Usar en componentes
+if (isElectron()) {
+  window.electronAPI.showNotification({ title: 'Nuevo mensaje', body: text });
+} else {
+  // fallback web (Notification API o toast)
+}
+```
+
+<br/>
+
+---
+
+<br/>
+
+## 📱 Guía de Estilos — Mobile (React Native)
+
+### Estructura de Carpetas
+
+```
+mobile/
+├── package.json
+├── app.json                   # Configuración de Expo
+├── babel.config.js
+├── src/
+│   ├── App.jsx                # Componente raíz con navegación
+│   ├── components/            # Componentes reutilizables (RN)
+│   ├── screens/               # Pantallas (equivalente a pages/ en web)
+│   ├── navigation/            # Stack, Tab y Drawer navigators
+│   ├── stores/                # Zustand (compartido con web cuando sea posible)
+│   ├── lib/                   # API client, socket, helpers (compartidos)
+│   └── locales/               # Archivos de i18n (compartidos con web)
+└── assets/
+    └── fonts/, images/, icons/
+```
+
+### Nomenclatura
+
+| Elemento | Convención | Ejemplo |
+|----------|-----------|--------|
+| Screens (archivo) | `PascalCase.screen.jsx` | `ChatScreen.screen.jsx` |
+| Navegadores (archivo) | `PascalCase.navigator.jsx` | `MainTab.navigator.jsx` |
+| Componentes | `PascalCase.jsx` | `MessageBubble.jsx` |
+| Stores | `camelCase.js` | `chatStore.js` (mismo que web) |
+| Estilos inline | `StyleSheet.create({})` | `styles.container`, `styles.text` |
+
+### Componentes
+
+- **Functional components** únicamente, igual que en web
+- **No usar componentes HTML** (`div`, `span`, `p`) — usar primitivas de RN (`View`, `Text`, `Pressable`)
+- **Estilos con `StyleSheet.create()`**, sin Tailwind (no compatible con RN)
+- **`memo()`** para componentes de lista (`FlatList` items)
+
+```javascript
+import { memo } from 'react';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+
+function MessageBubble({ message, isMine }) {
+  return (
+    <View style={[styles.bubble, isMine && styles.mine]}>
+      <Text style={styles.text}>{message.content}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  bubble: {
+    maxWidth: '75%',
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: '#f0f0f0',
+  },
+  mine: {
+    backgroundColor: '#0078FF',
+    alignSelf: 'flex-end',
+  },
+  text: {
+    fontSize: 15,
+    color: '#fff',
+  },
+});
+
+export default memo(MessageBubble);
+```
+
+### Navegación (React Navigation)
+
+- **Stack Navigator** para flujos lineales (auth, detalles)
+- **Tab Navigator** para la navegación principal (chats, llamadas, perfil)
+- **Drawer Navigator** para menús laterales opcionales
+- Rutas en `UPPER_SNAKE_CASE` como constantes
+
+```javascript
+export const ROUTES = {
+  LOGIN: 'Login',
+  CHAT_LIST: 'ChatList',
+  CHAT_DETAIL: 'ChatDetail',
+  CALL: 'Call',
+  PROFILE: 'Profile',
+};
+
+// Navegar
+navigation.navigate(ROUTES.CHAT_DETAIL, { conversationId });
+```
+
+### Reutilización de Código con Web
+
+| Módulo | Reutilizable | Notas |
+|--------|-------------|------|
+| `stores/` | ✅ Sí | Zustand es compatible con RN |
+| `lib/api.js` | ✅ Sí | `fetch` está disponible en RN |
+| `lib/socket.js` | ✅ Sí | socket.io-client funciona en RN |
+| `locales/` | ✅ Sí | i18next funciona en RN |
+| `components/` | ⚠️ Parcial | Reescribir con primitivas de RN |
+| Estilos (Tailwind) | ❌ No | Usar `StyleSheet` en RN |
+
+### Notificaciones Push
+
+- **Expo Notifications** para iOS y Android
+- Token de dispositivo se registra en el backend al hacer login
+- Notificaciones locales para mensajes cuando la app está en primer plano
+- Notificaciones push (FCM/APNs) cuando está en segundo plano
 
 <br/>
 

@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(claude mcp *)",
+      "mcp__heroui-react__get_component_docs",
+      "Bash(grep -rl \"rtc\\\\|offer\\\\|answer\\\\|ice-candidate\\\\|signal\" .)",
+      "Bash(grep -rl \"web-push\\\\|webpush\\\\|fcm\\\\|firebase\\\\|apns\\\\|nodemailer\\\\|sendgrid\" .)",
+      "Bash(grep -rl \"cron\\\\|node-cron\\\\|bull\\\\|scheduler\\\\|setInterval\" .)",
+      "Bash(grep -rln \"sharp\\\\|thumbnail\\\\|clamav\\\\|exif\\\\|ffmpeg\" .)",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\(Object.keys\\(p.dependencies\\).join\\(', '\\)\\)\")",
+      "Bash(npm install *)",
+      "Bash(node -e \"require\\('./src/app'\\); require\\('./src/middlewares'\\); const m=require\\('./src/middlewares'\\); console.log\\('middlewares exports:', Object.keys\\(m\\).join\\(', '\\)\\); console.log\\('app + routes load OK'\\)\")",
+      "Bash(git checkout *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(node -e \"['es','en','pt'].forEach\\(l=>{JSON.parse\\(require\\('fs'\\).readFileSync\\('src/locales/'+l+'.json','utf8'\\)\\);console.log\\(l,'JSON OK'\\)}\\)\")",
+      "Bash(node -e \"const h=require\\('@heroui/react'\\); console.log\\('Textarea:', !!h.Textarea, '| Tabs:', !!h.Tabs, '| Input:', !!h.Input, '| Spinner:', !!h.Spinner\\)\")",
+      "Bash(git commit -q -m ' *)",
+      "Bash(gh auth *)",
+      "Bash(git push *)",
+      "Bash(gh pr create --base develop --head feat/fase-0-cimientos --title 'Feat 🆕 Fase 0 — Cimientos: RBAC, auditoría y jobs' --body ' *)",
+      "Bash(gh pr create --base feat/fase-0-cimientos --head feat/canales --title 'Feat 🆕 Fase 1 — Canales \\(backend + UI\\)' --body ' *)",
+      "Read(//e/e/Proyectos/EchoChat/frontend/src/locales/**)",
+      "Bash(node -e \"['es','en','pt'].forEach\\(l=>JSON.parse\\(require\\('fs'\\).readFileSync\\('src/locales/'+l+'.json','utf8'\\)\\)\\);console.log\\('locales JSON OK'\\)\")",
+      "Bash(gh pr create --base feat/canales --head feat/quick-wins --title 'Feat 🆕 Fase 6 — Mensajes guardados y borradores' --body ' *)",
+      "mcp__heroui-react__get_component_source_code",
+      "mcp__heroui-react__get_component_source_styles",
+      "PowerShell(ls -Name | Where-Object { $_ -ne 'node_modules' })"
+    ]
+  }
+}

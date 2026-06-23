@@ -1,3 +1,5 @@
+import { Send } from 'lucide-react';
+
 /**
  * Animated send button.
  * On hover the paper-plane icon flies forward; any label text slides out.
@@ -8,29 +10,18 @@
  * @param {string}   [label]    - Optional visible label (e.g. "Send").
  * @param {string}   [className]- Extra classes for the root button.
  */
-export default function SendButton({ onPress, isDisabled, label, className = '' }) {
+export default function SendButton({ onPress, isDisabled, label, className = '', pulse = false }) {
   return (
     <button
       type="button"
       onClick={onPress}
       disabled={isDisabled}
-      className={`send-btn ${className}`}
+      aria-label={label || undefined}
+      className={`send-btn ${pulse ? 'send-btn--pulse' : ''} ${className}`.trim()}
     >
       <div className="send-svg-wrapper-1">
         <div className="send-svg-wrapper">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            width={18}
-            height={18}
-            className="send-icon"
-          >
-            <path fill="none" d="M0 0h24v24H0z" />
-            <path
-              fill="currentColor"
-              d="M1.946 9.315c-.522-.174-.527-.455.01-.634l19.087-6.362c.529-.176.832.12.684.638l-5.454 19.086c-.15.529-.455.547-.679.045L12 14l6-8-8 6-8.054-2.685z"
-            />
-          </svg>
+          <Send size={18} className="send-icon" />
         </div>
       </div>
 

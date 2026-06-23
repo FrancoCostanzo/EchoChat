@@ -17,9 +17,32 @@ class BroadcastController {
     res.json({ status: 'success', data: list });
   }
 
+  async getMessages(req, res) {
+    const messages = await broadcastService.getMessages(req.params.listId, req.user.id);
+    res.json({ status: 'success', data: messages });
+  }
+
   async sendMessage(req, res) {
     const message = await broadcastService.sendMessage(req.params.listId, req.user.id, req.body);
     res.status(StatusCodes.CREATED).json({ status: 'success', data: message });
+  }
+
+  async addRecipients(req, res) {
+    const recipients = await broadcastService.addRecipients(
+      req.params.listId,
+      req.user.id,
+      req.body,
+    );
+    res.status(StatusCodes.CREATED).json({ status: 'success', data: recipients });
+  }
+
+  async removeRecipient(req, res) {
+    const recipients = await broadcastService.removeRecipient(
+      req.params.listId,
+      req.user.id,
+      req.params.userId,
+    );
+    res.json({ status: 'success', data: recipients });
   }
 }
 

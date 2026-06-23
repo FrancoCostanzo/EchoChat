@@ -8,9 +8,10 @@ import { formatRelative } from '@/lib/dates';
 
 function NotificationItem({ notification, onRead }) {
   return (
-    <button
-      onClick={() => !notification.read_at && onRead(notification.id)}
-      className={`flex w-full items-start gap-3 rounded-lg px-4 py-3 text-left transition-colors hover:bg-default ${
+    <Button
+      variant="ghost"
+      onPress={() => !notification.read_at && onRead(notification.id)}
+      className={`flex h-auto w-full items-start justify-start gap-3 whitespace-normal rounded-lg px-4 py-3 text-left transition-colors hover:bg-default ${
         !notification.read_at ? 'bg-accent-soft' : ''
       }`}
     >
@@ -29,7 +30,7 @@ function NotificationItem({ notification, onRead }) {
       {!notification.read_at && (
         <div className="h-2 w-2 shrink-0 rounded-full bg-accent mt-2" />
       )}
-    </button>
+    </Button>
   );
 }
 
