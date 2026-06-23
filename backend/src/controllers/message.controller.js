@@ -64,6 +64,11 @@ class MessageController {
     res.json({ status: 'success', data: messages });
   }
 
+  async getInfo(req, res) {
+    const info = await messageService.getMessageInfo(req.params.messageId, req.user.id);
+    res.json({ status: 'success', data: info });
+  }
+
   async pin(req, res) {
     await messageService.pinMessage(req.params.conversationId, req.params.messageId, req.user.id);
     res.json({ status: 'success', message: 'Message pinned' });

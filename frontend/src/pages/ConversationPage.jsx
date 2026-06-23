@@ -42,6 +42,7 @@ import {
   MessageSquareText,
   Play,
   ImageIcon,
+  Info,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
@@ -56,6 +57,7 @@ import MessageSearchPanel from '@/components/MessageSearchPanel';
 import ThreadPanel from '@/components/ThreadPanel';
 import PollMessage from '@/components/PollMessage';
 import CodeMessage from '@/components/CodeMessage';
+import MessageInfoModal from '@/components/MessageInfoModal';
 import CreatePollModal from '@/components/CreatePollModal';
 import CreateCodeModal from '@/components/CreateCodeModal';
 import WallpaperPicker from '@/components/WallpaperPicker';
@@ -862,7 +864,7 @@ function MessageContextMenu({ pos, onClose, quickEmojis, onEmoji, items }) {
 
 function buildMessageMenuItems({
   message, isOwn, saved, t, closeMenu,
-  onReply, onOpenThread, onForward, onEdit, onDelete, onToggleSave,
+  onReply, onOpenThread, onForward, onEdit, onDelete, onToggleSave, onInfo,
 }) {
   const canEdit = isOwn && (message.type !== 'media' || message.body);
   const canCopy = !!message.body;
@@ -872,6 +874,7 @@ function buildMessageMenuItems({
     { key: 'forward', icon: Forward, label: t('chat.forward'), onClick: () => { closeMenu(); onForward(message); } },
     canCopy && { key: 'copy', icon: Copy, label: t('chat.copyText'), onClick: () => { closeMenu(); navigator.clipboard?.writeText(message.body); } },
     { key: 'save', icon: saved ? BookmarkCheck : Bookmark, label: saved ? t('saved.remove') : t('chat.save'), onClick: () => { closeMenu(); onToggleSave(message); } },
+    isOwn && { key: 'info', icon: Info, label: t('chat.messageInfo'), onClick: () => { closeMenu(); onInfo(message); } },
     canEdit && { key: 'edit', icon: Pencil, label: t('common.edit'), onClick: () => { closeMenu(); onEdit(message); } },
     isOwn && { key: 'delete', icon: Trash2, label: t('common.delete'), danger: true, onClick: () => { closeMenu(); onDelete(message); } },
   ];
@@ -1251,6 +1254,7 @@ export default function ConversationPage() {
   const [sendingFile, setSendingFile] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [forwardTarget, setForwardTarget] = useState(null); // message being forwarded
+  const [infoTarget, setInfoTarget] = useState(null); // message whose info panel is open
   const [threadRoot, setThreadRoot] = useState(null); // root message of the open thread panel
   const [contextMenu, setContextMenu] = useState(null); // { messageId, x, y } | null
   const [sendPulse, setSendPulse] = useState(false);
@@ -1791,6 +1795,7 @@ export default function ConversationPage() {
   };
 
   const handleForward = useCallback((msg) => setForwardTarget(msg), []);
+  const handleOpenInfo = useCallback((msg) => setInfoTarget(msg), []);
 
   // Thread and search panels share the right column — only one open at a time
   const handleOpenThread = useCallback((msg) => {
@@ -1844,6 +1849,7 @@ export default function ConversationPage() {
         onEdit: handleEdit,
         onDelete: handleDeleteRequest,
         onToggleSave: handleToggleSave,
+        onInfo: handleOpenInfo,
       })
     : [];
 
@@ -1914,6 +1920,13 @@ export default function ConversationPage() {
         conversations={conversations}
         currentConvId={conversationId}
         onClose={() => setForwardTarget(null)}
+      />
+
+      {/* Message info modal */}
+      <MessageInfoModal
+        isOpen={!!infoTarget}
+        message={infoTarget}
+        onClose={() => setInfoTarget(null)}
       />
 
       {/* Create poll modal */}

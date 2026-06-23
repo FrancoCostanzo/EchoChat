@@ -245,6 +245,31 @@ class MessageService {
     return messages.map(toMessageResponse);
   }
 
+  // "Información del mensaje": cuándo se envió y, por destinatario, cuándo se
+  // entregó y se leyó. Accesible para cualquier miembro de la conversación.
+  async getMessageInfo(messageId, userId) {
+    const message = await messageRepository.findById(messageId);
+    if (!message) throw new NotFoundError('Message');
+    const member = await conversationRepository.getMember(message.conversation_id, userId);
+    if (!member) throw new ForbiddenError('Not a member of this conversation');
+
+    const receipts = await messageRepository.getReceipts(messageId);
+    return {
+      id: message.id,
+      sender_id: message.sender_id,
+      sent_at: message.sent_at,
+      is_edited: message.is_edited,
+      edited_at: message.edited_at,
+      receipts: receipts.map((r) => ({
+        user_id: r.user_id,
+        display_name: r.display_name,
+        username: r.username,
+        delivered_at: r.delivered_at,
+        read_at: r.read_at,
+      })),
+    };
+  }
+
   async pinMessage(conversationId, messageId, userId) {
     return messageRepository.pinMessage(conversationId, messageId, userId);
   }

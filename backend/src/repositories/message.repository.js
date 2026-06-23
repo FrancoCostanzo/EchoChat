@@ -404,6 +404,21 @@ class MessageRepository extends BaseRepository {
     return rows[0] || { delivered_count: 0, read_count: 0 };
   }
 
+  // Recibos por usuario (entregado/leído) de un mensaje, para la vista
+  // "Información del mensaje". El emisor no genera recibo de sí mismo.
+  async getReceipts(messageId) {
+    const { rows } = await this.query(
+      `SELECT mr.user_id, mr.delivered_at, mr.read_at,
+              u.display_name, u.username
+       FROM message_receipts mr
+       JOIN users u ON u.id = mr.user_id
+       WHERE mr.message_id = $1
+       ORDER BY mr.read_at DESC NULLS LAST, mr.delivered_at DESC NULLS LAST`,
+      [messageId]
+    );
+    return rows;
+  }
+
   async getReceiptCountsBatch(messageIds) {
     if (!messageIds.length) return {};
     const { rows } = await this.query(
