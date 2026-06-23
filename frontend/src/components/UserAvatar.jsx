@@ -17,9 +17,15 @@ export default function UserAvatar({ user, size = 'md', showStatus = false, clas
     .toUpperCase();
 
   return (
-    <div className={`relative inline-flex ${className}`}>
-      <Avatar size={size}>
-        {user?.avatar_url && <Avatar.Image src={user.avatar_url} alt={user?.display_name || ''} />}
+    <div className={`relative inline-flex shrink-0 ${className}`}>
+      <Avatar size={size} className="!rounded-full overflow-hidden">
+        {user?.avatar_url && (
+          <Avatar.Image
+            src={user.avatar_url}
+            alt={user?.display_name || ''}
+            className="object-cover object-center"
+          />
+        )}
         <Avatar.Fallback>{initials}</Avatar.Fallback>
       </Avatar>
       {showStatus && user?.presence && (
