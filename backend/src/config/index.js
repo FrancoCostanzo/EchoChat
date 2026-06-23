@@ -53,6 +53,13 @@ const config = {
     },
   },
 
+  // Cifrado de contenido de mensajes en reposo (AES-256-GCM). La clave maestra
+  // (32 bytes en base64) deriva la clave de cifrado y la de búsqueda (índice ciego).
+  messageEnc: {
+    key: process.env.MESSAGE_ENC_KEY,
+    keyId: process.env.MESSAGE_ENC_KEY_ID || 'v1',
+  },
+
   cors: {
     origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
   },

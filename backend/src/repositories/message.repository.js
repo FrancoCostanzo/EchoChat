@@ -1,4 +1,15 @@
 const BaseRepository = require('./base.repository');
+const { encrypt, decrypt, searchTokens, searchQueryTokens } = require('../utils/crypto.util');
+
+// Descifra in-place las columnas con contenido de usuario que puedan venir en una
+// fila de mensaje, para que el resto de la app siempre vea texto plano.
+function decryptRow(row) {
+  if (!row) return row;
+  if ('body' in row) row.body = decrypt(row.body);
+  if ('reply_to_body' in row) row.reply_to_body = decrypt(row.reply_to_body);
+  if ('saved_note' in row) row.saved_note = decrypt(row.saved_note);
+  return row;
+}
 
 function savedMessageSelect(viewerUserId, params) {
   if (!viewerUserId) {
@@ -20,15 +31,37 @@ class MessageRepository extends BaseRepository {
     super('messages');
   }
 
+  // findById se usa en todo el service (forward, updateBody, etc.); lo
+  // sobreescribimos para que el body salga siempre descifrado.
+  async findById(id) {
+    return decryptRow(await super.findById(id));
+  }
+
+  // Reconstruye el índice ciego de búsqueda (HMAC de tokens) de un mensaje a
+  // partir de su texto plano. Se llama tras crear/editar.
+  async _setSearchTokens(messageId, plainBody) {
+    await this.query('DELETE FROM message_search_tokens WHERE message_id = $1', [messageId]);
+    const tokens = searchTokens(plainBody);
+    if (tokens.length === 0) return;
+    await this.query(
+      `INSERT INTO message_search_tokens (message_id, token)
+       SELECT $1, t FROM unnest($2::text[]) AS t
+       ON CONFLICT (message_id, token) DO NOTHING`,
+      [messageId, tokens]
+    );
+  }
+
   async create({ conversation_id, sender_id, type, body, body_format, reply_to_id, thread_id, forwarded_from_id, forwarded_from_conv, metadata }) {
+    const plainBody = body || null;
     const { rows } = await this.query(
       `INSERT INTO messages (conversation_id, sender_id, type, body, body_format, reply_to_id, thread_id, forwarded_from_id, forwarded_from_conv, metadata)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
-      [conversation_id, sender_id, type || 'text', body || null, body_format || 'plain',
+      [conversation_id, sender_id, type || 'text', encrypt(plainBody), body_format || 'plain',
        reply_to_id || null, thread_id || null, forwarded_from_id || null, forwarded_from_conv || null, metadata || {}]
     );
-    return rows[0];
+    await this._setSearchTokens(rows[0].id, plainBody);
+    return decryptRow(rows[0]);
   }
 
   async findByConversation(conversationId, { cursor, limit = 50, direction = 'before', viewerUserId } = {}) {
@@ -104,6 +137,7 @@ class MessageRepository extends BaseRepository {
       params
     );
 
+    rows.forEach(decryptRow);
     return direction === 'before' ? rows.reverse() : rows;
   }
 
@@ -159,7 +193,7 @@ class MessageRepository extends BaseRepository {
        GROUP BY m.id, u.username, u.display_name, u.avatar_object_key, rm.body, rm.type, ru.display_name`,
       params
     );
-    return rows[0] || null;
+    return decryptRow(rows[0]) || null;
   }
 
   // All replies of a thread (oldest first), with the same enrichment as the
@@ -211,6 +245,7 @@ class MessageRepository extends BaseRepository {
        LIMIT $${params.length}`,
       params
     );
+    rows.forEach(decryptRow);
     return rows;
   }
 
@@ -223,20 +258,22 @@ class MessageRepository extends BaseRepository {
   }
 
   async updateBody(id, body, editedBy, bodyFormat) {
-    // Save edit history
+    // Save edit history (el body anterior, ya en texto plano vía findById, se
+    // vuelve a cifrar antes de guardarlo en el historial).
     const original = await this.findById(id);
     if (original && original.body) {
       await this.query(
         `INSERT INTO message_edits (message_id, body_before, edited_by) VALUES ($1, $2, $3)`,
-        [id, original.body, editedBy]
+        [id, encrypt(original.body), editedBy]
       );
     }
 
     const { rows } = await this.query(
       `UPDATE messages SET body = $1, body_format = $2, is_edited = TRUE, edited_at = NOW() WHERE id = $3 RETURNING *`,
-      [body, bodyFormat || 'plain', id]
+      [encrypt(body || null), bodyFormat || 'plain', id]
     );
-    return rows[0];
+    await this._setSearchTokens(id, body || null);
+    return decryptRow(rows[0]);
   }
 
   async softDelete(id, deletedBy) {
@@ -246,7 +283,9 @@ class MessageRepository extends BaseRepository {
        WHERE id = $1 RETURNING *`,
       [id, deletedBy]
     );
-    return rows[0];
+    // El contenido desaparece → quitamos sus tokens del índice de búsqueda.
+    await this.query('DELETE FROM message_search_tokens WHERE message_id = $1', [id]);
+    return decryptRow(rows[0]);
   }
 
   // Returns only attachment objects that are NOT shared with another message
@@ -384,17 +423,26 @@ class MessageRepository extends BaseRepository {
   }
 
   async search(conversationId, term, limit = 20) {
+    // Búsqueda server-side sobre el índice ciego: el término se tokeniza y se
+    // convierte a HMAC igual que al indexar. Semántica AND (deben aparecer todos
+    // los tokens). Sin ranking ni stemming (trade-off del cifrado en reposo).
+    const tokens = searchQueryTokens(term);
+    if (tokens.length === 0) return [];
     const { rows } = await this.query(
       `SELECT m.*, u.username AS sender_username, u.display_name AS sender_display_name
        FROM messages m
+       JOIN message_search_tokens t ON t.message_id = m.id
        LEFT JOIN users u ON u.id = m.sender_id
        WHERE m.conversation_id = $1
          AND m.is_deleted = FALSE
-         AND m.search_vector @@ plainto_tsquery('spanish', $2)
-       ORDER BY ts_rank(m.search_vector, plainto_tsquery('spanish', $2)) DESC
-       LIMIT $3`,
-      [conversationId, term, limit]
+         AND t.token = ANY($2::text[])
+       GROUP BY m.id, u.username, u.display_name
+       HAVING COUNT(DISTINCT t.token) = $3
+       ORDER BY m.sent_at DESC
+       LIMIT $4`,
+      [conversationId, tokens, tokens.length, limit]
     );
+    rows.forEach(decryptRow);
     return rows;
   }
 
@@ -428,6 +476,7 @@ class MessageRepository extends BaseRepository {
        ORDER BY pm.pinned_at DESC`,
       [conversationId]
     );
+    rows.forEach(decryptRow);
     return rows;
   }
 }
