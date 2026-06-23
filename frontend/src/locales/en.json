@@ -528,7 +528,10 @@
     "explore": "Explore channels",
     "broadcasts": "Broadcasts",
     "admin": "Administration",
-    "saved": "Saved"
+    "saved": "Saved",
+    "typing": "typing…",
+    "someoneTyping": "{{name}} is typing…",
+    "severalTyping": "several people typing…"
   },
   "layout": {
     "toggleSidebar": "Show or hide channel panel (Ctrl+\\)"

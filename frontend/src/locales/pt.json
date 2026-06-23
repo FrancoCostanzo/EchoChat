@@ -528,7 +528,10 @@
     "explore": "Explorar canais",
     "broadcasts": "Difusões",
     "admin": "Administração",
-    "saved": "Salvos"
+    "saved": "Salvos",
+    "typing": "digitando…",
+    "someoneTyping": "{{name}} está digitando…",
+    "severalTyping": "vários digitando…"
   },
   "layout": {
     "toggleSidebar": "Mostrar ou ocultar painel de canais (Ctrl+\\)"

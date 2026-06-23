@@ -537,7 +537,10 @@
     "explore": "Explorar canales",
     "broadcasts": "Difusiones",
     "admin": "Administración",
-    "saved": "Guardados"
+    "saved": "Guardados",
+    "typing": "escribiendo…",
+    "someoneTyping": "{{name}} escribiendo…",
+    "severalTyping": "varios escribiendo…"
   },
   "layout": {
     "toggleSidebar": "Mostrar u ocultar panel de canales (Ctrl+\\)"
