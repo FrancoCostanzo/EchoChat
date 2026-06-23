@@ -34,16 +34,46 @@ import { formatMessageTime } from '@/lib/dates';
 
 const CONTENT_TRANSITION = { duration: 0.2, ease: [0.22, 1, 0.36, 1] };
 
+/* Three bouncing dots used in the sidebar typing indicator. */
+function SidebarTypingDots() {
+  return (
+    <span className="flex shrink-0 items-center gap-0.5 text-accent">
+      {[0, 1, 2].map((index) => (
+        <motion.span
+          key={index}
+          animate={{ y: [0, -2, 0], opacity: [0.35, 1, 0.35] }}
+          transition={{
+            duration: 1.2,
+            ease: 'easeInOut',
+            repeat: Number.POSITIVE_INFINITY,
+            delay: index * 0.15,
+          }}
+          className="inline-block h-1 w-1 rounded-full bg-current"
+        />
+      ))}
+    </span>
+  );
+}
+
 /* ─────────────────────────────────────────────────────────
    ConversationItem — row in the channel/DM list
    ───────────────────────────────────────────────────────── */
-function ConversationItem({ conversation, isActive, onClick, t, animIndex = 0 }) {
+function ConversationItem({ conversation, isActive, onClick, t, animIndex = 0, typingNames = [] }) {
   const isDirect = conversation.type === 'direct';
   const name = conversation.display_name || conversation.name || t('sidebar.noName');
   const lastMsg = conversation.last_message_body;
   const time = conversation.last_message_at;
   const unread = conversation.unread_count || 0;
   const hasUnread = unread > 0;
+
+  // "Escribiendo…" tiene prioridad sobre el preview del último mensaje. En DMs ya
+  // se sabe quién es; en grupos mostramos el nombre (o "varios" si son varios).
+  let typingText = null;
+  if (typingNames.length > 0) {
+    if (isDirect) typingText = t('sidebar.typing');
+    else if (typingNames.length === 1) typingText = t('sidebar.someoneTyping', { name: typingNames[0] });
+    else typingText = t('sidebar.severalTyping');
+  }
 
   return (
     <motion.button
@@ -97,8 +127,13 @@ function ConversationItem({ conversation, isActive, onClick, t, animIndex = 0 })
             </span>
           )}
         </div>
-        {lastMsg && (
-          <p className="truncate text-xs text-ink-200">{lastMsg}</p>
+        {typingText ? (
+          <p className="flex items-center gap-1.5 text-xs text-accent">
+            <SidebarTypingDots />
+            <span className="truncate">{typingText}</span>
+          </p>
+        ) : (
+          lastMsg && <p className="truncate text-xs text-ink-200">{lastMsg}</p>
         )}
       </div>
 
@@ -171,8 +206,18 @@ function UserPanel() {
 function ChatSidebar() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { conversations, activeConversationId, setActiveConversation } = useChatStore();
+  const { conversations, activeConversationId, setActiveConversation, typingUsers } = useChatStore();
+  const selfId = useAuthStore((s) => s.user?.id);
   const [search, setSearch] = useState('');
+
+  // Nombres de quienes están escribiendo en cada conversación (excluyéndome).
+  const typingNamesFor = useCallback(
+    (conversationId) =>
+      Object.entries(typingUsers[conversationId] || {})
+        .filter(([uid]) => uid !== selfId)
+        .map(([, displayName]) => displayName),
+    [typingUsers, selfId],
+  );
 
   const query = search.trim().toLowerCase();
   const filtered = conversations.filter((c) => {
@@ -269,6 +314,7 @@ function ChatSidebar() {
                   onClick={() => handleConversationClick(conv.id)}
                   t={t}
                   animIndex={i}
+                  typingNames={typingNamesFor(conv.id)}
                 />
               ))}
             </div>
@@ -287,6 +333,7 @@ function ChatSidebar() {
                   onClick={() => handleConversationClick(conv.id)}
                   t={t}
                   animIndex={i}
+                  typingNames={typingNamesFor(conv.id)}
                 />
               ))}
             </div>

@@ -58,10 +58,14 @@ export const useChatStore = create((set, get) => ({
             : c,
         );
         const target = updated.find((c) => c.id === message.conversation_id);
+        // El mensaje llegó → el remitente ya no está "escribiendo".
+        const convTyping = { ...state.typingUsers[message.conversation_id] };
+        delete convTyping[message.sender_id];
         return {
           conversations: target
             ? [target, ...updated.filter((c) => c.id !== message.conversation_id)]
             : updated,
+          typingUsers: { ...state.typingUsers, [message.conversation_id]: convTyping },
         };
       });
     });
