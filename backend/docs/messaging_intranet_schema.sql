@@ -341,8 +341,9 @@ CREATE TABLE messages (
     -- {url, title, description, image_url, site_name}
     link_preview     JSONB,
 
-    -- Vector de búsqueda full-text en español (actualizado por trigger)
-    search_vector    TSVECTOR,
+    -- Nota: el contenido (body) se guarda CIFRADO (AES-256-GCM, ver
+    -- src/utils/crypto.util.js). La búsqueda usa el índice ciego
+    -- message_search_tokens en vez de un TSVECTOR en claro.
 
     metadata         JSONB DEFAULT '{}',
     sent_at          TIMESTAMPTZ DEFAULT NOW(),
@@ -356,6 +357,15 @@ CREATE TABLE message_edits (
     body_before      TEXT NOT NULL,
     edited_by        UUID NOT NULL REFERENCES users(id),
     edited_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Índice ciego de búsqueda: HMAC-SHA256 de cada token normalizado del body.
+-- Permite búsqueda server-side (igualdad por token, AND) sin guardar el texto
+-- en claro. Lo mantiene la aplicación (src/utils/crypto.util.js).
+CREATE TABLE message_search_tokens (
+    message_id  UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+    token       TEXT NOT NULL,
+    PRIMARY KEY (message_id, token)
 );
 
 -- Estado de entrega y lectura por usuario ("doble tilde")
@@ -724,7 +734,7 @@ CREATE INDEX idx_messages_conversation ON messages(conversation_id, sent_at DESC
 CREATE INDEX idx_messages_sender ON messages(sender_id, sent_at DESC);
 CREATE INDEX idx_messages_reply ON messages(reply_to_id) WHERE reply_to_id IS NOT NULL;
 CREATE INDEX idx_messages_thread ON messages(thread_id) WHERE thread_id IS NOT NULL;
-CREATE INDEX idx_messages_search ON messages USING GIN(search_vector);  -- Full-text
+CREATE INDEX idx_message_search_tokens_token ON message_search_tokens(token);  -- Índice ciego
 
 -- Miembros de conversaciones
 CREATE INDEX idx_conv_members_user ON conversation_members(user_id)
@@ -811,19 +821,6 @@ $$;
 CREATE TRIGGER trg_call_duration
     BEFORE UPDATE ON calls FOR EACH ROW
     EXECUTE FUNCTION fn_calculate_call_duration();
-
--- Actualizar search_vector en mensajes al insertar o modificar el body
-CREATE OR REPLACE FUNCTION fn_update_message_search_vector()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-BEGIN
-    NEW.search_vector := to_tsvector('spanish', COALESCE(NEW.body, ''));
-    RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER trg_messages_search_vector
-    BEFORE INSERT OR UPDATE OF body ON messages FOR EACH ROW
-    EXECUTE FUNCTION fn_update_message_search_vector();
 
 -- Actualizar counter de miembros en channel_settings al entrar/salir
 CREATE OR REPLACE FUNCTION fn_update_channel_member_count()
