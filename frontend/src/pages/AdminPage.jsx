@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import {
   Button,
@@ -45,6 +46,8 @@ import MonitoreoDashboard from '@/components/monitoring/MonitoreoDashboard';
 import { useConfirm } from '@/components/ConfirmProvider';
 import UserAvatar from '@/components/UserAvatar';
 import { formatMessageTime } from '@/lib/dates';
+
+const ENTRY_EASE = [0.34, 1.2, 0.64, 1];
 
 const USER_STATUSES = ['active', 'inactive', 'suspended'];
 const USERS_PAGE_SIZE = 25;
@@ -1176,18 +1179,6 @@ export default function AdminPage() {
     return list;
   }, [access]);
 
-  const [mountedSections, setMountedSections] = useState(() => new Set(section ? [section] : []));
-
-  useEffect(() => {
-    if (!section) return;
-    setMountedSections((prev) => {
-      if (prev.has(section)) return prev;
-      const next = new Set(prev);
-      next.add(section);
-      return next;
-    });
-  }, [section]);
-
   if (!access.canAccess) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
@@ -1203,9 +1194,11 @@ export default function AdminPage() {
   }
 
   const mobileNav = MOBILE_ADMIN_NAV.filter((n) => allowedSections.includes(n.id));
+  const SectionComp = SECTION_COMPONENTS[section];
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      {/* Mobile header */}
       <div className="echo-chat-bg relative z-10 flex shrink-0 items-center gap-2 border-b border-separator px-3 py-3 lg:hidden">
         <Button isIconOnly size="sm" variant="ghost" onPress={() => navigate('/chat')}>
           <ArrowLeft size={16} />
@@ -1214,6 +1207,7 @@ export default function AdminPage() {
         <h2 className="text-sm font-semibold">{t('admin.title')}</h2>
       </div>
 
+      {/* Mobile tab nav */}
       <div className="echo-chat-bg relative z-10 flex shrink-0 gap-1 overflow-x-auto border-b border-separator px-3 py-2 lg:hidden">
         {mobileNav.map(({ id, icon: Icon }) => (
           <Button
@@ -1231,41 +1225,24 @@ export default function AdminPage() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        <div className="w-full px-4 py-4 md:px-6 md:py-6">
-          <div className="mb-5 hidden items-center gap-3 md:flex">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/15 text-accent">
-              <Shield size={20} />
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={section}
+            initial={{ opacity: 0, x: 18, scale: 0.98 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: -12, scale: 0.98 }}
+            transition={{ duration: 0.22, ease: ENTRY_EASE }}
+            className="w-full px-4 py-4 md:px-6 md:py-6"
+          >
+            {/* Desktop header */}
+            <div className="mb-5 hidden lg:block">
+              <h1 className="text-xl font-bold text-foreground">{t(`admin.sections.${section}`)}</h1>
+              <p className="mt-0.5 text-sm text-muted">{t(`admin.descriptions.${section}`)}</p>
             </div>
-            <div>
-              <h1 className="text-xl font-bold">{t('admin.title')}</h1>
-              <p className="text-sm text-muted">{t(`admin.descriptions.${section}`)}</p>
-            </div>
-          </div>
 
-          <div className="mb-4 hidden gap-2 md:flex">
-            {mobileNav.map(({ id, icon: Icon }) => (
-              <Button
-                key={id}
-                variant={section === id ? 'secondary' : 'ghost'}
-                onPress={() => navigate(`/admin/${id}`)}
-                className="gap-2"
-              >
-                <Icon size={14} />
-                {t(`admin.sections.${id}`)}
-              </Button>
-            ))}
-          </div>
-
-          {allowedSections.map((sec) => {
-            if (!mountedSections.has(sec)) return null;
-            const SectionComp = SECTION_COMPONENTS[sec];
-            return (
-              <div key={sec} className={sec !== section ? 'hidden' : undefined}>
-                <SectionComp t={t} />
-              </div>
-            );
-          })}
-        </div>
+            {SectionComp && <SectionComp t={t} />}
+          </motion.div>
+        </AnimatePresence>
       </div>
     </div>
   );
