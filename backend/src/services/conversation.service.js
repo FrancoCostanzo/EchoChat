@@ -115,6 +115,8 @@ class ConversationService {
         action: 'conversation.member_role_change',
         resource_type: 'conversation',
         resource_id: conversationId,
+        severity: 'warning',
+        category: 'content',
         data_after: { target_user_id: targetUserId, new_role: data.role },
       }).catch((err) => logger.warn({ err: err.message }, 'Failed to write audit log'));
     }

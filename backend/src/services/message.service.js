@@ -177,6 +177,8 @@ class MessageService {
       action: 'message.delete',
       resource_type: 'message',
       resource_id: messageId,
+      severity: isOwner ? 'info' : 'warning',
+      category: 'content',
       data_before: { conversation_id: message.conversation_id, sender_id: message.sender_id },
       data_after: { by_owner: isOwner },
     }).catch((err) => logger.warn({ err: err.message }, 'Failed to write audit log'));
