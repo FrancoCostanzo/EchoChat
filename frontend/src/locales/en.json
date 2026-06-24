@@ -7,6 +7,7 @@
     "delete": "Delete",
     "edit": "Edit",
     "close": "Close",
+    "you": "You",
     "search": "Search",
     "add": "Add",
     "create": "Create",
@@ -150,6 +151,9 @@
     "threadReplyPlaceholder": "Reply in thread...",
     "memberPanel": "Members",
     "viewMembers": "View members",
+    "membersActive": "Active",
+    "membersOffline": "Offline",
+    "membersOnlineCount": "{{count}} online",
     "changeWallpaper": "Change wallpaper",
     "formatToolbar": "Text formatting",
     "format": {

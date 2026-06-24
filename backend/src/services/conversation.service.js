@@ -17,6 +17,17 @@ async function enrichAvatarUrl(conv) {
   }
 }
 
+async function enrichMemberAvatarUrl(member) {
+  if (!member || !member.avatar_object_key) return member;
+  try {
+    const url = await minioClient.presignedGetObject(AVATAR_BUCKET, member.avatar_object_key, 60 * 60 * 24);
+    return { ...member, avatar_url: url };
+  } catch (err) {
+    logger.warn({ err, userId: member.user_id }, 'Failed to generate member avatar presigned URL');
+    return member;
+  }
+}
+
 class ConversationService {
   async create(userId, data) {
     // For direct chats, check if one already exists
@@ -95,7 +106,7 @@ class ConversationService {
     const member = await conversationRepository.getMember(conversationId, userId);
     if (!member) throw new ForbiddenError('Not a member of this conversation');
     const members = await conversationRepository.getMembers(conversationId, pagination);
-    return members.map(toMemberResponse);
+    return Promise.all(members.map(toMemberResponse).map(enrichMemberAvatarUrl));
   }
 
   async updateMember(conversationId, userId, targetUserId, data) {

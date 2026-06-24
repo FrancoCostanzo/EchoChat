@@ -7,6 +7,7 @@
     "delete": "Excluir",
     "edit": "Editar",
     "close": "Fechar",
+    "you": "Você",
     "search": "Buscar",
     "add": "Adicionar",
     "create": "Criar",
@@ -150,6 +151,9 @@
     "threadReplyPlaceholder": "Responder no tópico...",
     "memberPanel": "Membros",
     "viewMembers": "Ver membros",
+    "membersActive": "Ativos",
+    "membersOffline": "Desconectados",
+    "membersOnlineCount": "{{count}} online",
     "changeWallpaper": "Alterar plano de fundo",
     "formatToolbar": "Formatação de texto",
     "format": {
