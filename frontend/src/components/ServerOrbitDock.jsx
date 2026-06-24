@@ -11,7 +11,6 @@ import {
   Bookmark,
   Megaphone,
   Shield,
-  Activity,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
@@ -95,7 +94,6 @@ export default function ServerOrbitDock({
   const isNotifications = pathname.startsWith('/notifications');
   const isSettings = pathname.startsWith('/settings');
   const isAdmin = pathname.startsWith('/admin');
-  const isMonitoring = pathname.startsWith('/monitoring');
   const isNew = pathname === '/chat/new';
 
   const totalUnread = conversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
@@ -207,14 +205,7 @@ export default function ServerOrbitDock({
             active={isAdmin}
           />
         )}
-        {canAdmin && (
-          <DockOrb
-            icon={Activity}
-            label={t('sidebar.monitoring')}
-            onClick={() => navigate('/monitoring')}
-            active={isMonitoring}
-          />
-        )}
+
         <DockOrb
           icon={Settings}
           label={t('sidebar.settings')}

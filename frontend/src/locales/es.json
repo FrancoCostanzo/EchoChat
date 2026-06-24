@@ -456,13 +456,15 @@
       "users": "Usuarios",
       "settings": "Sistema",
       "audit": "Auditoría",
-      "storage": "Almacenamiento"
+      "storage": "Almacenamiento",
+      "monitoring": "Monitoreo"
     },
     "descriptions": {
       "users": "Gestioná cuentas, estados y roles",
       "settings": "Configuración global de la plataforma",
       "audit": "Historial de acciones críticas",
-      "storage": "Inventario y métricas de MinIO"
+      "storage": "Inventario y métricas de MinIO",
+      "monitoring": "Estado en tiempo real del servidor y la base de datos"
     },
     "users": {
       "search": "Buscar usuarios...",

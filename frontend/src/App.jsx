@@ -21,7 +21,6 @@ const AdminPage = lazy(() => import('@/pages/AdminPage'));
 const SavedMessagesPage = lazy(() => import('@/pages/SavedMessagesPage'));
 const NotificationsPage = lazy(() => import('@/pages/NotificationsPage'));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
-const MonitoringPage = lazy(() => import('@/pages/MonitoringPage'));
 
 function PageLoader() {
   return (
@@ -78,9 +77,10 @@ export default function App() {
           <Route path="/contacts" element={<ContactsPage />} />
           <Route path="/channels" element={<ChannelsExplorePage />} />
           <Route path="/broadcasts" element={<BroadcastsPage />} />
-          <Route path="/admin" element={<Navigate to="/admin/users" replace />} />
-          <Route path="/admin/:section" element={<AdminPage />} />
-          <Route path="/monitoring" element={<MonitoringPage />} />
+          <Route path="/admin" element={<AdminPage />}>
+            <Route path=":section" element={null} />
+          </Route>
+          <Route path="/monitoring" element={<Navigate to="/admin/monitoring" replace />} />
           <Route path="/saved" element={<SavedMessagesPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/settings" element={<Navigate to="/settings/profile" replace />} />

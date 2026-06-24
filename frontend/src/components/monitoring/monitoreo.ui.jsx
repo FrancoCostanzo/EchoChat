@@ -1,4 +1,4 @@
-import { Chip, Tooltip } from '@heroui/react';
+import { Card, Chip, Tooltip } from '@heroui/react';
 import { Info } from 'lucide-react';
 import monitoreoServices from '@/services/monitoring/monitoring.service';
 import {
@@ -130,22 +130,24 @@ export const StatusCard = ({ title, status, icon, children, tooltip = null }) =>
   const textClass = STATUS_TEXT_CLASSES[color] || STATUS_TEXT_CLASSES.default;
 
   return (
-    <div className="shadow-lg h-full border-none rounded-large bg-content1">
-      <div className="flex items-center justify-between p-4 pb-2">
+    <Card className="h-full">
+      <Card.Header className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <div className={`p-2 rounded-lg ${bgClass}`}>
+          <div className={`p-2 rounded-lg shrink-0 ${bgClass}`}>
             <IconEl className={`w-5 h-5 ${textClass}`} />
           </div>
-          <LabelWithTooltip label={title} tooltip={tooltip} className="text-lg font-semibold text-foreground" />
+          <LabelWithTooltip label={title} tooltip={tooltip} className="font-semibold text-foreground" />
         </div>
         {status && (
-          <Chip color={color} variant="flat" size="sm" className="capitalize">
+          <Chip color={color} variant="flat" size="sm" className="capitalize shrink-0">
             {monitoreoServices.getStatusLabel(status)}
           </Chip>
         )}
-      </div>
+      </Card.Header>
       <hr className="border-divider" />
-      <div className="p-4 flex flex-col gap-4">{children}</div>
-    </div>
+      <Card.Content className="flex flex-col gap-4">
+        {children}
+      </Card.Content>
+    </Card>
   );
 };

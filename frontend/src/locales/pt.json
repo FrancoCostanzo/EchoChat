@@ -447,13 +447,15 @@
       "users": "Usuários",
       "settings": "Sistema",
       "audit": "Auditoria",
-      "storage": "Armazenamento"
+      "storage": "Armazenamento",
+      "monitoring": "Monitoramento"
     },
     "descriptions": {
       "users": "Gerencie contas, status e papéis",
       "settings": "Configuração global da plataforma",
       "audit": "Histórico de ações críticas",
-      "storage": "Inventário e métricas do MinIO"
+      "storage": "Inventário e métricas do MinIO",
+      "monitoring": "Status em tempo real do servidor e banco de dados"
     },
     "users": {
       "search": "Buscar usuários...",
