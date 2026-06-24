@@ -20,6 +20,11 @@ import {
   Mic,
   Headphones,
   X,
+  Users,
+  Settings,
+  ScrollText,
+  HardDrive,
+  Activity,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
@@ -422,34 +427,101 @@ function SettingsSidebar() {
   );
 }
 
+/* ─────────────────────────────────────────────────────────
+   Admin sidebar (same slot as ChatSidebar but for /admin)
+   ───────────────────────────────────────────────────────── */
+const ADMIN_NAV = [
+  { id: 'users',      icon: Users,       perm: 'admin.users' },
+  { id: 'settings',  icon: Settings,    perm: 'admin.settings' },
+  { id: 'audit',     icon: ScrollText,  perm: 'admin.view_audit' },
+  { id: 'storage',   icon: HardDrive,   perm: 'admin.storage' },
+  { id: 'monitoring',icon: Activity,    perm: null },
+];
+
+function AdminSidebar() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const user = useAuthStore((s) => s.user);
+
+  const roles = user?.roles || [];
+  const perms = user?.permissions || [];
+  const isSuper = roles.includes('super_admin');
+
+  const visibleNav = ADMIN_NAV.filter(({ perm }) => {
+    if (isSuper) return true;
+    if (!perm) return perms.some((p) => p.startsWith('admin.'));
+    return perms.includes(perm);
+  });
+
+  const activeSection = location.pathname.split('/admin/')[1] || '';
+
+  return (
+    <div className="echo-sidebar-bg flex h-full w-full flex-col">
+      <div className="flex h-12 shrink-0 items-center gap-2 border-b border-white/5 px-3 shadow-sm">
+        <Tooltip delay={0}>
+          <Button
+            isIconOnly
+            size="sm"
+            variant="ghost"
+            className="h-7 w-7 min-w-0"
+            onPress={() => navigate('/chat')}
+          >
+            <ArrowLeft size={16} />
+          </Button>
+          <Tooltip.Content><p>{t('common.back')}</p></Tooltip.Content>
+        </Tooltip>
+        <Shield size={15} className="text-accent" />
+        <h2 className="echo-display text-[17px] font-semibold">{t('admin.title')}</h2>
+      </div>
+
+      <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2 py-3">
+        <p className="px-2 pb-1 text-[11px] font-bold uppercase tracking-wider text-ink-200">
+          {t('admin.sections.label', 'Secciones')}
+        </p>
+        {visibleNav.map(({ id, icon: Icon }) => (
+          <Button
+            key={id}
+            variant="ghost"
+            onPress={() => navigate(`/admin/${id}`)}
+            className={[
+              'flex h-auto w-full items-center justify-start gap-3 rounded-lg px-3 py-2 text-[14px] font-medium transition-colors',
+              activeSection === id
+                ? 'echo-grad-brand-soft echo-ring-soft text-foreground'
+                : 'text-ink-100 hover:bg-ink-750 hover:text-foreground',
+            ].join(' ')}
+          >
+            <Icon size={15} />
+            {t(`admin.sections.${id}`)}
+          </Button>
+        ))}
+      </nav>
+
+      <UserPanel />
+    </div>
+  );
+}
+
 function Sidebar() {
   const location = useLocation();
   const isSettings = location.pathname.startsWith('/settings');
+  const isAdmin = location.pathname.startsWith('/admin');
+
+  const key = isSettings ? 'settings' : isAdmin ? 'admin' : 'chat';
+  const SidebarComp = isSettings ? SettingsSidebar : isAdmin ? AdminSidebar : ChatSidebar;
+
   return (
     <AnimatePresence mode="wait">
-      {isSettings ? (
-        <motion.div
-          key="settings"
-          initial={{ opacity: 0, x: -8 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -8 }}
-          transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-          className="h-full w-full"
-        >
-          <SettingsSidebar />
-        </motion.div>
-      ) : (
-        <motion.div
-          key="chat"
-          initial={{ opacity: 0, x: -8 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -8 }}
-          transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-          className="h-full w-full"
-        >
-          <ChatSidebar />
-        </motion.div>
-      )}
+      <motion.div
+        key={key}
+        initial={{ opacity: 0, x: -8 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -8 }}
+        transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+        className="h-full w-full"
+      >
+        <SidebarComp />
+      </motion.div>
     </AnimatePresence>
   );
 }
