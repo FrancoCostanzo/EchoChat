@@ -99,6 +99,8 @@ class AdminController {
       success: req.query.success,
       from: req.query.from,
       to: req.query.to,
+      sort_column: req.query.sort_column,
+      sort_dir: req.query.sort_dir,
       limit: parseInt(req.query.limit, 10) || 50,
       offset: parseInt(req.query.offset, 10) || 0,
     });

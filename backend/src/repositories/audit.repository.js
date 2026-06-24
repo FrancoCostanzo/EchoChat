@@ -64,6 +64,23 @@ class AuditRepository {
     return rows;
   }
 
+  /** Whitelisted sortable columns → SQL expression. */
+  static #SORT_COLUMNS = {
+    created_at: 'a.created_at',
+    action:     'a.action',
+    severity:   'a.severity',
+    category:   'a.category',
+    actor:      'COALESCE(u.display_name, u.username)',
+    success:    'a.success',
+  };
+
+  #buildOrderBy(sort_column, sort_dir) {
+    const col = AuditRepository.#SORT_COLUMNS[sort_column] ?? 'a.created_at';
+    const dir = sort_dir === 'ascending' ? 'ASC' : 'DESC';
+    // Always secondary-sort by id DESC so order is stable within a tie.
+    return `${col} ${dir}, a.id DESC`;
+  }
+
   /** Builds the WHERE clause shared by search() and searchWithCount(). */
   #buildWhere({ action, actor_id, resource_type, success, from, to, severity, category }) {
     const conditions = ['1=1'];
@@ -115,8 +132,9 @@ class AuditRepository {
   }
 
   async search(filters = {}) {
-    const { limit = 50, offset = 0, ...rest } = filters;
+    const { limit = 50, offset = 0, sort_column, sort_dir, ...rest } = filters;
     const { conditions, params, nextIdx } = this.#buildWhere(rest);
+    const orderBy = this.#buildOrderBy(sort_column, sort_dir);
     params.push(limit, offset);
     const { rows } = await pool.query(
       `SELECT a.*,
@@ -125,7 +143,7 @@ class AuditRepository {
        FROM audit_log a
        LEFT JOIN users u ON u.id = a.actor_id
        WHERE ${conditions.join(' AND ')}
-       ORDER BY a.created_at DESC
+       ORDER BY ${orderBy}
        LIMIT $${nextIdx} OFFSET $${nextIdx + 1}`,
       params,
     );
@@ -133,8 +151,9 @@ class AuditRepository {
   }
 
   async searchWithCount(filters = {}) {
-    const { limit = 50, offset = 0, ...rest } = filters;
+    const { limit = 50, offset = 0, sort_column, sort_dir, ...rest } = filters;
     const { conditions, params: baseParams, nextIdx } = this.#buildWhere(rest);
+    const orderBy = this.#buildOrderBy(sort_column, sort_dir);
 
     const countParams = [...baseParams];
     const { rows: countRows } = await pool.query(
@@ -154,7 +173,7 @@ class AuditRepository {
        FROM audit_log a
        LEFT JOIN users u ON u.id = a.actor_id
        WHERE ${conditions.join(' AND ')}
-       ORDER BY a.created_at DESC
+       ORDER BY ${orderBy}
        LIMIT $${nextIdx} OFFSET $${nextIdx + 1}`,
       rowParams,
     );
