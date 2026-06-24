@@ -31,6 +31,9 @@ import {
   AlertCircle,
   RefreshCw,
   KeyRound,
+  ChevronLeft,
+  ChevronRight,
+  X,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { adminApi } from '@/lib/endpoints';
@@ -695,83 +698,292 @@ function SettingsTab({ t }) {
 }
 
 /* ── 7.3 Audit ── */
+const SEVERITY_COLOR = { info: 'default', warning: 'warning', critical: 'danger' };
+const CATEGORY_COLOR = { auth: 'primary', admin: 'secondary', content: 'default', system: 'accent', security: 'warning' };
+
 function AuditTab({ t }) {
   const [entries, setEntries] = useState([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [action, setAction] = useState('');
-  const [success, setSuccess] = useState('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState('50');
+  const [filters, setFilters] = useState({
+    action: '', category: 'all', severity: 'all', success: 'all', from: '', to: '',
+  });
+  const [expanded, setExpanded] = useState(null);
+
+  const limit = parseInt(pageSize, 10);
+  const offset = (page - 1) * limit;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const expandedEntry = expanded ? entries.find((e) => String(e.id) === expanded) : null;
+
+  const updateFilter = useCallback((key, value) => {
+    setPage(1);
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params = { limit: 100 };
-      if (action.trim()) params.action = action.trim();
-      if (success && success !== 'all') params.success = success;
+      const params = { limit, offset };
+      if (filters.action.trim()) params.action = filters.action.trim();
+      if (filters.category !== 'all') params.category = filters.category;
+      if (filters.severity !== 'all') params.severity = filters.severity;
+      if (filters.success !== 'all') params.success = filters.success;
+      if (filters.from) params.from = filters.from;
+      if (filters.to) params.to = `${filters.to}T23:59:59Z`;
       const res = await adminApi.getAuditLog(params);
-      setEntries(res.data);
+      setEntries(res.data.entries ?? []);
+      setTotal(res.data.total ?? 0);
     } finally {
       setLoading(false);
     }
-  }, [action, success]);
+  }, [filters, limit, offset]);
 
   useEffect(() => { load(); }, [load]);
 
+  const getActionLabel = (action) => {
+    const key = `admin.audit.actions.${action.replace(/\./g, '_').replace(/-/g, '_')}`;
+    const label = t(key);
+    return label === key ? null : label;
+  };
+
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap gap-3">
+      {/* Filters */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <Input
-          className="min-w-[200px] flex-1"
           placeholder={t('admin.audit.filterAction')}
-          value={action}
-          onChange={(e) => setAction(e.target.value)}
+          value={filters.action}
+          onChange={(e) => updateFilter('action', e.target.value)}
+          className="lg:col-span-1"
+        />
+        <AdminSelect
+          ariaLabel={t('admin.audit.filterCategory')}
+          value={filters.category}
+          onChange={(v) => updateFilter('category', v)}
+          items={[
+            { id: 'all', label: t('admin.audit.allCategories') },
+            { id: 'auth', label: t('admin.audit.categories.auth') },
+            { id: 'admin', label: t('admin.audit.categories.admin') },
+            { id: 'content', label: t('admin.audit.categories.content') },
+            { id: 'system', label: t('admin.audit.categories.system') },
+            { id: 'security', label: t('admin.audit.categories.security') },
+          ]}
+        />
+        <AdminSelect
+          ariaLabel={t('admin.audit.filterSeverity')}
+          value={filters.severity}
+          onChange={(v) => updateFilter('severity', v)}
+          items={[
+            { id: 'all', label: t('admin.audit.allSeverities') },
+            { id: 'info', label: t('admin.audit.severities.info') },
+            { id: 'warning', label: t('admin.audit.severities.warning') },
+            { id: 'critical', label: t('admin.audit.severities.critical') },
+          ]}
         />
         <AdminSelect
           ariaLabel={t('admin.audit.allResults')}
-          value={success}
-          onChange={setSuccess}
+          value={filters.success}
+          onChange={(v) => updateFilter('success', v)}
           items={[
             { id: 'all', label: t('admin.audit.allResults') },
             { id: 'true', label: t('admin.audit.success') },
             { id: 'false', label: t('admin.audit.failed') },
           ]}
         />
+        <Input
+          type="date"
+          value={filters.from}
+          onChange={(e) => updateFilter('from', e.target.value)}
+          label={t('admin.audit.dateFrom')}
+        />
+        <Input
+          type="date"
+          value={filters.to}
+          onChange={(e) => updateFilter('to', e.target.value)}
+          label={t('admin.audit.dateTo')}
+        />
+      </div>
+
+      {/* Toolbar: total + page size */}
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="text-muted">{total} {t('admin.audit.totalResults')}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-muted hidden sm:inline">{t('admin.audit.rowsPerPage')}</span>
+          <AdminSelect
+            ariaLabel={t('admin.audit.rowsPerPage')}
+            className="min-w-[80px]"
+            value={pageSize}
+            onChange={(v) => { setPageSize(String(v)); setPage(1); }}
+            items={[
+              { id: '25', label: '25' },
+              { id: '50', label: '50' },
+              { id: '100', label: '100' },
+            ]}
+          />
+        </div>
       </div>
 
       {loading ? (
         <div className="flex justify-center py-12"><Spinner size="lg" /></div>
       ) : (
-        <Table>
-          <Table.ScrollContainer>
-            <Table.Content aria-label={t('admin.sections.audit')} className="min-w-[720px]">
-              <Table.Header>
-                <Table.Column isRowHeader>{t('admin.audit.colTime')}</Table.Column>
-                <Table.Column>{t('admin.audit.colActor')}</Table.Column>
-                <Table.Column>{t('admin.audit.colAction')}</Table.Column>
-                <Table.Column>{t('admin.audit.colResource')}</Table.Column>
-                <Table.Column>{t('admin.audit.colResult')}</Table.Column>
-              </Table.Header>
-              <Table.Body>
-                {entries.map((e) => (
-                  <Table.Row key={e.id} id={e.id}>
-                    <Table.Cell className="whitespace-nowrap text-xs text-muted">
-                      {formatMessageTime(e.created_at)}
-                    </Table.Cell>
-                    <Table.Cell>{e.actor_display_name || e.actor_username || '—'}</Table.Cell>
-                    <Table.Cell className="font-mono text-xs">{e.action}</Table.Cell>
-                    <Table.Cell className="text-xs text-muted">
-                      {e.resource_type}{e.resource_id ? ` / ${e.resource_id.slice(0, 8)}…` : ''}
-                    </Table.Cell>
-                    <Table.Cell>
-                      <Chip size="sm" variant="soft" color={e.success ? 'success' : 'danger'}>
-                        {e.success ? t('admin.audit.success') : t('admin.audit.failed')}
-                      </Chip>
-                    </Table.Cell>
-                  </Table.Row>
-                ))}
-              </Table.Body>
-            </Table.Content>
-          </Table.ScrollContainer>
-        </Table>
+        <>
+          <Table>
+            <Table.ScrollContainer>
+              <Table.Content
+                aria-label={t('admin.sections.audit')}
+                className="min-w-[900px]"
+                onRowAction={(key) => setExpanded((prev) => (prev === String(key) ? null : String(key)))}
+              >
+                <Table.Header>
+                  <Table.Column isRowHeader>{t('admin.audit.colTime')}</Table.Column>
+                  <Table.Column>{t('admin.audit.colActor')}</Table.Column>
+                  <Table.Column>{t('admin.audit.colAction')}</Table.Column>
+                  <Table.Column>{t('admin.audit.colSeverity')}</Table.Column>
+                  <Table.Column>{t('admin.audit.colCategory')}</Table.Column>
+                  <Table.Column>{t('admin.audit.colResource')}</Table.Column>
+                  <Table.Column>{t('admin.audit.colIp')}</Table.Column>
+                  <Table.Column>{t('admin.audit.colResult')}</Table.Column>
+                </Table.Header>
+                <Table.Body>
+                  {entries.map((e) => (
+                    <Table.Row
+                      key={String(e.id)}
+                      id={String(e.id)}
+                      className={`cursor-pointer transition-colors ${String(e.id) === expanded ? 'bg-default-50' : ''}`}
+                    >
+                      <Table.Cell className="whitespace-nowrap text-xs text-muted">
+                        {formatMessageTime(e.created_at)}
+                      </Table.Cell>
+                      <Table.Cell className="text-sm">
+                        {e.actor_display_name || e.actor_username || '—'}
+                      </Table.Cell>
+                      <Table.Cell>
+                        {getActionLabel(e.action) ? (
+                          <div>
+                            <span className="text-sm font-medium">{getActionLabel(e.action)}</span>
+                            <span className="block font-mono text-[10px] text-muted">{e.action}</span>
+                          </div>
+                        ) : (
+                          <span className="font-mono text-xs">{e.action}</span>
+                        )}
+                      </Table.Cell>
+                      <Table.Cell>
+                        <Chip size="sm" variant="flat" color={SEVERITY_COLOR[e.severity] || 'default'}>
+                          {t(`admin.audit.severities.${e.severity}`) || e.severity || 'info'}
+                        </Chip>
+                      </Table.Cell>
+                      <Table.Cell>
+                        <Chip size="sm" variant="soft" color={CATEGORY_COLOR[e.category] || 'default'}>
+                          {t(`admin.audit.categories.${e.category}`) || e.category || '—'}
+                        </Chip>
+                      </Table.Cell>
+                      <Table.Cell className="text-xs text-muted">
+                        {e.resource_type || '—'}{e.resource_id ? ` / ${e.resource_id.slice(0, 8)}…` : ''}
+                      </Table.Cell>
+                      <Table.Cell className="font-mono text-xs text-muted">
+                        {e.ip_address || '—'}
+                      </Table.Cell>
+                      <Table.Cell>
+                        <Chip size="sm" variant="soft" color={e.success ? 'success' : 'danger'}>
+                          {e.success ? t('admin.audit.success') : t('admin.audit.failed')}
+                        </Chip>
+                      </Table.Cell>
+                    </Table.Row>
+                  ))}
+                </Table.Body>
+              </Table.Content>
+            </Table.ScrollContainer>
+          </Table>
+
+          {/* Detail panel */}
+          {expandedEntry && (
+            <Card className="border border-default-200">
+              <Card.Header className="flex items-center justify-between">
+                <span className="font-semibold text-sm">{t('admin.audit.detailTitle')}</span>
+                <Button size="sm" variant="ghost" isIconOnly onPress={() => setExpanded(null)}>
+                  <X className="w-4 h-4" />
+                </Button>
+              </Card.Header>
+              <hr className="border-divider" />
+              <Card.Content className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm">
+                <div>
+                  <p className="text-xs font-semibold uppercase text-muted mb-3">{t('admin.audit.detail.info')}</p>
+                  <dl className="space-y-2">
+                    <div className="flex gap-3">
+                      <dt className="text-muted min-w-[90px] text-xs">ID</dt>
+                      <dd className="font-mono text-xs">{expandedEntry.id}</dd>
+                    </div>
+                    <div className="flex gap-3">
+                      <dt className="text-muted min-w-[90px] text-xs">IP</dt>
+                      <dd className="font-mono text-xs">{expandedEntry.ip_address || '—'}</dd>
+                    </div>
+                    {expandedEntry.duration_ms != null && (
+                      <div className="flex gap-3">
+                        <dt className="text-muted min-w-[90px] text-xs">Duración</dt>
+                        <dd className="text-xs">{expandedEntry.duration_ms} ms</dd>
+                      </div>
+                    )}
+                    {expandedEntry.error_message && (
+                      <div className="flex gap-3">
+                        <dt className="text-muted min-w-[90px] text-xs">Error</dt>
+                        <dd className="text-xs text-danger">{expandedEntry.error_message}</dd>
+                      </div>
+                    )}
+                    {expandedEntry.metadata && (
+                      <div className="flex gap-3">
+                        <dt className="text-muted min-w-[90px] text-xs">Metadata</dt>
+                        <dd className="font-mono text-xs break-all">{JSON.stringify(expandedEntry.metadata)}</dd>
+                      </div>
+                    )}
+                  </dl>
+                </div>
+                {(expandedEntry.data_before || expandedEntry.data_after) && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs font-semibold uppercase text-muted mb-2">{t('admin.audit.detail.before')}</p>
+                      <pre className="text-xs bg-default-50 dark:bg-default-100/10 rounded-lg p-3 overflow-auto max-h-36 font-mono">
+                        {expandedEntry.data_before ? JSON.stringify(expandedEntry.data_before, null, 2) : '—'}
+                      </pre>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase text-muted mb-2">{t('admin.audit.detail.after')}</p>
+                      <pre className="text-xs bg-default-50 dark:bg-default-100/10 rounded-lg p-3 overflow-auto max-h-36 font-mono">
+                        {expandedEntry.data_after ? JSON.stringify(expandedEntry.data_after, null, 2) : '—'}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+              </Card.Content>
+            </Card>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                isIconOnly
+                isDisabled={page <= 1}
+                onPress={() => setPage((p) => p - 1)}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <span className="text-sm text-muted px-2">{page} / {totalPages}</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                isIconOnly
+                isDisabled={page >= totalPages}
+                onPress={() => setPage((p) => p + 1)}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

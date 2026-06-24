@@ -46,6 +46,9 @@ class AuthService {
       resource_id: user.id,
       ip_address: ip,
       user_agent: userAgent,
+      severity: 'info',
+      category: 'auth',
+      data_after: { username: user.username },
     });
 
     logger.info({ userId: user.id }, 'New user registered');
@@ -71,6 +74,9 @@ class AuthService {
           user_agent: userAgent,
           success: false,
           error_message: 'Invalid LDAP credentials',
+          severity: 'warning',
+          category: 'security',
+          metadata: { provider: 'ldap' },
         });
         throw new UnauthorizedError('Invalid credentials');
       }
@@ -97,6 +103,9 @@ class AuthService {
         user_agent: userAgent,
         success: false,
         error_message: 'Invalid password',
+        severity: 'warning',
+        category: 'security',
+        metadata: { failed_attempts: (creds.failed_attempts || 0) + 1 },
       });
       throw new UnauthorizedError('Invalid credentials');
     }
@@ -139,6 +148,9 @@ class AuthService {
       resource_id: user.id,
       ip_address: ip,
       user_agent: userAgent,
+      severity: 'info',
+      category: 'auth',
+      metadata: { provider: user.auth_provider || 'local' },
     });
 
     logger.info({ userId: user.id, provider: user.auth_provider || 'local' }, 'User logged in');
@@ -158,12 +170,29 @@ class AuthService {
       await sessionRepository.deactivate(session.id);
     }
     await userRepository.updatePresence(userId, 'offline');
+    await auditRepository.log({
+      actor_id: userId,
+      action: 'user.logout',
+      resource_type: 'user',
+      resource_id: userId,
+      severity: 'info',
+      category: 'auth',
+    });
     logger.info({ userId }, 'User logged out');
   }
 
   async logoutAll(userId, exceptSessionId = null) {
     await sessionRepository.deactivateAllForUser(userId, exceptSessionId);
     if (!exceptSessionId) await userRepository.updatePresence(userId, 'offline');
+    await auditRepository.log({
+      actor_id: userId,
+      action: 'user.logout_all',
+      resource_type: 'user',
+      resource_id: userId,
+      severity: 'warning',
+      category: 'security',
+      metadata: { keep_current: !!exceptSessionId },
+    });
     logger.info({ userId, exceptSessionId }, 'Sessions revoked');
   }
 
@@ -203,6 +232,8 @@ class AuthService {
       resource_id: userId,
       ip_address: ip,
       user_agent: userAgent,
+      severity: 'warning',
+      category: 'security',
     });
 
     logger.info({ userId }, 'Password changed');
@@ -256,6 +287,14 @@ class AuthService {
       crypto.createHash('sha256').update(c).digest('hex')
     );
     await credentialRepository.enableTotp(userId, hashedCodes);
+    await auditRepository.log({
+      actor_id: userId,
+      action: 'user.2fa_enabled',
+      resource_type: 'user',
+      resource_id: userId,
+      severity: 'warning',
+      category: 'security',
+    });
     logger.info({ userId }, '2FA enabled');
     return { backup_codes: backupCodes };
   }
@@ -268,6 +307,14 @@ class AuthService {
     const isValid = await totp.verify(code, { secret: creds.totp_secret });
     if (!isValid?.valid) throw new UnauthorizedError('Invalid verification code');
     await credentialRepository.disableTotp(userId);
+    await auditRepository.log({
+      actor_id: userId,
+      action: 'user.2fa_disabled',
+      resource_type: 'user',
+      resource_id: userId,
+      severity: 'warning',
+      category: 'security',
+    });
     logger.info({ userId }, '2FA disabled');
   }
 
@@ -312,11 +359,13 @@ class AuthService {
     await credentialRepository.resetFailedAttempts(userId);
     await auditRepository.log({
       actor_id: userId,
-      action: 'user.login',
+      action: isBackup ? 'user.2fa_backup_code_used' : 'user.2fa_login',
       resource_type: 'user',
       resource_id: userId,
       ip_address: ip,
       user_agent: userAgent,
+      severity: isBackup ? 'warning' : 'info',
+      category: isBackup ? 'security' : 'auth',
     });
     logger.info({ userId }, 'User logged in via 2FA');
     return { user, token, expires_at: expiresAt };
@@ -332,6 +381,14 @@ class AuthService {
       crypto.createHash('sha256').update(c).digest('hex')
     );
     await credentialRepository.updateBackupCodes(userId, hashedCodes);
+    await auditRepository.log({
+      actor_id: userId,
+      action: 'user.2fa_backup_codes_regen',
+      resource_type: 'user',
+      resource_id: userId,
+      severity: 'warning',
+      category: 'security',
+    });
     logger.info({ userId }, '2FA backup codes regenerated');
     return { backup_codes: backupCodes };
   }

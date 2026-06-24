@@ -507,14 +507,65 @@
     },
     "audit": {
       "filterAction": "Filter by action...",
-      "allResults": "All",
+      "filterCategory": "Category",
+      "filterSeverity": "Severity",
+      "allResults": "All results",
+      "allCategories": "All categories",
+      "allSeverities": "All severities",
       "success": "Successful",
       "failed": "Failed",
+      "totalResults": "records",
+      "rowsPerPage": "Rows per page",
       "colTime": "Time",
       "colActor": "Actor",
       "colAction": "Action",
+      "colSeverity": "Severity",
+      "colCategory": "Category",
       "colResource": "Resource",
-      "colResult": "OK"
+      "colIp": "IP",
+      "colResult": "Result",
+      "dateFrom": "From",
+      "dateTo": "To",
+      "detailTitle": "Event detail",
+      "detail": {
+        "info": "Information",
+        "before": "Before",
+        "after": "After"
+      },
+      "severities": {
+        "info": "Info",
+        "warning": "Warning",
+        "critical": "Critical"
+      },
+      "categories": {
+        "auth": "Authentication",
+        "admin": "Administration",
+        "content": "Content",
+        "system": "System",
+        "security": "Security"
+      },
+      "actions": {
+        "user_register": "User registration",
+        "user_login": "Login",
+        "user_logout": "Logout",
+        "user_logout_all": "Logout all sessions",
+        "user_change_password": "Password change",
+        "user_profile_update": "Profile update",
+        "user_avatar_update": "Avatar update",
+        "user_2fa_enabled": "2FA enabled",
+        "user_2fa_disabled": "2FA disabled",
+        "user_2fa_login": "Login via 2FA",
+        "user_2fa_backup_used": "Backup code used",
+        "user_2fa_backup_regen": "Backup codes regenerated",
+        "admin_user_create": "User created",
+        "admin_user_update": "User updated",
+        "admin_user_delete": "User deleted",
+        "admin_user_reset_password": "Password reset",
+        "admin_ldap_sync": "LDAP sync",
+        "admin_setting_update": "Setting changed",
+        "message_delete": "Message deleted",
+        "conversation_role_change": "Conversation role changed"
+      }
     },
     "storage": {
       "totalObjects": "Objects",

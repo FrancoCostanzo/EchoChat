@@ -35,6 +35,11 @@ function toAuditEntryResponse(row) {
     error_message: row.error_message,
     data_before: row.data_before,
     data_after: row.data_after,
+    severity: row.severity || 'info',
+    category: row.category || 'system',
+    session_id: row.session_id,
+    duration_ms: row.duration_ms,
+    metadata: row.metadata,
     created_at: row.created_at,
   };
 }

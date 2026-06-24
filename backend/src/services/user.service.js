@@ -1,7 +1,7 @@
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const logger = require('../config/logger');
-const { userRepository, credentialRepository } = require('../repositories');
+const { userRepository, credentialRepository, auditRepository } = require('../repositories');
 const { minioClient } = require('../config/minio');
 const { NotFoundError, BadRequestError } = require('../errors');
 const { toUserResponse } = require('../models');
@@ -39,8 +39,19 @@ class UserService {
   }
 
   async updateProfile(userId, data) {
+    const before = await userRepository.findById(userId);
     const user = await userRepository.updateProfile(userId, data);
     if (!user) throw new NotFoundError('User');
+    await auditRepository.log({
+      actor_id: userId,
+      action: 'user.profile_update',
+      resource_type: 'user',
+      resource_id: userId,
+      severity: 'info',
+      category: 'content',
+      data_before: { display_name: before?.display_name, email: before?.email, department: before?.department, job_title: before?.job_title },
+      data_after: data,
+    });
     logger.info({ userId }, 'Profile updated');
     return withAvatarUrl(toUserResponse(user));
   }
@@ -74,6 +85,15 @@ class UserService {
     });
 
     const user = await userRepository.updateAvatar(userId, AVATAR_BUCKET, objectKey);
+    await auditRepository.log({
+      actor_id: userId,
+      action: 'user.avatar_update',
+      resource_type: 'user',
+      resource_id: userId,
+      severity: 'info',
+      category: 'content',
+      metadata: { mime_type: mimeType, size_bytes: fileSize },
+    });
     logger.info({ userId, objectKey }, 'Avatar uploaded');
     return withAvatarUrl(toUserResponse(user));
   }

@@ -507,14 +507,65 @@
     },
     "audit": {
       "filterAction": "Filtrar por ação...",
-      "allResults": "Todos",
+      "filterCategory": "Categoria",
+      "filterSeverity": "Severidade",
+      "allResults": "Todos os resultados",
+      "allCategories": "Todas as categorias",
+      "allSeverities": "Todas as severidades",
       "success": "Sucesso",
       "failed": "Falhou",
+      "totalResults": "registros",
+      "rowsPerPage": "Linhas por página",
       "colTime": "Data",
       "colActor": "Ator",
       "colAction": "Ação",
+      "colSeverity": "Severidade",
+      "colCategory": "Categoria",
       "colResource": "Recurso",
-      "colResult": "OK"
+      "colIp": "IP",
+      "colResult": "Resultado",
+      "dateFrom": "De",
+      "dateTo": "Até",
+      "detailTitle": "Detalhe do evento",
+      "detail": {
+        "info": "Informações",
+        "before": "Antes",
+        "after": "Depois"
+      },
+      "severities": {
+        "info": "Info",
+        "warning": "Aviso",
+        "critical": "Crítico"
+      },
+      "categories": {
+        "auth": "Autenticação",
+        "admin": "Administração",
+        "content": "Conteúdo",
+        "system": "Sistema",
+        "security": "Segurança"
+      },
+      "actions": {
+        "user_register": "Registro de usuário",
+        "user_login": "Login",
+        "user_logout": "Logout",
+        "user_logout_all": "Encerrar todas as sessões",
+        "user_change_password": "Troca de senha",
+        "user_profile_update": "Atualização de perfil",
+        "user_avatar_update": "Atualização de avatar",
+        "user_2fa_enabled": "2FA ativado",
+        "user_2fa_disabled": "2FA desativado",
+        "user_2fa_login": "Login via 2FA",
+        "user_2fa_backup_used": "Código de backup usado",
+        "user_2fa_backup_regen": "Códigos de backup regenerados",
+        "admin_user_create": "Usuário criado",
+        "admin_user_update": "Usuário atualizado",
+        "admin_user_delete": "Usuário excluído",
+        "admin_user_reset_password": "Senha redefinida",
+        "admin_ldap_sync": "Sincronização LDAP",
+        "admin_setting_update": "Configuração alterada",
+        "message_delete": "Mensagem excluída",
+        "conversation_role_change": "Papel de conversa alterado"
+      }
     },
     "storage": {
       "totalObjects": "Objetos",
