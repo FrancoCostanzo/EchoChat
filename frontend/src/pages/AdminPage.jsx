@@ -707,6 +707,7 @@ function AuditTab({ t }) {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState('50');
+  const [sortDescriptor, setSortDescriptor] = useState({ column: 'created_at', direction: 'descending' });
   const [filters, setFilters] = useState({
     action: '', category: 'all', severity: 'all', success: 'all', from: '', to: '',
   });
@@ -725,7 +726,12 @@ function AuditTab({ t }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params = { limit, offset };
+      const params = {
+        limit,
+        offset,
+        sort_column: sortDescriptor.column,
+        sort_dir: sortDescriptor.direction,
+      };
       if (filters.action.trim()) params.action = filters.action.trim();
       if (filters.category !== 'all') params.category = filters.category;
       if (filters.severity !== 'all') params.severity = filters.severity;
@@ -738,7 +744,7 @@ function AuditTab({ t }) {
     } finally {
       setLoading(false);
     }
-  }, [filters, limit, offset]);
+  }, [filters, limit, offset, sortDescriptor]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -834,17 +840,19 @@ function AuditTab({ t }) {
               <Table.Content
                 aria-label={t('admin.sections.audit')}
                 className="min-w-[900px]"
+                sortDescriptor={sortDescriptor}
+                onSortChange={(descriptor) => { setSortDescriptor(descriptor); setPage(1); }}
                 onRowAction={(key) => setExpanded((prev) => (prev === String(key) ? null : String(key)))}
               >
                 <Table.Header>
-                  <Table.Column isRowHeader>{t('admin.audit.colTime')}</Table.Column>
-                  <Table.Column>{t('admin.audit.colActor')}</Table.Column>
-                  <Table.Column>{t('admin.audit.colAction')}</Table.Column>
-                  <Table.Column>{t('admin.audit.colSeverity')}</Table.Column>
-                  <Table.Column>{t('admin.audit.colCategory')}</Table.Column>
-                  <Table.Column>{t('admin.audit.colResource')}</Table.Column>
-                  <Table.Column>{t('admin.audit.colIp')}</Table.Column>
-                  <Table.Column>{t('admin.audit.colResult')}</Table.Column>
+                  <Table.Column id="created_at" isRowHeader allowsSorting>{t('admin.audit.colTime')}</Table.Column>
+                  <Table.Column id="actor" allowsSorting>{t('admin.audit.colActor')}</Table.Column>
+                  <Table.Column id="action" allowsSorting>{t('admin.audit.colAction')}</Table.Column>
+                  <Table.Column id="severity" allowsSorting>{t('admin.audit.colSeverity')}</Table.Column>
+                  <Table.Column id="category" allowsSorting>{t('admin.audit.colCategory')}</Table.Column>
+                  <Table.Column id="resource">{t('admin.audit.colResource')}</Table.Column>
+                  <Table.Column id="ip">{t('admin.audit.colIp')}</Table.Column>
+                  <Table.Column id="success" allowsSorting>{t('admin.audit.colResult')}</Table.Column>
                 </Table.Header>
                 <Table.Body>
                   {entries.map((e) => (
