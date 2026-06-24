@@ -9,7 +9,7 @@ ALTER TABLE audit_log
                           CHECK (severity IN ('info', 'warning', 'critical')),
   ADD COLUMN category    VARCHAR(20)  NOT NULL DEFAULT 'system'
                           CHECK (category IN ('auth', 'admin', 'content', 'system', 'security')),
-  ADD COLUMN session_id  UUID         REFERENCES sessions(id) ON DELETE SET NULL,
+  ADD COLUMN session_id  UUID         REFERENCES user_sessions(id) ON DELETE SET NULL,
   ADD COLUMN duration_ms INTEGER,
   ADD COLUMN metadata    JSONB;
 
