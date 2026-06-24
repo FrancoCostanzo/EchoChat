@@ -7,6 +7,7 @@
     "delete": "Eliminar",
     "edit": "Editar",
     "close": "Cerrar",
+    "you": "Tú",
     "search": "Buscar",
     "add": "Agregar",
     "create": "Crear",
@@ -159,6 +160,9 @@
     "threadReplyPlaceholder": "Responder en el hilo...",
     "memberPanel": "Miembros",
     "viewMembers": "Ver miembros",
+    "membersActive": "Activos",
+    "membersOffline": "Desconectados",
+    "membersOnlineCount": "{{count}} en línea",
     "changeWallpaper": "Cambiar fondo",
     "formatToolbar": "Formato de texto",
     "format": {
