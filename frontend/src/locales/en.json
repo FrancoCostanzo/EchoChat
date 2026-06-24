@@ -526,6 +526,7 @@
       "colResult": "Result",
       "dateFrom": "From",
       "dateTo": "To",
+      "dateRange": "Date range",
       "detailTitle": "Event detail",
       "detail": {
         "info": "Information",
