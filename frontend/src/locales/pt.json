@@ -526,6 +526,7 @@
       "colResult": "Resultado",
       "dateFrom": "De",
       "dateTo": "Até",
+      "dateRange": "Período",
       "detailTitle": "Detalhe do evento",
       "detail": {
         "info": "Informações",

@@ -5,11 +5,14 @@ import {
   Card,
   Checkbox,
   Chip,
+  DateField,
+  DateRangePicker,
   Input,
   InputGroup,
   Label,
   ListBox,
   Modal,
+  RangeCalendar,
   Select,
   Spinner,
   Switch,
@@ -712,6 +715,7 @@ function AuditTab({ t }) {
     action: '', category: 'all', severity: 'all', success: 'all', from: '', to: '',
   });
   const [expanded, setExpanded] = useState(null);
+  const [dateRange, setDateRange] = useState(null);
 
   const limit = parseInt(pageSize, 10);
   const offset = (page - 1) * limit;
@@ -721,6 +725,16 @@ function AuditTab({ t }) {
   const updateFilter = useCallback((key, value) => {
     setPage(1);
     setFilters((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
+  const handleDateRangeChange = useCallback((range) => {
+    setDateRange(range);
+    setPage(1);
+    setFilters((prev) => ({
+      ...prev,
+      from: range?.start?.toString() ?? '',
+      to: range?.end?.toString() ?? '',
+    }));
   }, []);
 
   const load = useCallback(async () => {
@@ -798,18 +812,53 @@ function AuditTab({ t }) {
             { id: 'false', label: t('admin.audit.failed') },
           ]}
         />
-        <Input
-          type="date"
-          value={filters.from}
-          onChange={(e) => updateFilter('from', e.target.value)}
-          label={t('admin.audit.dateFrom')}
-        />
-        <Input
-          type="date"
-          value={filters.to}
-          onChange={(e) => updateFilter('to', e.target.value)}
-          label={t('admin.audit.dateTo')}
-        />
+        <DateRangePicker
+          value={dateRange}
+          onChange={handleDateRangeChange}
+          granularity="day"
+          aria-label={t('admin.audit.dateRange')}
+          className="sm:col-span-2 lg:col-span-2"
+        >
+          <DateField.Group fullWidth>
+            <DateField.Input slot="start">
+              {(segment) => <DateField.Segment segment={segment} />}
+            </DateField.Input>
+            <DateRangePicker.RangeSeparator />
+            <DateField.Input slot="end">
+              {(segment) => <DateField.Segment segment={segment} />}
+            </DateField.Input>
+            <DateField.Suffix>
+              <DateRangePicker.Trigger>
+                <DateRangePicker.TriggerIndicator />
+              </DateRangePicker.Trigger>
+            </DateField.Suffix>
+          </DateField.Group>
+          <DateRangePicker.Popover>
+            <RangeCalendar aria-label={t('admin.audit.dateRange')}>
+              <RangeCalendar.Header>
+                <RangeCalendar.YearPickerTrigger>
+                  <RangeCalendar.YearPickerTriggerHeading />
+                  <RangeCalendar.YearPickerTriggerIndicator />
+                </RangeCalendar.YearPickerTrigger>
+                <RangeCalendar.NavButton slot="previous" />
+                <RangeCalendar.NavButton slot="next" />
+              </RangeCalendar.Header>
+              <RangeCalendar.Grid>
+                <RangeCalendar.GridHeader>
+                  {(day) => <RangeCalendar.HeaderCell>{day}</RangeCalendar.HeaderCell>}
+                </RangeCalendar.GridHeader>
+                <RangeCalendar.GridBody>
+                  {(date) => <RangeCalendar.Cell date={date} />}
+                </RangeCalendar.GridBody>
+              </RangeCalendar.Grid>
+              <RangeCalendar.YearPickerGrid>
+                <RangeCalendar.YearPickerGridBody>
+                  {({ year }) => <RangeCalendar.YearPickerCell year={year} />}
+                </RangeCalendar.YearPickerGridBody>
+              </RangeCalendar.YearPickerGrid>
+            </RangeCalendar>
+          </DateRangePicker.Popover>
+        </DateRangePicker>
       </div>
 
       {/* Toolbar: total + page size */}
@@ -1182,7 +1231,7 @@ export default function AdminPage() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        <div className="mx-auto w-full max-w-4xl px-4 py-4 md:px-6 md:py-6">
+        <div className="w-full px-4 py-4 md:px-6 md:py-6">
           <div className="mb-5 hidden items-center gap-3 md:flex">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/15 text-accent">
               <Shield size={20} />

@@ -1336,7 +1336,7 @@ export default function SettingsPage() {
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: -12, scale: 0.98 }}
             transition={{ duration: 0.22, ease: ENTRY_EASE }}
-            className="mx-auto w-full max-w-xl px-4 py-4 md:px-6 md:py-6"
+            className="w-full px-4 py-4 md:px-6 md:py-6"
           >
             <div className="mb-5 hidden lg:block">
               <h1 className="text-xl font-bold text-foreground">{t(`settings.tabs.${tab}`)}</h1>
