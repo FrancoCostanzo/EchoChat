@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   Button,
   Card,
@@ -24,6 +23,7 @@ import {
   Settings,
   ScrollText,
   HardDrive,
+  Activity,
   ArrowLeft,
   Plus,
   Trash2,
@@ -35,11 +35,11 @@ import {
 import { useTranslation } from 'react-i18next';
 import { adminApi } from '@/lib/endpoints';
 import { useAuthStore } from '@/stores/authStore';
+import MonitoreoDashboard from '@/components/monitoring/MonitoreoDashboard';
 import { useConfirm } from '@/components/ConfirmProvider';
 import UserAvatar from '@/components/UserAvatar';
 import { formatMessageTime } from '@/lib/dates';
 
-const ENTRY_EASE = [0.22, 1, 0.36, 1];
 const USER_STATUSES = ['active', 'inactive', 'suspended'];
 const USERS_PAGE_SIZE = 25;
 
@@ -104,6 +104,7 @@ function useAdminAccess() {
       canSettings: isSuper || perms.includes('admin.settings'),
       canAudit: isSuper || perms.includes('admin.view_audit'),
       canStorage: isSuper || perms.includes('admin.storage'),
+      canMonitoring: isSuper || perms.some((p) => p.startsWith('admin.')),
       canAccess: isSuper || perms.some((p) => p.startsWith('admin.')),
     };
   }, [user]);
@@ -870,11 +871,16 @@ function StatCard({ label, value }) {
   );
 }
 
+function MonitoringTab() {
+  return <MonitoreoDashboard />;
+}
+
 const SECTION_COMPONENTS = {
   users: UsersTab,
   settings: SettingsTab,
   audit: AuditTab,
   storage: StorageTab,
+  monitoring: MonitoringTab,
 };
 
 const MOBILE_ADMIN_NAV = [
@@ -882,10 +888,11 @@ const MOBILE_ADMIN_NAV = [
   { id: 'settings', icon: Settings },
   { id: 'audit', icon: ScrollText },
   { id: 'storage', icon: HardDrive },
+  { id: 'monitoring', icon: Activity },
 ];
 
 export default function AdminPage() {
-  const { section = 'users' } = useParams();
+  const { section } = useParams();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const access = useAdminAccess();
@@ -896,8 +903,21 @@ export default function AdminPage() {
     if (access.canSettings) list.push('settings');
     if (access.canAudit) list.push('audit');
     if (access.canStorage) list.push('storage');
+    if (access.canMonitoring) list.push('monitoring');
     return list;
   }, [access]);
+
+  const [mountedSections, setMountedSections] = useState(() => new Set(section ? [section] : []));
+
+  useEffect(() => {
+    if (!section) return;
+    setMountedSections((prev) => {
+      if (prev.has(section)) return prev;
+      const next = new Set(prev);
+      next.add(section);
+      return next;
+    });
+  }, [section]);
 
   if (!access.canAccess) {
     return (
@@ -913,7 +933,6 @@ export default function AdminPage() {
     return <Navigate to={`/admin/${allowedSections[0]}`} replace />;
   }
 
-  const SectionContent = SECTION_COMPONENTS[section] || UsersTab;
   const mobileNav = MOBILE_ADMIN_NAV.filter((n) => allowedSections.includes(n.id));
 
   return (
@@ -943,15 +962,7 @@ export default function AdminPage() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={section}
-            initial={{ opacity: 0, x: 18, scale: 0.98 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
-            exit={{ opacity: 0, x: -12, scale: 0.98 }}
-            transition={{ duration: 0.22, ease: ENTRY_EASE }}
-            className="mx-auto w-full max-w-4xl px-4 py-4 md:px-6 md:py-6"
-          >
+        <div className="mx-auto w-full max-w-4xl px-4 py-4 md:px-6 md:py-6">
           <div className="mb-5 hidden items-center gap-3 md:flex">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/15 text-accent">
               <Shield size={20} />
@@ -976,9 +987,16 @@ export default function AdminPage() {
             ))}
           </div>
 
-          <SectionContent t={t} />
-        </motion.div>
-      </AnimatePresence>
+          {allowedSections.map((sec) => {
+            if (!mountedSections.has(sec)) return null;
+            const SectionComp = SECTION_COMPONENTS[sec];
+            return (
+              <div key={sec} className={sec !== section ? 'hidden' : undefined}>
+                <SectionComp t={t} />
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

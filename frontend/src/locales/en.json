@@ -447,13 +447,15 @@
       "users": "Users",
       "settings": "System",
       "audit": "Audit",
-      "storage": "Storage"
+      "storage": "Storage",
+      "monitoring": "Monitoring"
     },
     "descriptions": {
       "users": "Manage accounts, status and roles",
       "settings": "Global platform configuration",
       "audit": "Critical action history",
-      "storage": "MinIO inventory and metrics"
+      "storage": "MinIO inventory and metrics",
+      "monitoring": "Real-time server and database status"
     },
     "users": {
       "search": "Search users...",
