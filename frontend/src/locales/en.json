@@ -173,12 +173,28 @@
     "group": "Group",
     "channel": "Channel",
     "conversationType": "Conversation type",
-    "groupChannelName": "Group/channel name",
-    "groupNamePlaceholder": "e.g. Development team",
-    "searchUsers": "Search users...",
+    "groupChannelName": "Name",
+    "channelName": "Channel name",
+    "channelNamePlaceholder": "channel-name",
+    "groupNamePlaceholder": "E.g. Dev team",
+    "description": "Description",
+    "descriptionPlaceholder": "What this is about...",
+    "joinMode": "Access mode",
+    "joinModes": {
+      "open": "Open",
+      "request": "Request",
+      "invite_only": "Invite only"
+    },
+    "category": "Category",
+    "addMembers": "Add members",
+    "searchUsers": "Search users",
+    "searchUsersPlaceholder": "Search by name or username...",
+    "typeToSearch": "Type 2+ characters to search",
+    "noResults": "No results for \"{{query}}\"",
     "startConversation": "Start conversation",
     "createGroup": "Create group ({{count}})",
-    "createChannel": "Create channel ({{count}})"
+    "createChannel": "Create channel ({{count}})",
+    "loadMore": "Load more"
   },
   "channels": {
     "explore": "Explore channels",
@@ -638,7 +654,9 @@
     "saved": "Saved",
     "typing": "typing…",
     "someoneTyping": "{{name}} is typing…",
-    "severalTyping": "several people typing…"
+    "severalTyping": "several people typing…",
+    "groups": "Groups",
+    "channels": "Channels"
   },
   "layout": {
     "toggleSidebar": "Show or hide channel panel (Ctrl+\\)"

@@ -381,11 +381,26 @@ class MessageRepository extends BaseRepository {
   }
 
   async addReceipt(messageId, userId, type = 'delivered') {
-    const col = type === 'read' ? 'read_at' : 'delivered_at';
+    if (type === 'read') {
+      // Leer implica haber recibido: fijamos read_at y, si todavía no había
+      // marca de entrega, completamos delivered_at en la misma operación para
+      // que la "Información del mensaje" muestre ambas horas de forma coherente.
+      const { rows } = await this.query(
+        `INSERT INTO message_receipts (message_id, user_id, delivered_at, read_at)
+         VALUES ($1, $2, NOW(), NOW())
+         ON CONFLICT (message_id, user_id) DO UPDATE
+           SET read_at = NOW(),
+               delivered_at = COALESCE(message_receipts.delivered_at, NOW())
+         RETURNING *`,
+        [messageId, userId]
+      );
+      return rows[0];
+    }
     const { rows } = await this.query(
-      `INSERT INTO message_receipts (message_id, user_id, ${col})
+      `INSERT INTO message_receipts (message_id, user_id, delivered_at)
        VALUES ($1, $2, NOW())
-       ON CONFLICT (message_id, user_id) DO UPDATE SET ${col} = NOW()
+       ON CONFLICT (message_id, user_id) DO UPDATE
+         SET delivered_at = COALESCE(message_receipts.delivered_at, NOW())
        RETURNING *`,
       [messageId, userId]
     );
@@ -404,16 +419,27 @@ class MessageRepository extends BaseRepository {
     return rows[0] || { delivered_count: 0, read_count: 0 };
   }
 
-  // Recibos por usuario (entregado/leído) de un mensaje, para la vista
-  // "Información del mensaje". El emisor no genera recibo de sí mismo.
+  // Estado de entrega/lectura por cada destinatario de un mensaje, para la
+  // vista "Información del mensaje". Parte de TODOS los miembros activos de la
+  // conversación (excepto el emisor) y hace LEFT JOIN con los recibos, de modo
+  // que quien todavía no recibió ni leyó aparece con delivered_at/read_at en
+  // NULL ("pendiente de entrega") en lugar de desaparecer de la lista.
   async getReceipts(messageId) {
     const { rows } = await this.query(
-      `SELECT mr.user_id, mr.delivered_at, mr.read_at,
-              u.display_name, u.username
-       FROM message_receipts mr
-       JOIN users u ON u.id = mr.user_id
-       WHERE mr.message_id = $1
-       ORDER BY mr.read_at DESC NULLS LAST, mr.delivered_at DESC NULLS LAST`,
+      `SELECT cm.user_id, mr.delivered_at, mr.read_at,
+              u.display_name, u.username, u.avatar_object_key, u.avatar_bucket
+       FROM messages m
+       JOIN conversation_members cm
+         ON cm.conversation_id = m.conversation_id
+        AND cm.left_at IS NULL
+        AND cm.user_id <> m.sender_id
+       JOIN users u ON u.id = cm.user_id
+       LEFT JOIN message_receipts mr
+         ON mr.message_id = m.id AND mr.user_id = cm.user_id
+       WHERE m.id = $1
+       ORDER BY mr.read_at DESC NULLS LAST,
+                mr.delivered_at DESC NULLS LAST,
+                u.display_name ASC`,
       [messageId]
     );
     return rows;

@@ -182,12 +182,28 @@
     "group": "Grupo",
     "channel": "Canal",
     "conversationType": "Tipo de conversación",
-    "groupChannelName": "Nombre del grupo/canal",
+    "groupChannelName": "Nombre",
+    "channelName": "Nombre del canal",
+    "channelNamePlaceholder": "nombre-del-canal",
     "groupNamePlaceholder": "Ej: Equipo de desarrollo",
-    "searchUsers": "Buscar usuarios...",
+    "description": "Descripción",
+    "descriptionPlaceholder": "De qué trata...",
+    "joinMode": "Modo de acceso",
+    "joinModes": {
+      "open": "Abierto",
+      "request": "Solicitud",
+      "invite_only": "Invitación"
+    },
+    "category": "Categoría",
+    "addMembers": "Agregar miembros",
+    "searchUsers": "Buscar usuarios",
+    "searchUsersPlaceholder": "Buscar por nombre o usuario...",
+    "typeToSearch": "Escribí 2+ caracteres para buscar",
+    "noResults": "Sin resultados para \"{{query}}\"",
     "startConversation": "Iniciar conversación",
     "createGroup": "Crear grupo ({{count}})",
-    "createChannel": "Crear canal ({{count}})"
+    "createChannel": "Crear canal ({{count}})",
+    "loadMore": "Ver más"
   },
   "channels": {
     "explore": "Explorar canales",
@@ -647,7 +663,9 @@
     "saved": "Guardados",
     "typing": "escribiendo…",
     "someoneTyping": "{{name}} escribiendo…",
-    "severalTyping": "varios escribiendo…"
+    "severalTyping": "varios escribiendo…",
+    "groups": "Grupos",
+    "channels": "Canales"
   },
   "layout": {
     "toggleSidebar": "Mostrar u ocultar panel de canales (Ctrl+\\)"

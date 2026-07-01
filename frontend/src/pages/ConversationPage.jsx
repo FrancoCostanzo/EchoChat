@@ -20,6 +20,7 @@ import {
   Copy,
   Trash2,
   Hash,
+  Users,
   ArrowDown,
   ArrowLeft,
   ArrowUp,
@@ -1254,6 +1255,7 @@ export default function ConversationPage() {
     clearActiveConversation,
     conversations,
     patchMessage,
+    joinConversation,
   } = useChatStore();
 
   const [input, setInput] = useState('');
@@ -1429,12 +1431,16 @@ export default function ConversationPage() {
       setShowScrollBtn(false);
       setContextMenu(null);
       setActiveConversation(conversationId);
+      // Aseguramos estar en la sala de socket de la conversación: el auto-join
+      // del backend solo ocurre al conectar, así que reconexiones o salas nuevas
+      // quedarían fuera y no llegarían los recibos (entregado/leído) en vivo.
+      joinConversation(conversationId);
     }
     return () => {
       if (conversationId) emitTyping(conversationId, false);
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
-  }, [conversationId, setActiveConversation, emitTyping]);
+  }, [conversationId, setActiveConversation, emitTyping, joinConversation]);
 
   // Load the saved draft when switching conversations, resetting composer state
   useEffect(() => {
@@ -1999,11 +2005,27 @@ export default function ConversationPage() {
             </Button>
             {isDirect ? (
               <>
-                <AtSign size={20} className="shrink-0 text-ink-200" />
+                <UserAvatar
+                  user={{ display_name: convName, presence: conversation.member_presence, avatar_url: conversation.other_avatar_url }}
+                  size="sm"
+                  showStatus
+                />
                 <h2 className="echo-display truncate text-2xl font-semibold tracking-tight leading-tight">{convName}</h2>
                 {conversation.member_presence && (
                   <span className="hidden md:inline-block shrink-0 border-l border-ink-400/40 pl-3 text-[13px] capitalize text-ink-200">
                     {conversation.member_presence}
+                  </span>
+                )}
+              </>
+            ) : conversation.type === 'group' ? (
+              <>
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink-600">
+                  <Users size={15} strokeWidth={2.5} className="text-ink-100" />
+                </div>
+                <h2 className="echo-display truncate text-2xl font-semibold tracking-tight leading-tight">{convName}</h2>
+                {conversation.member_count && (
+                  <span className="hidden md:inline-block shrink-0 border-l border-ink-400/40 pl-3 text-[13px] text-ink-200">
+                    {conversation.member_count} {t('chat.members')}
                   </span>
                 )}
               </>
