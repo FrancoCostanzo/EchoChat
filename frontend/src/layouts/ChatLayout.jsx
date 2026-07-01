@@ -110,6 +110,10 @@ function ConversationItem({ conversation, isActive, onClick, t, animIndex = 0, t
             size="sm"
             showStatus
           />
+        ) : conversation.type === 'group' ? (
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-ink-700 text-ink-100 group-hover:bg-ink-600">
+            <Users size={15} strokeWidth={2.5} />
+          </div>
         ) : (
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-ink-700 text-ink-100 group-hover:bg-ink-600">
             <Hash size={16} strokeWidth={2.5} />
@@ -230,9 +234,9 @@ function ChatSidebar() {
     return name.includes(query) || lastMsg.includes(query);
   });
 
-  // Split into direct (DMs) and channels/groups
-  const dms = filtered.filter((c) => c.type === 'direct');
-  const rooms = filtered.filter((c) => c.type !== 'direct');
+  const dms      = filtered.filter((c) => c.type === 'direct');
+  const groups   = filtered.filter((c) => c.type === 'group');
+  const channels = filtered.filter((c) => c.type === 'channel');
 
   const handleConversationClick = useCallback(
     (id) => {
@@ -324,11 +328,30 @@ function ChatSidebar() {
           </div>
         )}
 
-        {rooms.length > 0 && (
-          <div>
-            <SectionHeader icon={Hash} label="Canales y grupos" count={rooms.length} />
+        {groups.length > 0 && (
+          <div className="mb-3">
+            <SectionHeader icon={Users} label={t('sidebar.groups')} count={groups.length} />
             <div className="mt-0.5 flex flex-col gap-0.5">
-              {rooms.map((conv, i) => (
+              {groups.map((conv, i) => (
+                <ConversationItem
+                  key={conv.id}
+                  conversation={conv}
+                  isActive={conv.id === activeConversationId}
+                  onClick={() => handleConversationClick(conv.id)}
+                  t={t}
+                  animIndex={i}
+                  typingNames={typingNamesFor(conv.id)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {channels.length > 0 && (
+          <div>
+            <SectionHeader icon={Hash} label={t('sidebar.channels')} count={channels.length} />
+            <div className="mt-0.5 flex flex-col gap-0.5">
+              {channels.map((conv, i) => (
                 <ConversationItem
                   key={conv.id}
                   conversation={conv}

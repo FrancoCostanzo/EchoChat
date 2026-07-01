@@ -182,7 +182,7 @@ class UserRepository extends BaseRepository {
          AND (display_name ILIKE $1 OR username ILIKE $1)
        ORDER BY display_name
        LIMIT $2 OFFSET $3`,
-      [`%${term}%`, limit, offset]
+      [`%${term ?? ''}%`, limit, offset]
     );
     return rows;
   }

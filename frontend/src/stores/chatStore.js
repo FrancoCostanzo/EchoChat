@@ -40,6 +40,11 @@ export const useChatStore = create((set, get) => ({
             get().markMessagesRead(message.conversation_id, [message.id]);
           }
         }
+      } else if (message.sender_id !== state.activeUserId) {
+        // No la estoy mirando: el mensaje llegó a mi cliente pero aún no lo leo.
+        // Registramos el recibo de "entregado" para que el emisor pueda
+        // distinguir entregado vs. leído en la info del mensaje.
+        get().markMessagesDelivered(message.conversation_id, [message.id]);
       }
       // Update conversation preview locally — no GET needed
       set((state) => {
@@ -187,6 +192,12 @@ export const useChatStore = create((set, get) => ({
     if (!conversationId || !messageIds?.length) return;
     const socket = getSocket();
     if (socket) socket.emit('messages:read', { conversationId, messageIds });
+  },
+
+  markMessagesDelivered: (conversationId, messageIds) => {
+    if (!messageIds?.length) return;
+    const socket = getSocket();
+    if (socket) socket.emit('messages:delivered', { conversationId, messageIds });
   },
 
   clearActiveConversation: () => {

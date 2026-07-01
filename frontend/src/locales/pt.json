@@ -173,12 +173,28 @@
     "group": "Grupo",
     "channel": "Canal",
     "conversationType": "Tipo de conversa",
-    "groupChannelName": "Nome do grupo/canal",
-    "groupNamePlaceholder": "Ex: Equipe de desenvolvimento",
-    "searchUsers": "Buscar usuários...",
+    "groupChannelName": "Nome",
+    "channelName": "Nome do canal",
+    "channelNamePlaceholder": "nome-do-canal",
+    "groupNamePlaceholder": "Ex: Equipe de dev",
+    "description": "Descrição",
+    "descriptionPlaceholder": "Sobre o que é...",
+    "joinMode": "Modo de acesso",
+    "joinModes": {
+      "open": "Aberto",
+      "request": "Solicitação",
+      "invite_only": "Somente convite"
+    },
+    "category": "Categoria",
+    "addMembers": "Adicionar membros",
+    "searchUsers": "Buscar usuários",
+    "searchUsersPlaceholder": "Buscar por nome ou usuário...",
+    "typeToSearch": "Digite 2+ caracteres para buscar",
+    "noResults": "Sem resultados para \"{{query}}\"",
     "startConversation": "Iniciar conversa",
     "createGroup": "Criar grupo ({{count}})",
-    "createChannel": "Criar canal ({{count}})"
+    "createChannel": "Criar canal ({{count}})",
+    "loadMore": "Carregar mais"
   },
   "channels": {
     "explore": "Explorar canais",
@@ -638,7 +654,9 @@
     "saved": "Salvos",
     "typing": "digitando…",
     "someoneTyping": "{{name}} está digitando…",
-    "severalTyping": "vários digitando…"
+    "severalTyping": "vários digitando…",
+    "groups": "Grupos",
+    "channels": "Canais"
   },
   "layout": {
     "toggleSidebar": "Mostrar ou ocultar painel de canais (Ctrl+\\)"

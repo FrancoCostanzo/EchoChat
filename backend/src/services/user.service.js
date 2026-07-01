@@ -106,7 +106,7 @@ class UserService {
 
   async search(term, limit, offset) {
     const users = await userRepository.search(term, limit, offset);
-    return users.map(toUserResponse);
+    return Promise.all(users.map((u) => withAvatarUrl(toUserResponse(u))));
   }
 
   async getUserById(id) {

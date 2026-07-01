@@ -13,6 +13,21 @@ const { toMessageResponse, toSavedMessageResponse, toDraftResponse, toPollRespon
 const { resolveBodyFormat } = require('../utils/markdown.util');
 const { minioClient } = require('../config/minio');
 
+const AVATAR_BUCKET = 'messaging-avatars';
+async function withAvatarUrl(user) {
+  if (!user?.avatar_object_key) return user;
+  try {
+    const url = await minioClient.presignedGetObject(
+      user.avatar_bucket || AVATAR_BUCKET,
+      user.avatar_object_key,
+      60 * 60,
+    );
+    return { ...user, avatar_url: url };
+  } catch {
+    return user;
+  }
+}
+
 // Lazy-load to avoid circular dependency (socket → services → message.service → socket)
 function getIO() {
   return require('../socket').getIO();
@@ -262,12 +277,16 @@ class MessageService {
       sent_at: message.sent_at,
       is_edited: message.is_edited,
       edited_at: message.edited_at,
-      receipts: receipts.map((r) => ({
-        user_id: r.user_id,
-        display_name: r.display_name,
-        username: r.username,
-        delivered_at: r.delivered_at,
-        read_at: r.read_at,
+      receipts: await Promise.all(receipts.map(async (r) => {
+        const withUrl = await withAvatarUrl(r).catch(() => r);
+        return {
+          user_id: r.user_id,
+          display_name: r.display_name,
+          username: r.username,
+          avatar_url: withUrl.avatar_url ?? null,
+          delivered_at: r.delivered_at,
+          read_at: r.read_at,
+        };
       })),
     };
   }
