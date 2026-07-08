@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Spinner, Card } from '@heroui/react';
+import { Button, Card } from '@heroui/react';
 import { Bookmark, BookmarkX, Hash, MessageSquare } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { messagesApi } from '@/lib/endpoints';
@@ -43,7 +43,7 @@ export default function SavedMessagesPage() {
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex items-center gap-3 border-b border-black/20 px-5 py-4">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blurple-500/15 text-blurple-400">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent/15 text-accent">
           <Bookmark size={18} />
         </div>
         <div className="min-w-0">
@@ -54,8 +54,19 @@ export default function SavedMessagesPage() {
 
       <div className="flex-1 overflow-y-auto px-5 py-4">
         {loading ? (
-          <div className="flex h-40 items-center justify-center">
-            <Spinner size="lg" />
+          <div className="flex flex-col gap-2" role="status" aria-label={t('common.loading')}>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex flex-col gap-3 rounded-xl border border-white/5 bg-ink-800/50 p-4" style={{ opacity: 1 - i * 0.15 }}>
+                <div className="flex items-center gap-2">
+                  <div className="echo-shimmer h-8 w-8 shrink-0 rounded-full" />
+                  <div className="flex flex-col gap-1.5">
+                    <div className="echo-shimmer h-3 w-28 rounded-full" />
+                    <div className="echo-shimmer h-2.5 w-40 rounded-full" />
+                  </div>
+                </div>
+                <div className="echo-shimmer h-3 w-3/4 rounded-full" />
+              </div>
+            ))}
           </div>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-16 text-ink-200">
@@ -116,7 +127,7 @@ export default function SavedMessagesPage() {
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="self-start gap-1 text-blurple-400"
+                  className="self-start gap-1 text-accent"
                   onPress={() => navigate(`/chat/${m.conversation_id}`)}
                 >
                   <MessageSquare size={14} /> {t('saved.openConversation')}

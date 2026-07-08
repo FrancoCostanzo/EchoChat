@@ -95,21 +95,21 @@ export default function PollMessage({ message, currentUserId }) {
               onPress={() => handleOptionClick(opt.id)}
               className={[
                 'relative flex h-auto w-full justify-start overflow-hidden rounded-lg border px-3 py-2 text-left text-sm transition-colors',
-                opt.voted ? 'border-blurple-500/60' : selected ? 'border-blurple-400/60' : 'border-black/20',
-                closed ? 'cursor-default' : 'hover:border-blurple-400/60',
+                opt.voted ? 'border-accent/60' : selected ? 'border-accent/50' : 'border-black/20',
+                closed ? 'cursor-default' : 'hover:border-accent/50',
                 'bg-ink-900',
               ].join(' ')}
             >
               {showResults && (
                 <span
-                  className="absolute inset-y-0 left-0 bg-blurple-500/15"
+                  className="absolute inset-y-0 left-0 bg-accent/15"
                   style={{ width: `${pct}%` }}
                   aria-hidden
                 />
               )}
               <span className="relative flex items-center justify-between gap-2">
                 <span className="flex min-w-0 items-center gap-2">
-                  {(opt.voted || selected) && <Check size={14} className="shrink-0 text-blurple-400" />}
+                  {(opt.voted || selected) && <Check size={14} className="shrink-0 text-accent" />}
                   <span className="truncate">{opt.text}</span>
                 </span>
                 {showResults && (
@@ -126,7 +126,7 @@ export default function PollMessage({ message, currentUserId }) {
           variant="ghost"
           isDisabled={busy}
           onPress={() => submitVote(pending)}
-          className="h-auto rounded-lg bg-blurple-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blurple-600"
+          className="h-auto rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground transition-[filter] hover:brightness-110"
         >
           {t('poll.vote')}
         </Button>

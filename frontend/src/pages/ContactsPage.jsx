@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Input, Button, Tabs, Spinner } from '@heroui/react';
+import { Input, Button, Tabs, Spinner, Tooltip } from '@heroui/react';
 import {
   Search,
   UserPlus,
@@ -9,16 +9,19 @@ import {
   Trash2,
   StarOff,
   ArrowLeft,
+  Users,
+  MessageSquare,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { relationshipsApi, usersApi } from '@/lib/endpoints';
+import { useChatStore } from '@/stores/chatStore';
 import UserAvatar from '@/components/UserAvatar';
 import NotFoundIcon from '@/components/NotFoundIcon';
 
-function ContactCard({ user, type, onRemove, onToggleFavorite }) {
+function ContactCard({ user, type, onRemove, onToggleFavorite, onMessage, messaging }) {
   const { t } = useTranslation();
   return (
-    <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-default">
+    <div className="group flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-ink-750">
       <UserAvatar user={user} showStatus size="sm" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{user.display_name || user.username}</p>
@@ -26,23 +29,45 @@ function ContactCard({ user, type, onRemove, onToggleFavorite }) {
           <p className="truncate text-xs text-muted">{user.department}</p>
         )}
       </div>
-      <div className="flex gap-1">
+      <div className="flex gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
         {type === 'contact' && (
-          <Button
-            isIconOnly
-            size="sm"
-            variant="ghost"
-            onPress={() => onToggleFavorite(user)}
-            aria-label={user.is_favorite ? t('contacts.removeFavorite') : t('contacts.addFavorite')}
-          >
-            {user.is_favorite ? <StarOff size={16} /> : <Star size={16} />}
-          </Button>
+          <>
+            <Tooltip delay={200} placement="top">
+              <Button
+                isIconOnly
+                size="sm"
+                variant="ghost"
+                isPending={messaging}
+                onPress={() => onMessage(user)}
+                aria-label={t('contacts.sendMessage')}
+                className="text-accent"
+              >
+                <MessageSquare size={16} />
+              </Button>
+              <Tooltip.Content><p>{t('contacts.sendMessage')}</p></Tooltip.Content>
+            </Tooltip>
+            <Tooltip delay={200} placement="top">
+              <Button
+                isIconOnly
+                size="sm"
+                variant="ghost"
+                onPress={() => onToggleFavorite(user)}
+                aria-label={user.is_favorite ? t('contacts.removeFavorite') : t('contacts.addFavorite')}
+              >
+                {user.is_favorite ? <StarOff size={16} /> : <Star size={16} />}
+              </Button>
+              <Tooltip.Content>
+                <p>{user.is_favorite ? t('contacts.removeFavorite') : t('contacts.addFavorite')}</p>
+              </Tooltip.Content>
+            </Tooltip>
+          </>
         )}
         <Button
           isIconOnly
           size="sm"
           variant="danger"
           onPress={() => onRemove(user)}
+          aria-label={type === 'blocked' ? t('contacts.blocked') : t('common.delete')}
         >
           {type === 'blocked' ? <Ban size={16} /> : <Trash2 size={16} />}
         </Button>
@@ -51,14 +76,32 @@ function ContactCard({ user, type, onRemove, onToggleFavorite }) {
   );
 }
 
+function ContactSkeleton() {
+  return (
+    <div className="flex flex-col gap-1 pt-1">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3 rounded-lg px-3 py-2.5" style={{ opacity: 1 - i * 0.12 }}>
+          <div className="echo-shimmer h-8 w-8 shrink-0 rounded-full" />
+          <div className="flex flex-1 flex-col gap-1.5">
+            <div className="echo-shimmer h-3 w-32 rounded-full" />
+            <div className="echo-shimmer h-2.5 w-20 rounded-full" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function ContactsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const createConversation = useChatStore((s) => s.createConversation);
   const [tab, setTab] = useState('contacts');
   const [contacts, setContacts] = useState([]);
   const [favorites, setFavorites] = useState([]);
   const [blocked, setBlocked] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [messagingId, setMessagingId] = useState(null);
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -100,29 +143,45 @@ export default function ContactsPage() {
     return () => clearTimeout(timeout);
   }, [search]);
 
+  // Relationship rows carry the target user in `target_user_id`; plain user
+  // search results (the "add" tab) expose it as `id`.
+  const targetIdOf = (user) => user.target_user_id || user.id;
+
   const addContact = async (user) => {
-    await relationshipsApi.create({ target_user_id: user.id, type: 'contact' });
+    await relationshipsApi.create({ target_user_id: targetIdOf(user), type: 'contact' });
     fetchAll();
   };
 
   const removeContact = async (user) => {
-    await relationshipsApi.remove(user.id, 'contact');
+    await relationshipsApi.remove(targetIdOf(user), 'contact');
     fetchAll();
   };
 
   const toggleFavorite = async (user) => {
-    const isFav = favorites.some((f) => f.id === user.id);
+    const targetId = targetIdOf(user);
+    const isFav = favorites.some((f) => targetIdOf(f) === targetId);
     if (isFav) {
-      await relationshipsApi.remove(user.id, 'favorite');
+      await relationshipsApi.remove(targetId, 'favorite');
     } else {
-      await relationshipsApi.create({ target_user_id: user.id, type: 'favorite' });
+      await relationshipsApi.create({ target_user_id: targetId, type: 'favorite' });
     }
     fetchAll();
   };
 
   const unblock = async (user) => {
-    await relationshipsApi.remove(user.id, 'blocked');
+    await relationshipsApi.remove(targetIdOf(user), 'blocked');
     fetchAll();
+  };
+
+  // Open (or create) the direct conversation with this contact
+  const messageContact = async (user) => {
+    setMessagingId(user.id);
+    try {
+      const conv = await createConversation({ type: 'direct', member_ids: [targetIdOf(user)] });
+      navigate(`/chat/${conv.id}`);
+    } finally {
+      setMessagingId(null);
+    }
   };
 
   const getList = () => {
@@ -136,21 +195,20 @@ export default function ContactsPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Spinner size="lg" />
-      </div>
-    );
-  }
-
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 border-b border-separator px-4 py-3">
+      {/* Header — consistent with Saved / Explore pages */}
+      <div className="flex items-center gap-3 border-b border-black/20 px-5 py-4">
         <Button isIconOnly size="sm" variant="ghost" className="md:hidden shrink-0" onPress={() => navigate('/chat')}>
           <ArrowLeft size={18} />
         </Button>
-        <h2 className="text-base font-semibold">{t('contacts.title')}</h2>
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent/15 text-accent">
+          <Users size={18} />
+        </div>
+        <div className="min-w-0">
+          <h1 className="text-base font-semibold leading-tight">{t('contacts.title')}</h1>
+          <p className="truncate text-xs text-ink-200">{t('contacts.sections')}</p>
+        </div>
       </div>
 
       <div className="px-4 py-3">
@@ -183,7 +241,7 @@ export default function ContactsPage() {
               </div>
             )}
             {searchResults.map((u) => (
-              <div key={u.id} className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-default">
+              <div key={u.id} className="flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-ink-750">
                 <UserAvatar user={u} size="sm" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{u.display_name}</p>
@@ -203,22 +261,35 @@ export default function ContactsPage() {
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto px-4">
-          {getList().length === 0 ? (
-            <NotFoundIcon
-              title={
-                tab === 'contacts' ? t('contacts.noContacts') :
-                tab === 'favorites' ? t('contacts.noFavorites') :
-                t('contacts.noBlocked')
-              }
-            />
+          {loading ? (
+            <ContactSkeleton />
+          ) : getList().length === 0 ? (
+            <div className="flex flex-col items-center">
+              <NotFoundIcon
+                icon={tab === 'blocked' ? Ban : Users}
+                title={
+                  tab === 'contacts' ? t('contacts.noContacts') :
+                  tab === 'favorites' ? t('contacts.noFavorites') :
+                  t('contacts.noBlocked')
+                }
+              />
+              {tab === 'contacts' && (
+                <Button size="sm" variant="secondary" onPress={() => setTab('add')}>
+                  <UserPlus size={14} />
+                  {t('contacts.add')}
+                </Button>
+              )}
+            </div>
           ) : (
             getList().map((u) => (
               <ContactCard
                 key={u.id}
-                user={u}
+                user={{ ...u, is_favorite: favorites.some((f) => targetIdOf(f) === targetIdOf(u)) }}
                 type={tab === 'blocked' ? 'blocked' : 'contact'}
                 onRemove={tab === 'blocked' ? unblock : removeContact}
                 onToggleFavorite={toggleFavorite}
+                onMessage={messageContact}
+                messaging={messagingId === u.id}
               />
             ))
           )}

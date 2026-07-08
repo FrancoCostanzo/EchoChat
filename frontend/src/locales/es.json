@@ -18,7 +18,8 @@
     "required": "*",
     "copy": "Copiar",
     "done": "Listo",
-    "clear": "Limpiar"
+    "clear": "Limpiar",
+    "remove": "Quitar"
   },
   "confirm": {
     "defaultTitle": "¿Estás seguro?",
@@ -174,7 +175,22 @@
       "preview": "Vista previa",
       "showPreview": "Mostrar vista previa",
       "hidePreview": "Ocultar vista previa"
-    }
+    },
+    "welcomeTo": "Bienvenido a",
+    "startOfDirect": "Este es el comienzo de tu historial de mensajes con {{name}}.",
+    "startOfChannel": "Este es el comienzo del canal #{{name}}.",
+    "pin": "Fijar mensaje",
+    "unpin": "Desfijar mensaje",
+    "noPinned": "No hay mensajes fijados todavía",
+    "noPinnedHint": "Fijá mensajes importantes desde el menú contextual para encontrarlos rápido.",
+    "pinnedToast": "Mensaje fijado",
+    "unpinnedToast": "Mensaje desfijado",
+    "emptyHint": "Abrí la paleta de comandos con",
+    "noMessagesTitle": "Todavía no hay mensajes",
+    "noMessagesDirect": "Saludá a {{name}} y rompé el hielo.",
+    "noMessagesGroup": "Sé la primera persona en escribir en el grupo.",
+    "noMessagesChannel": "Sé la primera persona en escribir en #{{name}}.",
+    "sayHi": "Decí hola"
   },
   "newConversation": {
     "title": "Nueva conversación",
@@ -308,7 +324,8 @@
     "searchToAdd": "Buscar usuarios para agregar...",
     "noContacts": "No tenés contactos aún",
     "noFavorites": "No tenés favoritos aún",
-    "noBlocked": "No tenés usuarios bloqueados"
+    "noBlocked": "No tenés usuarios bloqueados",
+    "sendMessage": "Enviar mensaje"
   },
   "notifications": {
     "title": "Notificaciones",
@@ -665,7 +682,8 @@
     "someoneTyping": "{{name}} escribiendo…",
     "severalTyping": "varios escribiendo…",
     "groups": "Grupos",
-    "channels": "Canales"
+    "channels": "Canales",
+    "directMessages": "Mensajes directos"
   },
   "layout": {
     "toggleSidebar": "Mostrar u ocultar panel de canales (Ctrl+\\)"

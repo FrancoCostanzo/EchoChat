@@ -17,8 +17,6 @@ import {
   Wifi,
   ArrowLeft,
   Cog,
-  Mic,
-  Headphones,
   X,
   Users,
   Settings,
@@ -35,7 +33,16 @@ import CommandPalette from '@/components/CommandPalette';
 import CanvasPanel from '@/components/CanvasPanel';
 import { formatMessageTime } from '@/lib/dates';
 
-const CONTENT_TRANSITION = { duration: 0.2, ease: [0.22, 1, 0.36, 1] };
+const CONTENT_TRANSITION = { duration: 0.28, ease: [0.22, 1, 0.36, 1] };
+
+/* One key per *screen*, not per URL: switching between conversations keeps
+   ConversationPage mounted (it crossfades internally), so the whole page
+   doesn't remount and re-animate on every chat change. */
+function contentKeyFor(pathname) {
+  if (pathname === '/chat' || pathname === '/chat/new') return pathname;
+  if (pathname.startsWith('/chat/')) return '/chat/:conversation';
+  return pathname;
+}
 
 /* Three bouncing dots used in the sidebar typing indicator. */
 function SidebarTypingDots() {
@@ -93,10 +100,16 @@ function ConversationItem({ conversation, isActive, onClick, t, animIndex = 0, t
             : 'text-ink-100 hover:bg-ink-750 hover:text-foreground',
       ].join(' ')}
     >
-      {/* Active / unread bar indicator */}
-      {(hasUnread || isActive) && (
-        <span className={`absolute -left-2 top-1/2 -translate-y-1/2 rounded-r-full bg-accent transition-all ${isActive ? 'h-6 w-1' : 'h-2 w-1'}`} />
-      )}
+      {/* Active / unread bar indicator — the active bar glides between rows */}
+      {isActive ? (
+        <motion.span
+          layoutId="sidebar-active-bar"
+          transition={{ type: 'spring', stiffness: 480, damping: 36 }}
+          className="absolute -left-2 top-1/2 -mt-3 h-6 w-1 rounded-r-full bg-accent"
+        />
+      ) : hasUnread ? (
+        <span className="absolute -left-2 top-1/2 -mt-1 h-2 w-1 rounded-r-full bg-accent" />
+      ) : null}
 
       {/* Avatar / icon */}
       <div className="relative shrink-0">
@@ -179,18 +192,6 @@ function UserPanel() {
 
       <div className="flex items-center">
         <Tooltip delay={0} placement="top">
-          <Button isIconOnly size="sm" variant="ghost" className="h-8 w-8 min-w-0">
-            <Mic size={16} className="text-ink-100" />
-          </Button>
-          <Tooltip.Content><p>Mic</p></Tooltip.Content>
-        </Tooltip>
-        <Tooltip delay={0} placement="top">
-          <Button isIconOnly size="sm" variant="ghost" className="h-8 w-8 min-w-0">
-            <Headphones size={16} className="text-ink-100" />
-          </Button>
-          <Tooltip.Content><p>Audio</p></Tooltip.Content>
-        </Tooltip>
-        <Tooltip delay={0} placement="top">
           <Button
             isIconOnly
             size="sm"
@@ -213,7 +214,7 @@ function UserPanel() {
 function ChatSidebar() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { conversations, activeConversationId, setActiveConversation, typingUsers } = useChatStore();
+  const { conversations, activeConversationId, typingUsers } = useChatStore();
   const selfId = useAuthStore((s) => s.user?.id);
   const [search, setSearch] = useState('');
 
@@ -238,12 +239,15 @@ function ChatSidebar() {
   const groups   = filtered.filter((c) => c.type === 'group');
   const channels = filtered.filter((c) => c.type === 'channel');
 
+  // Navigate only — ConversationPage owns setActiveConversation via the URL.
+  // Setting the store here too made the cached timeline render (and scroll)
+  // inside the outgoing chat's container, and the router transition then
+  // remounted the container at scrollTop 0.
   const handleConversationClick = useCallback(
     (id) => {
-      setActiveConversation(id);
       navigate(`/chat/${id}`);
     },
-    [setActiveConversation, navigate],
+    [navigate],
   );
 
   return (
@@ -311,7 +315,7 @@ function ChatSidebar() {
 
         {dms.length > 0 && (
           <div className="mb-3">
-            <SectionHeader icon={AtSign} label="Mensajes directos" count={dms.length} />
+            <SectionHeader icon={AtSign} label={t('sidebar.directMessages')} count={dms.length} />
             <div className="mt-0.5 flex flex-col gap-0.5">
               {dms.map((conv, i) => (
                 <ConversationItem
@@ -638,9 +642,9 @@ export default function ChatLayout() {
         className={`${isOnChatIndex ? 'hidden lg:flex' : ''} echo-chat-bg min-w-0 flex-1 flex-col`}
       >
         <motion.div
-          key={location.pathname}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
+          key={contentKeyFor(pathname)}
+          initial={{ opacity: 0, y: 10, scale: 0.995 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={CONTENT_TRANSITION}
           className="h-full min-h-0 flex-1"
         >
