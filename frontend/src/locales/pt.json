@@ -18,7 +18,8 @@
     "required": "*",
     "copy": "Copiar",
     "done": "Pronto",
-    "clear": "Limpar"
+    "clear": "Limpar",
+    "remove": "Remover"
   },
   "confirm": {
     "defaultTitle": "Tem certeza?",
@@ -83,7 +84,16 @@
       "strong": "Forte"
     },
     "registrationDisabledTitle": "Cadastro desativado",
-    "registrationDisabled": "O cadastro de novos usuários está desativado. Peça uma conta a um administrador."
+    "registrationDisabled": "O cadastro de novos usuários está desativado. Peça uma conta a um administrador.",
+    "twoFactorTitle": "Verificação em duas etapas",
+    "totpPrompt": "Digite o código do seu aplicativo autenticador.",
+    "totpCode": "Código de autenticação",
+    "backupCode": "Código de backup",
+    "useTotpCode": "Usar código de autenticação",
+    "useBackupCode": "Usar código de backup",
+    "verify": "Verificar",
+    "verifying": "Verificando...",
+    "backToLogin": "Voltar ao login"
   },
   "chat": {
     "empty": "Selecione uma conversa ou crie uma nova",
@@ -165,7 +175,22 @@
       "preview": "Pré-visualização",
       "showPreview": "Mostrar pré-visualização",
       "hidePreview": "Ocultar pré-visualização"
-    }
+    },
+    "welcomeTo": "Bem-vindo a",
+    "startOfDirect": "Este é o começo do seu histórico de mensagens com {{name}}.",
+    "startOfChannel": "Este é o começo do canal #{{name}}.",
+    "pin": "Fixar mensagem",
+    "unpin": "Desafixar mensagem",
+    "noPinned": "Nenhuma mensagem fixada ainda",
+    "noPinnedHint": "Fixe mensagens importantes pelo menu de contexto para encontrá-las rapidamente.",
+    "pinnedToast": "Mensagem fixada",
+    "unpinnedToast": "Mensagem desafixada",
+    "emptyHint": "Abra a paleta de comandos com",
+    "noMessagesTitle": "Ainda não há mensagens",
+    "noMessagesDirect": "Diga oi para {{name}} e quebre o gelo.",
+    "noMessagesGroup": "Seja a primeira pessoa a escrever no grupo.",
+    "noMessagesChannel": "Seja a primeira pessoa a escrever em #{{name}}.",
+    "sayHi": "Diga oi"
   },
   "newConversation": {
     "title": "Nova conversa",
@@ -299,7 +324,8 @@
     "searchToAdd": "Buscar usuários para adicionar...",
     "noContacts": "Você não tem contatos ainda",
     "noFavorites": "Você não tem favoritos ainda",
-    "noBlocked": "Você não tem usuários bloqueados"
+    "noBlocked": "Você não tem usuários bloqueados",
+    "sendMessage": "Enviar mensagem"
   },
   "notifications": {
     "title": "Notificações",
@@ -656,7 +682,8 @@
     "someoneTyping": "{{name}} está digitando…",
     "severalTyping": "vários digitando…",
     "groups": "Grupos",
-    "channels": "Canais"
+    "channels": "Canais",
+    "directMessages": "Mensagens diretas"
   },
   "layout": {
     "toggleSidebar": "Mostrar ou ocultar painel de canais (Ctrl+\\)"

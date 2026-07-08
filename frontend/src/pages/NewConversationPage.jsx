@@ -39,6 +39,7 @@ const CATEGORIES = ['general', 'announcements', 'department', 'project'];
 
 /* ── helpers ─────────────────────────────────────────────────── */
 function SelectedChip({ user, onRemove }) {
+  const { t } = useTranslation();
   return (
     <motion.span
       layout
@@ -46,14 +47,14 @@ function SelectedChip({ user, onRemove }) {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.75 }}
       transition={{ duration: 0.15 }}
-      className="flex items-center gap-1 rounded-full bg-blurple-500/15 py-0.5 pl-0.5 pr-2 text-[12px] font-medium text-blurple-400 ring-1 ring-inset ring-blurple-500/20"
+      className="flex items-center gap-1 rounded-full bg-accent/15 py-0.5 pl-0.5 pr-2 text-[12px] font-medium text-accent ring-1 ring-inset ring-accent/20"
     >
       <UserAvatar user={user} size="xs" />
       <span className="max-w-[80px] truncate">{user.display_name}</span>
       <button
         onClick={() => onRemove(user.id)}
-        className="ml-0.5 rounded-full text-blurple-400/60 transition-colors hover:text-blurple-300"
-        aria-label="Quitar"
+        className="ml-0.5 rounded-full text-accent/60 transition-colors hover:text-accent"
+        aria-label={t('common.remove')}
       >
         <X size={10} strokeWidth={2.5} />
       </button>
@@ -72,7 +73,7 @@ function UserRow({ user, isSelected, onToggle, isMulti }) {
       className={[
         'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all',
         isSelected
-          ? 'bg-blurple-500/10 ring-1 ring-inset ring-blurple-500/25'
+          ? 'bg-accent/10 ring-1 ring-inset ring-accent/25'
           : 'hover:bg-ink-750',
       ].join(' ')}
     >
@@ -91,11 +92,11 @@ function UserRow({ user, isSelected, onToggle, isMulti }) {
           className={[
             'flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-2 transition-all',
             isSelected
-              ? 'border-blurple-500 bg-blurple-500'
+              ? 'border-accent bg-accent'
               : 'border-ink-500 bg-transparent',
           ].join(' ')}
         >
-          {isSelected && <Check size={9} strokeWidth={3} className="text-white" />}
+          {isSelected && <Check size={9} strokeWidth={3} className="echo-on-accent" />}
         </div>
       ) : (
         <ChevronRight size={14} className="shrink-0 text-ink-300" />
@@ -288,7 +289,7 @@ export default function NewConversationPage() {
               className={[
                 'flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] font-semibold transition-all duration-200',
                 tab === id
-                  ? 'bg-blurple-500 text-white shadow-lg shadow-blurple-500/25'
+                  ? 'echo-grad-brand echo-glow-md echo-on-accent'
                   : 'text-ink-200 hover:text-ink-100',
               ].join(' ')}
             >
@@ -318,7 +319,7 @@ export default function NewConversationPage() {
                     ? t('newConversation.channelName')
                     : t('newConversation.groupChannelName')}
                 </label>
-                <div className="flex items-center gap-2 rounded-lg bg-ink-800 px-3 py-2 ring-1 ring-white/5 focus-within:ring-blurple-500/50 transition-shadow">
+                <div className="flex items-center gap-2 rounded-lg bg-ink-800 px-3 py-2 ring-1 ring-white/5 focus-within:ring-accent/50 transition-shadow">
                   {tab === 'channel' && (
                     <Hash size={13} className="shrink-0 text-ink-300" />
                   )}
@@ -344,7 +345,7 @@ export default function NewConversationPage() {
                     ({t('common.optional')})
                   </span>
                 </label>
-                <div className="flex items-start gap-2 rounded-lg bg-ink-800 px-3 py-2 ring-1 ring-white/5 focus-within:ring-blurple-500/50 transition-shadow">
+                <div className="flex items-start gap-2 rounded-lg bg-ink-800 px-3 py-2 ring-1 ring-white/5 focus-within:ring-accent/50 transition-shadow">
                   <input
                     className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground placeholder:text-ink-400 outline-none"
                     placeholder={t('newConversation.descriptionPlaceholder')}
@@ -378,7 +379,7 @@ export default function NewConversationPage() {
                             className={[
                               'flex flex-1 flex-col items-center gap-1 rounded-lg border px-2 py-2 text-center text-[10.5px] font-semibold transition-all',
                               joinMode === id
-                                ? 'border-blurple-500/50 bg-blurple-500/12 text-blurple-400'
+                                ? 'border-accent/50 bg-accent/12 text-accent'
                                 : 'border-white/5 bg-ink-800 text-ink-300 hover:border-white/10 hover:text-ink-100',
                             ].join(' ')}
                           >
@@ -402,7 +403,7 @@ export default function NewConversationPage() {
                             className={[
                               'rounded-full px-3 py-1 text-[11px] font-semibold transition-all',
                               category === cat
-                                ? 'bg-blurple-500 text-white shadow-sm shadow-blurple-500/20'
+                                ? 'bg-accent echo-on-accent echo-glow-sm'
                                 : 'bg-ink-800 text-ink-300 hover:bg-ink-700 hover:text-ink-100',
                             ].join(' ')}
                           >
@@ -429,7 +430,7 @@ export default function NewConversationPage() {
             ? t('newConversation.addMembers')
             : t('newConversation.searchUsers')}
         </label>
-        <div className="flex items-center gap-2 rounded-lg bg-ink-800 px-3 py-2 ring-1 ring-white/5 focus-within:ring-blurple-500/50 transition-shadow">
+        <div className="flex items-center gap-2 rounded-lg bg-ink-800 px-3 py-2 ring-1 ring-white/5 focus-within:ring-accent/50 transition-shadow">
           {searchLoading ? (
             <Spinner size="sm" color="current" className="shrink-0 text-ink-300" />
           ) : (

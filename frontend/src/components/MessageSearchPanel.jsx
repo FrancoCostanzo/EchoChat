@@ -25,7 +25,7 @@ function Highlighted({ text, query }) {
       {parts.map((p) => (
         <span
           key={p.key}
-          className={p.match ? 'rounded-[3px] bg-blurple-500/30 font-semibold text-foreground' : undefined}
+          className={p.match ? 'rounded-[3px] bg-accent/30 font-semibold text-foreground' : undefined}
         >
           {p.value}
         </span>

@@ -106,7 +106,7 @@ export default function CreatePollModal({ conversationId, isOpen, onClose }) {
                   </div>
                 ))}
                 {options.length < MAX_OPTIONS && (
-                  <Button variant="ghost" size="sm" className="self-start gap-1 text-blurple-400" onPress={addOption}>
+                  <Button variant="ghost" size="sm" className="self-start gap-1 text-accent" onPress={addOption}>
                     <Plus size={14} /> {t('poll.addOption')}
                   </Button>
                 )}

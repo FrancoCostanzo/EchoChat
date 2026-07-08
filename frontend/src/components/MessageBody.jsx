@@ -5,7 +5,7 @@ function buildMarkdownComponents(variant) {
   const isOwn = variant === 'own';
   const linkClass = isOwn
     ? 'underline text-white/95 hover:text-white'
-    : 'underline text-blurple-400 hover:text-blurple-300';
+    : 'underline text-accent hover:opacity-80';
   const codeClass = isOwn
     ? 'rounded px-1 py-0.5 font-mono text-[13px] bg-black/25 text-white/95'
     : 'rounded px-1 py-0.5 font-mono text-[13px] bg-black/20 text-ink-50';
@@ -40,7 +40,7 @@ function buildMarkdownComponents(variant) {
       <blockquote
         className={[
           'my-1 border-l-[3px] pl-2 opacity-90',
-          isOwn ? 'border-white/50' : 'border-blurple-400/70',
+          isOwn ? 'border-white/50' : 'border-accent/70',
         ].join(' ')}
       >
         {children}

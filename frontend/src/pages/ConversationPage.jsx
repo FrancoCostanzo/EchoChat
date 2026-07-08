@@ -2,14 +2,13 @@ import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, mem
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Button, Input, Dropdown, Label, Spinner, Tooltip, Modal } from '@heroui/react';
+import { Button, Input, Dropdown, Label, Spinner, Tooltip, Modal, toast } from '@heroui/react';
 import {
   Paperclip,
   MoreVertical,
-  Phone,
-  Video,
   Search,
   Pin,
+  PinOff,
   AtSign,
   Smile,
   Reply,
@@ -55,6 +54,7 @@ import VideoViewer from '@/components/VideoViewer';
 import PdfPreview from '@/components/PdfPreview';
 import SendButton from '@/components/SendButton';
 import MessageSearchPanel from '@/components/MessageSearchPanel';
+import PinnedMessagesPanel from '@/components/PinnedMessagesPanel';
 import ThreadPanel from '@/components/ThreadPanel';
 import PollMessage from '@/components/PollMessage';
 import CodeMessage from '@/components/CodeMessage';
@@ -73,6 +73,7 @@ import { parseCodeFence } from '@/lib/codeLanguages';
 import PresenceAvatarStack from '@/components/PresenceAvatarStack';
 import { storageApi, messagesApi, conversationsApi } from '@/lib/endpoints';
 import { EASE_OUT, SPRING_BOUNCY, msgEntryInitial, msgEntryTransition } from '@/lib/motion';
+import { userColor } from '@/lib/userColor';
 
 function downloadBlob(url, filename) {
   fetch(url)
@@ -213,7 +214,7 @@ function FilePickerMenu({ onPick, onPoll, onCode, disabled, uploading }) {
               if (action) action();
               else pick(ref);
             }}
-            className="flex h-auto w-full items-center justify-start gap-3 rounded-none px-3 py-2 text-[14px] text-ink-50 transition-colors hover:bg-blurple-500 hover:text-white"
+            className="flex h-auto w-full items-center justify-start gap-3 rounded-none px-3 py-2 text-[14px] text-ink-50 transition-colors hover:bg-accent hover:text-accent-foreground"
           >
             <Icon size={16} className="shrink-0" />
             {label}
@@ -358,10 +359,10 @@ function FilePreviewBar({ file, onSend, onCancel }) {
       <div className="flex items-center justify-between border-b border-black/20 px-4 py-2">
         <div className="flex min-w-0 items-center gap-2">
           {isImage
-            ? <Image size={14} className="shrink-0 text-blurple-400" />
+            ? <Image size={14} className="shrink-0 text-accent" />
             : isVideo
-              ? <Film size={14} className="shrink-0 text-blurple-400" />
-              : <FileText size={14} className="shrink-0 text-blurple-400" />}
+              ? <Film size={14} className="shrink-0 text-accent" />
+              : <FileText size={14} className="shrink-0 text-accent" />}
           <span className="truncate text-[13px] font-semibold">{file.name}</span>
           <span className="shrink-0 text-[11px] text-ink-200">{formatSize(file.size)}</span>
         </div>
@@ -386,8 +387,8 @@ function FilePreviewBar({ file, onSend, onCancel }) {
           )}
           {!isImage && !isVideo && (
             <div className="flex items-center gap-4 py-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-blurple-500/20">
-                <FileText size={28} className="text-blurple-400" />
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-accent/15">
+                <FileText size={28} className="text-accent" />
               </div>
               <div className="min-w-0">
                 <p className="max-w-xs truncate text-sm font-medium">{file.name}</p>
@@ -414,7 +415,7 @@ function FilePreviewBar({ file, onSend, onCancel }) {
           <Button
             isIconOnly
             isDisabled={sending}
-            className="shrink-0 rounded-md bg-blurple-500 text-white hover:bg-blurple-600"
+            className="shrink-0 rounded-md bg-accent text-accent-foreground transition-[filter] hover:brightness-110"
             onPress={handleSend}
           >
             {sending ? <Loader size={16} className="animate-spin" /> : <Send size={16} />}
@@ -705,8 +706,8 @@ function AttachmentView({ attachment }) {
       rel="noopener noreferrer"
       className="flex items-center gap-2 rounded-md border border-ink-400/40 bg-ink-800 px-3 py-2 text-[13px] transition-colors hover:border-ink-300 hover:bg-ink-750"
     >
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-blurple-500/20">
-        <Paperclip size={14} className="text-blurple-400" />
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent/15">
+        <Paperclip size={14} className="text-accent" />
       </div>
       <span className="max-w-48 truncate font-medium text-ink-0">{attachment.original_filename}</span>
       <Download size={12} className="ml-auto shrink-0 text-ink-200" />
@@ -849,7 +850,7 @@ function MessageContextMenu({ pos, onClose, quickEmojis, onEmoji, items }) {
                 'echo-press flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-colors',
                 it.danger
                   ? 'text-echo-dnd hover:bg-echo-dnd/15'
-                  : 'text-ink-50 hover:bg-blurple-500 hover:text-white',
+                  : 'text-ink-50 hover:bg-accent hover:text-accent-foreground',
               ].join(' ')}
             >
               <it.icon size={16} className="shrink-0" />
@@ -864,8 +865,8 @@ function MessageContextMenu({ pos, onClose, quickEmojis, onEmoji, items }) {
 }
 
 function buildMessageMenuItems({
-  message, isOwn, saved, t, closeMenu,
-  onReply, onOpenThread, onForward, onEdit, onDelete, onToggleSave, onInfo,
+  message, isOwn, saved, pinned, t, closeMenu,
+  onReply, onOpenThread, onForward, onEdit, onDelete, onToggleSave, onTogglePin, onInfo,
 }) {
   const canEdit = isOwn && (message.type !== 'media' || message.body);
   const canCopy = !!message.body;
@@ -874,11 +875,80 @@ function buildMessageMenuItems({
     !message.thread_id && { key: 'thread', icon: MessageSquareText, label: t('chat.replyInThread'), onClick: () => { closeMenu(); onOpenThread(message); } },
     { key: 'forward', icon: Forward, label: t('chat.forward'), onClick: () => { closeMenu(); onForward(message); } },
     canCopy && { key: 'copy', icon: Copy, label: t('chat.copyText'), onClick: () => { closeMenu(); navigator.clipboard?.writeText(message.body); } },
+    { key: 'pin', icon: pinned ? PinOff : Pin, label: pinned ? t('chat.unpin') : t('chat.pin'), onClick: () => { closeMenu(); onTogglePin(message); } },
     { key: 'save', icon: saved ? BookmarkCheck : Bookmark, label: saved ? t('saved.remove') : t('chat.save'), onClick: () => { closeMenu(); onToggleSave(message); } },
     isOwn && { key: 'info', icon: Info, label: t('chat.messageInfo'), onClick: () => { closeMenu(); onInfo(message); } },
     canEdit && { key: 'edit', icon: Pencil, label: t('common.edit'), onClick: () => { closeMenu(); onEdit(message); } },
     isOwn && { key: 'delete', icon: Trash2, label: t('common.delete'), danger: true, onClick: () => { closeMenu(); onDelete(message); } },
   ];
+}
+
+/* ─────────────────────────────────────────────────────────
+   EmptyConversationState — friendly hero for chats with no
+   messages yet. One-tap "say hi" sends a wave to break the ice.
+   ───────────────────────────────────────────────────────── */
+function EmptyConversationState({ conversation, convName, onSayHi, sending }) {
+  const { t } = useTranslation();
+  const reducedMotion = useReducedMotion();
+  const isDirect = conversation.type === 'direct';
+  const isGroup = conversation.type === 'group';
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.98 }}
+      transition={{ duration: 0.32, ease: EASE_OUT }}
+      className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-5 px-6 text-center"
+    >
+      <div className="relative">
+        {isDirect ? (
+          <UserAvatar
+            user={{ display_name: convName, avatar_url: conversation.other_avatar_url }}
+            size="lg"
+            className="scale-125"
+          />
+        ) : (
+          <div className="echo-grad-brand echo-glow-md echo-on-accent flex h-20 w-20 items-center justify-center rounded-3xl">
+            {isGroup
+              ? <Users size={36} strokeWidth={1.8} />
+              : <Hash size={36} strokeWidth={1.8} />}
+          </div>
+        )}
+        <motion.span
+          aria-hidden
+          animate={reducedMotion ? undefined : { rotate: [0, 16, -9, 16, 0] }}
+          transition={{ duration: 1.1, ease: 'easeInOut', repeat: Number.POSITIVE_INFINITY, repeatDelay: 2.4 }}
+          className="absolute -bottom-3 -right-4 origin-[70%_70%] text-3xl drop-shadow-md"
+        >
+          👋
+        </motion.span>
+      </div>
+
+      <div>
+        <h3 className="echo-display text-2xl font-semibold">{t('chat.noMessagesTitle')}</h3>
+        <p className="mt-1.5 max-w-sm text-[14px] leading-relaxed text-ink-100">
+          {isDirect
+            ? t('chat.noMessagesDirect', { name: convName })
+            : isGroup
+              ? t('chat.noMessagesGroup')
+              : t('chat.noMessagesChannel', { name: convName })}
+        </p>
+      </div>
+
+      <button
+        type="button"
+        onClick={onSayHi}
+        disabled={sending}
+        className="echo-press echo-grad-brand echo-glow-md echo-on-accent pointer-events-auto flex items-center gap-2 rounded-full px-5 py-2.5 text-[14px] font-semibold disabled:opacity-60"
+      >
+        {sending
+          ? <Loader size={16} className="animate-spin" />
+          : <span className="text-lg leading-none">👋</span>}
+        {t('chat.sayHi')}
+      </button>
+    </motion.div>
+  );
 }
 
 // Centered date chip inserted between messages whenever the calendar day changes.
@@ -901,7 +971,7 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
   const isPending = message._status === 'sending' || message._status === 'error';
 
   const displayName = isOwn
-    ? (currentUser?.display_name || message.sender_display_name || 'Tú')
+    ? (currentUser?.display_name || message.sender_display_name || t('common.you'))
     : message.sender_display_name;
   const avatarUrl = isOwn
     ? currentUser?.avatar_url
@@ -988,9 +1058,11 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
               : { scale: [1, 1.018, 1], transition: { duration: 0.35, ease: EASE_OUT } }
           }
         >
-          {/* Sender name (group chats, first in group) */}
+          {/* Sender name (group chats, first in group) — deterministic per-user hue */}
           {showName && (
-            <p className="mb-0.5 text-[13px] font-semibold text-blurple-400">{displayName}</p>
+            <p className="mb-0.5 text-[13px] font-semibold" style={{ color: userColor(message.sender_id) }}>
+              {displayName}
+            </p>
           )}
 
           {/* Reply preview — click to jump to the original message */}
@@ -1006,11 +1078,11 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
                 'echo-press mb-1 flex w-full flex-col gap-0.5 rounded-md border-l-[3px] px-2 py-1 text-left text-[12px] transition-colors',
                 isOwn
                   ? 'border-white/70 bg-black/15 hover:bg-black/25'
-                  : 'border-blurple-400 bg-black/10 hover:bg-black/20',
+                  : 'border-accent bg-black/10 hover:bg-black/20',
               ].join(' ')}
             >
               {message.reply_to_sender && (
-                <span className={isOwn ? 'font-semibold text-white/90' : 'font-semibold text-blurple-400'}>
+                <span className={isOwn ? 'font-semibold text-white/90' : 'font-semibold text-accent'}>
                   {message.reply_to_sender}
                 </span>
               )}
@@ -1065,7 +1137,7 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
               {/* Pending attachment */}
               {message.type === 'media' && (!message.attachments || message.attachments.length === 0) && message._status === 'sending' && (
                 <div className="flex items-center gap-2 px-1 py-1 text-xs">
-                  <Loader size={13} className={`animate-spin shrink-0 ${isOwn ? 'text-white/80' : 'text-blurple-400'}`} />
+                  <Loader size={13} className={`animate-spin shrink-0 ${isOwn ? 'text-white/80' : 'text-accent'}`} />
                   <span className={`max-w-64 truncate ${isOwn ? 'text-white/80' : 'text-ink-100'}`}>{message._filename || t('chat.uploadingFile')}</span>
                 </div>
               )}
@@ -1206,7 +1278,7 @@ function ForwardModal({ message, conversations, currentConvId, isOpen, onClose }
                       key={c.id}
                       variant="ghost"
                       onPress={() => toggle(c.id)}
-                      className={`flex h-auto w-full items-center justify-start gap-3 rounded-md px-2 py-2 text-left transition-colors ${isSel ? 'bg-blurple-500/15' : 'hover:bg-ink-750'}`}
+                      className={`flex h-auto w-full items-center justify-start gap-3 rounded-md px-2 py-2 text-left transition-colors ${isSel ? 'bg-accent/15 echo-ring-soft' : 'hover:bg-ink-750'}`}
                     >
                       {c.type === 'direct' ? (
                         <UserAvatar user={{ display_name: name, avatar_url: c.other_avatar_url }} size="sm" />
@@ -1214,7 +1286,7 @@ function ForwardModal({ message, conversations, currentConvId, isOpen, onClose }
                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-ink-700 text-ink-100"><Hash size={15} /></div>
                       )}
                       <span className="min-w-0 flex-1 truncate text-sm font-medium">{name}</span>
-                      {isSel && <Check size={16} className="text-blurple-400" />}
+                      {isSel && <Check size={16} className="text-accent" />}
                     </Button>
                   );
                 })}
@@ -1266,11 +1338,14 @@ export default function ConversationPage() {
   const [previewFile, setPreviewFile] = useState(null);
   const [sendingFile, setSendingFile] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [pinnedOpen, setPinnedOpen] = useState(false);
+  const [pinnedIds, setPinnedIds] = useState(() => new Set());
   const [forwardTarget, setForwardTarget] = useState(null); // message being forwarded
   const [infoTarget, setInfoTarget] = useState(null); // message whose info panel is open
   const [threadRoot, setThreadRoot] = useState(null); // root message of the open thread panel
   const [contextMenu, setContextMenu] = useState(null); // { messageId, x, y } | null
   const [sendPulse, setSendPulse] = useState(false);
+  const [sendingHi, setSendingHi] = useState(false);
   const sendPulseTimerRef = useRef(null);
   const [showPollModal, setShowPollModal] = useState(false);
   const [showCodeModal, setShowCodeModal] = useState(false);
@@ -1399,6 +1474,20 @@ export default function ConversationPage() {
     return () => clearActiveConversation();
   }, [clearActiveConversation]);
 
+  // Track pinned message ids so the context menu can offer pin/unpin.
+  // The panel itself stays open across switches (it reloads per conversation).
+  useEffect(() => {
+    setPinnedIds(new Set());
+    if (!conversationId) return undefined;
+    let active = true;
+    messagesApi.getPinned(conversationId)
+      .then(({ data }) => {
+        if (active) setPinnedIds(new Set((Array.isArray(data) ? data : []).map((m) => m.id)));
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [conversationId]);
+
   const scrollContainerToBottom = useCallback((smooth = false) => {
     const el = containerRef.current;
     if (!el) return;
@@ -1418,7 +1507,10 @@ export default function ConversationPage() {
     }, 8000);
   }, []);
 
-  useEffect(() => {
+  // Layout effect on purpose: setActiveConversation's synchronous part
+  // (restoring the cached timeline) lands before the browser paints, so
+  // switching chats never flashes the previous conversation's messages.
+  useLayoutEffect(() => {
     if (conversationId) {
       initialLoadRef.current = false;
       prevScrollHeightRef.current = null;
@@ -1479,7 +1571,11 @@ export default function ConversationPage() {
     return () => { if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current); };
   }, [input, conversationId, editing]);
 
-  // Scroll to bottom on initial load / own new message, but not when loading older messages
+  // Scroll to bottom on initial load / own new message, but not when loading
+  // older messages. `conversationId` is a dependency on purpose: the messages
+  // region remounts per conversation (keyed container), so the effect must
+  // re-fire even when the cached `messages` array is already in place —
+  // otherwise the fresh container would stay stuck at the top.
   useLayoutEffect(() => {
     if (prevScrollHeightRef.current !== null) return; // handled by the load-more layout effect
     if (loadingMoreRef.current) return;
@@ -1496,7 +1592,7 @@ export default function ConversationPage() {
     } else if (wasAtBottomRef.current) {
       scrollContainerToBottom(true);
     }
-  }, [messages, scrollContainerToBottom, startBottomAnchor]);
+  }, [messages, conversationId, scrollContainerToBottom, startBottomAnchor]);
 
   // Catch late layout shifts while still on initial open
   useLayoutEffect(() => {
@@ -1721,17 +1817,22 @@ export default function ConversationPage() {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
+    // Flash with the live accent so the highlight follows the chosen palette
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#5865f2';
     el.animate(
       [
-        { backgroundColor: 'rgba(88, 101, 242, 0)' },
-        { backgroundColor: 'rgba(88, 101, 242, 0.22)', offset: 0.2 },
-        { backgroundColor: 'rgba(88, 101, 242, 0.22)', offset: 0.5 },
-        { backgroundColor: 'rgba(88, 101, 242, 0)' },
+        { backgroundColor: 'transparent' },
+        { backgroundColor: `color-mix(in oklch, ${accent} 22%, transparent)`, offset: 0.2 },
+        { backgroundColor: `color-mix(in oklch, ${accent} 22%, transparent)`, offset: 0.5 },
+        { backgroundColor: 'transparent' },
       ],
       { duration: 1600, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
     );
 
-    if (closeSearch && window.innerWidth < 768) setSearchOpen(false);
+    if (closeSearch && window.innerWidth < 768) {
+      setSearchOpen(false);
+      setPinnedOpen(false);
+    }
   }, []);
 
   const handleJumpToMessage = useCallback((id) => {
@@ -1814,15 +1915,71 @@ export default function ConversationPage() {
   const handleForward = useCallback((msg) => setForwardTarget(msg), []);
   const handleOpenInfo = useCallback((msg) => setInfoTarget(msg), []);
 
-  // Thread and search panels share the right column — only one open at a time
+  // One-tap wave from the empty state
+  const handleSayHi = useCallback(async () => {
+    setSendingHi(true);
+    try {
+      await sendMessage(
+        { conversation_id: conversationId, body: '👋', type: 'text', body_format: detectBodyFormat('👋') },
+        user,
+      );
+    } finally {
+      setSendingHi(false);
+    }
+  }, [conversationId, sendMessage, user]);
+
+  // Thread, search and pinned panels share the right column — only one open at a time
   const handleOpenThread = useCallback((msg) => {
     setThreadRoot(msg);
     setSearchOpen(false);
+    setPinnedOpen(false);
   }, []);
 
   const handleOpenSearch = useCallback(() => {
     setSearchOpen((p) => !p);
     setThreadRoot(null);
+    setPinnedOpen(false);
+  }, []);
+
+  const handleOpenPinned = useCallback(() => {
+    setPinnedOpen((p) => !p);
+    setSearchOpen(false);
+    setThreadRoot(null);
+  }, []);
+
+  const handleTogglePin = useCallback(async (message) => {
+    const isPinned = pinnedIds.has(message.id);
+    setPinnedIds((prev) => {
+      const next = new Set(prev);
+      if (isPinned) next.delete(message.id);
+      else next.add(message.id);
+      return next;
+    });
+    try {
+      if (isPinned) {
+        await messagesApi.unpin(conversationId, message.id);
+        toast.success(t('chat.unpinnedToast'));
+      } else {
+        await messagesApi.pin(conversationId, message.id);
+        toast.success(t('chat.pinnedToast'));
+      }
+    } catch {
+      // revert on failure
+      setPinnedIds((prev) => {
+        const next = new Set(prev);
+        if (isPinned) next.add(message.id);
+        else next.delete(message.id);
+        return next;
+      });
+    }
+  }, [conversationId, pinnedIds, t]);
+
+  const handleUnpinnedFromPanel = useCallback((msgId) => {
+    setPinnedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(msgId);
+      return next;
+    });
   }, []);
 
   const handleSavedChange = useCallback((messageId, isSaved) => {
@@ -1858,6 +2015,7 @@ export default function ConversationPage() {
         message: contextMenuMessage,
         isOwn: contextMenuMessage.sender_id === user?.id,
         saved: !!contextMenuMessage.is_saved,
+        pinned: pinnedIds.has(contextMenuMessage.id),
         t,
         closeMenu: handleCloseContextMenu,
         onReply: handleReply,
@@ -1866,6 +2024,7 @@ export default function ConversationPage() {
         onEdit: handleEdit,
         onDelete: handleDeleteRequest,
         onToggleSave: handleToggleSave,
+        onTogglePin: handleTogglePin,
         onInfo: handleOpenInfo,
       })
     : [];
@@ -2003,6 +2162,13 @@ export default function ConversationPage() {
             >
               <ArrowLeft size={18} />
             </Button>
+            <motion.div
+              key={conversationId}
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.22, ease: EASE_OUT }}
+              className="flex min-w-0 items-center gap-2 md:gap-3"
+            >
             {isDirect ? (
               <>
                 <UserAvatar
@@ -2040,22 +2206,25 @@ export default function ConversationPage() {
                 )}
               </>
             )}
+            </motion.div>
           </div>
 
           <div className="flex items-center gap-0.5">
-            <Tooltip content={t('chat.voiceCall')} placement="bottom">
-              <Button isIconOnly size="sm" variant="ghost" className="hidden h-8 w-8 min-w-0 rounded-md text-ink-100 hover:bg-ink-600 hover:text-foreground sm:flex">
-                <Phone size={18} />
-              </Button>
-            </Tooltip>
-            <Tooltip content={t('chat.videoCall')} placement="bottom">
-              <Button isIconOnly size="sm" variant="ghost" className="hidden h-8 w-8 min-w-0 rounded-md text-ink-100 hover:bg-ink-600 hover:text-foreground sm:flex">
-                <Video size={18} />
-              </Button>
-            </Tooltip>
             <Tooltip content={t('chat.pinnedMessages')} placement="bottom">
-              <Button isIconOnly size="sm" variant="ghost" className="hidden h-8 w-8 min-w-0 rounded-md text-ink-100 hover:bg-ink-600 hover:text-foreground sm:flex">
+              <Button
+                isIconOnly
+                size="sm"
+                variant="ghost"
+                onPress={handleOpenPinned}
+                className={[
+                  'relative hidden h-8 w-8 min-w-0 rounded-md hover:bg-ink-600 hover:text-foreground sm:flex',
+                  pinnedOpen ? 'bg-ink-600 text-foreground' : 'text-ink-100',
+                ].join(' ')}
+              >
                 <Pin size={18} />
+                {pinnedIds.size > 0 && (
+                  <span className="pointer-events-none absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-accent" />
+                )}
               </Button>
             </Tooltip>
             <Tooltip content={t('chat.searchMessages')} placement="bottom">
@@ -2078,7 +2247,7 @@ export default function ConversationPage() {
               </Button>
               <Dropdown.Popover>
                 <Dropdown.Menu>
-                  <Dropdown.Item id="pinned" textValue={t('chat.pinnedMessages')}>
+                  <Dropdown.Item id="pinned" textValue={t('chat.pinnedMessages')} onAction={handleOpenPinned}>
                     <Pin size={15} />
                     <Label>{t('chat.pinnedMessages')}</Label>
                   </Dropdown.Item>
@@ -2092,8 +2261,15 @@ export default function ConversationPage() {
           </div>
         </div>
 
-        {/* ── Messages ── */}
-        <div className="relative flex-1 min-h-0">
+        {/* ── Messages — keyed by conversation: fresh scroll container plus a
+            soft crossfade instead of the old full-page remount jump ── */}
+        <motion.div
+          key={conversationId}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.26, ease: EASE_OUT }}
+          className="relative flex-1 min-h-0"
+        >
           <div
             ref={containerRef}
             onScroll={handleScroll}
@@ -2101,9 +2277,29 @@ export default function ConversationPage() {
           >
             <div ref={messagesContentRef}>
             {loadingMessages && messages.length === 0 && (
-              <div className="flex flex-col items-center justify-center gap-2 py-12 text-ink-200">
-                <Spinner size="lg" />
-                <p className="text-xs">{t('chat.loadingMessages')}</p>
+              <div className="flex flex-col gap-4 px-4 pt-6 sm:px-6" aria-label={t('chat.loadingMessages')} role="status">
+                {[
+                  { own: false, w: 'w-[52%]', h: 'h-14' },
+                  { own: false, w: 'w-[38%]', h: 'h-9' },
+                  { own: true,  w: 'w-[44%]', h: 'h-11' },
+                  { own: false, w: 'w-[60%]', h: 'h-16' },
+                  { own: true,  w: 'w-[30%]', h: 'h-9' },
+                  { own: true,  w: 'w-[48%]', h: 'h-12' },
+                  { own: false, w: 'w-[42%]', h: 'h-10' },
+                ].map((row, i) => (
+                  <div key={i} className={`flex items-end gap-2 ${row.own ? 'flex-row-reverse' : ''}`}>
+                    {!row.own && <div className="echo-shimmer h-8 w-8 shrink-0 rounded-full" />}
+                    <div
+                      className={[
+                        'echo-shimmer max-w-[70%] rounded-2xl',
+                        row.own ? 'rounded-tr-md' : 'rounded-tl-md',
+                        row.w,
+                        row.h,
+                      ].join(' ')}
+                      style={{ opacity: 1 - i * 0.09 }}
+                    />
+                  </div>
+                ))}
               </div>
             )}
 
@@ -2139,12 +2335,12 @@ export default function ConversationPage() {
                     : <Hash size={32} strokeWidth={2} />}
                 </div>
                 <h3 className="echo-display text-3xl font-semibold">
-                  {isDirect ? convName : <>Bienvenido a <span className="echo-grad-text">#{convName}</span></>}
+                  {isDirect ? convName : <>{t('chat.welcomeTo')} <span className="echo-grad-text">#{convName}</span></>}
                 </h3>
                 <p className="mt-1 text-[14px] text-ink-100">
                   {isDirect
-                    ? `Este es el comienzo de tu historial de mensajes con ${convName}.`
-                    : `Este es el comienzo del canal #${convName}.`}
+                    ? t('chat.startOfDirect', { name: convName })
+                    : t('chat.startOfChannel', { name: convName })}
                 </p>
               </div>
             )}
@@ -2163,13 +2359,25 @@ export default function ConversationPage() {
                 exit={{ opacity: 0, y: 8 }}
                 transition={{ duration: 0.18, ease: 'easeOut' }}
                 onClick={scrollToBottom}
-                className="echo-glass-strong echo-press absolute bottom-4 right-6 flex h-10 w-10 items-center justify-center rounded-full text-ink-50 transition-colors hover:text-blurple-300"
+                className="echo-glass-strong echo-press absolute bottom-4 right-6 flex h-10 w-10 items-center justify-center rounded-full text-ink-50 transition-colors hover:text-accent"
               >
                 <ArrowDown size={15} />
               </motion.button>
             )}
           </AnimatePresence>
-        </div>
+
+          {/* Empty conversation — invite to break the ice */}
+          <AnimatePresence>
+            {!loadingMessages && !hasMoreMessages && messages.length === 0 && (
+              <EmptyConversationState
+                conversation={conversation}
+                convName={convName}
+                onSayHi={handleSayHi}
+                sending={sendingHi}
+              />
+            )}
+          </AnimatePresence>
+        </motion.div>
 
         {/* ── Reply / Edit banner (above input) ── */}
         <AnimatePresence initial={false}>
@@ -2181,7 +2389,7 @@ export default function ConversationPage() {
               transition={{ type: 'spring', stiffness: 380, damping: 28 }}
               className="relative mx-3 -mb-2 flex items-center gap-3 rounded-t-lg border-b border-ink-900 bg-ink-800 px-4 py-1.5 text-[13px]"
             >
-              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${editing ? 'bg-echo-idle text-eclipse' : 'bg-blurple-500 text-white'}`}>
+              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${editing ? 'bg-echo-idle text-eclipse' : 'bg-accent text-accent-foreground'}`}>
                 {editing ? <Pencil size={11} /> : <CornerUpLeft size={11} />}
               </span>
               {replyTo && !editing ? (
@@ -2329,6 +2537,18 @@ export default function ConversationPage() {
           )}
         </AnimatePresence>
 
+        {/* ── Pinned messages panel ── */}
+        <AnimatePresence>
+          {pinnedOpen && (
+            <PinnedMessagesPanel
+              conversationId={conversationId}
+              onClose={() => setPinnedOpen(false)}
+              onJump={handleJumpToMessage}
+              onUnpinned={handleUnpinnedFromPanel}
+            />
+          )}
+        </AnimatePresence>
+
         {/* ── Thread panel ── */}
         <AnimatePresence>
           {threadRoot && (
@@ -2349,7 +2569,7 @@ export default function ConversationPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15, ease: 'easeOut' }}
-              className="pointer-events-none absolute inset-2 z-40 flex items-center justify-center rounded-2xl border-2 border-dashed border-blurple-400 bg-ink-900/70 backdrop-blur-sm"
+              className="pointer-events-none absolute inset-2 z-40 flex items-center justify-center rounded-2xl border-2 border-dashed border-accent bg-ink-900/70 backdrop-blur-sm"
             >
               <motion.div
                 initial={{ scale: 0.92, y: 6 }}
@@ -2358,8 +2578,8 @@ export default function ConversationPage() {
                 transition={{ duration: 0.18, ease: SPRING_OUT }}
                 className="flex flex-col items-center gap-3 px-10 py-8 text-center"
               >
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blurple-500/20">
-                  <Upload size={26} className="text-blurple-400" />
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-accent/15">
+                  <Upload size={26} className="text-accent" />
                 </div>
                 <div>
                   <p className="text-[15px] font-semibold text-foreground">{t('chat.dropFiles')}</p>

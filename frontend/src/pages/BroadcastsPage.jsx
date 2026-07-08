@@ -36,7 +36,7 @@ function StatusBadge({ status, t }) {
   const colors = {
     draft: 'text-ink-200 bg-ink-700',
     scheduled: 'text-amber-300 bg-amber-500/15',
-    sending: 'text-blurple-300 bg-blurple-500/15',
+    sending: 'text-accent bg-accent/15',
     sent: 'text-emerald-300 bg-emerald-500/15',
     failed: 'text-echo-dnd bg-echo-dnd/15',
   };
