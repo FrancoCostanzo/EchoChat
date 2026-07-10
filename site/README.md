@@ -14,6 +14,13 @@ npm install
 npm run dev      # http://localhost:4321
 ```
 
+Si acabás de agregar páginas al sidebar o archivos `.md` nuevos y ves errores de slug
+inexistente, reiniciá el servidor con caché limpia:
+
+```bash
+npm run dev:fresh
+```
+
 ## Build
 
 ```bash
@@ -118,4 +125,6 @@ site/
 1. Editar o crear un `.md` en `src/content/docs/docs/` (frontmatter mínimo:
    `title` y `description`).
 2. Si es una página nueva, agregarla al `sidebar` de `astro.config.mjs`.
-3. `npm run dev` para previsualizar; commit + push (o rebuild) para publicar.
+3. `npm run dev` para previsualizar; si el sidebar referencia slugs nuevos y el
+   servidor ya estaba corriendo, usá `npm run dev:fresh`.
+4. Commit + push (o rebuild) para publicar.
