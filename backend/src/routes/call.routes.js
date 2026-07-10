@@ -8,6 +8,7 @@ router.use(authenticate);
 
 router.post('/', validate(initiateCallDto), (req, res) => callController.initiate(req, res));
 router.get('/active', (req, res) => callController.getActive(req, res));
+router.get('/history', (req, res) => callController.getHistory(req, res));
 router.get('/conversation/:conversationId', (req, res) => callController.getByConversation(req, res));
 router.get('/:callId', (req, res) => callController.getById(req, res));
 router.put('/:callId/status', validate(updateCallStatusDto), (req, res) => callController.updateStatus(req, res));

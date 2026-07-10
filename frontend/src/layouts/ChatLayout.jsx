@@ -23,6 +23,9 @@ import {
   ScrollText,
   HardDrive,
   Activity,
+  Phone,
+  PhoneMissed,
+  Video,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
@@ -31,6 +34,7 @@ import UserAvatar from '@/components/UserAvatar';
 import ServerOrbitDock from '@/components/ServerOrbitDock';
 import CommandPalette from '@/components/CommandPalette';
 import CanvasPanel from '@/components/CanvasPanel';
+import CallOverlay from '@/components/CallOverlay';
 import { formatMessageTime } from '@/lib/dates';
 
 const CONTENT_TRANSITION = { duration: 0.28, ease: [0.22, 1, 0.36, 1] };
@@ -71,6 +75,28 @@ function SidebarTypingDots() {
 function ConversationItem({ conversation, isActive, onClick, t, animIndex = 0, typingNames = [] }) {
   const isDirect = conversation.type === 'direct';
   const name = conversation.display_name || conversation.name || t('sidebar.noName');
+  // Call events have no text body — show a localized preview with a lucide icon.
+  const callMeta =
+    conversation.last_message_type === 'system' &&
+    conversation.last_message_metadata?.event === 'call'
+      ? conversation.last_message_metadata
+      : null;
+  const callLabel = callMeta
+    ? callMeta.outcome === 'missed'
+      ? t('call.timeline.missed')
+      : callMeta.outcome === 'declined'
+        ? t('call.timeline.declined')
+        : callMeta.call_type === 'video'
+          ? t('call.timeline.videoCall')
+          : t('call.timeline.voiceCall')
+    : null;
+  const CallIcon = callMeta
+    ? callMeta.outcome === 'missed' || callMeta.outcome === 'declined'
+      ? PhoneMissed
+      : callMeta.call_type === 'video'
+        ? Video
+        : Phone
+    : null;
   const lastMsg = conversation.last_message_body;
   const time = conversation.last_message_at;
   const unread = conversation.unread_count || 0;
@@ -151,6 +177,17 @@ function ConversationItem({ conversation, isActive, onClick, t, animIndex = 0, t
           <p className="flex items-center gap-1.5 text-xs text-accent">
             <SidebarTypingDots />
             <span className="truncate">{typingText}</span>
+          </p>
+        ) : callMeta ? (
+          <p
+            className={`flex items-center gap-1.5 text-xs ${
+              callMeta.outcome === 'missed' || callMeta.outcome === 'declined'
+                ? 'text-echo-dnd'
+                : 'text-ink-200'
+            }`}
+          >
+            <CallIcon size={12} className="shrink-0" />
+            <span className="truncate">{callLabel}</span>
           </p>
         ) : (
           lastMsg && <p className="truncate text-xs text-ink-200">{lastMsg}</p>
@@ -659,6 +696,9 @@ export default function ChatLayout() {
 
       {/* Ctrl/Cmd+K quick navigation */}
       <CommandPalette />
+
+      {/* Llamadas de voz/vídeo (entrantes y activas) */}
+      <CallOverlay />
     </div>
   );
 }

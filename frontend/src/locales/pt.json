@@ -683,7 +683,8 @@
     "severalTyping": "vários digitando…",
     "groups": "Grupos",
     "channels": "Canais",
-    "directMessages": "Mensagens diretas"
+    "directMessages": "Mensagens diretas",
+    "calls": "Chamadas"
   },
   "layout": {
     "toggleSidebar": "Mostrar ou ocultar painel de canais (Ctrl+\\)"
@@ -735,6 +736,58 @@
       "ocean": "Oceano",
       "rose": "Rosa",
       "graphite": "Grafite"
+    }
+  },
+  "call": {
+    "title": "Chamada",
+    "you": "você",
+    "unknown": "Desconhecido",
+    "participant": "Participante",
+    "incomingVoice": "Chamada de voz recebida",
+    "incomingVideo": "Videochamada recebida",
+    "accept": "Aceitar",
+    "decline": "Recusar",
+    "calling": "Chamando…",
+    "connecting": "Conectando…",
+    "mute": "Silenciar",
+    "unmute": "Ativar microfone",
+    "cameraOn": "Ligar câmera",
+    "cameraOff": "Desligar câmera",
+    "share": "Compartilhar tela",
+    "stopShare": "Parar de compartilhar",
+    "hangup": "Desligar",
+    "startVoice": "Chamada de voz",
+    "startVideo": "Videochamada",
+    "alreadyInCall": "Você já está em uma chamada",
+    "permissionDenied": "Permissão de microfone ou câmera negada",
+    "startFailed": "Não foi possível iniciar a chamada",
+    "timeline": {
+      "voiceCall": "Chamada de voz",
+      "videoCall": "Videochamada",
+      "missed": "Chamada perdida",
+      "noAnswer": "Chamada sem resposta",
+      "declined": "Chamada recusada",
+      "declinedByYou": "Você recusou a chamada"
+    },
+    "history": {
+      "title": "Histórico de chamadas",
+      "empty": "Nenhuma chamada ainda",
+      "emptyHint": "As chamadas desta conversa aparecerão aqui.",
+      "answered": "Atendida",
+      "outgoing": "Chamada realizada",
+      "incoming": "Chamada recebida",
+      "callAgain": "Ligar novamente"
+    },
+    "page": {
+      "title": "Chamadas",
+      "subtitle": "Histórico de chamadas e videochamadas",
+      "all": "Todas",
+      "missed": "Perdidas",
+      "empty": "Nenhuma chamada ainda",
+      "noMissed": "Nenhuma chamada perdida",
+      "unknownConversation": "Conversa",
+      "emptyHint": "Quando você fizer ou receber uma chamada, ela aparecerá aqui.",
+      "noMissedHint": "Você não tem chamadas perdidas. Tudo em dia!"
     }
   }
 }

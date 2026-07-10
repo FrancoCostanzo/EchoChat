@@ -11,6 +11,7 @@ import {
   Bookmark,
   Megaphone,
   Shield,
+  Phone,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
@@ -89,6 +90,7 @@ export default function ServerOrbitDock({
   const pathname = location.pathname;
   const isChat = pathname === '/chat' || pathname.startsWith('/chat/');
   const isContacts = pathname.startsWith('/contacts');
+  const isCalls = pathname.startsWith('/calls');
   const isChannels = pathname.startsWith('/channels');
   const isBroadcasts = pathname.startsWith('/broadcasts');
   const isSaved = pathname.startsWith('/saved');
@@ -171,6 +173,13 @@ export default function ServerOrbitDock({
           label={t('sidebar.contacts')}
           onClick={() => navigate('/contacts')}
           active={isContacts}
+          tooltipPlacement={tooltipPlacement}
+        />
+        <DockOrb
+          icon={Phone}
+          label={t('sidebar.calls')}
+          onClick={() => navigate('/calls')}
+          active={isCalls}
           tooltipPlacement={tooltipPlacement}
         />
         <DockOrb

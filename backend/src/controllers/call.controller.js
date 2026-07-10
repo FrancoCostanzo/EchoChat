@@ -39,6 +39,16 @@ class CallController {
     const calls = await callService.getActiveByUser(req.user.id);
     res.json({ status: 'success', data: calls });
   }
+
+  async getHistory(req, res) {
+    const { limit = 50, offset = 0, filter } = req.query;
+    const calls = await callService.getHistoryByUser(
+      req.user.id,
+      { limit: parseInt(limit, 10), offset: parseInt(offset, 10) },
+      filter,
+    );
+    res.json({ status: 'success', data: calls });
+  }
 }
 
 module.exports = new CallController();
