@@ -3,6 +3,9 @@ import PortfolioLayout from '../layouts/PortfolioLayout.astro';
 
 const REPO_URL = 'https://github.com/FrancoCostanzo/EchoChat';
 
+// Prefijo de subruta para links internos (ver base en astro.config.mjs)
+const base = import.meta.env.BASE_URL.replace(/\/+$/, '');
+
 // Iconos SVG (trazos estilo lucide) por feature
 const features = [
 	{
@@ -92,7 +95,7 @@ docker compose up -d`;
 					difusiones, encuestas y archivos. Todo en tiempo real, listo para autohospedar.
 				</p>
 				<div class="hero-actions" data-reveal style="--reveal-delay: 240ms">
-					<a class="btn btn-primary" href="/docs">
+					<a class="btn btn-primary" href={`${base}/docs`}>
 						Ver documentación
 						<svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
 					</a>
@@ -386,11 +389,11 @@ docker compose up -d`;
 				<h2>¿Listo para probarlo?</h2>
 				<p>Levantalo con Docker en minutos o explorá el código y contribuí.</p>
 				<div class="hero-actions">
-					<a class="btn btn-primary" href="/docs/instalacion">
+					<a class="btn btn-primary" href={`${base}/docs/instalacion`}>
 						Empezar ahora
 						<svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
 					</a>
-					<a class="btn btn-ghost" href="/faq">Ver FAQ</a>
+					<a class="btn btn-ghost" href={`${base}/faq`}>Ver FAQ</a>
 				</div>
 			</div>
 		</div>

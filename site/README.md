@@ -30,6 +30,9 @@ En [`astro.config.mjs`](./astro.config.mjs):
 
 - **`SITE_URL`** — la URL pública real del sitio. Se usa para canonicals, sitemap
   y metadatos Open Graph; si no coincide con el dominio, esos links salen mal.
+  Sobrescribible sin tocar código con la variable de entorno `ASTRO_SITE`.
+- **`ASTRO_BASE`** (variable de entorno) — subruta del deploy si el sitio no
+  vive en la raíz del dominio (p.ej. `/EchoChat` en GitHub Pages).
 - **`REPO_URL`** — el repositorio de GitHub que enlazan el header y los botones.
 
 ## Despliegue
@@ -57,11 +60,18 @@ Ambos detectan Astro automáticamente.
 
 ### GitHub Pages
 
-Usar la action oficial [`withastro/action`](https://github.com/withastro/action)
-con `path: ./site`. Si el sitio queda bajo una subruta
-(`https://usuario.github.io/EchoChat/`), además de `SITE_URL` hay que setear
-`base: '/EchoChat'` en `astro.config.mjs` para que rutas y assets no se rompan.
-Con dominio propio no hace falta `base`.
+Ya está configurado en
+[`.github/workflows/deploy-site.yml`](../.github/workflows/deploy-site.yml):
+en cada push a `main` que toque `site/` se buildea y publica en
+`https://francocostanzo.github.io/EchoChat/` (también se puede lanzar a mano
+desde la pestaña *Actions*). El workflow pasa `ASTRO_SITE` y `ASTRO_BASE`
+al build porque el sitio queda bajo la subruta `/EchoChat` — los links
+internos ya usan ese prefijo vía `import.meta.env.BASE_URL`.
+
+Requiere habilitarlo **una sola vez** en el repo:
+*Settings → Pages → Build and deployment → Source: "GitHub Actions"*.
+
+Con dominio propio, cambiar `ASTRO_SITE` y quitar `ASTRO_BASE` del workflow.
 
 ### Servidor propio (nginx, Apache, Docker…)
 

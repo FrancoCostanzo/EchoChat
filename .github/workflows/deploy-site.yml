@@ -1,0 +1,53 @@
+# Despliega el sitio (site/) a GitHub Pages.
+#
+# Requiere habilitarlo una sola vez en el repo:
+#   Settings → Pages → Build and deployment → Source: "GitHub Actions".
+#
+# Publica en https://francocostanzo.github.io/EchoChat/ — por eso el build
+# recibe ASTRO_SITE y ASTRO_BASE (ver site/astro.config.mjs). El deploy de
+# Netlify no usa estas variables y sigue sirviendo desde la raíz.
+name: Deploy site to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - '.github/workflows/deploy-site.yml'
+  # Permite lanzarlo a mano desde la pestaña Actions
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build del sitio (Astro)
+        uses: withastro/action@v3
+        env:
+          ASTRO_SITE: https://francocostanzo.github.io
+          ASTRO_BASE: /EchoChat
+        with:
+          path: ./site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy a GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

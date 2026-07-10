@@ -2,14 +2,18 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 
-// URL pública del sitio (cambiar por el dominio real de Netlify / propio)
-const SITE_URL = 'https://echochat.netlify.app';
+// URL pública del sitio. Sobrescribible por entorno para desplegar en otro
+// host sin tocar código (p.ej. GitHub Pages setea ASTRO_SITE en el workflow).
+const SITE_URL = process.env.ASTRO_SITE || 'https://echochat.netlify.app';
+// Subruta del deploy (p.ej. '/EchoChat' en GitHub Pages). Sin definir = raíz.
+const BASE_PATH = process.env.ASTRO_BASE;
 // Repositorio en GitHub (ajustar si el nombre del repo es distinto)
 const REPO_URL = 'https://github.com/FrancoCostanzo/EchoChat';
 
 // https://astro.build/config
 export default defineConfig({
 	site: SITE_URL,
+	base: BASE_PATH,
 	integrations: [
 		starlight({
 			title: 'EchoChat',
