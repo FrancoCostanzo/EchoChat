@@ -214,16 +214,19 @@ export default function MonitoreoDashboard() {
       {/* ── Secciones detalladas ── */}
       <div className="space-y-4">
         <Tabs selectedKey={activeTab} onSelectionChange={(k) => setActiveTab(String(k))}>
-          <Tabs.List aria-label={t('monitoring.sections')}>
-            {MONITOREO_TABS.map((tab) => (
-              <Tabs.Tab key={tab.key} id={tab.key}>
-                <span className="flex items-center gap-1.5">
-                  {React.createElement(tab.icon, { className: 'w-3.5 h-3.5' })}
-                  {t(tab.labelKey)}
-                </span>
-              </Tabs.Tab>
-            ))}
-          </Tabs.List>
+          <Tabs.ListContainer>
+            <Tabs.List aria-label={t('monitoring.sections')}>
+              {MONITOREO_TABS.map((tab) => (
+                <Tabs.Tab key={tab.key} id={tab.key}>
+                  <span className="flex items-center gap-1.5">
+                    {React.createElement(tab.icon, { className: 'w-3.5 h-3.5' })}
+                    {t(tab.labelKey)}
+                  </span>
+                  <Tabs.Indicator />
+                </Tabs.Tab>
+              ))}
+            </Tabs.List>
+          </Tabs.ListContainer>
         </Tabs>
         <div>{renderTabContent(activeTab, dashboard)}</div>
       </div>

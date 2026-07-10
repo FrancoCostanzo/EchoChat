@@ -15,6 +15,7 @@ const EmptyChat = lazy(() => import('@/pages/EmptyChat'));
 const ConversationPage = lazy(() => import('@/pages/ConversationPage'));
 const NewConversationPage = lazy(() => import('@/pages/NewConversationPage'));
 const ContactsPage = lazy(() => import('@/pages/ContactsPage'));
+const CallsPage = lazy(() => import('@/pages/CallsPage'));
 const ChannelsExplorePage = lazy(() => import('@/pages/ChannelsExplorePage'));
 const BroadcastsPage = lazy(() => import('@/pages/BroadcastsPage'));
 const AdminPage = lazy(() => import('@/pages/AdminPage'));
@@ -75,6 +76,7 @@ export default function App() {
           <Route path="/chat/new" element={<NewConversationPage />} />
           <Route path="/chat/:conversationId" element={<ConversationPage />} />
           <Route path="/contacts" element={<ContactsPage />} />
+          <Route path="/calls" element={<CallsPage />} />
           <Route path="/channels" element={<ChannelsExplorePage />} />
           <Route path="/broadcasts" element={<BroadcastsPage />} />
           <Route path="/admin" element={<AdminPage />}>

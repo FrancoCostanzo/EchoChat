@@ -43,9 +43,13 @@ import {
   Play,
   ImageIcon,
   Info,
+  Phone,
+  PhoneMissed,
+  Video as VideoIcon,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
+import { useCallStore } from '@/stores/callStore';
 import { useWallpaperStore } from '@/stores/wallpaperStore';
 import { useTranslation } from 'react-i18next';
 import UserAvatar from '@/components/UserAvatar';
@@ -55,6 +59,7 @@ import PdfPreview from '@/components/PdfPreview';
 import SendButton from '@/components/SendButton';
 import MessageSearchPanel from '@/components/MessageSearchPanel';
 import PinnedMessagesPanel from '@/components/PinnedMessagesPanel';
+import CallHistoryPanel from '@/components/CallHistoryPanel';
 import ThreadPanel from '@/components/ThreadPanel';
 import PollMessage from '@/components/PollMessage';
 import CodeMessage from '@/components/CodeMessage';
@@ -962,6 +967,52 @@ function DaySeparator({ date }) {
   );
 }
 
+/* Centered pill summarizing a finished/missed call. Doubles as chat history. */
+function CallEventRow({ message, currentUserId, shouldAnimate, reducedMotion, t }) {
+  const meta = message.metadata || {};
+  const isVideo = meta.call_type === 'video';
+  const outgoing = meta.initiated_by === currentUserId;
+  const missed = meta.outcome === 'missed';
+  const declined = meta.outcome === 'declined';
+
+  let label;
+  if (missed) label = outgoing ? t('call.timeline.noAnswer') : t('call.timeline.missed');
+  else if (declined) label = outgoing ? t('call.timeline.declined') : t('call.timeline.declinedByYou');
+  else label = isVideo ? t('call.timeline.videoCall') : t('call.timeline.voiceCall');
+
+  const secs = meta.duration_seconds || 0;
+  const duration = secs > 0
+    ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`
+    : null;
+
+  const Icon = missed ? PhoneMissed : isVideo ? VideoIcon : Phone;
+  const danger = missed || declined;
+
+  return (
+    <motion.div
+      id={`msg-${message.id}`}
+      initial={shouldAnimate && !reducedMotion ? { opacity: 0, y: 6 } : false}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+      className="flex justify-center px-4 py-1.5"
+    >
+      <div
+        className={[
+          'flex items-center gap-2 rounded-full border px-3 py-1 text-[12px] shadow-sm backdrop-blur-sm',
+          danger
+            ? 'border-echo-dnd/30 bg-echo-dnd/10 text-echo-dnd'
+            : 'border-white/10 bg-ink-800/70 text-ink-100',
+        ].join(' ')}
+      >
+        <Icon size={13} className="shrink-0" />
+        <span className="font-medium">{label}</span>
+        {duration && <span className="text-ink-200">· {duration}</span>}
+        <span className="text-ink-300">· {formatMessageTime(message.sent_at)}</span>
+      </div>
+    </motion.div>
+  );
+}
+
 const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstInGroup, isLastInGroup, isContextOpen, shouldAnimateEntry, onOpenContextMenu, onScrollToReply, onEdit, onDelete, onReply, onReact, onForward, onOpenThread, onRetry, currentUserId, currentUser }) {
   const { t } = useTranslation();
   const reducedMotion = useReducedMotion();
@@ -1017,6 +1068,19 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
   const metaClass = isOwn ? 'echo-on-accent-muted' : 'text-ink-200';
 
   const justSent = isOwn && message._status === 'sent';
+
+  // ── Evento de llamada en el timeline (sirve de aviso e historial) ──
+  if (message.type === 'system' && message.metadata?.event === 'call') {
+    return (
+      <CallEventRow
+        message={message}
+        currentUserId={currentUserId}
+        shouldAnimate={shouldAnimateEntry}
+        reducedMotion={reducedMotion}
+        t={t}
+      />
+    );
+  }
 
   return (
     <motion.div
@@ -1339,6 +1403,7 @@ export default function ConversationPage() {
   const [sendingFile, setSendingFile] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [pinnedOpen, setPinnedOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [pinnedIds, setPinnedIds] = useState(() => new Set());
   const [forwardTarget, setForwardTarget] = useState(null); // message being forwarded
   const [infoTarget, setInfoTarget] = useState(null); // message whose info panel is open
@@ -1939,13 +2004,45 @@ export default function ConversationPage() {
     setSearchOpen((p) => !p);
     setThreadRoot(null);
     setPinnedOpen(false);
+    setHistoryOpen(false);
   }, []);
 
   const handleOpenPinned = useCallback(() => {
     setPinnedOpen((p) => !p);
     setSearchOpen(false);
     setThreadRoot(null);
+    setHistoryOpen(false);
   }, []);
+
+  const handleOpenHistory = useCallback(() => {
+    setHistoryOpen((p) => !p);
+    setSearchOpen(false);
+    setPinnedOpen(false);
+    setThreadRoot(null);
+  }, []);
+
+  const startCall = useCallStore((s) => s.startCall);
+  const callStatus = useCallStore((s) => s.status);
+  const handleStartCall = useCallback(async (type) => {
+    if (callStatus !== 'idle') {
+      toast.danger(t('call.alreadyInCall'));
+      return;
+    }
+    try {
+      await startCall({
+        conversationId,
+        type,
+        isGroup: conversation?.type !== 'direct',
+        conversationName: conversation?.display_name || conversation?.name || t('chat.conversation'),
+        self: user,
+      });
+    } catch (err) {
+      const msg = err?.name === 'NotAllowedError'
+        ? t('call.permissionDenied')
+        : t('call.startFailed');
+      toast.danger(msg);
+    }
+  }, [callStatus, startCall, conversationId, conversation, user, t]);
 
   const handleTogglePin = useCallback(async (message) => {
     const isPinned = pinnedIds.has(message.id);
@@ -2210,6 +2307,34 @@ export default function ConversationPage() {
           </div>
 
           <div className="flex items-center gap-0.5">
+            {conversation.type !== 'channel' && (
+              <>
+                <Tooltip content={t('call.startVoice')} placement="bottom">
+                  <Button
+                    isIconOnly
+                    size="sm"
+                    variant="ghost"
+                    onPress={() => handleStartCall('voice')}
+                    isDisabled={callStatus !== 'idle'}
+                    className="h-8 w-8 min-w-0 rounded-md text-ink-100 hover:bg-ink-600 hover:text-foreground"
+                  >
+                    <Phone size={18} />
+                  </Button>
+                </Tooltip>
+                <Tooltip content={t('call.startVideo')} placement="bottom">
+                  <Button
+                    isIconOnly
+                    size="sm"
+                    variant="ghost"
+                    onPress={() => handleStartCall('video')}
+                    isDisabled={callStatus !== 'idle'}
+                    className="h-8 w-8 min-w-0 rounded-md text-ink-100 hover:bg-ink-600 hover:text-foreground"
+                  >
+                    <VideoIcon size={18} />
+                  </Button>
+                </Tooltip>
+              </>
+            )}
             <Tooltip content={t('chat.pinnedMessages')} placement="bottom">
               <Button
                 isIconOnly
@@ -2251,6 +2376,12 @@ export default function ConversationPage() {
                     <Pin size={15} />
                     <Label>{t('chat.pinnedMessages')}</Label>
                   </Dropdown.Item>
+                  {conversation.type !== 'channel' && (
+                    <Dropdown.Item id="callHistory" textValue={t('call.history.title')} onAction={handleOpenHistory}>
+                      <Phone size={15} />
+                      <Label>{t('call.history.title')}</Label>
+                    </Dropdown.Item>
+                  )}
                   <Dropdown.Item id="wallpaper" textValue={t('chat.changeWallpaper')} onAction={() => setWallpaperPickerOpen(true)}>
                     <ImageIcon size={15} />
                     <Label>{t('chat.changeWallpaper')}</Label>
@@ -2545,6 +2676,18 @@ export default function ConversationPage() {
               onClose={() => setPinnedOpen(false)}
               onJump={handleJumpToMessage}
               onUnpinned={handleUnpinnedFromPanel}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* ── Call history panel ── */}
+        <AnimatePresence>
+          {historyOpen && (
+            <CallHistoryPanel
+              conversationId={conversationId}
+              selfId={user?.id}
+              onClose={() => setHistoryOpen(false)}
+              onCallAgain={(type) => { setHistoryOpen(false); handleStartCall(type); }}
             />
           )}
         </AnimatePresence>

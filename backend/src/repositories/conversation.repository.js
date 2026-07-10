@@ -68,7 +68,9 @@ class ConversationRepository extends BaseRepository {
               other_user.presence     AS member_presence,
               other_user.avatar_object_key AS other_avatar_object_key,
               -- Last message body for sidebar preview
-              last_msg.body AS last_message_body
+              last_msg.body AS last_message_body,
+              last_msg.type AS last_message_type,
+              last_msg.metadata AS last_message_metadata
        FROM conversations c
        JOIN conversation_members cm ON cm.conversation_id = c.id
        LEFT JOIN LATERAL (

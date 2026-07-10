@@ -183,7 +183,25 @@ function initSocket(httpServer) {
       }
     });
 
+    // ── Llamadas: señalización WebRTC (malla P2P) ───────────────────
+    // El backend solo transporta la señalización (SDP/ICE) y el ciclo de vida
+    // de la llamada; el audio/vídeo viaja P2P entre los navegadores.
+    registerCallHandlers(io, socket, userId);
+
     // ── Disconnect ──────────────────────────────────────────────────
+    // 'disconnecting' aún expone socket.rooms → avisamos a las llamadas activas
+    // que este participante se fue antes de que Socket.IO limpie las salas.
+    socket.on('disconnecting', () => {
+      for (const room of socket.rooms) {
+        if (room.startsWith('call:')) {
+          socket.to(room).emit('call:peer-left', {
+            callId: room.slice('call:'.length),
+            userId,
+          });
+        }
+      }
+    });
+
     socket.on('disconnect', () => {
       logger.info({ userId, socketId: socket.id }, 'Socket disconnected');
       unregisterSocket(socket.id);
@@ -193,6 +211,98 @@ function initSocket(httpServer) {
   });
 
   return io;
+}
+
+// ── Señalización de llamadas ──────────────────────────────────────────
+// Convención de salas: `call:{callId}` agrupa a los participantes conectados
+// de una llamada. Los eventos de invitación viajan por la sala personal
+// `user:{userId}` (el invitado puede no estar aún en la sala de la llamada).
+function registerCallHandlers(io, socket, userId) {
+  const room = (callId) => `call:${callId}`;
+
+  // El que inicia timbra a los invitados por su sala personal y se une a la
+  // sala de la llamada para quedar a la escucha de aceptaciones/rechazos.
+  socket.on('call:start', ({ callId, conversationId, type, calleeIds, from }) => {
+    if (!callId || !Array.isArray(calleeIds)) return;
+    socket.join(room(callId));
+    for (const uid of calleeIds) {
+      if (uid === userId) continue;
+      io.to(`user:${uid}`).emit('call:incoming', {
+        callId,
+        conversationId: conversationId || null,
+        type,
+        from,
+        participantIds: [...new Set([userId, ...calleeIds])],
+      });
+    }
+    logger.info({ callId, userId, type }, 'Call ring started');
+  });
+
+  // El invitado acepta: calcula quiénes ya están dentro (para armar la malla),
+  // se une a la sala y avisa a los presentes que llegó un nuevo par.
+  socket.on('call:accept', ({ callId }) => {
+    if (!callId) return;
+    const existing = new Set();
+    const members = io.sockets.adapter.rooms.get(room(callId));
+    if (members) {
+      for (const sid of members) {
+        const s = io.sockets.sockets.get(sid);
+        if (s && s.userId !== userId) existing.add(s.userId);
+      }
+    }
+    socket.join(room(callId));
+    socket.emit('call:peers', { callId, userIds: [...existing] });
+    socket.to(room(callId)).emit('call:peer-joined', { callId, userId });
+
+    // Persistencia: la primera aceptación marca la llamada como activa (setea
+    // answered_at) para que el trigger calcule la duración al finalizar.
+    (async () => {
+      try {
+        const { callRepository } = require('./repositories');
+        const call = await callRepository.findById(callId);
+        if (call && call.status !== 'active') {
+          await callRepository.updateStatus(callId, 'active');
+        }
+        await callRepository.updateParticipant(callId, userId, { status: 'joined' });
+      } catch (err) {
+        logger.warn({ err: err.message, callId, userId }, 'Failed to persist call accept');
+      }
+    })();
+  });
+
+  // Rechazo (el invitado dice que no). Los presentes en la sala se enteran.
+  socket.on('call:reject', ({ callId, reason }) => {
+    if (!callId) return;
+    io.to(room(callId)).emit('call:rejected', { callId, userId, reason: reason || 'declined' });
+  });
+
+  // Cancelación del que llama antes de que contesten.
+  socket.on('call:cancel', ({ callId, calleeIds }) => {
+    if (!callId) return;
+    for (const uid of calleeIds || []) {
+      io.to(`user:${uid}`).emit('call:cancelled', { callId });
+    }
+    io.to(room(callId)).emit('call:cancelled', { callId });
+  });
+
+  // Relé de señalización dirigida (offer/answer/ICE) a un par concreto.
+  socket.on('call:signal', ({ callId, to, data }) => {
+    if (!callId || !to) return;
+    io.to(`user:${to}`).emit('call:signal', { callId, from: userId, data });
+  });
+
+  // Un participante deja la llamada.
+  socket.on('call:leave', ({ callId }) => {
+    if (!callId) return;
+    socket.to(room(callId)).emit('call:peer-left', { callId, userId });
+    socket.leave(room(callId));
+  });
+
+  // Cambios de estado de medios (silenciar micro, apagar cámara, compartir).
+  socket.on('call:media', ({ callId, kind, enabled }) => {
+    if (!callId || !kind) return;
+    socket.to(room(callId)).emit('call:media', { callId, userId, kind, enabled });
+  });
 }
 
 async function updatePresence(userId, presence) {

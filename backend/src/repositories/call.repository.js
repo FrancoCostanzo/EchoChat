@@ -99,6 +99,36 @@ class CallRepository extends BaseRepository {
     return rows;
   }
 
+  // Historial global de un usuario: todas las llamadas en las que participó,
+  // a través de cualquier conversación, con el nombre a mostrar resuelto.
+  async findByUser(userId, { limit = 50, offset = 0, filter } = {}) {
+    const statusFilter = filter === 'missed'
+      ? `AND c.status IN ('missed','rejected','failed')`
+      : '';
+    const { rows } = await this.query(
+      `SELECT c.*,
+              conv.type AS conversation_type,
+              conv.name AS conversation_name,
+              other.display_name AS other_display_name,
+              other.avatar_object_key AS other_avatar_key
+       FROM calls c
+       JOIN call_participants cp ON cp.call_id = c.id AND cp.user_id = $1
+       LEFT JOIN conversations conv ON conv.id = c.conversation_id
+       LEFT JOIN LATERAL (
+         SELECT u.display_name, u.avatar_object_key
+         FROM conversation_members cm2
+         JOIN users u ON u.id = cm2.user_id
+         WHERE cm2.conversation_id = conv.id AND cm2.user_id <> $1
+         LIMIT 1
+       ) other ON conv.type = 'direct'
+       WHERE cp.user_id = $1 ${statusFilter}
+       ORDER BY c.initiated_at DESC
+       LIMIT $2 OFFSET $3`,
+      [userId, limit, offset]
+    );
+    return rows;
+  }
+
   async findActiveByUser(userId) {
     const { rows } = await this.query(
       `SELECT c.* FROM calls c

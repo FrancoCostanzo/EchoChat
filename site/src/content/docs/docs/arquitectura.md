@@ -48,6 +48,11 @@ La mensajería, presencia, indicadores de escritura, recibos de lectura, señali
 llamadas y actualizaciones de encuestas viajan por **Socket.IO** sobre el mismo servidor
 que expone la API HTTP.
 
+Las llamadas de voz/video son la excepción a "todo pasa por el servidor": Socket.IO solo
+relé la señalización (ofertas/respuestas SDP, candidatos ICE) por una sala `call:{id}`;
+el audio y el video viajan **peer-to-peer** entre navegadores vía WebRTC. Más detalle en
+[Llamadas de voz y video](/docs/llamadas).
+
 ## Almacenamiento
 
 - **PostgreSQL 15+** para todos los datos relacionales.
