@@ -82,6 +82,8 @@ class AdminService {
       resource_id: user.id,
       ip_address: ip,
       user_agent: userAgent,
+      severity: 'info',
+      category: 'admin',
       data_after: { username: user.username, roles: roleNames },
     });
 
@@ -127,6 +129,8 @@ class AdminService {
       resource_id: userId,
       ip_address: ip,
       user_agent: userAgent,
+      severity: 'warning',
+      category: 'admin',
       data_before: { status: before.status },
       data_after: { status: user.status, roles: data.role_names },
     });
@@ -157,7 +161,9 @@ class AdminService {
       resource_id: userId,
       ip_address: ip,
       user_agent: userAgent,
-      data_before: { username: user.username },
+      severity: 'critical',
+      category: 'admin',
+      data_before: { username: user.username, roles: roleNames },
     });
 
     logger.info({ userId, actorId }, 'Admin soft-deleted user');
@@ -188,6 +194,9 @@ class AdminService {
       resource_id: userId,
       ip_address: ip,
       user_agent: userAgent,
+      severity: 'warning',
+      category: 'admin',
+      data_after: { username: user.username },
     });
 
     logger.info({ userId, actorId }, 'Admin reset user password');
@@ -236,6 +245,8 @@ class AdminService {
       resource_id: null,
       ip_address: ip,
       user_agent: userAgent,
+      severity: failed > 0 ? 'warning' : 'info',
+      category: 'admin',
       data_after: summary,
     });
 
@@ -275,6 +286,8 @@ class AdminService {
       resource_id: null,
       ip_address: ip,
       user_agent: userAgent,
+      severity: 'warning',
+      category: 'admin',
       data_before: { key, value: before.value },
       data_after: { key, value: updated.value },
     });
@@ -286,8 +299,8 @@ class AdminService {
   // ── Audit (7.3) ───────────────────────────────────────────────────────────
 
   async getAuditLog(filters) {
-    const rows = await auditRepository.search(filters);
-    return rows.map(toAuditEntryResponse);
+    const { rows, total } = await auditRepository.searchWithCount(filters);
+    return { entries: rows.map(toAuditEntryResponse), total };
   }
 
   // ── Storage (7.4) ──────────────────────────────────────────────────────────

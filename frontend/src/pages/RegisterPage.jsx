@@ -149,11 +149,11 @@ export default function RegisterPage() {
 
   if (regAllowed === false) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-background to-background-secondary p-4">
+      <div className="flex min-h-screen items-center justify-center p-4">
         <div className="w-full max-w-sm">
           <div className="mb-8 flex flex-col items-center gap-3">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent shadow-lg shadow-accent/30">
-              <MessageCircle className="h-7 w-7 text-accent-foreground" />
+            <div className="echo-grad-brand echo-glow-md flex h-14 w-14 items-center justify-center rounded-2xl">
+              <MessageCircle className="echo-on-accent h-7 w-7" />
             </div>
             <h1 className="text-2xl font-bold">{t('common.appName')}</h1>
           </div>
@@ -175,12 +175,12 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-background to-background-secondary p-4">
+    <div className="flex min-h-screen items-center justify-center p-4">
       <div className="w-full max-w-sm">
         {/* Brand */}
         <div className="mb-8 flex flex-col items-center gap-3">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent shadow-lg shadow-accent/30">
-            <MessageCircle className="h-7 w-7 text-accent-foreground" />
+          <div className="echo-grad-brand echo-glow-md flex h-14 w-14 items-center justify-center rounded-2xl">
+            <MessageCircle className="echo-on-accent h-7 w-7" />
           </div>
           <div className="text-center">
             <h1 className="text-2xl font-bold">{t('common.appName')}</h1>

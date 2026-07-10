@@ -8,6 +8,23 @@ import { useAuthStore } from '@/stores/authStore';
 // of firing duplicate HTTP requests.
 const _inFlightFetch = new Map();
 
+// Last rendered timeline per conversation. Switching back to a recently
+// visited chat paints the cached messages instantly (no blank/skeleton flash)
+// while a background fetch reconciles anything received meanwhile.
+const _messageCache = new Map();
+const MESSAGE_CACHE_LIMIT = 15;
+
+function cacheMessages(conversationId, messages, hasMoreMessages) {
+  if (!conversationId || !messages?.length) return;
+  // Optimistic sends stay out of the cache — a revisit refetches the truth.
+  const settled = messages.filter((m) => !m._status || m._status === 'sent');
+  _messageCache.delete(conversationId); // refresh insertion order (LRU)
+  _messageCache.set(conversationId, { messages: settled, hasMoreMessages });
+  if (_messageCache.size > MESSAGE_CACHE_LIMIT) {
+    _messageCache.delete(_messageCache.keys().next().value);
+  }
+}
+
 export const useChatStore = create((set, get) => ({
   conversations: [],
   activeConversationId: null,
@@ -40,6 +57,11 @@ export const useChatStore = create((set, get) => ({
             get().markMessagesRead(message.conversation_id, [message.id]);
           }
         }
+      } else if (message.sender_id !== state.activeUserId) {
+        // No la estoy mirando: el mensaje llegó a mi cliente pero aún no lo leo.
+        // Registramos el recibo de "entregado" para que el emisor pueda
+        // distinguir entregado vs. leído en la info del mensaje.
+        get().markMessagesDelivered(message.conversation_id, [message.id]);
       }
       // Update conversation preview locally — no GET needed
       set((state) => {
@@ -189,7 +211,15 @@ export const useChatStore = create((set, get) => ({
     if (socket) socket.emit('messages:read', { conversationId, messageIds });
   },
 
+  markMessagesDelivered: (conversationId, messageIds) => {
+    if (!messageIds?.length) return;
+    const socket = getSocket();
+    if (socket) socket.emit('messages:delivered', { conversationId, messageIds });
+  },
+
   clearActiveConversation: () => {
+    const { activeConversationId, messages, hasMoreMessages } = get();
+    cacheMessages(activeConversationId, messages, hasMoreMessages);
     set({ activeConversationId: null, messages: [] });
   },
 
@@ -206,10 +236,17 @@ export const useChatStore = create((set, get) => ({
   setActiveConversation: async (conversationId) => {
     const state = get();
     if (state.activeConversationId === conversationId) return;
+    // Park the outgoing conversation's timeline so coming back is instant.
+    cacheMessages(state.activeConversationId, state.messages, state.hasMoreMessages);
     // Always restore activeConversationId synchronously so the UI never gets
     // stuck — clearActiveConversation (called by StrictMode cleanup) may have
     // nulled it between the two effect invocations.
-    set({ activeConversationId: conversationId, messages: [], hasMoreMessages: true });
+    const cached = _messageCache.get(conversationId);
+    set({
+      activeConversationId: conversationId,
+      messages: cached?.messages ?? [],
+      hasMoreMessages: cached?.hasMoreMessages ?? true,
+    });
     if (!conversationId) return;
 
     // If another call is already fetching this conversation (StrictMode double-

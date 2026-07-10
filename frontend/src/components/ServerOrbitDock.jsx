@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Button, Tooltip, toast } from '@heroui/react';
+import { Tooltip, toast } from '@heroui/react';
 import {
   MessageSquare,
   Users,
@@ -11,7 +11,6 @@ import {
   Bookmark,
   Megaphone,
   Shield,
-  Activity,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
@@ -25,33 +24,34 @@ import CanvasPanel from '@/components/CanvasPanel';
    Spec: docs/SPATIAL_CANVAS.md
    ───────────────────────────────────────────────────────── */
 
-function DockOrb({ icon: Icon, label, onClick, active, variant = 'default', badge = 0 }) {
+function DockOrb({ icon: Icon, label, onClick, active, variant = 'default', badge = 0, tooltipPlacement = 'right' }) {
   const isDanger = variant === 'danger';
   const isBrand = variant === 'brand';
 
   const orbClass = isBrand
     ? active
       ? 'echo-grad-brand echo-glow-md echo-on-accent'
-      : 'bg-ink-800/90 text-accent hover:bg-accent hover:text-accent-foreground'
+      : 'bg-ink-800/90 text-accent group-hover:bg-accent group-hover:text-accent-foreground'
     : isDanger
-      ? 'bg-ink-800/90 text-echo-dnd hover:bg-echo-dnd hover:text-white'
+      ? 'bg-ink-800/90 text-echo-dnd group-hover:bg-echo-dnd/80 group-hover:text-white'
       : active
         ? 'echo-grad-brand echo-glow-md echo-on-accent'
-        : 'bg-ink-800/90 text-ink-100 hover:bg-ink-600 hover:text-foreground';
+        : 'bg-ink-800/90 text-ink-100 group-hover:bg-ink-600 group-hover:text-foreground';
 
   return (
-    <Tooltip delay={0} placement="right">
-      <Button
-        variant="ghost"
-        onPress={onClick}
+    <Tooltip delay={300} placement={tooltipPlacement}>
+      <button
+        type="button"
+        onClick={onClick}
         aria-label={label}
         aria-current={active ? 'page' : undefined}
-        className="group relative flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-none p-0 [--button-bg-hover:transparent] [--button-bg-pressed:transparent]"
+        className="group relative flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full bg-transparent p-0 outline-none focus-visible:outline-none"
       >
         <span
           className={[
-            'flex h-11 w-11 items-center justify-center transition-all duration-200 ease-[var(--ease-spring)]',
-            active ? 'rounded-[22%]' : 'rounded-full',
+            'pointer-events-none flex h-11 w-11 items-center justify-center transition-all duration-200 ease-[var(--ease-spring)]',
+            'group-active:scale-90',
+            active ? 'rounded-[22%]' : 'rounded-full group-hover:rounded-[28%]',
             orbClass,
           ].join(' ')}
         >
@@ -63,7 +63,7 @@ function DockOrb({ icon: Icon, label, onClick, active, variant = 'default', badg
             {badge > 99 ? '99+' : badge}
           </span>
         )}
-      </Button>
+      </button>
       <Tooltip.Content>
         <p className="text-xs font-semibold">{label}</p>
       </Tooltip.Content>
@@ -95,7 +95,6 @@ export default function ServerOrbitDock({
   const isNotifications = pathname.startsWith('/notifications');
   const isSettings = pathname.startsWith('/settings');
   const isAdmin = pathname.startsWith('/admin');
-  const isMonitoring = pathname.startsWith('/monitoring');
   const isNew = pathname === '/chat/new';
 
   const totalUnread = conversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
@@ -115,6 +114,7 @@ export default function ServerOrbitDock({
   };
 
   const isHorizontal = orientation === 'bottom';
+  const tooltipPlacement = isHorizontal ? 'top' : 'right';
 
   const panelClass = isHorizontal
     ? 'flex max-w-[min(100vw-1rem,560px)] flex-row items-center justify-center gap-1 px-3 py-2'
@@ -153,6 +153,7 @@ export default function ServerOrbitDock({
         active={brandActive}
         variant="brand"
         badge={totalUnread}
+        tooltipPlacement={tooltipPlacement}
       />
 
       {separator}
@@ -163,30 +164,35 @@ export default function ServerOrbitDock({
           label={t('sidebar.newChat')}
           onClick={() => navigate('/chat/new')}
           active={isNew}
+          tooltipPlacement={tooltipPlacement}
         />
         <DockOrb
           icon={Users}
           label={t('sidebar.contacts')}
           onClick={() => navigate('/contacts')}
           active={isContacts}
+          tooltipPlacement={tooltipPlacement}
         />
         <DockOrb
           icon={Compass}
           label={t('sidebar.explore')}
           onClick={() => navigate('/channels')}
           active={isChannels}
+          tooltipPlacement={tooltipPlacement}
         />
         <DockOrb
           icon={Megaphone}
           label={t('sidebar.broadcasts')}
           onClick={() => navigate('/broadcasts')}
           active={isBroadcasts}
+          tooltipPlacement={tooltipPlacement}
         />
         <DockOrb
           icon={Bookmark}
           label={t('sidebar.saved')}
           onClick={() => navigate('/saved')}
           active={isSaved}
+          tooltipPlacement={tooltipPlacement}
         />
       </div>
 
@@ -198,6 +204,7 @@ export default function ServerOrbitDock({
           label={t('sidebar.notifications')}
           onClick={() => navigate('/notifications')}
           active={isNotifications}
+          tooltipPlacement={tooltipPlacement}
         />
         {canAdmin && (
           <DockOrb
@@ -205,27 +212,23 @@ export default function ServerOrbitDock({
             label={t('sidebar.admin')}
             onClick={() => navigate('/admin')}
             active={isAdmin}
+            tooltipPlacement={tooltipPlacement}
           />
         )}
-        {canAdmin && (
-          <DockOrb
-            icon={Activity}
-            label={t('sidebar.monitoring')}
-            onClick={() => navigate('/monitoring')}
-            active={isMonitoring}
-          />
-        )}
+
         <DockOrb
           icon={Settings}
           label={t('sidebar.settings')}
           onClick={() => navigate('/settings')}
           active={isSettings}
+          tooltipPlacement={tooltipPlacement}
         />
         <DockOrb
           icon={LogOut}
           label={t('sidebar.logout')}
           onClick={handleLogout}
           variant="danger"
+          tooltipPlacement={tooltipPlacement}
         />
       </div>
     </CanvasPanel>

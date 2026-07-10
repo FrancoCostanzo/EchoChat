@@ -7,6 +7,7 @@
     "delete": "Eliminar",
     "edit": "Editar",
     "close": "Cerrar",
+    "you": "Tú",
     "search": "Buscar",
     "add": "Agregar",
     "create": "Crear",
@@ -17,7 +18,8 @@
     "required": "*",
     "copy": "Copiar",
     "done": "Listo",
-    "clear": "Limpiar"
+    "clear": "Limpiar",
+    "remove": "Quitar"
   },
   "confirm": {
     "defaultTitle": "¿Estás seguro?",
@@ -159,6 +161,9 @@
     "threadReplyPlaceholder": "Responder en el hilo...",
     "memberPanel": "Miembros",
     "viewMembers": "Ver miembros",
+    "membersActive": "Activos",
+    "membersOffline": "Desconectados",
+    "membersOnlineCount": "{{count}} en línea",
     "changeWallpaper": "Cambiar fondo",
     "formatToolbar": "Formato de texto",
     "format": {
@@ -170,7 +175,22 @@
       "preview": "Vista previa",
       "showPreview": "Mostrar vista previa",
       "hidePreview": "Ocultar vista previa"
-    }
+    },
+    "welcomeTo": "Bienvenido a",
+    "startOfDirect": "Este es el comienzo de tu historial de mensajes con {{name}}.",
+    "startOfChannel": "Este es el comienzo del canal #{{name}}.",
+    "pin": "Fijar mensaje",
+    "unpin": "Desfijar mensaje",
+    "noPinned": "No hay mensajes fijados todavía",
+    "noPinnedHint": "Fijá mensajes importantes desde el menú contextual para encontrarlos rápido.",
+    "pinnedToast": "Mensaje fijado",
+    "unpinnedToast": "Mensaje desfijado",
+    "emptyHint": "Abrí la paleta de comandos con",
+    "noMessagesTitle": "Todavía no hay mensajes",
+    "noMessagesDirect": "Saludá a {{name}} y rompé el hielo.",
+    "noMessagesGroup": "Sé la primera persona en escribir en el grupo.",
+    "noMessagesChannel": "Sé la primera persona en escribir en #{{name}}.",
+    "sayHi": "Decí hola"
   },
   "newConversation": {
     "title": "Nueva conversación",
@@ -178,12 +198,28 @@
     "group": "Grupo",
     "channel": "Canal",
     "conversationType": "Tipo de conversación",
-    "groupChannelName": "Nombre del grupo/canal",
+    "groupChannelName": "Nombre",
+    "channelName": "Nombre del canal",
+    "channelNamePlaceholder": "nombre-del-canal",
     "groupNamePlaceholder": "Ej: Equipo de desarrollo",
-    "searchUsers": "Buscar usuarios...",
+    "description": "Descripción",
+    "descriptionPlaceholder": "De qué trata...",
+    "joinMode": "Modo de acceso",
+    "joinModes": {
+      "open": "Abierto",
+      "request": "Solicitud",
+      "invite_only": "Invitación"
+    },
+    "category": "Categoría",
+    "addMembers": "Agregar miembros",
+    "searchUsers": "Buscar usuarios",
+    "searchUsersPlaceholder": "Buscar por nombre o usuario...",
+    "typeToSearch": "Escribí 2+ caracteres para buscar",
+    "noResults": "Sin resultados para \"{{query}}\"",
     "startConversation": "Iniciar conversación",
     "createGroup": "Crear grupo ({{count}})",
-    "createChannel": "Crear canal ({{count}})"
+    "createChannel": "Crear canal ({{count}})",
+    "loadMore": "Ver más"
   },
   "channels": {
     "explore": "Explorar canales",
@@ -288,7 +324,8 @@
     "searchToAdd": "Buscar usuarios para agregar...",
     "noContacts": "No tenés contactos aún",
     "noFavorites": "No tenés favoritos aún",
-    "noBlocked": "No tenés usuarios bloqueados"
+    "noBlocked": "No tenés usuarios bloqueados",
+    "sendMessage": "Enviar mensaje"
   },
   "notifications": {
     "title": "Notificaciones",
@@ -325,6 +362,10 @@
     "jobTitle": "Cargo",
     "phoneExtension": "Extensión telefónica",
     "changeAvatar": "Cambiar foto de perfil",
+    "avatarCropTitle": "Ajustar foto de perfil",
+    "avatarCropHint": "Arrastrá y usá el zoom para encuadrar tu rostro dentro del círculo.",
+    "avatarCropZoom": "Zoom",
+    "avatarCropConfirm": "Usar foto",
     "avatarUpdated": "Foto de perfil actualizada",
     "avatarError": "Error al actualizar la foto",
     "profileUpdated": "Perfil actualizado correctamente",
@@ -452,13 +493,15 @@
       "users": "Usuarios",
       "settings": "Sistema",
       "audit": "Auditoría",
-      "storage": "Almacenamiento"
+      "storage": "Almacenamiento",
+      "monitoring": "Monitoreo"
     },
     "descriptions": {
       "users": "Gestioná cuentas, estados y roles",
       "settings": "Configuración global de la plataforma",
       "audit": "Historial de acciones críticas",
-      "storage": "Inventario y métricas de MinIO"
+      "storage": "Inventario y métricas de MinIO",
+      "monitoring": "Estado en tiempo real del servidor y la base de datos"
     },
     "users": {
       "search": "Buscar usuarios...",
@@ -510,14 +553,66 @@
     },
     "audit": {
       "filterAction": "Filtrar por acción...",
-      "allResults": "Todos",
-      "success": "Exitosos",
-      "failed": "Fallidos",
+      "filterCategory": "Categoría",
+      "filterSeverity": "Severidad",
+      "allResults": "Todos los resultados",
+      "allCategories": "Todas las categorías",
+      "allSeverities": "Todas las severidades",
+      "success": "Exitoso",
+      "failed": "Fallido",
+      "totalResults": "registros",
+      "rowsPerPage": "Filas por página",
       "colTime": "Fecha",
       "colActor": "Actor",
       "colAction": "Acción",
+      "colSeverity": "Severidad",
+      "colCategory": "Categoría",
       "colResource": "Recurso",
-      "colResult": "OK"
+      "colIp": "IP",
+      "colResult": "Resultado",
+      "dateFrom": "Desde",
+      "dateTo": "Hasta",
+      "dateRange": "Período",
+      "detailTitle": "Detalle del evento",
+      "detail": {
+        "info": "Información",
+        "before": "Antes",
+        "after": "Después"
+      },
+      "severities": {
+        "info": "Info",
+        "warning": "Advertencia",
+        "critical": "Crítico"
+      },
+      "categories": {
+        "auth": "Autenticación",
+        "admin": "Administración",
+        "content": "Contenido",
+        "system": "Sistema",
+        "security": "Seguridad"
+      },
+      "actions": {
+        "user_register": "Registro de usuario",
+        "user_login": "Inicio de sesión",
+        "user_logout": "Cierre de sesión",
+        "user_logout_all": "Cerrar todas las sesiones",
+        "user_change_password": "Cambio de contraseña",
+        "user_profile_update": "Actualización de perfil",
+        "user_avatar_update": "Cambio de foto de perfil",
+        "user_2fa_enabled": "2FA activado",
+        "user_2fa_disabled": "2FA desactivado",
+        "user_2fa_login": "Inicio de sesión con 2FA",
+        "user_2fa_backup_used": "Código de respaldo usado",
+        "user_2fa_backup_regen": "Códigos de respaldo regenerados",
+        "admin_user_create": "Creación de usuario",
+        "admin_user_update": "Modificación de usuario",
+        "admin_user_delete": "Eliminación de usuario",
+        "admin_user_reset_password": "Restablecimiento de contraseña",
+        "admin_ldap_sync": "Sincronización LDAP",
+        "admin_setting_update": "Cambio de configuración",
+        "message_delete": "Eliminación de mensaje",
+        "conversation_role_change": "Cambio de rol en conversación"
+      }
     },
     "storage": {
       "totalObjects": "Objetos",
@@ -585,7 +680,10 @@
     "saved": "Guardados",
     "typing": "escribiendo…",
     "someoneTyping": "{{name}} escribiendo…",
-    "severalTyping": "varios escribiendo…"
+    "severalTyping": "varios escribiendo…",
+    "groups": "Grupos",
+    "channels": "Canales",
+    "directMessages": "Mensajes directos"
   },
   "layout": {
     "toggleSidebar": "Mostrar u ocultar panel de canales (Ctrl+\\)"

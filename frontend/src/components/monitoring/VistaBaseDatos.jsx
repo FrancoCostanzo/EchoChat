@@ -115,19 +115,20 @@ const VistaBaseDatos = ({ dashboard }) => {
         )}
       </StatusCard>
 
-      <Card className="shadow-lg border-none h-full">
-        <Card.Header className="flex items-center justify-between pb-2">
+      <Card className="h-full">
+        <Card.Header className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <List className="w-5 h-5 text-primary" />
-            <h3 className="text-lg font-semibold text-foreground">Conexiones Activas</h3>
+            <h3 className="font-semibold text-foreground">Conexiones Activas</h3>
           </div>
           <Chip size="sm" variant="flat">
             {dbDetails?.connectionCount?.active_connections || 0} activas
           </Chip>
         </Card.Header>
-        <Card.Content className="p-0 flex-1 min-h-0">
-          <div className="h-full max-h-[600px] xl:max-h-none overflow-y-auto">
-            {connectionRows.length > 0 ? (
+        <hr className="border-divider" />
+        <Card.Content className="p-0">
+          {connectionRows.length > 0 ? (
+            <Table>
               <Table.ScrollContainer>
                 <Table.Content aria-label="Conexiones activas" className="min-w-[520px]">
                   <Table.Header>
@@ -159,10 +160,10 @@ const VistaBaseDatos = ({ dashboard }) => {
                   </Table.Body>
                 </Table.Content>
               </Table.ScrollContainer>
-            ) : (
-              <div className="p-6 text-center text-default-500">No hay detalles de conexión disponibles</div>
-            )}
-          </div>
+            </Table>
+          ) : (
+            <div className="p-8 text-center text-sm text-default-500">No hay detalles de conexión disponibles</div>
+          )}
         </Card.Content>
       </Card>
     </div>

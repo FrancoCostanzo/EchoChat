@@ -14,7 +14,7 @@
 [![Electron](https://img.shields.io/badge/Electron-47848F?style=for-the-badge&logo=electron&logoColor=white)](https://www.electronjs.org/)
 [![React Native](https://img.shields.io/badge/React_Native-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactnative.dev/)
 [![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
-[![License: ISC](https://img.shields.io/badge/License-ISC-blue?style=for-the-badge)](https://opensource.org/licenses/ISC)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue?style=for-the-badge)](https://www.gnu.org/licenses/agpl-3.0)
 
 <br/>
 
@@ -1168,7 +1168,9 @@ EchoChat/
 
 ## 📄 Licencia
 
-Este proyecto está bajo la licencia **ISC**.
+Este proyecto está bajo la licencia **GNU Affero General Public License v3.0 (AGPL-3.0)**. Consultá el archivo [LICENSE](LICENSE) para más detalles.
+
+Esto significa que si ofrecés EchoChat (modificado o no) como un servicio accesible por red, estás obligado a poner a disposición el código fuente correspondiente.
 
 ---
 

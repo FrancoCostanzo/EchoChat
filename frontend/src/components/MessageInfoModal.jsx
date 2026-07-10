@@ -4,6 +4,7 @@ import { Info, Check, CheckCheck, Send, Clock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { messagesApi } from '@/lib/endpoints';
 import { formatFullTime } from '@/lib/dates';
+import UserAvatar from '@/components/UserAvatar';
 
 /* ─────────────────────────────────────────────────────────
    MessageInfoModal — "Información del mensaje": cuándo se
@@ -70,34 +71,46 @@ export default function MessageInfoModal({ message, isOpen, onClose }) {
                   {receipts.length === 0 ? (
                     <p className="py-2 text-center text-sm text-ink-200">{t('chat.noReceiptsYet')}</p>
                   ) : (
-                    <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-2">
                       {receipts.map((r) => (
-                        <div key={r.user_id} className="flex flex-col gap-1">
-                          <span className="text-sm font-medium text-foreground">
-                            {r.display_name || r.username}
-                          </span>
-                          {r.read_at ? (
-                            <Row
-                              compact
-                              icon={<CheckCheck size={14} className="text-sky-400" />}
-                              label={t('chat.read')}
-                              time={formatFullTime(r.read_at)}
-                            />
-                          ) : r.delivered_at ? (
-                            <Row
-                              compact
-                              icon={<CheckCheck size={14} className="text-ink-200" />}
-                              label={t('chat.delivered')}
-                              time={formatFullTime(r.delivered_at)}
-                            />
-                          ) : (
-                            <Row
-                              compact
-                              icon={<Check size={14} className="text-ink-300" />}
-                              label={t('chat.pendingDelivery')}
-                              time=""
-                            />
-                          )}
+                        <div key={r.user_id} className="flex items-center gap-3 rounded-lg bg-ink-800/50 px-3 py-2.5">
+                          <UserAvatar
+                            user={{ display_name: r.display_name, username: r.username, avatar_url: r.avatar_url }}
+                            size="sm"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-[13px] font-semibold text-foreground">
+                              {r.display_name || r.username}
+                            </p>
+                            <p className="truncate text-[11px] text-ink-300">
+                              @{r.username}
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 flex-col items-end gap-1">
+                            {/* Entregado: visible apenas hay delivered_at o read_at */}
+                            {(r.delivered_at || r.read_at) && (
+                              <span className="flex items-center gap-1.5">
+                                <CheckCheck size={13} className="text-ink-300" />
+                                <span className="text-[11px] tabular-nums text-ink-200">
+                                  {formatFullTime(r.delivered_at || r.read_at)}
+                                </span>
+                              </span>
+                            )}
+                            {/* Visto */}
+                            {r.read_at ? (
+                              <span className="flex items-center gap-1.5">
+                                <CheckCheck size={13} className="text-sky-400" />
+                                <span className="text-[11px] tabular-nums text-sky-400">
+                                  {formatFullTime(r.read_at)}
+                                </span>
+                              </span>
+                            ) : !r.delivered_at ? (
+                              <span className="flex items-center gap-1.5">
+                                <Check size={13} className="text-ink-400" />
+                                <span className="text-[11px] text-ink-400">{t('chat.pendingDelivery')}</span>
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
                       ))}
                     </div>
