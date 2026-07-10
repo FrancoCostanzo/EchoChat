@@ -15,8 +15,8 @@ pensado para **autohospedarse**.
 
 - **Mensajería**: directos y grupales, edición con historial, reacciones, threads, reenvío,
   búsqueda full-text, mensajes fijados, guardados y borradores auto-guardados.
-- **Llamadas**: voz y video (1:1 y grupal), compartir pantalla, conferencias, grabación con
-  consentimiento y estadísticas de calidad.
+- **Llamadas**: voz y video (1:1 y grupal) sobre WebRTC, compartir pantalla, historial y
+  aviso en el chat. Ver [Llamadas de voz y video](/docs/llamadas).
 - **Canales**: categorías, canales oficiales y descubribles, modos de acceso y roles por miembro.
 - **Difusiones**: listas de difusión, envío masivo sin visibilidad cruzada, programadas y con
   seguimiento de entrega/lectura.
@@ -30,7 +30,7 @@ pensado para **autohospedarse**.
 
 | Plataforma | Tecnología | Estado |
 |------------|-----------|--------|
-| **Web** | React 19 + Vite | ✅ En desarrollo (`v1.0.0-alpha.1`) |
+| **Web** | React 19 + Vite | ✅ En desarrollo (`v1.0.0-alpha.4`) |
 | **Desktop** (Windows, macOS, Linux) | Electron | 🔧 Planificado |
 | **Mobile** (iOS, Android) | React Native + Expo | 🔧 Planificado |
 
@@ -42,3 +42,4 @@ negocio del frontend.
 - [Instalación (desarrollo)](/docs/instalacion) — levantarlo localmente sin Docker.
 - [Despliegue con Docker](/docs/despliegue) — poner EchoChat en producción.
 - [Arquitectura](/docs/arquitectura) — cómo se conectan las piezas.
+- [Llamadas de voz y video](/docs/llamadas) — cómo funciona la señalización WebRTC.

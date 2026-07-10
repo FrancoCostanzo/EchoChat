@@ -58,6 +58,7 @@ export default defineConfig({
 						{ label: 'Instalación (desarrollo)', slug: 'docs/instalacion' },
 						{ label: 'Despliegue con Docker', slug: 'docs/despliegue' },
 						{ label: 'Arquitectura', slug: 'docs/arquitectura' },
+						{ label: 'Llamadas de voz y video', slug: 'docs/llamadas' },
 					],
 				},
 			],
