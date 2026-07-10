@@ -44,7 +44,7 @@ Parámetros comunes a cualquier plataforma:
 | Directorio base    | `site`          |
 | Comando de build   | `npm run build` |
 | Directorio publish | `dist`          |
-| Versión de Node    | 18 o superior   |
+| Versión de Node    | 22.12+          |
 
 ### Netlify
 
