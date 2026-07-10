@@ -1,6 +1,9 @@
 ---
 import PortfolioLayout from '../layouts/PortfolioLayout.astro';
 
+// Prefijo de subruta para links internos (ver base en astro.config.mjs)
+const base = import.meta.env.BASE_URL.replace(/\/+$/, '');
+
 const faqs = [
 	{
 		q: '¿Qué es EchoChat?',
@@ -77,7 +80,7 @@ const faqs = [
 				<h2>¿Otra pregunta?</h2>
 				<p>Abrí un issue en GitHub o revisá la documentación completa.</p>
 				<div class="hero-actions">
-					<a class="btn btn-primary" href="/docs">Ver documentación →</a>
+					<a class="btn btn-primary" href={`${base}/docs`}>Ver documentación →</a>
 					<a
 						class="btn btn-ghost"
 						href="https://github.com/FrancoCostanzo/EchoChat/issues"
