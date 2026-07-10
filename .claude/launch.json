@@ -7,6 +7,13 @@
       "runtimeArgs": ["run", "dev", "--prefix", "frontend", "--", "--port", "5174", "--strictPort"],
       "port": 5174,
       "autoPort": false
+    },
+    {
+      "name": "site",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "site", "--", "--port", "4321", "--strictPort"],
+      "port": 4321,
+      "autoPort": false
     }
   ]
 }

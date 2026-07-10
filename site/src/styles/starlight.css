@@ -1,0 +1,318 @@
+/* ============================================================
+   Tematización de la documentación (Starlight) con el design
+   system "Spatial Canvas" de EchoChat — misma identidad que la
+   landing y la app: canvas índigo, acento #7c5cff, paneles
+   glass, sombras tintadas y tipografías Clash Display/Satoshi.
+   ============================================================ */
+
+/* ── Tokens: tema oscuro (por defecto en Starlight = :root) ── */
+:root {
+	/* Acento */
+	--sl-color-accent-low: #2b2153;
+	--sl-color-accent: #7c5cff;
+	--sl-color-accent-high: #cfc4ff;
+
+	/* Escala de grises → slate-violeta (ink) de la app */
+	--sl-color-white: #f5f6fb;
+	--sl-color-gray-1: #e2e4ef;
+	--sl-color-gray-2: #b9bdcf;
+	--sl-color-gray-3: #9398ad;
+	--sl-color-gray-4: #6a6d80;
+	--sl-color-gray-5: #3b3d4a;
+	--sl-color-gray-6: #1d1f2b;
+	--sl-color-black: #0b0d14;
+
+	/* Superficies */
+	--sl-color-bg: #0b0d14;
+	--sl-color-bg-nav: rgba(18, 19, 28, 0.72);
+	--sl-color-bg-sidebar: rgba(18, 19, 28, 0.55);
+	--sl-color-bg-inline-code: rgba(124, 92, 255, 0.13);
+	--sl-color-hairline: rgba(255, 255, 255, 0.08);
+	--sl-color-hairline-light: rgba(255, 255, 255, 0.07);
+	--sl-color-hairline-shade: rgba(255, 255, 255, 0.06);
+
+	/* Tipografías del design system */
+	--sl-font: 'Satoshi';
+	--sl-font-mono: 'JetBrains Mono';
+
+	/* Sombra tintada reutilizable */
+	--echo-shadow:
+		0 4px 16px -4px rgb(124 92 255 / 0.12),
+		0 2px 6px rgb(11 13 20 / 0.35),
+		0 0 0 1px rgb(255 255 255 / 0.06);
+	--echo-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ── Tokens: tema claro ── */
+:root[data-theme='light'] {
+	--sl-color-accent-low: #e7dfff;
+	--sl-color-accent: #6644e8;
+	--sl-color-accent-high: #2a1a6e;
+
+	--sl-color-white: #1a1a2e;
+	--sl-color-gray-1: #2e3035;
+	--sl-color-gray-2: #4a4d54;
+	--sl-color-gray-3: #5c5f73;
+	--sl-color-gray-4: #8e91a3;
+	--sl-color-gray-5: #c9ccd1;
+	--sl-color-gray-6: #ebedef;
+	--sl-color-gray-7: #f2f3f5;
+	--sl-color-black: #ffffff;
+
+	--sl-color-bg: #f6f5f1;
+	--sl-color-bg-nav: rgba(255, 255, 255, 0.78);
+	--sl-color-bg-sidebar: rgba(255, 255, 255, 0.6);
+	--sl-color-bg-inline-code: rgba(102, 68, 232, 0.1);
+	--sl-color-hairline: rgba(12, 13, 14, 0.1);
+	--sl-color-hairline-light: rgba(12, 13, 14, 0.08);
+	--sl-color-hairline-shade: rgba(12, 13, 14, 0.06);
+
+	--echo-shadow:
+		0 4px 16px -4px rgb(102 68 232 / 0.1),
+		0 2px 6px rgb(26 26 46 / 0.08),
+		0 0 0 1px rgb(0 0 0 / 0.04);
+}
+
+/* ============================================================
+   Transiciones entre páginas — View Transitions API (MPA).
+   Mismo opt-in que site.css: al navegar entre docs, el header,
+   el sidebar y el TOC persisten y solo el contenido transiciona.
+   ============================================================ */
+@view-transition {
+	navigation: auto;
+}
+
+/* Elementos persistentes: mismo nombre en cada página ⇒ quedan fijos */
+header.header {
+	view-transition-name: site-header;
+}
+.sidebar-pane {
+	view-transition-name: docs-sidebar;
+}
+
+::view-transition-old(root) {
+	animation: vt-fade-out 0.2s var(--echo-ease) both;
+}
+::view-transition-new(root) {
+	animation: vt-slide-in 0.35s var(--echo-ease) 0.05s both;
+}
+@keyframes vt-fade-out {
+	to {
+		opacity: 0;
+	}
+}
+@keyframes vt-slide-in {
+	from {
+		opacity: 0;
+		transform: translateY(12px);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	::view-transition-old(root),
+	::view-transition-new(root) {
+		animation: none;
+	}
+}
+
+/* ── Lienzo ambiental: mismos glows radiales que la landing ── */
+body {
+	background-color: var(--sl-color-bg);
+	background-image:
+		radial-gradient(70rem 70rem at 8% -15%, rgb(124 92 255 / 0.16), transparent 62%),
+		radial-gradient(55rem 55rem at 102% 5%, rgb(61 220 151 / 0.05), transparent 58%),
+		radial-gradient(60rem 60rem at 85% 110%, rgb(124 92 255 / 0.09), transparent 60%);
+	background-attachment: fixed;
+	-webkit-font-smoothing: antialiased;
+}
+:root[data-theme='light'] body {
+	background-image:
+		radial-gradient(70rem 70rem at 8% -15%, rgb(102 68 232 / 0.09), transparent 62%),
+		radial-gradient(55rem 55rem at 102% 5%, rgb(15 169 104 / 0.05), transparent 58%),
+		radial-gradient(60rem 60rem at 85% 110%, rgb(102 68 232 / 0.06), transparent 60%);
+}
+
+/* Que los paneles de Starlight dejen ver el lienzo de fondo */
+.sidebar-pane,
+header.header {
+	backdrop-filter: blur(16px) saturate(1.4);
+	-webkit-backdrop-filter: blur(16px) saturate(1.4);
+}
+
+/* ── Jerarquía tipográfica: Clash Display en títulos ── */
+main h1,
+.sl-markdown-content :is(h1, h2, h3, h4, h5) {
+	font-family: 'Clash Display', 'Satoshi', system-ui, sans-serif;
+	letter-spacing: -0.02em;
+	font-weight: 600;
+}
+
+/* Selección de texto con acento */
+::selection {
+	background: color-mix(in oklch, var(--sl-color-accent) 45%, transparent);
+	color: #fff;
+}
+
+/* Scrollbars como en la app */
+*::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+*::-webkit-scrollbar-track {
+	background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+	background: var(--sl-color-gray-5);
+	border-radius: 8px;
+}
+
+/* ── Sidebar: ítem activo como en la app (soft + ring interior) ── */
+.sidebar-content a[aria-current='page'],
+.sidebar-content a[aria-current='page']:hover,
+.sidebar-content a[aria-current='page']:focus {
+	background-color: color-mix(in oklch, var(--sl-color-accent) 14%, transparent);
+	color: var(--sl-color-accent-high);
+	box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--sl-color-accent) 35%, transparent);
+	border-radius: 10px;
+	font-weight: 600;
+}
+.sidebar-content a {
+	border-radius: 10px;
+	transition:
+		background-color 0.15s var(--echo-ease),
+		color 0.15s var(--echo-ease);
+}
+.sidebar-content a:hover {
+	background-color: color-mix(in oklch, var(--sl-color-gray-5) 45%, transparent);
+	color: var(--sl-color-white);
+}
+
+/* ── TOC derecho ("On this page") ── */
+aside.right-sidebar {
+	border-inline-start: 1px solid var(--sl-color-hairline);
+}
+
+/* ── Bloques de código (Expressive Code): radios + sombra tintada ── */
+.expressive-code .frame {
+	border-radius: 12px;
+	overflow: hidden;
+	box-shadow: var(--echo-shadow);
+}
+/* radios internos a cero: el contenedor ya recorta las esquinas */
+.expressive-code .frame pre,
+.expressive-code .frame .header {
+	border-radius: 0;
+	border-color: var(--sl-color-hairline);
+}
+.expressive-code .frame.is-terminal .header {
+	border-bottom: 1px solid var(--sl-color-hairline);
+	font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+.expressive-code .frame.has-title .header .title {
+	font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* Código inline con tinte de acento */
+.sl-markdown-content code:not(:where(.expressive-code *)) {
+	border-radius: 6px;
+	padding: 0.15em 0.4em;
+	color: color-mix(in oklch, var(--sl-color-accent-high) 80%, var(--sl-color-white));
+}
+
+/* ── Contenido markdown ── */
+.sl-markdown-content a:not(:where(.not-content *)) {
+	color: var(--sl-color-accent-high);
+	text-decoration: none;
+	border-bottom: 1px solid color-mix(in oklch, var(--sl-color-accent) 45%, transparent);
+	transition: border-color 0.15s;
+}
+.sl-markdown-content a:not(:where(.not-content *)):hover {
+	border-bottom-color: var(--sl-color-accent);
+}
+
+/* Tablas con bordes suaves y esquinas redondeadas */
+.sl-markdown-content table {
+	border: 1px solid var(--sl-color-hairline);
+	border-radius: 12px;
+	overflow: hidden;
+	border-collapse: separate;
+	border-spacing: 0;
+}
+.sl-markdown-content th {
+	background: color-mix(in oklch, var(--sl-color-accent) 8%, transparent);
+	font-family: 'Clash Display', 'Satoshi', sans-serif;
+	letter-spacing: 0.01em;
+	font-weight: 600;
+}
+.sl-markdown-content :is(th, td) {
+	border: none;
+	border-bottom: 1px solid var(--sl-color-hairline);
+	padding: 0.6rem 0.9rem;
+}
+.sl-markdown-content tr:last-child :is(th, td) {
+	border-bottom: none;
+}
+
+/* Asides (note/tip/caution) redondeados */
+.sl-markdown-content .starlight-aside {
+	border-radius: 12px;
+	border: 1px solid var(--sl-color-hairline);
+	border-inline-start: 3px solid var(--sl-color-asides-border, var(--sl-color-accent));
+}
+
+/* ── Paginación (anterior / siguiente) con hover-lift ── */
+.pagination-links a {
+	border: 1px solid var(--sl-color-hairline);
+	border-radius: 14px;
+	background: color-mix(in oklch, var(--sl-color-gray-6) 60%, transparent);
+	box-shadow: none;
+	transition:
+		transform 0.2s var(--echo-ease),
+		border-color 0.2s,
+		box-shadow 0.25s var(--echo-ease);
+}
+.pagination-links a:hover {
+	transform: translateY(-2px);
+	border-color: color-mix(in oklch, var(--sl-color-accent) 40%, transparent);
+	box-shadow: var(--echo-shadow);
+}
+.pagination-links a .link-title {
+	font-family: 'Clash Display', 'Satoshi', sans-serif;
+	letter-spacing: -0.01em;
+	color: var(--sl-color-accent-high);
+}
+
+/* ── Buscador (Pagefind): pastilla redondeada ── */
+button[data-open-modal] {
+	border-radius: 12px;
+	border: 1px solid var(--sl-color-hairline);
+	background: color-mix(in oklch, var(--sl-color-gray-6) 55%, transparent);
+	transition: border-color 0.15s;
+}
+button[data-open-modal]:hover {
+	border-color: color-mix(in oklch, var(--sl-color-accent) 45%, transparent);
+}
+
+/* ── Título del sitio en el header ── */
+.site-title .site-title-text,
+.site-title span {
+	font-family: 'Clash Display', 'Satoshi', sans-serif;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+}
+
+/* Selector de tema y links del header */
+starlight-theme-select select {
+	border-radius: 10px;
+}
+
+/* Respeto por reduced motion */
+@media (prefers-reduced-motion: reduce) {
+	.pagination-links a,
+	.sidebar-content a {
+		transition: none;
+	}
+	.pagination-links a:hover {
+		transform: none;
+	}
+}

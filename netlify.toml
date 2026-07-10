@@ -1,0 +1,9 @@
+# Configuración de Netlify para el sitio de EchoChat (carpeta site/).
+# El resto del monorepo (backend/, frontend/) se ignora en este deploy.
+[build]
+  base = "site"
+  command = "npm run build"
+  publish = "dist"        # relativo a "base" → site/dist
+
+[build.environment]
+  NODE_VERSION = "22"
