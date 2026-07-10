@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { conversationsApi, messagesApi } from '@/lib/endpoints';
 import { connectSocket, disconnectSocket, getSocket } from '@/lib/socket';
 import { useAuthStore } from '@/stores/authStore';
+import { useCallStore } from '@/stores/callStore';
 
 // Tracks in-flight fetchMessages calls by conversationId so that concurrent
 // calls (e.g. React StrictMode's double-invoke) await the same Promise instead
@@ -41,6 +42,12 @@ export const useChatStore = create((set, get) => ({
     set({ activeUserId: userId });
     const socket = connectSocket(token);
 
+    // Registrar los listeners de señalización de llamadas sobre el mismo socket.
+    // `connect` cubre la reconexión; también lo intentamos ya por si está listo.
+    const attachCalls = () => useCallStore.getState().attach(userId);
+    socket.on('connect', attachCalls);
+    if (socket.connected) attachCalls();
+
     socket.on('message:new', (message) => {
       const state = get();
       // Thread replies don't enter the main timeline — the ThreadPanel has its
@@ -70,6 +77,8 @@ export const useChatStore = create((set, get) => ({
             ? {
                 ...c,
                 last_message_body: message.type === 'media' ? null : (message.body || null),
+                last_message_type: message.type,
+                last_message_metadata: message.metadata || null,
                 last_message_at: message.sent_at,
                 unread_count:
                   message.conversation_id !== state.activeConversationId &&
@@ -190,6 +199,7 @@ export const useChatStore = create((set, get) => ({
   },
 
   destroySocket: () => {
+    useCallStore.getState().detach();
     disconnectSocket();
     set({ typingUsers: {}, onlineUsers: {}, activeUserId: null });
   },

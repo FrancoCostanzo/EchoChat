@@ -91,6 +91,7 @@ export const callsApi = {
   updateParticipant: (callId, userId, data) => api.put(`/calls/${callId}/participants/${userId}`, data),
   getByConversation: (convId, limit = 20, offset = 0) => api.get(`/calls/conversation/${convId}`, { limit, offset }),
   getActive: () => api.get('/calls/active'),
+  getHistory: (params) => api.get('/calls/history', params),
 };
 
 export const storageApi = {
