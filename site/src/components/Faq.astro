@@ -1,0 +1,69 @@
+---
+import PortfolioLayout from '../layouts/PortfolioLayout.astro';
+import { type Lang, docsPaths, getStrings } from '../i18n/strings';
+
+interface Props {
+	lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = getStrings(lang);
+
+const base = import.meta.env.BASE_URL.replace(/\/+$/, '');
+const docsHref = `${base}${docsPaths[lang]}`;
+const faqs = t.faq.items;
+---
+
+<PortfolioLayout
+	title={t.meta.faqTitle}
+	description={t.meta.faqDescription}
+	lang={lang}
+	page="faq"
+>
+	<section class="hero hero--center" style="padding-bottom: 2rem;">
+		<div class="container">
+			<span class="eyebrow" data-reveal><span class="dot"></span> {t.faq.eyebrow}</span>
+			<h1 data-reveal style="font-size: clamp(2.2rem, 6vw, 3.4rem); --reveal-delay: 80ms">
+				{t.faq.titleLine1} <span class="grad">{t.faq.titleLine2}</span>
+			</h1>
+			<p class="lead" data-reveal style="--reveal-delay: 160ms">
+				{t.faq.lead}
+			</p>
+		</div>
+	</section>
+
+	<section class="section" style="padding-top: 1rem;">
+		<div class="container">
+			<div class="faq-list" data-reveal>
+				{
+					faqs.map((item) => (
+						<details class="faq-item">
+							<summary>{item.q}</summary>
+							<div class="answer">
+								<p>{item.a}</p>
+							</div>
+						</details>
+					))
+				}
+			</div>
+		</div>
+	</section>
+
+	<section class="section">
+		<div class="container">
+			<div class="cta">
+				<h2>{t.faq.ctaTitle}</h2>
+				<p>{t.faq.ctaSubtitle}</p>
+				<div class="hero-actions">
+					<a class="btn btn-primary" href={docsHref}>{t.faq.viewDocs}</a>
+					<a
+						class="btn btn-ghost"
+						href="https://github.com/FrancoCostanzo/EchoChat/issues"
+						target="_blank"
+						rel="noopener">{t.faq.openIssue}</a
+					>
+				</div>
+			</div>
+		</div>
+	</section>
+</PortfolioLayout>

@@ -7,6 +7,29 @@ Sitio de presentación y documentación de [EchoChat](../README.md), construido 
 - `/faq` — preguntas frecuentes.
 - `/docs/*` — documentación (gestionada por Starlight).
 
+## Idiomas (i18n)
+
+El sitio soporta **español**, **inglés** y **portugués**:
+
+| Idioma | Portfolio / FAQ | Documentación |
+| ------ | --------------- | ------------- |
+| Español (default) | `/`, `/faq` | `/docs/*` |
+| English | `/en/`, `/en/faq` | `/en/docs/*` |
+| Português | `/pt/`, `/pt/faq` | `/pt/docs/*` |
+
+- **Portfolio y FAQ**: traducciones en [`src/i18n/strings.ts`](./src/i18n/strings.ts); selector ES/EN/PT en el header.
+- **Documentación (Starlight)**: i18n nativo con locale `root` = español. El contenido actual está solo en español; al visitar `/en/docs/...` o `/pt/docs/...` Starlight muestra el contenido en español con un aviso de que aún no está traducido (fallback automático).
+
+Para traducir una página de docs en el futuro, creá el mismo archivo bajo la carpeta del idioma, manteniendo la misma ruta relativa:
+
+```
+src/content/docs/docs/index.md              → /docs
+src/content/docs/en/docs/index.md           → /en/docs
+src/content/docs/pt/docs/index.md           → /pt/docs
+```
+
+Los labels del sidebar de Starlight se pueden traducir con la propiedad `translations` en cada ítem de [`astro.config.mjs`](./astro.config.mjs).
+
 ## Desarrollo
 
 ```bash
@@ -111,12 +134,15 @@ También funciona cualquier contenedor de archivos estáticos
 ```
 site/
 ├─ src/
-│  ├─ layouts/PortfolioLayout.astro   # layout de / y /faq
+│  ├─ components/Landing.astro, Faq.astro   # portfolio y FAQ (parametrizados por lang)
+│  ├─ i18n/strings.ts                       # textos es/en/pt del portfolio
+│  ├─ layouts/PortfolioLayout.astro         # layout de / y /faq
 │  ├─ pages/
-│  │  ├─ index.astro                  # portfolio
-│  │  └─ faq.astro                    # FAQ
-│  ├─ content/docs/docs/*.md          # documentación (URLs /docs/*)
-│  └─ styles/                         # site.css (portfolio) + starlight.css (docs)
+│  │  ├─ index.astro, faq.astro             # español (default)
+│  │  ├─ en/index.astro, en/faq.astro
+│  │  └─ pt/index.astro, pt/faq.astro
+│  ├─ content/docs/docs/*.md                # documentación (URLs /docs/*)
+│  └─ styles/                               # site.css (portfolio) + starlight.css (docs)
 └─ astro.config.mjs
 ```
 

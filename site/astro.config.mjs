@@ -19,6 +19,12 @@ export default defineConfig({
 			title: 'EchoChat',
 			description:
 				'Plataforma de mensajería empresarial en tiempo real, open source (AGPL-3.0).',
+			defaultLocale: 'root',
+			locales: {
+				root: { label: 'Español', lang: 'es' },
+				en: { label: 'English', lang: 'en' },
+				pt: { label: 'Português', lang: 'pt' },
+			},
 			customCss: ['./src/styles/starlight.css'],
 			// Tipografías del design system (Clash Display + Satoshi + JetBrains Mono)
 			head: [
