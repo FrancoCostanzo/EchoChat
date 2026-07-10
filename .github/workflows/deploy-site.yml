@@ -40,6 +40,8 @@ jobs:
           ASTRO_BASE: /EchoChat
         with:
           path: ./site
+          # Astro 7 requiere Node >= 22.12 (la action usa 20 por defecto)
+          node-version: 22
 
   deploy:
     needs: build
