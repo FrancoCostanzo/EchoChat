@@ -1,0 +1,190 @@
+---
+import '../styles/site.css';
+
+interface Props {
+	title: string;
+	description?: string;
+}
+
+const {
+	title,
+	description = 'Plataforma de mensajería empresarial en tiempo real, open source (AGPL-3.0).',
+} = Astro.props;
+
+const REPO_URL = 'https://github.com/FrancoCostanzo/EchoChat';
+---
+
+<!doctype html>
+<html lang="es">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<title>{title}</title>
+		<meta name="description" content={description} />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		<meta property="og:type" content="website" />
+		<!-- Tipografías del design system de la app: Clash Display (jerarquía) + Satoshi (UI) -->
+		<link rel="preconnect" href="https://api.fontshare.com" crossorigin />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&f[]=satoshi@400,500,600,700&display=swap"
+			rel="stylesheet"
+		/>
+		<link
+			href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap"
+			rel="stylesheet"
+		/>
+		<!-- Sincroniza el tema con Starlight (clave localStorage 'starlight-theme') antes de pintar -->
+		<script is:inline>
+			(() => {
+				const stored = localStorage.getItem('starlight-theme');
+				const prefersDark = matchMedia('(prefers-color-scheme: dark)').matches;
+				const theme = stored === 'light' || stored === 'dark' ? stored : prefersDark ? 'dark' : 'light';
+				document.documentElement.dataset.theme = theme;
+			})();
+		</script>
+	</head>
+	<body>
+		<header class="site-header">
+			<div class="inner">
+				<a href="/" class="brand">
+					<span class="brand-mark" aria-hidden="true">
+						<!-- Onda de eco -->
+						<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+							<path d="M4 12a8 8 0 0 1 16 0v6a2 2 0 0 1-2 2h-4" />
+							<path d="M8.5 12v2" />
+							<path d="M12 10v6" />
+							<path d="M15.5 11.5v3" />
+						</svg>
+					</span>
+					EchoChat
+					<span class="brand-ver">v1.0 α</span>
+				</a>
+				<nav class="nav">
+					<a href="/">Inicio</a>
+					<a href="/#features">Funciones</a>
+					<a href="/docs">Documentación</a>
+					<a href="/faq">FAQ</a>
+					<a class="nav-github" href={REPO_URL} target="_blank" rel="noopener">
+						<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+							<path
+								d="M12 .5C5.73.5.77 5.46.77 11.73c0 4.93 3.2 9.11 7.63 10.58.56.1.77-.24.77-.54v-1.9c-3.1.67-3.76-1.5-3.76-1.5-.5-1.3-1.24-1.64-1.24-1.64-1-.7.08-.68.08-.68 1.12.08 1.7 1.15 1.7 1.15 1 1.7 2.6 1.2 3.24.92.1-.72.39-1.2.7-1.47-2.47-.28-5.07-1.23-5.07-5.5 0-1.22.43-2.2 1.14-2.98-.11-.28-.5-1.4.11-2.9 0 0 .94-.3 3.07 1.13a10.6 10.6 0 0 1 5.6 0c2.12-1.43 3.06-1.13 3.06-1.13.61 1.5.22 2.62.11 2.9.71.78 1.13 1.76 1.13 2.98 0 4.28-2.6 5.21-5.08 5.49.4.34.76 1.02.76 2.06v3.05c0 .3.2.65.78.54a11.24 11.24 0 0 0 7.62-10.58C23.23 5.46 18.27.5 12 .5z"
+							/>
+						</svg>
+						GitHub
+					</a>
+					<button class="theme-toggle" id="theme-toggle" aria-label="Cambiar tema">
+						<svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+							<circle cx="12" cy="12" r="4"></circle>
+							<path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+						</svg>
+						<svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+							<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+						</svg>
+					</button>
+				</nav>
+			</div>
+		</header>
+
+		<main>
+			<slot />
+		</main>
+
+		<footer class="site-footer">
+			<div class="container inner">
+				<span class="foot-brand">
+					<span class="brand-mark" style="width:26px;height:26px;border-radius:8px;" aria-hidden="true">
+						<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+							<path d="M4 12a8 8 0 0 1 16 0v6a2 2 0 0 1-2 2h-4" />
+							<path d="M8.5 12v2" />
+							<path d="M12 10v6" />
+							<path d="M15.5 11.5v3" />
+						</svg>
+					</span>
+					EchoChat
+				</span>
+				<span>© {new Date().getFullYear()} Franco Costanzo</span>
+				<span>
+					Licencia <a href={`${REPO_URL}/blob/main/LICENSE`} target="_blank" rel="noopener">AGPL-3.0</a>
+					·
+					<a href={REPO_URL} target="_blank" rel="noopener">Código fuente</a>
+				</span>
+			</div>
+		</footer>
+
+		<script is:inline>
+			// Toggle de tema (sincronizado con Starlight) con revelado circular
+			// desde el botón vía View Transitions API; fallback: cambio directo.
+			const toggle = document.getElementById('theme-toggle');
+			toggle?.addEventListener('click', () => {
+				const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+				const apply = () => {
+					document.documentElement.dataset.theme = next;
+					localStorage.setItem('starlight-theme', next);
+				};
+				const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+				if (!document.startViewTransition || reducedMotion) {
+					apply();
+					return;
+				}
+				const rect = toggle.getBoundingClientRect();
+				const cx = rect.left + rect.width / 2;
+				const cy = rect.top + rect.height / 2;
+				const radius = Math.hypot(
+					Math.max(cx, innerWidth - cx),
+					Math.max(cy, innerHeight - cy)
+				);
+				document.documentElement.classList.add('theme-vt');
+				const vt = document.startViewTransition(apply);
+				vt.ready.then(() => {
+					document.documentElement.animate(
+						{
+							clipPath: [
+								`circle(0px at ${cx}px ${cy}px)`,
+								`circle(${radius}px at ${cx}px ${cy}px)`,
+							],
+						},
+						{
+							duration: 480,
+							easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+							pseudoElement: '::view-transition-new(root)',
+						}
+					);
+				});
+				vt.finished.finally(() => document.documentElement.classList.remove('theme-vt'));
+			});
+
+			// Reveal on scroll — respeta prefers-reduced-motion
+			const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+			const targets = document.querySelectorAll('[data-reveal], .terminal');
+			if (reduced || !('IntersectionObserver' in window)) {
+				targets.forEach((el) => el.classList.add('is-visible'));
+			} else {
+				const io = new IntersectionObserver(
+					(entries) => {
+						for (const e of entries) {
+							if (e.isIntersecting) {
+								e.target.classList.add('is-visible');
+								io.unobserve(e.target);
+							}
+						}
+					},
+					{ threshold: 0.15, rootMargin: '0px 0px -40px 0px' }
+				);
+				targets.forEach((el) => io.observe(el));
+			}
+
+			// Halo que sigue al cursor en las cards de features
+			document.querySelectorAll('.card').forEach((card) => {
+				card.addEventListener('pointermove', (ev) => {
+					const r = card.getBoundingClientRect();
+					card.style.setProperty('--mx', `${((ev.clientX - r.left) / r.width) * 100}%`);
+					card.style.setProperty('--my', `${((ev.clientY - r.top) / r.height) * 100}%`);
+				});
+			});
+		</script>
+	</body>
+</html>
