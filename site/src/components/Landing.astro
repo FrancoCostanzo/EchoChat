@@ -1,0 +1,446 @@
+---
+import PortfolioLayout from '../layouts/PortfolioLayout.astro';
+import { type Lang, docsPaths, pagePaths, getStrings } from '../i18n/strings';
+
+interface Props {
+	lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = getStrings(lang);
+
+const REPO_URL = 'https://github.com/FrancoCostanzo/EchoChat';
+const base = import.meta.env.BASE_URL.replace(/\/+$/, '');
+
+const features = t.features.items;
+const platforms = t.platforms.items;
+const stack = t.stack.groups;
+const numbers = t.stack.numbers;
+
+const docsHref = `${base}${docsPaths[lang]}`;
+const faqHref = `${base}${pagePaths.faq[lang]}`;
+const installHref = `${base}${docsPaths[lang]}/instalacion`;
+
+const installCmd = `git clone ${REPO_URL}.git
+cd EchoChat && cp .env.example .env
+docker compose up -d`;
+
+const chatScript = t.chatScript;
+const typingTemplate = t.mockup.typingTemplate;
+const installCopy = t.install.copy;
+const installCopied = t.install.copied;
+---
+
+<PortfolioLayout title={t.meta.title} lang={lang} page="home">
+	<!-- Hero -->
+	<section class="hero">
+		<div class="container hero-inner">
+			<div class="hero-copy">
+				<span class="eyebrow" data-reveal><span class="dot"></span> {t.hero.eyebrow}</span>
+				<h1 data-reveal style="--reveal-delay: 80ms">
+					{t.hero.titleLine1}<br /><span class="grad">{t.hero.titleLine2}</span>
+				</h1>
+				<p class="lead" data-reveal style="--reveal-delay: 160ms">
+					{t.hero.lead}
+				</p>
+				<div class="hero-actions" data-reveal style="--reveal-delay: 240ms">
+					<a class="btn btn-primary" href={docsHref}>
+						{t.hero.viewDocs}
+						<svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+					</a>
+					<a class="btn btn-ghost" href={REPO_URL} target="_blank" rel="noopener">
+						<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.73.5.77 5.46.77 11.73c0 4.93 3.2 9.11 7.63 10.58.56.1.77-.24.77-.54v-1.9c-3.1.67-3.76-1.5-3.76-1.5-.5-1.3-1.24-1.64-1.24-1.64-1-.7.08-.68.08-.68 1.12.08 1.7 1.15 1.7 1.15 1 1.7 2.6 1.2 3.24.92.1-.72.39-1.2.7-1.47-2.47-.28-5.07-1.23-5.07-5.5 0-1.22.43-2.2 1.14-2.98-.11-.28-.5-1.4.11-2.9 0 0 .94-.3 3.07 1.13a10.6 10.6 0 0 1 5.6 0c2.12-1.43 3.06-1.13 3.06-1.13.61 1.5.22 2.62.11 2.9.71.78 1.13 1.76 1.13 2.98 0 4.28-2.6 5.21-5.08 5.49.4.34.76 1.02.76 2.06v3.05c0 .3.2.65.78.54a11.24 11.24 0 0 0 7.62-10.58C23.23 5.46 18.27.5 12 .5z"/></svg>
+						GitHub
+					</a>
+				</div>
+				<div class="hero-badges" data-reveal style="--reveal-delay: 320ms">
+					<span class="pill">Node.js</span>
+					<span class="pill">React 19</span>
+					<span class="pill">PostgreSQL</span>
+					<span class="pill">Socket.IO</span>
+					<span class="pill">MinIO</span>
+					<span class="pill">Docker</span>
+				</div>
+			</div>
+
+			<div class="mockup" data-reveal style="--reveal-delay: 200ms" aria-hidden="true">
+				<div class="mockup-glow"></div>
+				<div class="mockup-window">
+					<div class="mockup-canvas">
+						<nav class="mockup-dock" aria-hidden="true">
+							<span class="dock-orb is-brand is-active">
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+							</span>
+							<span class="dock-sep"></span>
+							<span class="dock-orb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+							<span class="dock-orb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+							<span class="dock-orb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg></span>
+							<span class="dock-orb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg></span>
+							<span class="dock-sep"></span>
+							<span class="dock-orb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
+							<span class="dock-orb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+						</nav>
+
+						<aside class="mockup-sidebar">
+							<div class="mock-sidebar-head">
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+								<span>{t.mockup.chats}</span>
+								<span class="mock-sidebar-add">+</span>
+							</div>
+							<div class="mock-search">
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+								<span>{t.mockup.search}</span>
+							</div>
+							<div class="mock-conv-list">
+								<p class="mock-section-label">{t.mockup.directs} <span>2</span></p>
+								<div class="mock-conv is-active">
+									<span class="mock-conv-bar"></span>
+									<span class="mock-avatar mock-avatar-fc">FC</span>
+									<span class="mock-conv-body">
+										<span class="mock-conv-top"><b>Franco Costanzo</b><time>15:02</time></span>
+										<span class="mock-conv-preview">asdad</span>
+									</span>
+								</div>
+								<div class="mock-conv">
+									<span class="mock-avatar mock-avatar-ct">CT</span>
+									<span class="mock-conv-body">
+										<span class="mock-conv-top"><b>Claude Test</b><time>14:58</time></span>
+										<span class="mock-conv-preview">{t.mockup.preview1}</span>
+									</span>
+								</div>
+								<p class="mock-section-label">{t.mockup.groups} <span>2</span></p>
+								<div class="mock-conv">
+									<span class="mock-avatar mock-avatar-grp">G</span>
+									<span class="mock-conv-body"><span class="mock-conv-top"><b>Equipo dev</b></span></span>
+								</div>
+								<p class="mock-section-label">{t.mockup.channels} <span>1</span></p>
+								<div class="mock-conv">
+									<span class="mock-avatar mock-avatar-ch">#</span>
+									<span class="mock-conv-body"><span class="mock-conv-top"><b>general</b></span></span>
+								</div>
+							</div>
+							<div class="mock-user-panel">
+								<span class="mock-avatar mock-avatar-me">TU</span>
+								<span class="mock-user-meta"><b>test usuario</b><small>@test</small></span>
+								<span class="mock-user-cog">⚙</span>
+							</div>
+						</aside>
+
+						<div class="mockup-chat">
+							<div class="mock-chat-head">
+								<span class="mock-avatar mock-avatar-fc">FC</span>
+								<span class="mock-chat-title">
+									<b>Franco Costanzo</b>
+									<small>{t.mockup.away}</small>
+								</span>
+								<span class="mock-chat-actions">
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="3"/></svg>
+								</span>
+							</div>
+							<div class="chat-body" id="mock-body">
+								<div class="mock-day-sep"><span>{t.mockup.today}</span></div>
+								<div class="mkmsg">
+									<span class="avatar avatar-fc">FC</span>
+									<div class="msg-col">
+										<div class="meta"><b>Franco Costanzo</b><time>15:00</time></div>
+										<div class="bubble">asdasd</div>
+									</div>
+								</div>
+								<div class="mkmsg is-me">
+									<div class="msg-col">
+										<div class="bubble">asdad</div>
+									</div>
+								</div>
+								<div class="mock-call-row">
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+									<span>{t.mockup.voiceCall}</span>
+								</div>
+							</div>
+							<div class="mk-typing" id="mock-typing">
+								<span class="dots"><i></i><i></i><i></i></span>
+								<span id="mock-typing-name">{t.mockup.typing}</span>
+							</div>
+							<div class="mock-composer">
+								<div class="mock-format-bar">
+									<span>B</span><span>I</span><span>U</span><span>S</span><span>&lt;&gt;</span><span>[]</span>
+								</div>
+								<div class="mock-composer-row">
+									<span class="mock-input">{t.mockup.placeholder}<span class="caret"></span></span>
+									<span class="mock-send">
+										<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+									</span>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<section class="section" id="features">
+		<div class="container">
+			<div class="section-head" data-reveal>
+				<span class="section-eyebrow">{t.features.eyebrow}</span>
+				<h2>{t.features.title}</h2>
+				<p>{t.features.subtitle}</p>
+			</div>
+			<div class="features">
+				{
+					features.map((f, i) => (
+						<article class="card" data-reveal style={`--reveal-delay: ${(i % 3) * 90}ms`}>
+							<div class="icon">
+								{f.icon === 'message' && (
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+										<path d="M8 9h8M8 13h5" />
+									</svg>
+								)}
+								{f.icon === 'video' && (
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<polygon points="23 7 16 12 23 17 23 7" />
+										<rect x="1" y="5" width="15" height="14" rx="3" />
+									</svg>
+								)}
+								{f.icon === 'hash' && (
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18" />
+									</svg>
+								)}
+								{f.icon === 'megaphone' && (
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<path d="M3 11l18-7v18L3 15v-4z" />
+										<path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
+									</svg>
+								)}
+								{f.icon === 'chart' && (
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<path d="M3 3v18h18" />
+										<path d="M7 15v3M12 10v8M17 6v12" />
+									</svg>
+								)}
+								{f.icon === 'shield' && (
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+										<path d="M9 12l2 2 4-4" />
+									</svg>
+								)}
+								{f.icon === 'folder' && (
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+									</svg>
+								)}
+								{f.icon === 'bell' && (
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+										<path d="M13.73 21a2 2 0 0 1-3.46 0" />
+									</svg>
+								)}
+								{f.icon === 'globe' && (
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<circle cx="12" cy="12" r="10" />
+										<path d="M2 12h20" />
+										<path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+									</svg>
+								)}
+							</div>
+							<h3>{f.title}</h3>
+							<ul>
+								{f.items.map((it) => (
+									<li>{it}</li>
+								))}
+							</ul>
+						</article>
+					))
+				}
+			</div>
+		</div>
+	</section>
+
+	<section class="section" id="plataformas">
+		<div class="container">
+			<div class="section-head" data-reveal>
+				<span class="section-eyebrow">{t.platforms.eyebrow}</span>
+				<h2>{t.platforms.title}</h2>
+				<p>{t.platforms.subtitle}</p>
+			</div>
+			<div class="platforms">
+				{
+					platforms.map((p, i) => (
+						<article class="platform" data-reveal style={`--reveal-delay: ${i * 100}ms`}>
+							<div class="p-icon">
+								{p.icon === 'web' && (
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<circle cx="12" cy="12" r="10" />
+										<path d="M2 12h20" />
+										<path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+									</svg>
+								)}
+								{p.icon === 'desktop' && (
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<rect x="2" y="3" width="20" height="14" rx="2" />
+										<path d="M8 21h8M12 17v4" />
+									</svg>
+								)}
+								{p.icon === 'mobile' && (
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<rect x="5" y="2" width="14" height="20" rx="3" />
+										<path d="M12 18h.01" />
+									</svg>
+								)}
+							</div>
+							<h3>{p.name}</h3>
+							<div class="tech">{p.tech}</div>
+							<span class={`status ${p.ok ? 'ok' : 'plan'}`}>{p.status}</span>
+						</article>
+					))
+				}
+			</div>
+		</div>
+	</section>
+
+	<section class="section" id="stack">
+		<div class="container">
+			<div class="section-head" data-reveal>
+				<span class="section-eyebrow">{t.stack.eyebrow}</span>
+				<h2>{t.stack.title}</h2>
+				<p>{t.stack.subtitle}</p>
+			</div>
+			<div class="stack-groups">
+				{
+					stack.map((s, i) => (
+						<div class="stack-group" data-reveal style={`--reveal-delay: ${i * 90}ms`}>
+							<h4>{s.group}</h4>
+							<div class="tags">
+								{s.tags.map((tag) => (
+									<span class="tag">{tag}</span>
+								))}
+							</div>
+						</div>
+					))
+				}
+			</div>
+			<div class="numbers" data-reveal>
+				{
+					numbers.map((n) => (
+						<div class="num-cell">
+							<b>{n.v}</b>
+							<span>{n.k}</span>
+						</div>
+					))
+				}
+			</div>
+		</div>
+	</section>
+
+	<section class="section" id="instalacion">
+		<div class="container">
+			<div class="section-head" data-reveal>
+				<span class="section-eyebrow">{t.install.eyebrow}</span>
+				<h2>{t.install.title}</h2>
+				<p>{t.install.subtitle}</p>
+			</div>
+			<div class="terminal">
+				<div class="terminal-bar">
+					<i></i><i></i><i></i>
+					<span>~/EchoChat</span>
+					<button class="copy-btn" id="copy-install" data-cmd={installCmd}>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<rect x="9" y="9" width="13" height="13" rx="2" />
+							<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+						</svg>
+						<span>{t.install.copy}</span>
+					</button>
+				</div>
+				<div class="terminal-body">
+					<div class="tline cmd" style="--tl-delay: 0ms"><span class="p">$</span>git clone https://github.com/FrancoCostanzo/EchoChat.git</div>
+					<div class="tline cmd" style="--tl-delay: 250ms"><span class="p">$</span>cd EchoChat && cp .env.example .env</div>
+					<div class="tline cmd" style="--tl-delay: 500ms"><span class="p">$</span>docker compose up -d</div>
+					<div class="tline dim" style="--tl-delay: 750ms">[+] Running 4/4</div>
+					<div class="tline ok" style="--tl-delay: 900ms">  ✔ Container echochat-postgres   Started</div>
+					<div class="tline ok" style="--tl-delay: 1050ms">  ✔ Container echochat-minio      Started</div>
+					<div class="tline ok" style="--tl-delay: 1200ms">  ✔ Container echochat-backend    Started</div>
+					<div class="tline ok" style="--tl-delay: 1350ms">  ✔ Container echochat-frontend   Started</div>
+					<div class="tline dim" style="--tl-delay: 1600ms">{t.install.ready}<span class="cursor"></span></div>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<section class="section">
+		<div class="container">
+			<div class="cta" data-reveal>
+				<h2>{t.cta.title}</h2>
+				<p>{t.cta.subtitle}</p>
+				<div class="hero-actions">
+					<a class="btn btn-primary" href={installHref}>
+						{t.cta.start}
+						<svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+					</a>
+					<a class="btn btn-ghost" href={faqHref}>{t.cta.viewFaq}</a>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<script is:inline define:vars={{ chatScript, typingTemplate, installCopy, installCopied }}>
+		(() => {
+			const body = document.getElementById('mock-body');
+			const typing = document.getElementById('mock-typing');
+			const typingName = document.getElementById('mock-typing-name');
+			if (!body || !typing) return;
+			if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+			const script = chatScript;
+			let i = 0;
+
+			const addMsg = (m) => {
+				const el = document.createElement('div');
+				el.className = 'mkmsg' + (m.who === 'me' ? ' is-me' : '');
+				if (m.who === 'me') {
+					el.innerHTML =
+						`<div class="msg-col"><div class="bubble">${m.text}</div></div>`;
+				} else {
+					el.innerHTML =
+						`<span class="avatar avatar-fc">FC</span>` +
+						`<div class="msg-col"><div class="meta"><b>${m.name}</b><time>${m.time}</time></div>` +
+						`<div class="bubble">${m.text}</div></div>`;
+				}
+				body.appendChild(el);
+				while (body.children.length > 8) body.removeChild(body.firstElementChild);
+			};
+
+			const cycle = () => {
+				const m = script[i % script.length];
+				i++;
+				if (m.who !== 'me') {
+					typingName.textContent = typingTemplate.replace('{name}', m.name.split(' ')[0]);
+					typing.classList.add('is-on');
+				}
+				setTimeout(() => {
+					typing.classList.remove('is-on');
+					addMsg(m);
+					setTimeout(cycle, 2600 + Math.random() * 1200);
+				}, m.who === 'me' ? 400 : 1900);
+			};
+			setTimeout(cycle, 2600);
+		})();
+
+		(() => {
+			const btn = document.getElementById('copy-install');
+			if (!btn) return;
+			btn.addEventListener('click', async () => {
+				try {
+					await navigator.clipboard.writeText(btn.dataset.cmd);
+					btn.classList.add('is-copied');
+					btn.querySelector('span').textContent = installCopied;
+					setTimeout(() => {
+						btn.classList.remove('is-copied');
+						btn.querySelector('span').textContent = installCopy;
+					}, 1400);
+				} catch (e) {}
+			});
+		})();
+	</script>
+</PortfolioLayout>

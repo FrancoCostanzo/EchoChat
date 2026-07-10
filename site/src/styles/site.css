@@ -371,6 +371,39 @@ section[id] {
 	display: none;
 }
 
+.lang-switch {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.15rem;
+	margin-left: 0.35rem;
+	padding: 0.15rem;
+	border-radius: 999px;
+	border: 1px solid var(--panel-border);
+	background: color-mix(in oklch, var(--ink-700) 55%, transparent);
+}
+.lang-pill {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 2rem;
+	padding: 0.28rem 0.45rem;
+	border-radius: 999px;
+	font-size: 0.68rem;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	color: var(--muted);
+	text-decoration: none;
+	transition: color 0.15s ease, background 0.15s ease;
+}
+.lang-pill:hover {
+	color: var(--text);
+}
+.lang-pill.is-active {
+	color: var(--text);
+	background: color-mix(in oklch, var(--accent) 18%, transparent);
+	box-shadow: inset 0 0 0 1px var(--accent-border);
+}
+
 /* ============================================================
    Botones — press con spring, glow de acento
    ============================================================ */
