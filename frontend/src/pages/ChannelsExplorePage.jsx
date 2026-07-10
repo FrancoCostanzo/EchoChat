@@ -64,7 +64,7 @@ function ChannelCard({ channel, t, onJoin, onRequest, onManage, onOpen, busy }) 
   };
 
   return (
-    <Card className="flex flex-col gap-3 p-4 transition-colors hover:border-blurple-500/40">
+    <Card className="flex flex-col gap-3 p-4 transition-colors hover:border-accent/40">
       <div className="flex items-start gap-3">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-ink-700 text-ink-100">
           <Hash size={20} strokeWidth={2.5} />
@@ -73,7 +73,7 @@ function ChannelCard({ channel, t, onJoin, onRequest, onManage, onOpen, busy }) 
           <div className="flex items-center gap-1.5">
             <h3 className="truncate text-[15px] font-semibold">{channel.name}</h3>
             {channel.is_official && (
-              <span title={t('channels.official')} className="shrink-0 text-blurple-400">
+              <span title={t('channels.official')} className="shrink-0 text-accent">
                 <BadgeCheck size={15} />
               </span>
             )}
@@ -218,7 +218,7 @@ export default function ChannelsExplorePage() {
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex items-center gap-3 border-b border-black/20 px-5 py-4">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blurple-500/15 text-blurple-400">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent/15 text-accent">
           <Compass size={18} />
         </div>
         <div className="min-w-0">
@@ -256,8 +256,22 @@ export default function ChannelsExplorePage() {
       {/* Grid */}
       <div className="flex-1 overflow-y-auto px-5 py-4">
         {loading ? (
-          <div className="flex h-40 items-center justify-center">
-            <Spinner size="lg" />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-label={t('common.loading')}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex flex-col gap-3 rounded-xl border border-white/5 bg-ink-800/50 p-4" style={{ opacity: 1 - i * 0.1 }}>
+                <div className="flex items-start gap-3">
+                  <div className="echo-shimmer h-11 w-11 shrink-0 rounded-2xl" />
+                  <div className="flex flex-1 flex-col gap-2 pt-1">
+                    <div className="echo-shimmer h-3.5 w-2/3 rounded-full" />
+                    <div className="echo-shimmer h-2.5 w-1/2 rounded-full" />
+                  </div>
+                </div>
+                <div className="echo-shimmer h-2.5 w-full rounded-full" />
+                <div className="flex justify-end">
+                  <div className="echo-shimmer h-7 w-20 rounded-lg" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : channels.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-16 text-ink-200">

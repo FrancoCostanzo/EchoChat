@@ -135,41 +135,43 @@ const VistaCronSocket = ({ dashboard }) => {
         <hr className="border-divider" />
         <Card.Content className="p-0">
           {cronRows.length > 0 ? (
-            <Table.ScrollContainer>
-              <Table.Content aria-label="Tareas cron" className="min-w-[560px]">
-                <Table.Header>
-                  <Table.Column isRowHeader>Tarea</Table.Column>
-                  <Table.Column>Última ejecución</Table.Column>
-                  <Table.Column><TableColumnHeader label="Origen" tooltip={T.cronOrigen} /></Table.Column>
-                  <Table.Column className="text-center"><TableColumnHeader label="Resultado" tooltip={T.cronResultado} /></Table.Column>
-                </Table.Header>
-                <Table.Body>
-                  {cronRows.map((item) => {
-                    const Icon = RESULTADO_ICON[item.resultado] || Clock;
-                    return (
-                      <Table.Row key={item.id} id={String(item.id)}>
-                        <Table.Cell className="font-medium">{item.descripcion}</Table.Cell>
-                        <Table.Cell className="text-xs tabular-nums">{item.ultimaEjecucionLabel}</Table.Cell>
-                        <Table.Cell>
-                          {item.origen === 'manual' ? (
-                            <Chip size="sm" variant="flat" color="secondary"><Hand className="w-3 h-3 inline" /> Manual</Chip>
-                          ) : item.origen === 'automatica' ? (
-                            <Chip size="sm" variant="flat" color="primary"><Bot className="w-3 h-3 inline" /> Automática</Chip>
-                          ) : '—'}
-                        </Table.Cell>
-                        <Table.Cell className="text-center">
-                          <Chip size="sm" color={getResultadoColor(item.resultado)} variant="flat">
-                            <Icon className="w-3 h-3 inline" /> {RESULTADO_LABEL[item.resultado] || item.resultado}
-                          </Chip>
-                        </Table.Cell>
-                      </Table.Row>
-                    );
-                  })}
-                </Table.Body>
-              </Table.Content>
-            </Table.ScrollContainer>
+            <Table>
+              <Table.ScrollContainer>
+                <Table.Content aria-label="Tareas cron" className="min-w-[560px]">
+                  <Table.Header>
+                    <Table.Column isRowHeader>Tarea</Table.Column>
+                    <Table.Column>Última ejecución</Table.Column>
+                    <Table.Column><TableColumnHeader label="Origen" tooltip={T.cronOrigen} /></Table.Column>
+                    <Table.Column className="text-center"><TableColumnHeader label="Resultado" tooltip={T.cronResultado} /></Table.Column>
+                  </Table.Header>
+                  <Table.Body>
+                    {cronRows.map((item) => {
+                      const Icon = RESULTADO_ICON[item.resultado] || Clock;
+                      return (
+                        <Table.Row key={item.id} id={String(item.id)}>
+                          <Table.Cell className="font-medium">{item.descripcion}</Table.Cell>
+                          <Table.Cell className="text-xs tabular-nums">{item.ultimaEjecucionLabel}</Table.Cell>
+                          <Table.Cell>
+                            {item.origen === 'manual' ? (
+                              <Chip size="sm" variant="flat" color="secondary"><Hand className="w-3 h-3 inline" /> Manual</Chip>
+                            ) : item.origen === 'automatica' ? (
+                              <Chip size="sm" variant="flat" color="primary"><Bot className="w-3 h-3 inline" /> Automática</Chip>
+                            ) : '—'}
+                          </Table.Cell>
+                          <Table.Cell className="text-center">
+                            <Chip size="sm" color={getResultadoColor(item.resultado)} variant="flat">
+                              <Icon className="w-3 h-3 inline" /> {RESULTADO_LABEL[item.resultado] || item.resultado}
+                            </Chip>
+                          </Table.Cell>
+                        </Table.Row>
+                      );
+                    })}
+                  </Table.Body>
+                </Table.Content>
+              </Table.ScrollContainer>
+            </Table>
           ) : (
-            <div className="p-8 text-center text-default-500">Sin tareas cron registradas</div>
+            <div className="p-8 text-center text-sm text-default-500">Sin tareas cron registradas</div>
           )}
         </Card.Content>
       </Card>

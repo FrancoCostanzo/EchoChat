@@ -57,6 +57,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
 import { usersApi, authApi, notificationsApi } from '@/lib/endpoints';
 import UserAvatar from '@/components/UserAvatar';
+import AvatarCropModal from '@/components/AvatarCropModal';
 import { useThemeStore, ACCENT_COLORS } from '@/stores/themeStore';
 import { useWallpaperStore } from '@/stores/wallpaperStore';
 import WallpaperPicker, { WallpaperPreview } from '@/components/WallpaperPicker';
@@ -175,6 +176,25 @@ function ProfileTab() {
   const [avatarLoading, setAvatarLoading] = useState(false);
   const [avatarSuccess, setAvatarSuccess] = useState(false);
   const [avatarError, setAvatarError] = useState('');
+  const [cropOpen, setCropOpen] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState(null);
+  const [cropFileName, setCropFileName] = useState('avatar.jpg');
+  const cropObjectUrlRef = useRef(null);
+
+  const closeCropModal = () => {
+    setCropOpen(false);
+    setCropImageSrc(null);
+    if (cropObjectUrlRef.current) {
+      URL.revokeObjectURL(cropObjectUrlRef.current);
+      cropObjectUrlRef.current = null;
+    }
+  };
+
+  useEffect(() => () => {
+    if (cropObjectUrlRef.current) {
+      URL.revokeObjectURL(cropObjectUrlRef.current);
+    }
+  }, []);
 
   const updateField = (field) => (e) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
@@ -192,9 +212,22 @@ function ProfileTab() {
     }
   };
 
-  const handleAvatarChange = async (e) => {
+  const handleAvatarChange = (e) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
+
+    if (cropObjectUrlRef.current) {
+      URL.revokeObjectURL(cropObjectUrlRef.current);
+    }
+    const objectUrl = URL.createObjectURL(file);
+    cropObjectUrlRef.current = objectUrl;
+    setCropFileName(file.name || 'avatar.jpg');
+    setCropImageSrc(objectUrl);
+    setCropOpen(true);
+  };
+
+  const handleAvatarCropConfirm = async (file) => {
     setAvatarLoading(true);
     setAvatarError('');
     setAvatarSuccess(false);
@@ -203,49 +236,69 @@ function ProfileTab() {
       updateUser(data);
       setAvatarSuccess(true);
       setTimeout(() => setAvatarSuccess(false), 3000);
+      closeCropModal();
     } catch (err) {
       setAvatarError(err.message || t('settings.avatarError'));
       setTimeout(() => setAvatarError(''), 3000);
     } finally {
       setAvatarLoading(false);
-      e.target.value = '';
     }
   };
+
+  const avatarInputId = 'profile-avatar-input';
 
   return (
     <div className="flex flex-col gap-5">
       {/* Avatar hero */}
       <div className="relative overflow-hidden rounded-2xl border border-border bg-background-secondary">
-        <div className="h-20 bg-linear-to-br from-accent-soft to-transparent" />
-        <div className="-mt-8 flex items-end gap-4 px-5 pb-5">
-          <div className="relative">
-            <div className="rounded-full ring-4 ring-background">
-              <UserAvatar user={user} size="lg" showStatus />
-            </div>
-            <Button
-              variant="ghost"
-              onPress={() => avatarInputRef.current?.click()}
-              isDisabled={avatarLoading}
-              className="absolute inset-0 flex h-full w-full items-center justify-center rounded-full bg-black/40 p-0 opacity-0 transition-opacity hover:bg-black/40 hover:opacity-100 disabled:cursor-not-allowed"
-              title={t('settings.changeAvatar')}
+        <div
+          className="pointer-events-none absolute inset-0 bg-linear-to-br from-accent-soft/55 via-accent-soft/15 to-transparent"
+          aria-hidden
+        />
+        <div className="relative flex items-center gap-4 px-5 py-5">
+          <div className="relative size-12 shrink-0">
+            <UserAvatar
+              user={user}
+              size="lg"
+              showStatus
+              className="rounded-full ring-4 ring-background"
+            />
+            <label
+              htmlFor={avatarInputId}
+              className={[
+                'absolute inset-0 z-10 flex cursor-pointer items-center justify-center rounded-full bg-black/45 transition-opacity',
+                avatarLoading ? 'opacity-100' : 'opacity-100 sm:opacity-0 sm:hover:opacity-100',
+              ].join(' ')}
+              aria-label={t('settings.changeAvatar')}
             >
               {avatarLoading ? (
                 <Spinner size="sm" color="white" />
               ) : (
                 <Camera size={18} className="text-white" />
               )}
-            </Button>
+            </label>
             <input
+              id={avatarInputId}
               ref={avatarInputRef}
               type="file"
               accept="image/jpeg,image/png,image/webp,image/gif"
-              className="hidden"
+              className="sr-only"
+              disabled={avatarLoading}
               onChange={handleAvatarChange}
             />
           </div>
-          <div className="pb-1">
+          <div className="min-w-0">
             <p className="font-semibold leading-tight">{user?.display_name}</p>
             <p className="text-sm text-muted">@{user?.username}</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onPress={() => avatarInputRef.current?.click()}
+              isDisabled={avatarLoading}
+              className="mt-1 h-auto min-h-0 px-0 text-xs font-medium text-accent hover:text-accent"
+            >
+              {t('settings.changeAvatar')}
+            </Button>
           </div>
         </div>
       </div>
@@ -264,6 +317,15 @@ function ProfileTab() {
           </AnimatedAlert>
         )}
       </AnimatePresence>
+
+      <AvatarCropModal
+        isOpen={cropOpen}
+        imageSrc={cropImageSrc}
+        fileName={cropFileName}
+        onClose={closeCropModal}
+        onConfirm={handleAvatarCropConfirm}
+        loading={avatarLoading}
+      />
 
       {/* Form card */}
       <div className="rounded-2xl border border-border bg-background-secondary p-5">
@@ -1274,7 +1336,7 @@ export default function SettingsPage() {
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: -12, scale: 0.98 }}
             transition={{ duration: 0.22, ease: ENTRY_EASE }}
-            className="mx-auto w-full max-w-xl px-4 py-4 md:px-6 md:py-6"
+            className="w-full px-4 py-4 md:px-6 md:py-6"
           >
             <div className="mb-5 hidden lg:block">
               <h1 className="text-xl font-bold text-foreground">{t(`settings.tabs.${tab}`)}</h1>

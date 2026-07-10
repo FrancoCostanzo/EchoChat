@@ -7,6 +7,7 @@
     "delete": "Delete",
     "edit": "Edit",
     "close": "Close",
+    "you": "You",
     "search": "Search",
     "add": "Add",
     "create": "Create",
@@ -17,7 +18,8 @@
     "required": "*",
     "copy": "Copy",
     "done": "Done",
-    "clear": "Clear"
+    "clear": "Clear",
+    "remove": "Remove"
   },
   "confirm": {
     "defaultTitle": "Are you sure?",
@@ -82,7 +84,16 @@
       "strong": "Strong"
     },
     "registrationDisabledTitle": "Registration disabled",
-    "registrationDisabled": "New user registration is disabled. Ask an administrator for an account."
+    "registrationDisabled": "New user registration is disabled. Ask an administrator for an account.",
+    "twoFactorTitle": "Two-step verification",
+    "totpPrompt": "Enter the code from your authenticator app.",
+    "totpCode": "Authentication code",
+    "backupCode": "Backup code",
+    "useTotpCode": "Use authentication code",
+    "useBackupCode": "Use a backup code",
+    "verify": "Verify",
+    "verifying": "Verifying...",
+    "backToLogin": "Back to sign in"
   },
   "chat": {
     "empty": "Select a conversation or create a new one",
@@ -150,6 +161,9 @@
     "threadReplyPlaceholder": "Reply in thread...",
     "memberPanel": "Members",
     "viewMembers": "View members",
+    "membersActive": "Active",
+    "membersOffline": "Offline",
+    "membersOnlineCount": "{{count}} online",
     "changeWallpaper": "Change wallpaper",
     "formatToolbar": "Text formatting",
     "format": {
@@ -161,7 +175,22 @@
       "preview": "Preview",
       "showPreview": "Show preview",
       "hidePreview": "Hide preview"
-    }
+    },
+    "welcomeTo": "Welcome to",
+    "startOfDirect": "This is the beginning of your message history with {{name}}.",
+    "startOfChannel": "This is the beginning of the #{{name}} channel.",
+    "pin": "Pin message",
+    "unpin": "Unpin message",
+    "noPinned": "No pinned messages yet",
+    "noPinnedHint": "Pin important messages from the context menu to find them quickly.",
+    "pinnedToast": "Message pinned",
+    "unpinnedToast": "Message unpinned",
+    "emptyHint": "Open the command palette with",
+    "noMessagesTitle": "No messages yet",
+    "noMessagesDirect": "Say hi to {{name}} and break the ice.",
+    "noMessagesGroup": "Be the first one to write in the group.",
+    "noMessagesChannel": "Be the first one to write in #{{name}}.",
+    "sayHi": "Say hi"
   },
   "newConversation": {
     "title": "New conversation",
@@ -169,12 +198,28 @@
     "group": "Group",
     "channel": "Channel",
     "conversationType": "Conversation type",
-    "groupChannelName": "Group/channel name",
-    "groupNamePlaceholder": "e.g. Development team",
-    "searchUsers": "Search users...",
+    "groupChannelName": "Name",
+    "channelName": "Channel name",
+    "channelNamePlaceholder": "channel-name",
+    "groupNamePlaceholder": "E.g. Dev team",
+    "description": "Description",
+    "descriptionPlaceholder": "What this is about...",
+    "joinMode": "Access mode",
+    "joinModes": {
+      "open": "Open",
+      "request": "Request",
+      "invite_only": "Invite only"
+    },
+    "category": "Category",
+    "addMembers": "Add members",
+    "searchUsers": "Search users",
+    "searchUsersPlaceholder": "Search by name or username...",
+    "typeToSearch": "Type 2+ characters to search",
+    "noResults": "No results for \"{{query}}\"",
     "startConversation": "Start conversation",
     "createGroup": "Create group ({{count}})",
-    "createChannel": "Create channel ({{count}})"
+    "createChannel": "Create channel ({{count}})",
+    "loadMore": "Load more"
   },
   "channels": {
     "explore": "Explore channels",
@@ -279,7 +324,8 @@
     "searchToAdd": "Search users to add...",
     "noContacts": "No contacts yet",
     "noFavorites": "No favorites yet",
-    "noBlocked": "No blocked users"
+    "noBlocked": "No blocked users",
+    "sendMessage": "Send message"
   },
   "notifications": {
     "title": "Notifications",
@@ -316,6 +362,10 @@
     "jobTitle": "Job title",
     "phoneExtension": "Phone extension",
     "changeAvatar": "Change profile photo",
+    "avatarCropTitle": "Adjust profile photo",
+    "avatarCropHint": "Drag and zoom to frame your face within the circle.",
+    "avatarCropZoom": "Zoom",
+    "avatarCropConfirm": "Use photo",
     "avatarUpdated": "Profile photo updated",
     "avatarError": "Failed to update photo",
     "profileUpdated": "Profile updated successfully",
@@ -443,13 +493,15 @@
       "users": "Users",
       "settings": "System",
       "audit": "Audit",
-      "storage": "Storage"
+      "storage": "Storage",
+      "monitoring": "Monitoring"
     },
     "descriptions": {
       "users": "Manage accounts, status and roles",
       "settings": "Global platform configuration",
       "audit": "Critical action history",
-      "storage": "MinIO inventory and metrics"
+      "storage": "MinIO inventory and metrics",
+      "monitoring": "Real-time server and database status"
     },
     "users": {
       "search": "Search users...",
@@ -501,14 +553,66 @@
     },
     "audit": {
       "filterAction": "Filter by action...",
-      "allResults": "All",
+      "filterCategory": "Category",
+      "filterSeverity": "Severity",
+      "allResults": "All results",
+      "allCategories": "All categories",
+      "allSeverities": "All severities",
       "success": "Successful",
       "failed": "Failed",
+      "totalResults": "records",
+      "rowsPerPage": "Rows per page",
       "colTime": "Time",
       "colActor": "Actor",
       "colAction": "Action",
+      "colSeverity": "Severity",
+      "colCategory": "Category",
       "colResource": "Resource",
-      "colResult": "OK"
+      "colIp": "IP",
+      "colResult": "Result",
+      "dateFrom": "From",
+      "dateTo": "To",
+      "dateRange": "Date range",
+      "detailTitle": "Event detail",
+      "detail": {
+        "info": "Information",
+        "before": "Before",
+        "after": "After"
+      },
+      "severities": {
+        "info": "Info",
+        "warning": "Warning",
+        "critical": "Critical"
+      },
+      "categories": {
+        "auth": "Authentication",
+        "admin": "Administration",
+        "content": "Content",
+        "system": "System",
+        "security": "Security"
+      },
+      "actions": {
+        "user_register": "User registration",
+        "user_login": "Login",
+        "user_logout": "Logout",
+        "user_logout_all": "Logout all sessions",
+        "user_change_password": "Password change",
+        "user_profile_update": "Profile update",
+        "user_avatar_update": "Avatar update",
+        "user_2fa_enabled": "2FA enabled",
+        "user_2fa_disabled": "2FA disabled",
+        "user_2fa_login": "Login via 2FA",
+        "user_2fa_backup_used": "Backup code used",
+        "user_2fa_backup_regen": "Backup codes regenerated",
+        "admin_user_create": "User created",
+        "admin_user_update": "User updated",
+        "admin_user_delete": "User deleted",
+        "admin_user_reset_password": "Password reset",
+        "admin_ldap_sync": "LDAP sync",
+        "admin_setting_update": "Setting changed",
+        "message_delete": "Message deleted",
+        "conversation_role_change": "Conversation role changed"
+      }
     },
     "storage": {
       "totalObjects": "Objects",
@@ -576,7 +680,10 @@
     "saved": "Saved",
     "typing": "typing…",
     "someoneTyping": "{{name}} is typing…",
-    "severalTyping": "several people typing…"
+    "severalTyping": "several people typing…",
+    "groups": "Groups",
+    "channels": "Channels",
+    "directMessages": "Direct messages"
   },
   "layout": {
     "toggleSidebar": "Show or hide channel panel (Ctrl+\\)"

@@ -158,30 +158,32 @@ const VistaHttp = ({ dashboard }) => {
         <hr className="border-divider" />
         <Card.Content className="p-0">
           {routeRows.length > 0 ? (
-            <Table.ScrollContainer>
-              <Table.Content aria-label="Rutas HTTP más lentas" className="min-w-[520px]">
-                <Table.Header>
-                  <Table.Column isRowHeader><TableColumnHeader label="Ruta" tooltip={T.rutasLentas} /></Table.Column>
-                  <Table.Column className="text-end"><TableColumnHeader label="Muestras" tooltip={T.muestras} /></Table.Column>
-                  <Table.Column className="text-end"><TableColumnHeader label="Avg" tooltip={T.avg} /></Table.Column>
-                  <Table.Column className="text-end"><TableColumnHeader label="p95" tooltip={T.p95} /></Table.Column>
-                </Table.Header>
-                <Table.Body>
-                  {routeRows.map((item) => (
-                    <Table.Row key={item.id} id={String(item.id)}>
-                      <Table.Cell><HttpRouteLabel route={item.route} /></Table.Cell>
-                      <Table.Cell className="text-right tabular-nums">{item.count}</Table.Cell>
-                      <Table.Cell className="text-right tabular-nums">{item.avgMs} ms</Table.Cell>
-                      <Table.Cell className={`text-right font-semibold tabular-nums ${STATUS_TEXT_CLASSES[latencyColor(item.p95Ms)]}`}>
-                        {item.p95Ms} ms
-                      </Table.Cell>
-                    </Table.Row>
-                  ))}
-                </Table.Body>
-              </Table.Content>
-            </Table.ScrollContainer>
+            <Table>
+              <Table.ScrollContainer>
+                <Table.Content aria-label="Rutas HTTP más lentas" className="min-w-[520px]">
+                  <Table.Header>
+                    <Table.Column isRowHeader><TableColumnHeader label="Ruta" tooltip={T.rutasLentas} /></Table.Column>
+                    <Table.Column className="text-end"><TableColumnHeader label="Muestras" tooltip={T.muestras} /></Table.Column>
+                    <Table.Column className="text-end"><TableColumnHeader label="Avg" tooltip={T.avg} /></Table.Column>
+                    <Table.Column className="text-end"><TableColumnHeader label="p95" tooltip={T.p95} /></Table.Column>
+                  </Table.Header>
+                  <Table.Body>
+                    {routeRows.map((item) => (
+                      <Table.Row key={item.id} id={String(item.id)}>
+                        <Table.Cell><HttpRouteLabel route={item.route} /></Table.Cell>
+                        <Table.Cell className="text-right tabular-nums">{item.count}</Table.Cell>
+                        <Table.Cell className="text-right tabular-nums">{item.avgMs} ms</Table.Cell>
+                        <Table.Cell className={`text-right font-semibold tabular-nums ${STATUS_TEXT_CLASSES[latencyColor(item.p95Ms)]}`}>
+                          {item.p95Ms} ms
+                        </Table.Cell>
+                      </Table.Row>
+                    ))}
+                  </Table.Body>
+                </Table.Content>
+              </Table.ScrollContainer>
+            </Table>
           ) : (
-            <div className="p-8 text-center text-default-500">Sin datos de rutas aún</div>
+            <div className="p-8 text-center text-sm text-default-500">Sin datos de rutas aún</div>
           )}
         </Card.Content>
       </Card>
@@ -194,35 +196,37 @@ const VistaHttp = ({ dashboard }) => {
         <hr className="border-divider" />
         <Card.Content className="p-0">
           {errorRows.length > 0 ? (
-            <Table.ScrollContainer>
-              <Table.Content aria-label="Errores 5xx" className="min-w-[480px]">
-                <Table.Header>
-                  <Table.Column isRowHeader>Ruta</Table.Column>
-                  <Table.Column className="text-center">Código</Table.Column>
-                  <Table.Column className="text-end">Hora</Table.Column>
-                </Table.Header>
-                <Table.Body>
-                  {errorRows.map((item) => (
-                    <Table.Row key={item.id} id={String(item.id)}>
-                      <Table.Cell><HttpRouteLabel route={item.route} /></Table.Cell>
-                      <Table.Cell className="text-center">
-                        <Tooltip>
-                          <Tooltip.Trigger>
-                            <Chip size="sm" color="danger" variant="flat">{item.statusCode}</Chip>
-                          </Tooltip.Trigger>
-                          <Tooltip.Content placement="top">
-                            {item.message || `HTTP ${item.statusCode}`}
-                          </Tooltip.Content>
-                        </Tooltip>
-                      </Table.Cell>
-                      <Table.Cell className="text-right tabular-nums">{item.timestampLabel}</Table.Cell>
-                    </Table.Row>
-                  ))}
-                </Table.Body>
-              </Table.Content>
-            </Table.ScrollContainer>
+            <Table>
+              <Table.ScrollContainer>
+                <Table.Content aria-label="Errores 5xx" className="min-w-[480px]">
+                  <Table.Header>
+                    <Table.Column isRowHeader>Ruta</Table.Column>
+                    <Table.Column className="text-center">Código</Table.Column>
+                    <Table.Column className="text-end">Hora</Table.Column>
+                  </Table.Header>
+                  <Table.Body>
+                    {errorRows.map((item) => (
+                      <Table.Row key={item.id} id={String(item.id)}>
+                        <Table.Cell><HttpRouteLabel route={item.route} /></Table.Cell>
+                        <Table.Cell className="text-center">
+                          <Tooltip>
+                            <Tooltip.Trigger>
+                              <Chip size="sm" color="danger" variant="flat">{item.statusCode}</Chip>
+                            </Tooltip.Trigger>
+                            <Tooltip.Content placement="top">
+                              {item.message || `HTTP ${item.statusCode}`}
+                            </Tooltip.Content>
+                          </Tooltip>
+                        </Table.Cell>
+                        <Table.Cell className="text-right tabular-nums">{item.timestampLabel}</Table.Cell>
+                      </Table.Row>
+                    ))}
+                  </Table.Body>
+                </Table.Content>
+              </Table.ScrollContainer>
+            </Table>
           ) : (
-            <div className="p-8 text-center text-default-500">Sin errores 5xx registrados</div>
+            <div className="p-8 text-center text-sm text-default-500">Sin errores 5xx registrados</div>
           )}
         </Card.Content>
       </Card>

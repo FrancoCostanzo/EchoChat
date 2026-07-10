@@ -69,7 +69,7 @@ export default function CreateCodeModal({
           <Modal.Dialog className="max-w-xl">
             <Modal.Header>
               <Modal.Heading className="flex items-center gap-2">
-                <Code2 size={16} className="text-blurple-400" />
+                <Code2 size={16} className="text-accent" />
                 {t('code.sendTitle')}
               </Modal.Heading>
               <Modal.CloseTrigger />

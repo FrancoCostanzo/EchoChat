@@ -138,13 +138,45 @@ function initSocket(httpServer) {
       }
     });
 
-    // ── Mark delivered on connection (for messages received while offline) ─
-    socket.on('messages:delivered', async ({ messageIds }) => {
+    // ── Mark delivered (cuando un mensaje llega al cliente pero no se lee) ──
+    socket.on('messages:delivered', async ({ conversationId, messageIds }) => {
+      try {
+        require('fs').appendFileSync(
+          require('path').join(__dirname, '../delivery-debug.log'),
+          `${new Date().toISOString()} DELIVERED-RECV user=${userId} conv=${conversationId} msgs=${JSON.stringify(messageIds)}\n`,
+        );
+      } catch {}
+      logger.info({ userId, conversationId, messageIds }, '[DELIVERY] messages:delivered recibido');
       if (!Array.isArray(messageIds) || messageIds.length === 0) return;
       const { messageRepository } = require('./repositories');
       try {
         for (const msgId of messageIds) {
           await messageRepository.addReceipt(msgId, userId, 'delivered');
+        }
+        // Avisar al emisor (y al resto de la conversación) para que el tick del
+        // chat pase de "enviado" a "entregado" en tiempo real.
+        const countsMap = await messageRepository.getReceiptCountsBatch(messageIds);
+        let room = conversationId ? `conv:${conversationId}` : null;
+        for (const msgId of messageIds) {
+          const counts = countsMap[msgId];
+          if (!counts) continue;
+          if (!room) {
+            const message = await messageRepository.findById(msgId);
+            if (!message) continue;
+            room = `conv:${message.conversation_id}`;
+          }
+          const sockets = await io.in(room).fetchSockets();
+          try {
+            require('fs').appendFileSync(
+              require('path').join(__dirname, '../delivery-debug.log'),
+              `${new Date().toISOString()} EMIT-RECEIPT room=${room} msg=${msgId} delivered=${Number(counts.delivered_count)} socketsEnRoom=${sockets.length} userIds=${JSON.stringify(sockets.map((s) => s.userId))}\n`,
+            );
+          } catch {}
+          io.to(room).emit('message:receipt', {
+            messageId: msgId,
+            delivered_count: Number(counts.delivered_count) || 0,
+            read_count: Number(counts.read_count) || 0,
+          });
         }
       } catch (err) {
         logger.warn({ err: err.message, userId }, 'Failed to process delivery receipts');

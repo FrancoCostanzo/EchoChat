@@ -7,6 +7,7 @@
     "delete": "Excluir",
     "edit": "Editar",
     "close": "Fechar",
+    "you": "Você",
     "search": "Buscar",
     "add": "Adicionar",
     "create": "Criar",
@@ -17,7 +18,8 @@
     "required": "*",
     "copy": "Copiar",
     "done": "Pronto",
-    "clear": "Limpar"
+    "clear": "Limpar",
+    "remove": "Remover"
   },
   "confirm": {
     "defaultTitle": "Tem certeza?",
@@ -82,7 +84,16 @@
       "strong": "Forte"
     },
     "registrationDisabledTitle": "Cadastro desativado",
-    "registrationDisabled": "O cadastro de novos usuários está desativado. Peça uma conta a um administrador."
+    "registrationDisabled": "O cadastro de novos usuários está desativado. Peça uma conta a um administrador.",
+    "twoFactorTitle": "Verificação em duas etapas",
+    "totpPrompt": "Digite o código do seu aplicativo autenticador.",
+    "totpCode": "Código de autenticação",
+    "backupCode": "Código de backup",
+    "useTotpCode": "Usar código de autenticação",
+    "useBackupCode": "Usar código de backup",
+    "verify": "Verificar",
+    "verifying": "Verificando...",
+    "backToLogin": "Voltar ao login"
   },
   "chat": {
     "empty": "Selecione uma conversa ou crie uma nova",
@@ -150,6 +161,9 @@
     "threadReplyPlaceholder": "Responder no tópico...",
     "memberPanel": "Membros",
     "viewMembers": "Ver membros",
+    "membersActive": "Ativos",
+    "membersOffline": "Desconectados",
+    "membersOnlineCount": "{{count}} online",
     "changeWallpaper": "Alterar plano de fundo",
     "formatToolbar": "Formatação de texto",
     "format": {
@@ -161,7 +175,22 @@
       "preview": "Pré-visualização",
       "showPreview": "Mostrar pré-visualização",
       "hidePreview": "Ocultar pré-visualização"
-    }
+    },
+    "welcomeTo": "Bem-vindo a",
+    "startOfDirect": "Este é o começo do seu histórico de mensagens com {{name}}.",
+    "startOfChannel": "Este é o começo do canal #{{name}}.",
+    "pin": "Fixar mensagem",
+    "unpin": "Desafixar mensagem",
+    "noPinned": "Nenhuma mensagem fixada ainda",
+    "noPinnedHint": "Fixe mensagens importantes pelo menu de contexto para encontrá-las rapidamente.",
+    "pinnedToast": "Mensagem fixada",
+    "unpinnedToast": "Mensagem desafixada",
+    "emptyHint": "Abra a paleta de comandos com",
+    "noMessagesTitle": "Ainda não há mensagens",
+    "noMessagesDirect": "Diga oi para {{name}} e quebre o gelo.",
+    "noMessagesGroup": "Seja a primeira pessoa a escrever no grupo.",
+    "noMessagesChannel": "Seja a primeira pessoa a escrever em #{{name}}.",
+    "sayHi": "Diga oi"
   },
   "newConversation": {
     "title": "Nova conversa",
@@ -169,12 +198,28 @@
     "group": "Grupo",
     "channel": "Canal",
     "conversationType": "Tipo de conversa",
-    "groupChannelName": "Nome do grupo/canal",
-    "groupNamePlaceholder": "Ex: Equipe de desenvolvimento",
-    "searchUsers": "Buscar usuários...",
+    "groupChannelName": "Nome",
+    "channelName": "Nome do canal",
+    "channelNamePlaceholder": "nome-do-canal",
+    "groupNamePlaceholder": "Ex: Equipe de dev",
+    "description": "Descrição",
+    "descriptionPlaceholder": "Sobre o que é...",
+    "joinMode": "Modo de acesso",
+    "joinModes": {
+      "open": "Aberto",
+      "request": "Solicitação",
+      "invite_only": "Somente convite"
+    },
+    "category": "Categoria",
+    "addMembers": "Adicionar membros",
+    "searchUsers": "Buscar usuários",
+    "searchUsersPlaceholder": "Buscar por nome ou usuário...",
+    "typeToSearch": "Digite 2+ caracteres para buscar",
+    "noResults": "Sem resultados para \"{{query}}\"",
     "startConversation": "Iniciar conversa",
     "createGroup": "Criar grupo ({{count}})",
-    "createChannel": "Criar canal ({{count}})"
+    "createChannel": "Criar canal ({{count}})",
+    "loadMore": "Carregar mais"
   },
   "channels": {
     "explore": "Explorar canais",
@@ -279,7 +324,8 @@
     "searchToAdd": "Buscar usuários para adicionar...",
     "noContacts": "Você não tem contatos ainda",
     "noFavorites": "Você não tem favoritos ainda",
-    "noBlocked": "Você não tem usuários bloqueados"
+    "noBlocked": "Você não tem usuários bloqueados",
+    "sendMessage": "Enviar mensagem"
   },
   "notifications": {
     "title": "Notificações",
@@ -316,6 +362,10 @@
     "jobTitle": "Cargo",
     "phoneExtension": "Ramal",
     "changeAvatar": "Alterar foto de perfil",
+    "avatarCropTitle": "Ajustar foto de perfil",
+    "avatarCropHint": "Arraste e use o zoom para enquadrar seu rosto dentro do círculo.",
+    "avatarCropZoom": "Zoom",
+    "avatarCropConfirm": "Usar foto",
     "avatarUpdated": "Foto de perfil atualizada",
     "avatarError": "Falha ao atualizar a foto",
     "profileUpdated": "Perfil atualizado com sucesso",
@@ -443,13 +493,15 @@
       "users": "Usuários",
       "settings": "Sistema",
       "audit": "Auditoria",
-      "storage": "Armazenamento"
+      "storage": "Armazenamento",
+      "monitoring": "Monitoramento"
     },
     "descriptions": {
       "users": "Gerencie contas, status e papéis",
       "settings": "Configuração global da plataforma",
       "audit": "Histórico de ações críticas",
-      "storage": "Inventário e métricas do MinIO"
+      "storage": "Inventário e métricas do MinIO",
+      "monitoring": "Status em tempo real do servidor e banco de dados"
     },
     "users": {
       "search": "Buscar usuários...",
@@ -501,14 +553,66 @@
     },
     "audit": {
       "filterAction": "Filtrar por ação...",
-      "allResults": "Todos",
+      "filterCategory": "Categoria",
+      "filterSeverity": "Severidade",
+      "allResults": "Todos os resultados",
+      "allCategories": "Todas as categorias",
+      "allSeverities": "Todas as severidades",
       "success": "Sucesso",
       "failed": "Falhou",
+      "totalResults": "registros",
+      "rowsPerPage": "Linhas por página",
       "colTime": "Data",
       "colActor": "Ator",
       "colAction": "Ação",
+      "colSeverity": "Severidade",
+      "colCategory": "Categoria",
       "colResource": "Recurso",
-      "colResult": "OK"
+      "colIp": "IP",
+      "colResult": "Resultado",
+      "dateFrom": "De",
+      "dateTo": "Até",
+      "dateRange": "Período",
+      "detailTitle": "Detalhe do evento",
+      "detail": {
+        "info": "Informações",
+        "before": "Antes",
+        "after": "Depois"
+      },
+      "severities": {
+        "info": "Info",
+        "warning": "Aviso",
+        "critical": "Crítico"
+      },
+      "categories": {
+        "auth": "Autenticação",
+        "admin": "Administração",
+        "content": "Conteúdo",
+        "system": "Sistema",
+        "security": "Segurança"
+      },
+      "actions": {
+        "user_register": "Registro de usuário",
+        "user_login": "Login",
+        "user_logout": "Logout",
+        "user_logout_all": "Encerrar todas as sessões",
+        "user_change_password": "Troca de senha",
+        "user_profile_update": "Atualização de perfil",
+        "user_avatar_update": "Atualização de avatar",
+        "user_2fa_enabled": "2FA ativado",
+        "user_2fa_disabled": "2FA desativado",
+        "user_2fa_login": "Login via 2FA",
+        "user_2fa_backup_used": "Código de backup usado",
+        "user_2fa_backup_regen": "Códigos de backup regenerados",
+        "admin_user_create": "Usuário criado",
+        "admin_user_update": "Usuário atualizado",
+        "admin_user_delete": "Usuário excluído",
+        "admin_user_reset_password": "Senha redefinida",
+        "admin_ldap_sync": "Sincronização LDAP",
+        "admin_setting_update": "Configuração alterada",
+        "message_delete": "Mensagem excluída",
+        "conversation_role_change": "Papel de conversa alterado"
+      }
     },
     "storage": {
       "totalObjects": "Objetos",
@@ -576,7 +680,10 @@
     "saved": "Salvos",
     "typing": "digitando…",
     "someoneTyping": "{{name}} está digitando…",
-    "severalTyping": "vários digitando…"
+    "severalTyping": "vários digitando…",
+    "groups": "Grupos",
+    "channels": "Canais",
+    "directMessages": "Mensagens diretas"
   },
   "layout": {
     "toggleSidebar": "Mostrar ou ocultar painel de canais (Ctrl+\\)"

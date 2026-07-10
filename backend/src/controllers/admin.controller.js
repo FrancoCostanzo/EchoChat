@@ -90,17 +90,21 @@ class AdminController {
   }
 
   async getAuditLog(req, res) {
-    const entries = await adminService.getAuditLog({
+    const result = await adminService.getAuditLog({
       action: req.query.action,
       actor_id: req.query.actor_id,
       resource_type: req.query.resource_type,
+      severity: req.query.severity,
+      category: req.query.category,
       success: req.query.success,
       from: req.query.from,
       to: req.query.to,
+      sort_column: req.query.sort_column,
+      sort_dir: req.query.sort_dir,
       limit: parseInt(req.query.limit, 10) || 50,
       offset: parseInt(req.query.offset, 10) || 0,
     });
-    res.json({ status: 'success', data: entries });
+    res.json({ status: 'success', data: result });
   }
 
   async getStorageStats(req, res) {
