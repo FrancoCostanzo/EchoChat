@@ -14,6 +14,7 @@ import {
   AtSign,
   Search,
   CornerDownLeft,
+  Phone,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
@@ -28,6 +29,7 @@ import { useChatStore } from '@/stores/chatStore';
 const NAV_ITEMS = [
   { id: 'nav-chats', icon: MessageSquare, labelKey: 'sidebar.chats', path: '/chat' },
   { id: 'nav-contacts', icon: Users, labelKey: 'sidebar.contacts', path: '/contacts' },
+  { id: 'nav-calls', icon: Phone, labelKey: 'sidebar.calls', path: '/calls' },
   { id: 'nav-explore', icon: Compass, labelKey: 'sidebar.explore', path: '/channels' },
   { id: 'nav-broadcasts', icon: Megaphone, labelKey: 'sidebar.broadcasts', path: '/broadcasts' },
   { id: 'nav-saved', icon: Bookmark, labelKey: 'sidebar.saved', path: '/saved' },

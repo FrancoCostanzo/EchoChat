@@ -683,7 +683,8 @@
     "severalTyping": "several people typing…",
     "groups": "Groups",
     "channels": "Channels",
-    "directMessages": "Direct messages"
+    "directMessages": "Direct messages",
+    "calls": "Calls"
   },
   "layout": {
     "toggleSidebar": "Show or hide channel panel (Ctrl+\\)"
@@ -735,6 +736,58 @@
       "ocean": "Ocean",
       "rose": "Rose",
       "graphite": "Graphite"
+    }
+  },
+  "call": {
+    "title": "Call",
+    "you": "you",
+    "unknown": "Unknown",
+    "participant": "Participant",
+    "incomingVoice": "Incoming voice call",
+    "incomingVideo": "Incoming video call",
+    "accept": "Accept",
+    "decline": "Decline",
+    "calling": "Calling…",
+    "connecting": "Connecting…",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "cameraOn": "Turn camera on",
+    "cameraOff": "Turn camera off",
+    "share": "Share screen",
+    "stopShare": "Stop sharing",
+    "hangup": "Hang up",
+    "startVoice": "Voice call",
+    "startVideo": "Video call",
+    "alreadyInCall": "You are already in a call",
+    "permissionDenied": "Microphone or camera permission denied",
+    "startFailed": "Could not start the call",
+    "timeline": {
+      "voiceCall": "Voice call",
+      "videoCall": "Video call",
+      "missed": "Missed call",
+      "noAnswer": "No answer",
+      "declined": "Call declined",
+      "declinedByYou": "You declined the call"
+    },
+    "history": {
+      "title": "Call history",
+      "empty": "No calls yet",
+      "emptyHint": "Calls in this conversation will show up here.",
+      "answered": "Answered",
+      "outgoing": "Outgoing call",
+      "incoming": "Incoming call",
+      "callAgain": "Call again"
+    },
+    "page": {
+      "title": "Calls",
+      "subtitle": "Voice and video call history",
+      "all": "All",
+      "missed": "Missed",
+      "empty": "No calls yet",
+      "noMissed": "No missed calls",
+      "unknownConversation": "Conversation",
+      "emptyHint": "When you make or receive a call, it will show up here.",
+      "noMissedHint": "You have no missed calls. All caught up!"
     }
   }
 }

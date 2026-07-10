@@ -29,6 +29,8 @@ function toConversationResponse(row) {
     other_avatar_url: row.other_avatar_url ?? null,
     // Last message preview
     last_message_body: row.last_message_body ?? null,
+    last_message_type: row.last_message_type ?? null,
+    last_message_metadata: row.last_message_metadata ?? null,
   };
 }
 
