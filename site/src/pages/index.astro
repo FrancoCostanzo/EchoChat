@@ -114,74 +114,116 @@ docker compose up -d`;
 				</div>
 			</div>
 
-			<!-- Mockup animado de la app -->
+			<!-- Mockup animado — réplica del Spatial Canvas (dock + sidebar + chat) -->
 			<div class="mockup" data-reveal style="--reveal-delay: 200ms" aria-hidden="true">
 				<div class="mockup-glow"></div>
 				<div class="mockup-window">
-					<div class="mockup-rail">
-						<span class="rail-item is-brand">
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-								<path d="M4 12a8 8 0 0 1 16 0v6a2 2 0 0 1-2 2h-4" />
-								<path d="M8.5 12v2" /><path d="M12 10v6" /><path d="M15.5 11.5v3" />
-							</svg>
-						</span>
-						<span class="rail-sep"></span>
-						<span class="rail-item">HQ</span>
-						<span class="rail-item">DV</span>
-						<span class="rail-item">UX</span>
-					</div>
-					<div class="mockup-side">
-						<div class="side-title">EchoChat HQ</div>
-						<div class="side-label">Canales</div>
-						<div class="side-ch is-active"><span class="hash">#</span> general</div>
-						<div class="side-ch"><span class="hash">#</span> anuncios <span class="badge">2</span></div>
-						<div class="side-ch"><span class="hash">#</span> desarrollo</div>
-						<div class="side-ch"><span class="hash">#</span> diseño <span class="badge">5</span></div>
-						<div class="side-label">Directos</div>
-						<div class="side-ch">Lucía Pérez</div>
-						<div class="side-ch">Raúl Gómez</div>
-					</div>
-					<div class="mockup-chat">
-						<div class="chat-head">
-							<span class="hash">#</span> general
-							<span class="online"><i></i> 12 en línea</span>
-						</div>
-						<div class="chat-body" id="mock-body">
-							<div class="mkmsg">
-								<span class="avatar avatar-a">LP</span>
-								<div class="msg-col">
-									<div class="meta"><b class="name-a">Lucía Pérez</b><time>09:42</time></div>
-									<div class="bubble">¡Deploy a staging listo! 🚀</div>
-									<div class="reactions">
-										<span class="reaction">🎉 3</span>
-										<span class="reaction">🔥 2</span>
+					<div class="mockup-canvas">
+						<nav class="mockup-dock" aria-hidden="true">
+							<span class="dock-orb is-brand is-active">
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+							</span>
+							<span class="dock-sep"></span>
+							<span class="dock-orb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+							<span class="dock-orb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+							<span class="dock-orb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg></span>
+							<span class="dock-orb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg></span>
+							<span class="dock-sep"></span>
+							<span class="dock-orb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
+							<span class="dock-orb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+						</nav>
+
+						<aside class="mockup-sidebar">
+							<div class="mock-sidebar-head">
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+								<span>Chats</span>
+								<span class="mock-sidebar-add">+</span>
+							</div>
+							<div class="mock-search">
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+								<span>Buscar conversación…</span>
+							</div>
+							<div class="mock-conv-list">
+								<p class="mock-section-label">Directos <span>2</span></p>
+								<div class="mock-conv is-active">
+									<span class="mock-conv-bar"></span>
+									<span class="mock-avatar mock-avatar-fc">FC</span>
+									<span class="mock-conv-body">
+										<span class="mock-conv-top"><b>Franco Costanzo</b><time>15:02</time></span>
+										<span class="mock-conv-preview">asdad</span>
+									</span>
+								</div>
+								<div class="mock-conv">
+									<span class="mock-avatar mock-avatar-ct">CT</span>
+									<span class="mock-conv-body">
+										<span class="mock-conv-top"><b>Claude Test</b><time>14:58</time></span>
+										<span class="mock-conv-preview">Hola, probando EchoChat</span>
+									</span>
+								</div>
+								<p class="mock-section-label">Grupos <span>2</span></p>
+								<div class="mock-conv">
+									<span class="mock-avatar mock-avatar-grp">G</span>
+									<span class="mock-conv-body"><span class="mock-conv-top"><b>Equipo dev</b></span></span>
+								</div>
+								<p class="mock-section-label">Canales <span>1</span></p>
+								<div class="mock-conv">
+									<span class="mock-avatar mock-avatar-ch">#</span>
+									<span class="mock-conv-body"><span class="mock-conv-top"><b>general</b></span></span>
+								</div>
+							</div>
+							<div class="mock-user-panel">
+								<span class="mock-avatar mock-avatar-me">TU</span>
+								<span class="mock-user-meta"><b>test usuario</b><small>@test</small></span>
+								<span class="mock-user-cog">⚙</span>
+							</div>
+						</aside>
+
+						<div class="mockup-chat">
+							<div class="mock-chat-head">
+								<span class="mock-avatar mock-avatar-fc">FC</span>
+								<span class="mock-chat-title">
+									<b>Franco Costanzo</b>
+									<small>Ausente</small>
+								</span>
+								<span class="mock-chat-actions">
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="3"/></svg>
+								</span>
+							</div>
+							<div class="chat-body" id="mock-body">
+								<div class="mock-day-sep"><span>Hoy</span></div>
+								<div class="mkmsg">
+									<span class="avatar avatar-fc">FC</span>
+									<div class="msg-col">
+										<div class="meta"><b>Franco Costanzo</b><time>15:00</time></div>
+										<div class="bubble">asdasd</div>
 									</div>
 								</div>
-							</div>
-							<div class="mkmsg is-me">
-								<span class="avatar avatar-me">FC</span>
-								<div class="msg-col">
-									<div class="meta"><b>Vos</b><time>09:43</time></div>
-									<div class="bubble">Buenísimo, subo las notas de versión ✍️</div>
+								<div class="mkmsg is-me">
+									<div class="msg-col">
+										<div class="bubble">asdad</div>
+									</div>
+								</div>
+								<div class="mock-call-row">
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+									<span>Llamada de voz · 0:03</span>
 								</div>
 							</div>
-							<div class="mkmsg">
-								<span class="avatar avatar-b">RG</span>
-								<div class="msg-col">
-									<div class="meta"><b class="name-b">Raúl Gómez</b><time>09:45</time></div>
-									<div class="bubble">Las llamadas grupales andan perfectas ✨</div>
+							<div class="mk-typing" id="mock-typing">
+								<span class="dots"><i></i><i></i><i></i></span>
+								<span id="mock-typing-name">Franco está escribiendo…</span>
+							</div>
+							<div class="mock-composer">
+								<div class="mock-format-bar">
+									<span>B</span><span>I</span><span>U</span><span>S</span><span>&lt;&gt;</span><span>[]</span>
+								</div>
+								<div class="mock-composer-row">
+									<span class="mock-input">Escribí un mensaje…<span class="caret"></span></span>
+									<span class="mock-send">
+										<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+									</span>
 								</div>
 							</div>
-						</div>
-						<div class="mk-typing" id="mock-typing">
-							<span class="dots"><i></i><i></i><i></i></span>
-							<span id="mock-typing-name">Lucía está escribiendo…</span>
-						</div>
-						<div class="mk-composer">
-							Escribí un mensaje…<span class="caret"></span>
-							<span class="send">
-								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-							</span>
 						</div>
 					</div>
 				</div>
@@ -409,27 +451,27 @@ docker compose up -d`;
 			if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
 			const script = [
-				{ who: 'a', name: 'Lucía Pérez', text: 'La búsqueda full-text quedó volando ⚡', time: '09:47' },
-				{ who: 'me', name: 'Vos', text: 'Índice pg_trgm, &lt;40ms en 2M de filas 😎', time: '09:48' },
-				{ who: 'b', name: 'Raúl Gómez', text: 'Subí una encuesta a #general, voten 📊', time: '09:50' },
-				{ who: 'a', name: 'Lucía Pérez', text: 'Las difusiones programadas ya salieron 📣', time: '09:52' },
-				{ who: 'me', name: 'Vos', text: 'Release v1.0 α listo para el viernes 🎯', time: '09:53' },
-				{ who: 'b', name: 'Raúl Gómez', text: 'Videollamada grupal sin cortes, 5 personas 🎥', time: '09:55' },
+				{ who: 'them', name: 'Franco Costanzo', text: '¿Probaste el mockup del sitio?', time: '15:04' },
+				{ who: 'me', name: 'Vos', text: 'Ahora sí parece la app real 🎯', time: '15:05' },
+				{ who: 'them', name: 'Franco Costanzo', text: 'Dock + sidebar + composer flotante ✨', time: '15:06' },
+				{ who: 'me', name: 'Vos', text: 'Spatial Canvas en el portfolio 😎', time: '15:07' },
 			];
 			let i = 0;
 
 			const addMsg = (m) => {
 				const el = document.createElement('div');
 				el.className = 'mkmsg' + (m.who === 'me' ? ' is-me' : '');
-				const initials = m.who === 'me' ? 'FC' : m.who === 'a' ? 'LP' : 'RG';
-				const avatarCls = m.who === 'me' ? 'avatar-me' : m.who === 'a' ? 'avatar-a' : 'avatar-b';
-				const nameCls = m.who === 'a' ? 'name-a' : m.who === 'b' ? 'name-b' : '';
-				el.innerHTML =
-					`<span class="avatar ${avatarCls}">${initials}</span>` +
-					`<div class="msg-col"><div class="meta"><b class="${nameCls}">${m.name}</b><time>${m.time}</time></div>` +
-					`<div class="bubble">${m.text}</div></div>`;
+				if (m.who === 'me') {
+					el.innerHTML =
+						`<div class="msg-col"><div class="bubble">${m.text}</div></div>`;
+				} else {
+					el.innerHTML =
+						`<span class="avatar avatar-fc">FC</span>` +
+						`<div class="msg-col"><div class="meta"><b>${m.name}</b><time>${m.time}</time></div>` +
+						`<div class="bubble">${m.text}</div></div>`;
+				}
 				body.appendChild(el);
-				while (body.children.length > 7) body.removeChild(body.firstElementChild);
+				while (body.children.length > 8) body.removeChild(body.firstElementChild);
 			};
 
 			const cycle = () => {
