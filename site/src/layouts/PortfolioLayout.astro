@@ -1,5 +1,6 @@
 ---
 import '../styles/site.css';
+import BrandMark from '../components/BrandMark.astro';
 import {
 	type Lang,
 	type Page,
@@ -37,6 +38,7 @@ const homeHref = `${base}${pagePaths.home[lang]}`;
 const featuresHref = `${base}${pagePaths.home[lang]}#features`;
 const docsHref = `${base}${docsPaths[lang]}`;
 const faqHref = `${base}${pagePaths.faq[lang]}`;
+const ogImage = new URL(`${base}/icon-512.png`, Astro.site ?? 'https://echochat.netlify.app').href;
 ---
 
 <!doctype html>
@@ -44,12 +46,16 @@ const faqHref = `${base}${pagePaths.faq[lang]}`;
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<link rel="icon" type="image/svg+xml" href={`${base}/favicon.svg`} />
+		<link rel="icon" href={`${base}/favicon.ico`} sizes="any" />
+		<link rel="apple-touch-icon" href={`${base}/apple-touch-icon.png`} />
+		<link rel="manifest" href={`${base}/site.webmanifest`} />
+		<meta name="theme-color" content="#0B0D14" />
 		<title>{title}</title>
 		<meta name="description" content={resolvedDescription} />
 		<meta property="og:title" content={title} />
 		<meta property="og:description" content={resolvedDescription} />
 		<meta property="og:type" content="website" />
+		<meta property="og:image" content={ogImage} />
 		<!-- Tipografías del design system de la app: Clash Display (jerarquía) + Satoshi (UI) -->
 		<link rel="preconnect" href="https://api.fontshare.com" crossorigin />
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -76,15 +82,7 @@ const faqHref = `${base}${pagePaths.faq[lang]}`;
 		<header class="site-header">
 			<div class="inner">
 				<a href={homeHref} class="brand">
-					<span class="brand-mark" aria-hidden="true">
-						<!-- Onda de eco -->
-						<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-							<path d="M4 12a8 8 0 0 1 16 0v6a2 2 0 0 1-2 2h-4" />
-							<path d="M8.5 12v2" />
-							<path d="M12 10v6" />
-							<path d="M15.5 11.5v3" />
-						</svg>
-					</span>
+					<BrandMark />
 					EchoChat
 					<span class="brand-ver">v1.0 α</span>
 				</a>
@@ -135,14 +133,7 @@ const faqHref = `${base}${pagePaths.faq[lang]}`;
 		<footer class="site-footer">
 			<div class="container inner">
 				<span class="foot-brand">
-					<span class="brand-mark" style="width:26px;height:26px;border-radius:8px;" aria-hidden="true">
-						<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-							<path d="M4 12a8 8 0 0 1 16 0v6a2 2 0 0 1-2 2h-4" />
-							<path d="M8.5 12v2" />
-							<path d="M12 10v6" />
-							<path d="M15.5 11.5v3" />
-						</svg>
-					</span>
+					<BrandMark size={26} class="brand-logo-sm" />
 					EchoChat
 				</span>
 				<span>© {new Date().getFullYear()} Franco Costanzo</span>

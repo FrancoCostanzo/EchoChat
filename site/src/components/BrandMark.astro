@@ -1,0 +1,19 @@
+---
+interface Props {
+	size?: number;
+	class?: string;
+}
+
+const { size = 32, class: className = '' } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/+$/, '');
+---
+
+<img
+	src={`${base}/icon-192.png`}
+	alt=""
+	width={size}
+	height={size}
+	class:list={['brand-logo', className]}
+	loading="eager"
+	decoding="async"
+/>
