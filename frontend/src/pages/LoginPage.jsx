@@ -1,7 +1,8 @@
 import { useRef, useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, InputGroup, TextField, Label, FieldError, Button, Spinner, InputOTP, REGEXP_ONLY_DIGITS } from '@heroui/react';
-import { MessageCircle, Eye, EyeOff, AlertCircle, ShieldCheck, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, ShieldCheck, ArrowLeft } from 'lucide-react';
+import { AuthBrandHeader } from '@/components/AppLogo';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
 import { authApi } from '@/lib/endpoints';
@@ -193,18 +194,9 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
       <div className="w-full max-w-sm">
-        {/* Brand */}
-        <div className="mb-8 flex flex-col items-center gap-3">
-          <div className="echo-grad-brand echo-glow-md flex h-14 w-14 items-center justify-center rounded-2xl">
-            <MessageCircle className="echo-on-accent h-7 w-7" />
-          </div>
-          <div className="text-center">
-            <h1 className="text-2xl font-bold">{t('common.appName')}</h1>
-            <p className="mt-1 text-sm text-muted">
-              {step === 'totp' ? t('auth.twoFactorTitle') : t('auth.loginTitle')}
-            </p>
-          </div>
-        </div>
+        <AuthBrandHeader
+          subtitle={step === 'totp' ? t('auth.twoFactorTitle') : t('auth.loginTitle')}
+        />
 
         <Card className="shadow-xl">
           <Card.Content className="p-6">

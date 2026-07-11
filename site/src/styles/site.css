@@ -271,18 +271,23 @@ section[id] {
 	font-size: 1.08rem;
 	letter-spacing: -0.01em;
 }
-.brand-mark {
-	display: grid;
-	place-items: center;
+.brand-mark,
+.brand-logo {
+	display: block;
 	width: 32px;
 	height: 32px;
 	border-radius: 10px;
-	background-image: var(--gradient-brand);
-	color: #fff;
+	object-fit: cover;
 	box-shadow: 0 4px 14px -4px rgb(124 92 255 / 0.55);
 	transition: transform 0.25s var(--ease-spring);
 }
-.brand:hover .brand-mark {
+.brand-logo-sm {
+	width: 26px;
+	height: 26px;
+	border-radius: 8px;
+}
+.brand:hover .brand-mark,
+.brand:hover .brand-logo {
 	transform: rotate(-8deg) scale(1.06);
 }
 .brand-ver {
@@ -693,8 +698,8 @@ section[id] {
 	letter-spacing: -0.02em;
 }
 .mock-sidebar-head svg {
-	width: 15px;
-	height: 15px;
+	width: 18px;
+	height: 18px;
 	color: var(--accent);
 	flex-shrink: 0;
 }
