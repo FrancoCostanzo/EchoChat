@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Button, Tabs, Tooltip } from '@heroui/react';
 import {
@@ -18,6 +18,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useCallStore } from '@/stores/callStore';
 import UserAvatar from '@/components/UserAvatar';
 import { formatFullTime } from '@/lib/dates';
+import { listItemEntry, PANEL_FADE } from '@/lib/motion';
 
 function formatDuration(secs) {
   if (!secs || secs <= 0) return null;
@@ -129,6 +130,7 @@ function CallRow({ call, selfId, onOpen, onCallAgain, t }) {
 export default function CallsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const reducedMotion = useReducedMotion();
   const self = useAuthStore((s) => s.user);
   const startCall = useCallStore((s) => s.startCall);
   const callStatus = useCallStore((s) => s.status);
@@ -194,24 +196,31 @@ export default function CallsPage() {
         </Tabs>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
-        {loading ? (
-          <CallSkeleton />
-        ) : calls.length === 0 ? (
-          <CallsEmptyState tab={tab} t={t} />
-        ) : (
-          calls.map((call) => (
-            <CallRow
-              key={call.id}
-              call={call}
-              selfId={self?.id}
-              onOpen={openConversation}
-              onCallAgain={callAgain}
-              t={t}
-            />
-          ))
-        )}
-      </div>
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={tab}
+          {...(reducedMotion ? {} : PANEL_FADE)}
+          className="flex-1 overflow-y-auto px-4 pb-4"
+        >
+          {loading ? (
+            <CallSkeleton />
+          ) : calls.length === 0 ? (
+            <CallsEmptyState tab={tab} t={t} />
+          ) : (
+            calls.map((call, i) => (
+              <motion.div key={call.id} {...listItemEntry(i, reducedMotion)}>
+                <CallRow
+                  call={call}
+                  selfId={self?.id}
+                  onOpen={openConversation}
+                  onCallAgain={callAgain}
+                  t={t}
+                />
+              </motion.div>
+            ))
+          )}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }

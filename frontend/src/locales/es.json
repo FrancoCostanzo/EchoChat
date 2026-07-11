@@ -31,6 +31,7 @@
     "success": "Sesión cerrada"
   },
   "auth": {
+    "tagline": "Donde tu equipo resuena",
     "loginTitle": "Iniciá sesión en tu cuenta",
     "twoFactorTitle": "Verificación en dos pasos",
     "totpPrompt": "Ingresá el código de tu aplicación de autenticación.",

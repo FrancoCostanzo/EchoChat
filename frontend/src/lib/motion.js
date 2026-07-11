@@ -15,3 +15,21 @@ export function msgEntryInitial(isOwn, shouldAnimate, reducedMotion) {
     ? { opacity: 0, y: 14, x: 10, scale: 0.94 }
     : { opacity: 0, y: 10, x: -8, scale: 0.97 };
 }
+
+/** Staggered list-item entrance (same pattern as the chat sidebar items). */
+export function listItemEntry(index, reducedMotion) {
+  if (reducedMotion) return {};
+  return {
+    initial: { opacity: 0, y: 8 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: 0.18, ease: EASE_OUT, delay: Math.min(index, 12) * 0.02 },
+  };
+}
+
+/** Fade + slight scale for empty states / tab panels. */
+export const PANEL_FADE = {
+  initial: { opacity: 0, y: 8 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -6 },
+  transition: { duration: 0.16, ease: EASE_OUT },
+};

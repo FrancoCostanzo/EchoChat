@@ -43,10 +43,13 @@ export function AuthBrandHeader({ subtitle }) {
 
   return (
     <div className="mb-8 flex flex-col items-center gap-3">
-      <AppLogo size="md" circular />
+      <AppLogo size="md" circular withGlow />
       <div className="text-center">
-        <h1 className="text-2xl font-bold">{t('common.appName')}</h1>
-        {subtitle ? <p className="mt-1 text-sm text-muted">{subtitle}</p> : null}
+        <h1 className="echo-display echo-grad-text text-3xl font-semibold">
+          {t('common.appName')}
+        </h1>
+        <p className="mt-0.5 text-xs tracking-wide text-muted">{t('auth.tagline')}</p>
+        {subtitle ? <p className="mt-3 text-sm font-medium text-foreground/85">{subtitle}</p> : null}
       </div>
     </div>
   );
