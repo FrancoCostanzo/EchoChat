@@ -312,6 +312,28 @@
       "markdown": "Markdown"
     }
   },
+  "sticker": {
+    "title": "Stickers e GIFs",
+    "gifs": "GIFs",
+    "stickers": "Stickers",
+    "myStickers": "Meus stickers",
+    "add": "Adicionar",
+    "empty": "Envie uma imagem para criar seu primeiro sticker",
+    "manage": "Editar",
+    "done": "Pronto",
+    "delete": "Excluir sticker",
+    "send": "Enviar sticker",
+    "notImage": "O arquivo deve ser uma imagem",
+    "tooBig": "O sticker excede 2 MB",
+    "uploadError": "Não foi possível enviar o sticker",
+    "searchGifs": "Buscar GIFs...",
+    "noResults": "Sem resultados",
+    "error": "Não foi possível carregar. Tente de novo.",
+    "gifKeyTitle": "GIFs não configurados",
+    "gifKeyHint": "Defina VITE_GIPHY_API_KEY com sua chave gratuita do Giphy para buscar GIFs. Os stickers funcionam sem chave.",
+    "previewGif": "GIF",
+    "previewSticker": "Sticker"
+  },
   "contacts": {
     "title": "Contatos",
     "contacts": "Contatos",

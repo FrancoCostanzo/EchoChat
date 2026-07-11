@@ -256,6 +256,19 @@
    Reusable utilities
    ────────────────────────────────────────────────────────── */
 @layer utilities {
+  /* ── Checkerboard — sits behind transparent stickers so their alpha edges
+     read clearly in both the picker grid and the message bubble ── */
+  .echo-checker {
+    background-color: color-mix(in oklch, var(--color-ink-900) 60%, transparent);
+    background-image:
+      linear-gradient(45deg, color-mix(in oklch, var(--color-ink-600) 45%, transparent) 25%, transparent 25%),
+      linear-gradient(-45deg, color-mix(in oklch, var(--color-ink-600) 45%, transparent) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, color-mix(in oklch, var(--color-ink-600) 45%, transparent) 75%),
+      linear-gradient(-45deg, transparent 75%, color-mix(in oklch, var(--color-ink-600) 45%, transparent) 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+  }
+
   /* ── Glass surfaces — translucent panels with blur + top highlight so the
      ambient backdrop bleeds through and surfaces feel layered ── */
   .echo-glass {
