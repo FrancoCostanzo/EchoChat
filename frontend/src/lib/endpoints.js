@@ -100,6 +100,9 @@ export const storageApi = {
   getById: (id) => api.get(`/storage/${id}`),
   getUrl: (id) => api.get(`/storage/${id}/url`),
   delete: (id) => api.delete(`/storage/${id}`),
+  // Custom stickers (personal collection, derived from uploaded sticker objects)
+  listStickers: () => api.get('/storage/stickers'),
+  deleteSticker: (id) => api.delete(`/storage/stickers/${id}`),
 };
 
 export const broadcastsApi = {

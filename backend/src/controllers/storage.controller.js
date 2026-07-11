@@ -27,6 +27,16 @@ class StorageController {
     res.json({ status: 'success', data: result });
   }
 
+  async listStickers(req, res) {
+    const data = await storageService.listUserStickers(req.user.id);
+    res.json({ status: 'success', data });
+  }
+
+  async deleteSticker(req, res) {
+    await storageService.deleteUserSticker(req.user.id, req.params.objectId);
+    res.json({ status: 'success', message: 'Sticker deleted' });
+  }
+
   async getById(req, res) {
     const obj = await storageService.getById(req.params.objectId);
     res.json({ status: 'success', data: obj });

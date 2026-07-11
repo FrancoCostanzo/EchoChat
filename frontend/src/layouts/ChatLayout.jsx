@@ -26,6 +26,8 @@ import {
   Phone,
   PhoneMissed,
   Video,
+  Sticker,
+  Clapperboard,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
@@ -97,6 +99,11 @@ function ConversationItem({ conversation, isActive, onClick, t, animIndex = 0, t
         ? Video
         : Phone
     : null;
+  // Stickers/GIFs have no text body — show an icon + label preview.
+  const stickerKind =
+    conversation.last_message_type === 'sticker'
+      ? conversation.last_message_metadata?.sticker?.kind || 'sticker'
+      : null;
   const lastMsg = conversation.last_message_body;
   const time = conversation.last_message_at;
   const unread = conversation.unread_count || 0;
@@ -188,6 +195,13 @@ function ConversationItem({ conversation, isActive, onClick, t, animIndex = 0, t
           >
             <CallIcon size={12} className="shrink-0" />
             <span className="truncate">{callLabel}</span>
+          </p>
+        ) : stickerKind ? (
+          <p className="flex items-center gap-1.5 text-xs text-ink-200">
+            {stickerKind === 'gif'
+              ? <Clapperboard size={12} className="shrink-0" />
+              : <Sticker size={12} className="shrink-0" />}
+            <span className="truncate">{t(stickerKind === 'gif' ? 'sticker.previewGif' : 'sticker.previewSticker')}</span>
           </p>
         ) : (
           lastMsg && <p className="truncate text-xs text-ink-200">{lastMsg}</p>

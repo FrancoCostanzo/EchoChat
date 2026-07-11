@@ -352,6 +352,7 @@ export const useChatStore = create((set, get) => ({
       body: data.type === 'media' ? null : (data.body || null),
       body_format: data.body_format || 'plain',
       type: data.type || 'text',
+      metadata: data.metadata || null,
       sent_at: new Date().toISOString(),
       is_edited: false,
       is_deleted: false,

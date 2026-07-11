@@ -3,7 +3,7 @@ const Joi = require('joi');
 const sendMessageDto = Joi.object({
   conversation_id: Joi.string().uuid().required(),
   type: Joi.string()
-    .valid('text', 'media', 'location', 'contact', 'poll', 'forwarded', 'code')
+    .valid('text', 'media', 'location', 'contact', 'poll', 'forwarded', 'code', 'sticker')
     .default('text'),
   body: Joi.when('type', {
     switch: [
