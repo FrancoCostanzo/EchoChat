@@ -1,0 +1,21 @@
+---
+interface Props {
+	src: string;
+	alt: string;
+	class?: string;
+	size?: number;
+}
+
+const { src, alt, class: className = '', size = 26 } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/+$/, '');
+---
+
+<img
+	src={`${base}${src}`}
+	alt={alt}
+	width={size}
+	height={size}
+	class:list={['mock-avatar-img', className]}
+	loading="lazy"
+	decoding="async"
+/>

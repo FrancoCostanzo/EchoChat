@@ -1,5 +1,6 @@
 ---
 import PortfolioLayout from '../layouts/PortfolioLayout.astro';
+import MockAvatar from '../components/MockAvatar.astro';
 import { type Lang, docsPaths, pagePaths, getStrings } from '../i18n/strings';
 
 interface Props {
@@ -26,7 +27,11 @@ cd EchoChat && cp .env.example .env
 docker compose up -d`;
 
 const chatScript = t.chatScript;
+const seedMessages = t.mockup.seedMessages;
 const typingTemplate = t.mockup.typingTemplate;
+const typingName = t.mockup.typingName;
+const avatars = t.mockup.avatars;
+const contactAvatar = `${base}${avatars.contact}`;
 const installCopy = t.install.copy;
 const installCopied = t.install.copied;
 ---
@@ -95,43 +100,43 @@ const installCopied = t.install.copied;
 								<p class="mock-section-label">{t.mockup.directs} <span>2</span></p>
 								<div class="mock-conv is-active">
 									<span class="mock-conv-bar"></span>
-									<span class="mock-avatar mock-avatar-fc">FC</span>
+									<MockAvatar src={avatars.contact} alt={t.mockup.contactName} />
 									<span class="mock-conv-body">
-										<span class="mock-conv-top"><b>Franco Costanzo</b><time>15:02</time></span>
-										<span class="mock-conv-preview">asdad</span>
+										<span class="mock-conv-top"><b>{t.mockup.contactName}</b><time>15:00</time></span>
+										<span class="mock-conv-preview">{t.mockup.previewActive}</span>
 									</span>
 								</div>
 								<div class="mock-conv">
-									<span class="mock-avatar mock-avatar-ct">CT</span>
+									<MockAvatar src={avatars.contact2} alt={t.mockup.contact2Name} />
 									<span class="mock-conv-body">
-										<span class="mock-conv-top"><b>Claude Test</b><time>14:58</time></span>
+										<span class="mock-conv-top"><b>{t.mockup.contact2Name}</b><time>14:58</time></span>
 										<span class="mock-conv-preview">{t.mockup.preview1}</span>
 									</span>
 								</div>
 								<p class="mock-section-label">{t.mockup.groups} <span>2</span></p>
 								<div class="mock-conv">
 									<span class="mock-avatar mock-avatar-grp">G</span>
-									<span class="mock-conv-body"><span class="mock-conv-top"><b>Equipo dev</b></span></span>
+									<span class="mock-conv-body"><span class="mock-conv-top"><b>{t.mockup.groupDev}</b></span></span>
 								</div>
 								<p class="mock-section-label">{t.mockup.channels} <span>1</span></p>
 								<div class="mock-conv">
 									<span class="mock-avatar mock-avatar-ch">#</span>
-									<span class="mock-conv-body"><span class="mock-conv-top"><b>general</b></span></span>
+									<span class="mock-conv-body"><span class="mock-conv-top"><b>{t.mockup.channelGeneral}</b></span></span>
 								</div>
 							</div>
 							<div class="mock-user-panel">
-								<span class="mock-avatar mock-avatar-me">TU</span>
-								<span class="mock-user-meta"><b>test usuario</b><small>@test</small></span>
+								<MockAvatar src={avatars.me} alt={t.mockup.userDisplay} />
+								<span class="mock-user-meta"><b>{t.mockup.userDisplay}</b><small>{t.mockup.userHandle}</small></span>
 								<span class="mock-user-cog">⚙</span>
 							</div>
 						</aside>
 
 						<div class="mockup-chat">
 							<div class="mock-chat-head">
-								<span class="mock-avatar mock-avatar-fc">FC</span>
+								<MockAvatar src={avatars.contact} alt={t.mockup.contactName} />
 								<span class="mock-chat-title">
-									<b>Franco Costanzo</b>
-									<small>{t.mockup.away}</small>
+									<b>{t.mockup.contactName}</b>
+									<small><span class="mock-presence-dot mock-presence-away"></span>{t.mockup.away}</small>
 								</span>
 								<span class="mock-chat-actions">
 									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
@@ -140,20 +145,37 @@ const installCopied = t.install.copied;
 							</div>
 							<div class="chat-body" id="mock-body">
 								<div class="mock-day-sep"><span>{t.mockup.today}</span></div>
-								<div class="mkmsg">
-									<span class="avatar avatar-fc">FC</span>
-									<div class="msg-col">
-										<div class="meta"><b>Franco Costanzo</b><time>15:00</time></div>
-										<div class="bubble">asdasd</div>
-									</div>
-								</div>
-								<div class="mkmsg is-me">
-									<div class="msg-col">
-										<div class="bubble">asdad</div>
-									</div>
-								</div>
+								{
+									seedMessages.map((m) => (
+										<div class:list={['mkmsg', { 'is-me': m.who === 'me' }]}>
+											{m.who !== 'me' && (
+												<MockAvatar src={avatars.contact} alt={m.name ?? t.mockup.contactName} />
+											)}
+											<div class="msg-col">
+												{m.who !== 'me' && (
+													<div class="meta">
+														<b>{m.name}</b>
+														<time>{m.time}</time>
+													</div>
+												)}
+												<div class="bubble">{m.text}</div>
+												{m.who === 'me' && (
+													<span class="mkmsg-foot">
+														<time>{m.time}</time>
+														<span class="mkmsg-status" aria-hidden="true">
+															<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+															<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+														</span>
+													</span>
+												)}
+											</div>
+										</div>
+									))
+								}
 								<div class="mock-call-row">
-									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+									<span class="mock-call-icon">
+										<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+									</span>
 									<span>{t.mockup.voiceCall}</span>
 								</div>
 							</div>
@@ -384,38 +406,45 @@ const installCopied = t.install.copied;
 		</div>
 	</section>
 
-	<script is:inline define:vars={{ chatScript, typingTemplate, installCopy, installCopied }}>
+	<script is:inline define:vars={{ chatScript, typingTemplate, typingName, contactAvatar, installCopy, installCopied }}>
 		(() => {
 			const body = document.getElementById('mock-body');
 			const typing = document.getElementById('mock-typing');
-			const typingName = document.getElementById('mock-typing-name');
+			const typingNameEl = document.getElementById('mock-typing-name');
 			if (!body || !typing) return;
 			if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
 			const script = chatScript;
 			let i = 0;
 
+			const statusHtml =
+				'<span class="mkmsg-foot"><time></time><span class="mkmsg-status" aria-hidden="true">' +
+				'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' +
+				'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' +
+				'</span></span>';
+
 			const addMsg = (m) => {
 				const el = document.createElement('div');
 				el.className = 'mkmsg' + (m.who === 'me' ? ' is-me' : '');
 				if (m.who === 'me') {
 					el.innerHTML =
-						`<div class="msg-col"><div class="bubble">${m.text}</div></div>`;
+						`<div class="msg-col"><div class="bubble">${m.text}</div>${statusHtml}</div>`;
+					el.querySelector('.mkmsg-foot time').textContent = m.time;
 				} else {
 					el.innerHTML =
-						`<span class="avatar avatar-fc">FC</span>` +
+						`<img src="${contactAvatar}" alt="" width="26" height="26" class="mock-avatar-img" loading="lazy" decoding="async" />` +
 						`<div class="msg-col"><div class="meta"><b>${m.name}</b><time>${m.time}</time></div>` +
 						`<div class="bubble">${m.text}</div></div>`;
 				}
 				body.appendChild(el);
-				while (body.children.length > 8) body.removeChild(body.firstElementChild);
+				while (body.children.length > 9) body.removeChild(body.firstElementChild);
 			};
 
 			const cycle = () => {
 				const m = script[i % script.length];
 				i++;
 				if (m.who !== 'me') {
-					typingName.textContent = typingTemplate.replace('{name}', m.name.split(' ')[0]);
+					typingNameEl.textContent = typingTemplate.replace('{name}', typingName);
 					typing.classList.add('is-on');
 				}
 				setTimeout(() => {
