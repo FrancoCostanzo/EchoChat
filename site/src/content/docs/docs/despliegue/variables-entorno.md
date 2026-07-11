@@ -107,6 +107,16 @@ requiere variables `VITE_*` para funcionar localmente. En producción con Docker
 frontend se sirve mediante Nginx, que enruta `/api` y `/socket.io` al backend sin
 necesidad de configuración adicional en el cliente.
 
+La única excepción es la pestaña de GIFs del selector de stickers (ver
+[Emojis, stickers y GIFs](/docs/uso/stickers-y-gifs)), opcional:
+
+| Variable | Default | Descripción |
+|----------|---------|--------------|
+| `VITE_GIPHY_API_KEY` | *(sin definir)* | Clave gratuita de [Giphy](https://developers.giphy.com). Sin ella, la pestaña de GIFs muestra un aviso para configurarla; los stickers personalizados funcionan igual. |
+| `VITE_GIPHY_RATING` | `pg-13` | Clasificación máxima del contenido: `g`, `pg`, `pg-13`, `r`. |
+
+Es una clave de **cliente** (no secreta): queda visible en el bundle del navegador.
+
 ## Ejemplos por escenario
 
 **Desarrollo local (`backend/.env`):**

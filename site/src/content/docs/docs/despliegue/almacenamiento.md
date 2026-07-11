@@ -16,7 +16,7 @@ EchoChat organiza los archivos en buckets separados por tipo:
 | `messaging-documents` | Documentos (PDF, DOC, etc.) |
 | `messaging-thumbnails` | Miniaturas auto-generadas (planificado, ver [Estado del proyecto](/docs/estado)) |
 | `messaging-recordings` | Grabaciones de llamadas |
-| `messaging-stickers` | Paquetes de stickers |
+| `messaging-stickers` | Stickers personalizados subidos por cada usuario |
 
 ## Creación automática de buckets
 
@@ -55,7 +55,15 @@ público del servidor; en desarrollo, `localhost`. Si no se configura, se usa
 ## Límites y políticas
 
 - Subida de avatar: máximo 5 MB, formatos `jpeg`/`png`/`webp`/`gif`.
+- Subida de sticker personalizado: máximo 2 MB, solo imágenes (validado en el frontend).
 - Subida general de archivos (`/api/storage/upload`): máximo 500 MB, requiere el permiso
   `media.upload`.
 - No hay, todavía, deduplicación por hash, escaneo antivirus ni límites de cuota por
   usuario/departamento (ver [Estado del proyecto](/docs/estado)).
+
+## GIFs (Giphy)
+
+Los GIFs enviados desde el selector de stickers/GIFs (ver
+[Emojis, stickers y GIFs](/docs/uso/stickers-y-gifs)) **no se suben a MinIO**: el mensaje
+solo referencia la URL del CDN de Giphy. Requieren `VITE_GIPHY_API_KEY` configurada en el
+frontend (ver [Variables de entorno](/docs/despliegue/variables-entorno)).

@@ -9,9 +9,11 @@ Panorama de todas las funciones de EchoChat, con enlace a la guía de cada una.
 
 Mensajes directos y grupales, edición con historial, reacciones, respuestas en hilo,
 reenvío, mensajes fijados y guardados, borradores auto-guardados, búsqueda full-text,
-recibos de lectura/entrega e indicadores de escritura en tiempo real.
+recibos de lectura/entrega e indicadores de escritura en tiempo real. Selector de emojis
+completo, stickers personalizados por usuario y GIFs vía Giphy.
 
-Ver [Mensajería](/docs/uso/mensajeria) y [Formato enriquecido](/docs/uso/formato).
+Ver [Mensajería](/docs/uso/mensajeria), [Formato enriquecido](/docs/uso/formato) y
+[Emojis, stickers y GIFs](/docs/uso/stickers-y-gifs).
 
 ## Llamadas
 

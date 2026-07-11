@@ -52,7 +52,8 @@ Un job en el backend (`presence-timeout`, cada minuto) pasa a `away` a los usuar
 ## Mensajes y recibos
 
 Un **mensaje** (`messages`) pertenece a una conversación y tiene un `type`: `text`,
-`media`, `code`, `poll`, `forwarded`, `system`, entre otros. Cada mensaje puede tener:
+`media`, `code`, `poll`, `sticker`, `forwarded`, `system`, entre otros. Cada mensaje
+puede tener:
 
 - **Ediciones** con historial (`message_edits`).
 - **Reacciones** con emoji (`message_reactions`).

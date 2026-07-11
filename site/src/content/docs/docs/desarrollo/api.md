@@ -92,6 +92,8 @@ description: Referencia de endpoints HTTP por módulo bajo /api.
 | Método | Ruta | Permiso |
 |--------|------|---------|
 | `POST` | `/upload`, `/upload-url` | `media.upload` |
+| `GET` | `/stickers` | Autenticado (colección propia) |
+| `DELETE` | `/stickers/:objectId` | Autenticado (solo dueño) |
 | `GET` | `/:objectId`, `/:objectId/url` | Autenticado |
 | `DELETE` | `/:objectId` | Autenticado |
 

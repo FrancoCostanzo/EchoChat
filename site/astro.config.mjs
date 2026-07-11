@@ -89,6 +89,7 @@ export default defineConfig({
 						{ label: 'Primeros pasos', slug: 'docs/uso/primeros-pasos' },
 						{ label: 'Mensajería', slug: 'docs/uso/mensajeria' },
 						{ label: 'Formato enriquecido', slug: 'docs/uso/formato' },
+						{ label: 'Emojis, stickers y GIFs', slug: 'docs/uso/stickers-y-gifs' },
 						{ label: 'Encuestas', slug: 'docs/uso/encuestas' },
 						{ label: 'Llamadas de voz y video', slug: 'docs/llamadas' },
 						{ label: 'Canales', slug: 'docs/uso/canales' },
