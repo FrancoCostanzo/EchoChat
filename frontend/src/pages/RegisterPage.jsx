@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Card, InputGroup, TextField, Label, FieldError, Description, Button, Spinner } from '@heroui/react';
 import { Eye, EyeOff, AlertCircle, Check, X, Lock } from 'lucide-react';
-import { AuthBrandHeader } from '@/components/AppLogo';
+import AuthLayout from '@/layouts/AuthLayout';
+import { EASE_OUT } from '@/lib/motion';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
 import { authApi } from '@/lib/endpoints';
@@ -150,40 +151,52 @@ export default function RegisterPage() {
 
   if (regAllowed === false) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <div className="w-full max-w-sm">
-          <AuthBrandHeader />
-          <Card className="shadow-xl">
-            <Card.Content className="flex flex-col items-center gap-4 p-8 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-default text-muted">
-                <Lock size={22} />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold">{t('auth.registrationDisabledTitle')}</h2>
-                <p className="mt-1 text-sm text-muted">{t('auth.registrationDisabled')}</p>
-              </div>
-              <Button onPress={() => navigate('/login')} className="w-full">{t('auth.goLogin')}</Button>
-            </Card.Content>
-          </Card>
-        </div>
-      </div>
+      <AuthLayout>
+        <Card className="echo-glass-strong">
+          <Card.Content className="flex flex-col items-center gap-4 p-8 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-default text-muted">
+              <Lock size={22} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold">{t('auth.registrationDisabledTitle')}</h2>
+              <p className="mt-1 text-sm text-muted">{t('auth.registrationDisabled')}</p>
+            </div>
+            <Button onPress={() => navigate('/login')} className="w-full">{t('auth.goLogin')}</Button>
+          </Card.Content>
+        </Card>
+      </AuthLayout>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <div className="w-full max-w-sm">
-        <AuthBrandHeader subtitle={t('auth.registerTitle')} />
-
-        <Card className="shadow-xl">
-          <Card.Content className="p-6">
+    <AuthLayout
+      subtitle={t('auth.registerTitle')}
+      footer={
+        <p className="mt-6 text-center text-sm text-muted">
+          {t('auth.hasAccount')}{' '}
+          <Link to="/login" className="font-medium text-accent hover:underline">
+            {t('auth.goLogin')}
+          </Link>
+        </p>
+      }
+    >
+      <Card className="echo-glass-strong">
+        <Card.Content className="p-6">
             <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-              {serverError && (
-                <div className="flex items-center gap-2 rounded-lg border border-danger-soft-hover bg-danger-soft px-3 py-2.5 text-sm text-danger">
-                  <AlertCircle size={16} className="shrink-0" />
-                  {serverError}
-                </div>
-              )}
+              <AnimatePresence initial={false}>
+                {serverError && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.18, ease: EASE_OUT }}
+                    className="flex items-center gap-2 rounded-lg border border-danger-soft-hover bg-danger-soft px-3 py-2.5 text-sm text-danger"
+                  >
+                    <AlertCircle size={16} className="shrink-0" />
+                    {serverError}
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Username */}
               <TextField fullWidth isRequired isInvalid={touched.username && !!errors.username}>
@@ -330,16 +343,8 @@ export default function RegisterPage() {
                 </Button>
               </motion.div>
             </form>
-          </Card.Content>
-        </Card>
-
-        <p className="mt-6 text-center text-sm text-muted">
-          {t('auth.hasAccount')}{' '}
-          <Link to="/login" className="font-medium text-accent hover:underline">
-            {t('auth.goLogin')}
-          </Link>
-        </p>
-      </div>
-    </div>
+        </Card.Content>
+      </Card>
+    </AuthLayout>
   );
 }

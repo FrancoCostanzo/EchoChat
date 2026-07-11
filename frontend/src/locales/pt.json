@@ -31,6 +31,7 @@
     "success": "Sessão encerrada"
   },
   "auth": {
+    "tagline": "Onde a sua equipe ressoa",
     "loginTitle": "Entre na sua conta",
     "registerTitle": "Crie sua conta",
     "username": "Usuário",

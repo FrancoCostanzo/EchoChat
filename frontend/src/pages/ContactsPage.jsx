@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Input, Button, Tabs, Spinner, Tooltip } from '@heroui/react';
 import {
   Search,
@@ -17,6 +18,7 @@ import { relationshipsApi, usersApi } from '@/lib/endpoints';
 import { useChatStore } from '@/stores/chatStore';
 import UserAvatar from '@/components/UserAvatar';
 import NotFoundIcon from '@/components/NotFoundIcon';
+import { listItemEntry, PANEL_FADE } from '@/lib/motion';
 
 function ContactCard({ user, type, onRemove, onToggleFavorite, onMessage, messaging }) {
   const { t } = useTranslation();
@@ -95,6 +97,7 @@ function ContactSkeleton() {
 export default function ContactsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const reducedMotion = useReducedMotion();
   const createConversation = useChatStore((s) => s.createConversation);
   const [tab, setTab] = useState('contacts');
   const [contacts, setContacts] = useState([]);
@@ -222,79 +225,97 @@ export default function ContactsPage() {
         </Tabs>
       </div>
 
-      {tab === 'add' ? (
-        <div className="flex flex-1 flex-col px-4">
-          <div className="relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-            <Input
-              placeholder={t('contacts.searchToAdd')}
-              className="pl-9"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              autoFocus
-            />
-          </div>
-          <div className="mt-2 flex-1 overflow-y-auto">
-            {searching && (
-              <div className="flex justify-center py-4">
-                <Spinner size="sm" />
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={tab}
+          {...(reducedMotion ? {} : PANEL_FADE)}
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          {tab === 'add' ? (
+            <div className="flex flex-1 flex-col px-4">
+              <div className="relative">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
+                <Input
+                  placeholder={t('contacts.searchToAdd')}
+                  className="pl-9"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  autoFocus
+                />
               </div>
-            )}
-            {searchResults.map((u) => (
-              <div key={u.id} className="flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-ink-750">
-                <UserAvatar user={u} size="sm" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{u.display_name}</p>
-                  <p className="truncate text-xs text-muted">@{u.username}</p>
-                </div>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onPress={() => addContact(u)}
-                >
-                  <UserPlus size={14} />
-                  {t('contacts.add')}
-                </Button>
+              <div className="mt-2 flex-1 overflow-y-auto">
+                {searching && (
+                  <div className="flex justify-center py-4">
+                    <Spinner size="sm" />
+                  </div>
+                )}
+                {searchResults.map((u, i) => (
+                  <motion.div
+                    key={u.id}
+                    {...listItemEntry(i, reducedMotion)}
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-ink-750"
+                  >
+                    <UserAvatar user={u} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{u.display_name}</p>
+                      <p className="truncate text-xs text-muted">@{u.username}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onPress={() => addContact(u)}
+                    >
+                      <UserPlus size={14} />
+                      {t('contacts.add')}
+                    </Button>
+                  </motion.div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="flex-1 overflow-y-auto px-4">
-          {loading ? (
-            <ContactSkeleton />
-          ) : getList().length === 0 ? (
-            <div className="flex flex-col items-center">
-              <NotFoundIcon
-                icon={tab === 'blocked' ? Ban : Users}
-                title={
-                  tab === 'contacts' ? t('contacts.noContacts') :
-                  tab === 'favorites' ? t('contacts.noFavorites') :
-                  t('contacts.noBlocked')
-                }
-              />
-              {tab === 'contacts' && (
-                <Button size="sm" variant="secondary" onPress={() => setTab('add')}>
-                  <UserPlus size={14} />
-                  {t('contacts.add')}
-                </Button>
-              )}
             </div>
           ) : (
-            getList().map((u) => (
-              <ContactCard
-                key={u.id}
-                user={{ ...u, is_favorite: favorites.some((f) => targetIdOf(f) === targetIdOf(u)) }}
-                type={tab === 'blocked' ? 'blocked' : 'contact'}
-                onRemove={tab === 'blocked' ? unblock : removeContact}
-                onToggleFavorite={toggleFavorite}
-                onMessage={messageContact}
-                messaging={messagingId === u.id}
-              />
-            ))
+            <div className="flex-1 overflow-y-auto px-4">
+              {loading ? (
+                <ContactSkeleton />
+              ) : getList().length === 0 ? (
+                <motion.div
+                  initial={reducedMotion ? false : { opacity: 0, scale: 0.96 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.22 }}
+                  className="flex flex-col items-center"
+                >
+                  <NotFoundIcon
+                    icon={tab === 'blocked' ? Ban : Users}
+                    title={
+                      tab === 'contacts' ? t('contacts.noContacts') :
+                      tab === 'favorites' ? t('contacts.noFavorites') :
+                      t('contacts.noBlocked')
+                    }
+                  />
+                  {tab === 'contacts' && (
+                    <Button size="sm" variant="secondary" onPress={() => setTab('add')}>
+                      <UserPlus size={14} />
+                      {t('contacts.add')}
+                    </Button>
+                  )}
+                </motion.div>
+              ) : (
+                getList().map((u, i) => (
+                  <motion.div key={u.id} {...listItemEntry(i, reducedMotion)}>
+                    <ContactCard
+                      user={{ ...u, is_favorite: favorites.some((f) => targetIdOf(f) === targetIdOf(u)) }}
+                      type={tab === 'blocked' ? 'blocked' : 'contact'}
+                      onRemove={tab === 'blocked' ? unblock : removeContact}
+                      onToggleFavorite={toggleFavorite}
+                      onMessage={messageContact}
+                      messaging={messagingId === u.id}
+                    />
+                  </motion.div>
+                ))
+              )}
+            </div>
           )}
-        </div>
-      )}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }

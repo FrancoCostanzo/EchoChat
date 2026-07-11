@@ -196,39 +196,43 @@ function FilePickerMenu({ onPick, onPoll, onCode, disabled, uploading }) {
     };
   }, [open]);
 
-  const menu = open && createPortal(
+  // The portal must stay mounted while AnimatePresence runs the exit animation;
+  // the `open` conditional lives inside it so closing doesn't unmount abruptly.
+  const menu = createPortal(
     <AnimatePresence>
-      <motion.div
-        ref={menuRef}
-        initial={{ opacity: 0, scale: 0.96 }}
-        animate={{ opacity: menuPos ? 1 : 0, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.97 }}
-        transition={{ duration: 0.18, ease: 'easeOut' }}
-        style={{
-          position: 'fixed',
-          left: menuPos?.left ?? -9999,
-          top: menuPos?.top ?? -9999,
-          visibility: menuPos ? 'visible' : 'hidden',
-          zIndex: 9999,
-        }}
-        className="min-w-48 overflow-hidden rounded-lg border border-ink-400/40 bg-ink-850 shadow-xl"
-      >
-        {MENU_ITEMS.map(({ icon: Icon, label, ref, action }) => (
-          <Button
-            key={label}
-            variant="ghost"
-            onPress={() => {
-              setOpen(false);
-              if (action) action();
-              else pick(ref);
-            }}
-            className="flex h-auto w-full items-center justify-start gap-3 rounded-none px-3 py-2 text-[14px] text-ink-50 transition-colors hover:bg-accent hover:text-accent-foreground"
-          >
-            <Icon size={16} className="shrink-0" />
-            {label}
-          </Button>
-        ))}
-      </motion.div>
+      {open && (
+        <motion.div
+          ref={menuRef}
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: menuPos ? 1 : 0, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.97 }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
+          style={{
+            position: 'fixed',
+            left: menuPos?.left ?? -9999,
+            top: menuPos?.top ?? -9999,
+            visibility: menuPos ? 'visible' : 'hidden',
+            zIndex: 9999,
+          }}
+          className="min-w-48 overflow-hidden rounded-lg border border-ink-400/40 bg-ink-850 shadow-xl"
+        >
+          {MENU_ITEMS.map(({ icon: Icon, label, ref, action }) => (
+            <Button
+              key={label}
+              variant="ghost"
+              onPress={() => {
+                setOpen(false);
+                if (action) action();
+                else pick(ref);
+              }}
+              className="flex h-auto w-full items-center justify-start gap-3 rounded-none px-3 py-2 text-[14px] text-ink-50 transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              <Icon size={16} className="shrink-0" />
+              {label}
+            </Button>
+          ))}
+        </motion.div>
+      )}
     </AnimatePresence>,
     document.body,
   );
@@ -834,6 +838,7 @@ function MessageContextMenu({ pos, onClose, quickEmojis, onEmoji, items }) {
         ref={ref}
         initial={{ opacity: 0, scale: 0.92, y: 6 }}
         animate={{ opacity: coords.ready ? 1 : 0, scale: coords.ready ? 1 : 0.92, y: coords.ready ? 0 : 6 }}
+        exit={{ opacity: 0, scale: 0.95, y: 4, transition: { duration: 0.12, ease: 'easeIn' } }}
         transition={SPRING_BOUNCY}
         style={{ left: coords.left, top: coords.top, transformOrigin: 'top left' }}
         className="echo-glass-strong pointer-events-auto fixed z-80 w-56 overflow-hidden rounded-2xl p-1.5"
@@ -2802,15 +2807,17 @@ export default function ConversationPage() {
         </AnimatePresence>
 
         {/* ── Message context menu (single instance per conversation) ── */}
-        {contextMenu && contextMenuMessage && (
-          <MessageContextMenu
-            pos={contextMenu}
-            onClose={handleCloseContextMenu}
-            quickEmojis={QUICK_EMOJIS}
-            onEmoji={(em) => { handleCloseContextMenu(); handleReact(contextMenuMessage.id, em); }}
-            items={contextMenuItems}
-          />
-        )}
+        <AnimatePresence>
+          {contextMenu && contextMenuMessage && (
+            <MessageContextMenu
+              pos={contextMenu}
+              onClose={handleCloseContextMenu}
+              quickEmojis={QUICK_EMOJIS}
+              onEmoji={(em) => { handleCloseContextMenu(); handleReact(contextMenuMessage.id, em); }}
+              items={contextMenuItems}
+            />
+          )}
+        </AnimatePresence>
       </div>
     </>
   );

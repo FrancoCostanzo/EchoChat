@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Button, Input, Tabs, Spinner, Modal, Card, InputGroup } from '@heroui/react';
 import {
   Compass,
@@ -16,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { channelsApi } from '@/lib/endpoints';
 import { useChatStore } from '@/stores/chatStore';
 import UserAvatar from '@/components/UserAvatar';
+import { listItemEntry } from '@/lib/motion';
 
 const CATEGORIES = ['all', 'announcements', 'department', 'project', 'general'];
 const MANAGE_ROLES = ['owner', 'admin', 'moderator'];
@@ -64,7 +66,7 @@ function ChannelCard({ channel, t, onJoin, onRequest, onManage, onOpen, busy }) 
   };
 
   return (
-    <Card className="flex flex-col gap-3 p-4 transition-colors hover:border-accent/40">
+    <Card className="flex w-full flex-col gap-3 p-4 transition-colors hover:border-accent/40">
       <div className="flex items-start gap-3">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-ink-700 text-ink-100">
           <Hash size={20} strokeWidth={2.5} />
@@ -110,6 +112,7 @@ function ChannelCard({ channel, t, onJoin, onRequest, onManage, onOpen, busy }) 
 export default function ChannelsExplorePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const reducedMotion = useReducedMotion();
   const fetchConversations = useChatStore((s) => s.fetchConversations);
   const setActiveConversation = useChatStore((s) => s.setActiveConversation);
 
@@ -274,23 +277,29 @@ export default function ChannelsExplorePage() {
             ))}
           </div>
         ) : channels.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-16 text-ink-200">
+          <motion.div
+            initial={reducedMotion ? false : { opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.22 }}
+            className="flex flex-col items-center gap-2 py-16 text-ink-200"
+          >
             <Compass size={32} className="opacity-50" />
             <p className="text-sm">{t('channels.empty')}</p>
-          </div>
+          </motion.div>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {channels.map((channel) => (
-              <ChannelCard
-                key={channel.id}
-                channel={channel}
-                t={t}
-                busy={joiningId === channel.id}
-                onJoin={handleJoin}
-                onOpen={handleOpen}
-                onRequest={(c) => { setRequestModal(c); setRequestMessage(''); }}
-                onManage={openRequests}
-              />
+            {channels.map((channel, i) => (
+              <motion.div key={channel.id} {...listItemEntry(i, reducedMotion)} className="flex">
+                <ChannelCard
+                  channel={channel}
+                  t={t}
+                  busy={joiningId === channel.id}
+                  onJoin={handleJoin}
+                  onOpen={handleOpen}
+                  onRequest={(c) => { setRequestModal(c); setRequestMessage(''); }}
+                  onManage={openRequests}
+                />
+              </motion.div>
             ))}
           </div>
         )}

@@ -482,20 +482,29 @@ function SettingsSidebar() {
           {t('settings.title')}
         </p>
         {SETTINGS_NAV.map(({ id, icon: Icon }) => (
-          <Button
-            key={id}
-            variant="ghost"
-            onPress={() => navigate(`/settings/${id}`)}
-            className={[
-              'flex h-auto w-full items-center justify-start gap-3 rounded-lg px-3 py-2 text-[14px] font-medium transition-colors',
-              activeTab === id
-                ? 'echo-grad-brand-soft echo-ring-soft text-foreground'
-                : 'text-ink-100 hover:bg-ink-750 hover:text-foreground',
-            ].join(' ')}
-          >
-            <Icon size={15} />
-            {t(`settings.tabs.${id}`)}
-          </Button>
+          <div key={id} className="relative">
+            {/* Active bar glides between rows (same pattern as ConversationItem) */}
+            {activeTab === id && (
+              <motion.span
+                layoutId="settings-active-bar"
+                transition={{ type: 'spring', stiffness: 480, damping: 36 }}
+                className="absolute -left-2 top-1/2 -mt-3 h-6 w-1 rounded-r-full bg-accent"
+              />
+            )}
+            <Button
+              variant="ghost"
+              onPress={() => navigate(`/settings/${id}`)}
+              className={[
+                'flex h-auto w-full items-center justify-start gap-3 rounded-lg px-3 py-2 text-[14px] font-medium transition-colors',
+                activeTab === id
+                  ? 'echo-grad-brand-soft echo-ring-soft text-foreground'
+                  : 'text-ink-100 hover:bg-ink-750 hover:text-foreground',
+              ].join(' ')}
+            >
+              <Icon size={15} />
+              {t(`settings.tabs.${id}`)}
+            </Button>
+          </div>
         ))}
       </nav>
 
@@ -558,20 +567,28 @@ function AdminSidebar() {
           {t('admin.sections.label', 'Secciones')}
         </p>
         {visibleNav.map(({ id, icon: Icon }) => (
-          <Button
-            key={id}
-            variant="ghost"
-            onPress={() => navigate(`/admin/${id}`)}
-            className={[
-              'flex h-auto w-full items-center justify-start gap-3 rounded-lg px-3 py-2 text-[14px] font-medium transition-colors',
-              activeSection === id
-                ? 'echo-grad-brand-soft echo-ring-soft text-foreground'
-                : 'text-ink-100 hover:bg-ink-750 hover:text-foreground',
-            ].join(' ')}
-          >
-            <Icon size={15} />
-            {t(`admin.sections.${id}`)}
-          </Button>
+          <div key={id} className="relative">
+            {activeSection === id && (
+              <motion.span
+                layoutId="admin-active-bar"
+                transition={{ type: 'spring', stiffness: 480, damping: 36 }}
+                className="absolute -left-2 top-1/2 -mt-3 h-6 w-1 rounded-r-full bg-accent"
+              />
+            )}
+            <Button
+              variant="ghost"
+              onPress={() => navigate(`/admin/${id}`)}
+              className={[
+                'flex h-auto w-full items-center justify-start gap-3 rounded-lg px-3 py-2 text-[14px] font-medium transition-colors',
+                activeSection === id
+                  ? 'echo-grad-brand-soft echo-ring-soft text-foreground'
+                  : 'text-ink-100 hover:bg-ink-750 hover:text-foreground',
+              ].join(' ')}
+            >
+              <Icon size={15} />
+              {t(`admin.sections.${id}`)}
+            </Button>
+          </div>
         ))}
       </nav>
 
@@ -667,7 +684,7 @@ export default function ChatLayout() {
         radius="lg"
         inset="md"
         className={[
-          isContentRoute ? 'hidden lg:flex' : 'flex flex-1 lg:flex-none',
+          isContentRoute ? 'hidden lg:flex' : 'echo-mobile-pane flex flex-1 lg:flex-none',
           'transition-[width,opacity,margin] duration-200 ease-[var(--ease-echo)]',
           sidebarOpen ? 'lg:w-72 lg:min-w-[220px] lg:opacity-100' : 'lg:w-0 lg:min-w-0 lg:overflow-hidden lg:border-0 lg:!m-0 lg:opacity-0 lg:shadow-none lg:pointer-events-none',
         ].join(' ')}
@@ -690,7 +707,7 @@ export default function ChatLayout() {
         radius="xl"
         inset="md"
         accentGlow
-        className={`${isOnChatIndex ? 'hidden lg:flex' : ''} echo-chat-bg min-w-0 flex-1 flex-col`}
+        className={`${isOnChatIndex ? 'hidden lg:flex' : 'echo-mobile-pane'} echo-chat-bg min-w-0 flex-1 flex-col`}
       >
         <motion.div
           key={contentKeyFor(pathname)}
