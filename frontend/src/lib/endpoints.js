@@ -137,6 +137,7 @@ export const adminApi = {
   listRoles: () => api.get('/admin/roles'),
   getLdapStatus: () => api.get('/admin/ldap/status'),
   syncLdap: () => api.post('/admin/ldap/sync'),
+  getIntegrations: () => api.get('/admin/integrations'),
   getSettings: () => api.get('/admin/settings'),
   updateSetting: (key, value) => api.put(`/admin/settings/${key}`, { value }),
   getAuditLog: (params) => api.get('/admin/audit', params),

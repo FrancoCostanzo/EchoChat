@@ -4,6 +4,7 @@ const logger = require('../config/logger');
 const { minioClient } = require('../config/minio');
 // Require directo (no vía ../services) para evitar dependencia circular.
 const ldapService = require('./ldap.service');
+const oidcService = require('./oidc.service');
 const {
   userRepository,
   credentialRepository,
@@ -212,6 +213,17 @@ class AdminService {
 
   getLdapStatus() {
     return ldapService.status();
+  }
+
+  // Estado agregado de las integraciones de identidad para el panel de admin.
+  getIntegrations() {
+    return {
+      ldap: ldapService.status(),
+      sso: {
+        enabled: oidcService.isEnabled(),
+        providers: oidcService.listProviders(),
+      },
+    };
   }
 
   // Compat: la importación manual desde el panel admin delega en el sync unificado.

@@ -64,6 +64,10 @@ class AdminController {
     res.json({ status: 'success', data: adminService.getLdapStatus() });
   }
 
+  async getIntegrations(req, res) {
+    res.json({ status: 'success', data: adminService.getIntegrations() });
+  }
+
   async syncLdap(req, res) {
     const summary = await adminService.importLdapUsers(
       req.user.id,

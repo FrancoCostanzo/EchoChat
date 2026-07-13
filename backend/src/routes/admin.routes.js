@@ -23,6 +23,9 @@ router.get('/roles', requirePermission('admin.users'), (req, res) => adminContro
 router.get('/ldap/status', requirePermission('admin.users'), (req, res) => adminController.getLdapStatus(req, res));
 router.post('/ldap/sync', requirePermission('admin.users'), (req, res) => adminController.syncLdap(req, res));
 
+// Integraciones — estado agregado (LDAP + SSO) para el panel de admin
+router.get('/integrations', requirePermission('admin.users'), (req, res) => adminController.getIntegrations(req, res));
+
 // 7.2 — System settings
 router.get('/settings', requirePermission('admin.settings'), (req, res) => adminController.getSettings(req, res));
 router.put('/settings/:key', requirePermission('admin.settings'), validate(adminUpdateSettingDto), (req, res) => adminController.updateSetting(req, res));

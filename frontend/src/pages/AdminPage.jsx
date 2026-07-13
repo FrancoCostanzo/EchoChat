@@ -38,6 +38,11 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  Plug,
+  Network,
+  CheckCircle2,
+  Circle,
+  ExternalLink,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { adminApi } from '@/lib/endpoints';
@@ -57,6 +62,16 @@ const STATUS_CHIP_COLOR = {
   active: 'success',
   inactive: 'default',
   suspended: 'danger',
+};
+
+// Origen de la cuenta → color de chip. 'local' cae al default; el resto son
+// proveedores externos de identidad (directorio / SSO / aprovisionamiento).
+const PROVIDER_CHIP = {
+  local: { color: 'default', key: 'local' },
+  ldap: { color: 'accent', key: 'ldap' },
+  oidc: { color: 'success', key: 'oidc' },
+  saml: { color: 'success', key: 'saml' },
+  scim: { color: 'warning', key: 'scim' },
 };
 
 // Storage processing_status values per DB CHECK: pending/processing/ready/failed.
@@ -110,6 +125,7 @@ function useAdminAccess() {
     const isSuper = roles.includes('super_admin');
     return {
       canUsers: isSuper || perms.includes('admin.users'),
+      canIntegrations: isSuper || perms.includes('admin.users'),
       canSettings: isSuper || perms.includes('admin.settings'),
       canAudit: isSuper || perms.includes('admin.view_audit'),
       canStorage: isSuper || perms.includes('admin.storage'),
@@ -149,9 +165,7 @@ function UsersTab({ t }) {
   const [form, setForm] = useState({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-  // LDAP import + registro
-  const [ldapEnabled, setLdapEnabled] = useState(false);
-  const [importing, setImporting] = useState(false);
+  // Toggle de auto-registro (la sincronización LDAP vive ahora en Integraciones)
   const [registrationAllowed, setRegistrationAllowed] = useState(true);
   const [togglingReg, setTogglingReg] = useState(false);
   // Reset de contraseña (solo usuarios locales)
@@ -200,21 +214,16 @@ function UsersTab({ t }) {
 
   useEffect(() => { load(); }, [load]);
 
-  // Estado de LDAP y del toggle de auto-registro (una vez).
+  // Estado del toggle de auto-registro (una vez).
   useEffect(() => {
     let alive = true;
-    (async () => {
-      try {
-        const [statusRes, settingsRes] = await Promise.all([
-          adminApi.getLdapStatus().catch(() => ({ data: { enabled: false } })),
-          adminApi.getSettings().catch(() => ({ data: [] })),
-        ]);
+    adminApi.getSettings()
+      .then((settingsRes) => {
         if (!alive) return;
-        setLdapEnabled(Boolean(statusRes.data?.enabled));
         const reg = (settingsRes.data || []).find((s) => s.key === 'allow_registration');
         if (reg) setRegistrationAllowed(reg.value !== false && reg.value !== 'false');
-      } catch { /* noop */ }
-    })();
+      })
+      .catch(() => { /* noop */ });
     return () => { alive = false; };
   }, []);
 
@@ -228,20 +237,6 @@ function UsersTab({ t }) {
       toast.danger(err.message);
     } finally {
       setTogglingReg(false);
-    }
-  };
-
-  const handleImportLdap = async () => {
-    setImporting(true);
-    try {
-      const res = await adminApi.syncLdap();
-      const { created = 0, updated = 0, failed = 0 } = res.data || {};
-      toast.success(t('admin.users.importResult', { created, updated, failed }));
-      await load();
-    } catch (err) {
-      toast.danger(err.message);
-    } finally {
-      setImporting(false);
     }
   };
 
@@ -353,11 +348,6 @@ function UsersTab({ t }) {
             ...USER_STATUSES.map((s) => ({ id: s, label: t(`admin.users.status.${s}`) })),
           ]}
         />
-        {ldapEnabled && (
-          <Button variant="secondary" className="gap-2" isPending={importing} onPress={handleImportLdap}>
-            <RefreshCw size={16} /> {t('admin.users.importLdap')}
-          </Button>
-        )}
         <Button className="gap-2" onPress={openCreate}>
           <Plus size={16} /> {t('admin.users.create')}
         </Button>
@@ -391,7 +381,8 @@ function UsersTab({ t }) {
               </Table.Header>
               <Table.Body>
                 {users.map((u) => {
-                  const isLdap = u.auth_provider === 'ldap';
+                  const provider = PROVIDER_CHIP[u.auth_provider] || PROVIDER_CHIP.local;
+                  const isLocal = u.auth_provider === 'local' || !u.auth_provider;
                   return (
                   <Table.Row key={u.id} id={u.id}>
                     <Table.Cell>
@@ -404,8 +395,8 @@ function UsersTab({ t }) {
                       </div>
                     </Table.Cell>
                     <Table.Cell>
-                      <Chip size="sm" variant="soft" color={isLdap ? 'accent' : 'default'}>
-                        {isLdap ? t('admin.users.ldap') : t('admin.users.local')}
+                      <Chip size="sm" variant="soft" color={provider.color}>
+                        {t(`admin.users.${provider.key}`, provider.key.toUpperCase())}
                       </Chip>
                     </Table.Cell>
                     <Table.Cell>
@@ -424,7 +415,7 @@ function UsersTab({ t }) {
                     <Table.Cell>
                       <div className="flex justify-end gap-1">
                         <Button size="sm" variant="secondary" onPress={() => openEdit(u)}>{t('admin.users.edit')}</Button>
-                        {!isLdap && (
+                        {isLocal && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -1147,8 +1138,199 @@ function MonitoringTab() {
   return <MonitoreoDashboard />;
 }
 
+/* ── Integraciones (LDAP + SSO) ── */
+// Documentación pública de integraciones (sitio de docs desplegado).
+const INTEGRATIONS_DOCS_URL = 'https://echochat.netlify.app/docs/admin/integraciones/';
+
+function StatusPill({ active, activeLabel, inactiveLabel }) {
+  return (
+    <Chip size="sm" variant="soft" color={active ? 'success' : 'default'} className="gap-1">
+      {active ? <CheckCircle2 size={12} /> : <Circle size={12} />}
+      {active ? activeLabel : inactiveLabel}
+    </Chip>
+  );
+}
+
+function IntegrationRow({ label, children }) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-white/5 py-2.5 last:border-0">
+      <span className="text-sm text-muted">{label}</span>
+      <div className="flex items-center gap-2 text-sm font-medium">{children}</div>
+    </div>
+  );
+}
+
+function OnOffChip({ on, t }) {
+  return (
+    <Chip size="sm" variant="soft" color={on ? 'accent' : 'default'}>
+      {on ? t('admin.integrations.ldap.on') : t('admin.integrations.ldap.off')}
+    </Chip>
+  );
+}
+
+function IntegrationCard({ icon: Icon, title, subtitle, statusPill, children }) {
+  return (
+    <Card className="echo-panel-solid flex flex-col gap-4 p-5">
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
+          <Icon size={20} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-semibold">{title}</h3>
+            {statusPill}
+          </div>
+          <p className="mt-0.5 text-xs text-muted">{subtitle}</p>
+        </div>
+      </div>
+      {children}
+    </Card>
+  );
+}
+
+function IntegrationsTab({ t }) {
+  const { canUsers } = useAdminAccess();
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    adminApi.getIntegrations()
+      .then((res) => { if (alive) setData(res.data); })
+      .catch((err) => { if (alive) toast.danger(err.message); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, []);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const res = await adminApi.syncLdap();
+      setSyncResult(res.data);
+      const { created = 0, updated = 0, disabled = 0, failed = 0 } = res.data || {};
+      toast.success(t('admin.integrations.ldap.syncResult', { created, updated, disabled, failed }));
+    } catch (err) {
+      toast.danger(err.message);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  if (loading) return <div className="flex justify-center py-12"><Spinner size="lg" /></div>;
+
+  const ldap = data?.ldap || {};
+  const sso = data?.sso || {};
+
+  return (
+    <div className="flex w-full flex-col gap-4">
+      <IntegrationCard
+        icon={Network}
+        title={t('admin.integrations.ldap.title')}
+        subtitle={t('admin.integrations.ldap.subtitle')}
+        statusPill={
+          <StatusPill
+            active={ldap.enabled}
+            activeLabel={t('admin.integrations.ldap.connected')}
+            inactiveLabel={t('admin.integrations.ldap.disabled')}
+          />
+        }
+      >
+        {ldap.enabled ? (
+          <>
+            <div className="rounded-xl bg-white/[0.03] px-4">
+              <IntegrationRow label={t('admin.integrations.ldap.baseDn')}>
+                <code className="max-w-[240px] truncate text-xs text-muted">{ldap.base_dn || '—'}</code>
+              </IntegrationRow>
+              <IntegrationRow label={t('admin.integrations.ldap.autoSync')}>
+                {ldap.sync_enabled && <code className="text-xs text-muted">{ldap.sync_cron}</code>}
+                <OnOffChip on={ldap.sync_enabled} t={t} />
+              </IntegrationRow>
+              <IntegrationRow label={t('admin.integrations.ldap.deprovision')}>
+                <OnOffChip on={ldap.deprovision} t={t} />
+              </IntegrationRow>
+              <IntegrationRow label={t('admin.integrations.ldap.syncRoles')}>
+                <OnOffChip on={ldap.sync_roles} t={t} />
+              </IntegrationRow>
+            </div>
+            {canUsers && (
+              <div className="flex flex-wrap items-center gap-3">
+                <Button variant="secondary" className="gap-2" isPending={syncing} onPress={handleSync}>
+                  <RefreshCw size={16} /> {t('admin.integrations.ldap.syncNow')}
+                </Button>
+                {syncResult && (
+                  <p className="text-xs text-muted">
+                    {t('admin.integrations.ldap.syncResult', {
+                      created: syncResult.created || 0,
+                      updated: syncResult.updated || 0,
+                      disabled: syncResult.disabled || 0,
+                      failed: syncResult.failed || 0,
+                    })}
+                  </p>
+                )}
+              </div>
+            )}
+          </>
+        ) : (
+          <p className="text-sm text-muted">{t('admin.integrations.ldap.disabledHint')}</p>
+        )}
+      </IntegrationCard>
+
+      <IntegrationCard
+        icon={KeyRound}
+        title={t('admin.integrations.sso.title')}
+        subtitle={t('admin.integrations.sso.subtitle')}
+        statusPill={
+          <StatusPill
+            active={sso.enabled}
+            activeLabel={t('admin.integrations.sso.enabled')}
+            inactiveLabel={t('admin.integrations.sso.disabled')}
+          />
+        }
+      >
+        {sso.enabled ? (
+          <div className="flex flex-col gap-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted">
+              {t('admin.integrations.sso.providers')}
+            </p>
+            {sso.providers?.length ? (
+              <div className="flex flex-wrap gap-2">
+                {sso.providers.map((p) => (
+                  <Chip key={p.name} variant="soft" color="accent" className="gap-1.5">
+                    <Plug size={13} /> {p.label}
+                  </Chip>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted">{t('admin.integrations.sso.noProviders')}</p>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-muted">{t('admin.integrations.sso.disabledHint')}</p>
+        )}
+      </IntegrationCard>
+
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-1 text-xs text-muted">
+        <span className="flex items-center gap-1.5">
+          <Settings size={13} /> {t('admin.integrations.docsHint')}
+        </span>
+        <a
+          href={INTEGRATIONS_DOCS_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 font-medium text-accent hover:underline"
+        >
+          {t('admin.integrations.docsLink')} <ExternalLink size={12} />
+        </a>
+      </div>
+    </div>
+  );
+}
+
 const SECTION_COMPONENTS = {
   users: UsersTab,
+  integrations: IntegrationsTab,
   settings: SettingsTab,
   audit: AuditTab,
   storage: StorageTab,
@@ -1157,6 +1339,7 @@ const SECTION_COMPONENTS = {
 
 const MOBILE_ADMIN_NAV = [
   { id: 'users', icon: Users },
+  { id: 'integrations', icon: Plug },
   { id: 'settings', icon: Settings },
   { id: 'audit', icon: ScrollText },
   { id: 'storage', icon: HardDrive },
@@ -1172,6 +1355,7 @@ export default function AdminPage() {
   const allowedSections = useMemo(() => {
     const list = [];
     if (access.canUsers) list.push('users');
+    if (access.canIntegrations) list.push('integrations');
     if (access.canSettings) list.push('settings');
     if (access.canAudit) list.push('audit');
     if (access.canStorage) list.push('storage');

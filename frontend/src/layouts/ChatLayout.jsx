@@ -23,6 +23,7 @@ import {
   ScrollText,
   HardDrive,
   Activity,
+  Plug,
   Phone,
   PhoneMissed,
   Video,
@@ -535,6 +536,7 @@ function SettingsSidebar() {
    ───────────────────────────────────────────────────────── */
 const ADMIN_NAV = [
   { id: 'users',      icon: Users,       perm: 'admin.users' },
+  { id: 'integrations', icon: Plug,     perm: 'admin.users' },
   { id: 'settings',  icon: Settings,    perm: 'admin.settings' },
   { id: 'audit',     icon: ScrollText,  perm: 'admin.view_audit' },
   { id: 'storage',   icon: HardDrive,   perm: 'admin.storage' },

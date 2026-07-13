@@ -553,14 +553,16 @@
       "settings": "Sistema",
       "audit": "Auditoría",
       "storage": "Almacenamiento",
-      "monitoring": "Monitoreo"
+      "monitoring": "Monitoreo",
+      "integrations": "Integraciones"
     },
     "descriptions": {
       "users": "Gestioná cuentas, estados y roles",
       "settings": "Configuración global de la plataforma",
       "audit": "Historial de acciones críticas",
       "storage": "Inventario y métricas de MinIO",
-      "monitoring": "Estado en tiempo real del servidor y la base de datos"
+      "monitoring": "Estado en tiempo real del servidor y la base de datos",
+      "integrations": "Directorio, SSO y aprovisionamiento"
     },
     "users": {
       "search": "Buscar usuarios...",
@@ -603,7 +605,10 @@
       "resetPasswordTitle": "Restablecer contraseña",
       "resetPasswordFor": "Definí una nueva contraseña para {{name}}.",
       "newPassword": "Nueva contraseña",
-      "passwordReset": "Contraseña de {{name}} restablecida"
+      "passwordReset": "Contraseña de {{name}} restablecida",
+      "oidc": "SSO",
+      "saml": "SAML",
+      "scim": "SCIM"
     },
     "settings": {
       "categories": "Categorías",
@@ -684,6 +689,35 @@
       "colBucket": "Bucket",
       "colSize": "Tamaño",
       "colStatus": "Estado"
+    },
+    "integrations": {
+      "ldap": {
+        "title": "LDAP / Active Directory",
+        "subtitle": "Autenticación y sincronización con el directorio corporativo",
+        "connected": "Conectado",
+        "disabled": "Deshabilitado",
+        "baseDn": "Base DN",
+        "autoSync": "Sincronización automática",
+        "deprovision": "Desaprovisionamiento",
+        "syncRoles": "Roles desde grupos",
+        "syncNow": "Sincronizar ahora",
+        "on": "Activada",
+        "off": "Desactivada",
+        "schedule": "Programación",
+        "disabledHint": "Configurá las variables LDAP_* en el backend para habilitar esta integración.",
+        "syncResult": "{{created}} nuevos · {{updated}} actualizados · {{disabled}} deshabilitados · {{failed}} con error"
+      },
+      "sso": {
+        "title": "SSO / OpenID Connect",
+        "subtitle": "Inicio de sesión federado con Azure AD, Google Workspace u Okta",
+        "enabled": "Habilitado",
+        "disabled": "Deshabilitado",
+        "providers": "Proveedores",
+        "noProviders": "No hay proveedores configurados",
+        "disabledHint": "Configurá OIDC_ENABLED y los proveedores OIDC_* en el backend para habilitar el SSO."
+      },
+      "docsHint": "Estas integraciones se configuran por variables de entorno en el backend (ver .env.example).",
+      "docsLink": "Ver documentación"
     }
   },
   "monitoring": {

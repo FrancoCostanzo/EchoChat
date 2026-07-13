@@ -35,9 +35,15 @@ class LdapService {
   }
 
   status() {
+    const enabled = this.isEnabled();
     return {
-      enabled: this.isEnabled(),
-      base_dn: this.isEnabled() ? config.ldap.baseDn : null,
+      enabled,
+      base_dn: enabled ? config.ldap.baseDn : null,
+      url: enabled ? config.ldap.url : null,
+      sync_enabled: config.ldap.syncEnabled,
+      sync_cron: config.ldap.syncCron,
+      deprovision: config.ldap.deprovision,
+      sync_roles: config.ldap.syncRoles,
     };
   }
 
