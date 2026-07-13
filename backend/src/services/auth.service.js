@@ -294,7 +294,9 @@ class AuthService {
 
   _generateToken(user) {
     return jwt.sign(
-      { sub: user.id, username: user.username },
+      // jti único: evita que dos logins del mismo usuario en el mismo segundo
+      // produzcan un token idéntico (colisión de token_hash en user_sessions).
+      { sub: user.id, username: user.username, jti: crypto.randomUUID() },
       config.jwt.secret,
       { expiresIn: config.jwt.expiresIn }
     );
