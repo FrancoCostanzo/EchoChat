@@ -82,6 +82,15 @@ export const useChatStore = create((set, get) => ({
       // Thread replies don't enter the main timeline — the ThreadPanel has its
       // own listener and the root's counter updates via message:thread_count.
       if (message.thread_id) return;
+
+      const knownConversation = state.conversations.some((c) => c.id === message.conversation_id);
+      // Broadcast (and any new DM) may create a conversation the client hasn't
+      // joined or listed yet — pull it in so the message isn't invisible.
+      if (!knownConversation && message.conversation_id) {
+        get().joinConversation(message.conversation_id);
+        get().fetchConversations();
+      }
+
       // Add message if we're in the same conversation
       if (message.conversation_id === state.activeConversationId) {
         const exists = state.messages.some((m) => m.id === message.id);

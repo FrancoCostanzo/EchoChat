@@ -248,6 +248,9 @@ class MessageService {
         delivered_count: parseInt(counts.delivered_count, 10) || 0,
         read_count: parseInt(counts.read_count, 10) || 0,
       });
+
+      const broadcastService = require('./broadcast.service');
+      await broadcastService.syncFromMessageReceipt(messageId, userId, type);
     } catch (err) {
       logger.warn({ err: err.message }, 'Failed to emit message:receipt');
     }

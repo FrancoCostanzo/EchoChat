@@ -110,6 +110,7 @@ export const broadcastsApi = {
   list: () => api.get('/broadcasts'),
   getById: (id) => api.get(`/broadcasts/${id}`),
   getMessages: (listId) => api.get(`/broadcasts/${listId}/messages`),
+  getDeliveries: (listId, messageId) => api.get(`/broadcasts/${listId}/messages/${messageId}/deliveries`),
   addRecipients: (listId, data) => api.post(`/broadcasts/${listId}/recipients`, data),
   removeRecipient: (listId, userId) => api.delete(`/broadcasts/${listId}/recipients/${userId}`),
   sendMessage: (listId, data) => api.post(`/broadcasts/${listId}/messages`, data),

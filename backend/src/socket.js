@@ -141,6 +141,12 @@ function initSocket(httpServer) {
       try {
         for (const msgId of messageIds) {
           await messageRepository.addReceipt(msgId, userId, 'read');
+          try {
+            const broadcastService = require('./services/broadcast.service');
+            await broadcastService.syncFromMessageReceipt(msgId, userId, 'read');
+          } catch (syncErr) {
+            logger.warn({ err: syncErr.message, msgId }, 'Failed to sync broadcast read receipt');
+          }
         }
         // Update last_read_at so unread_count recalculates correctly
         const lastMsgId = messageIds[messageIds.length - 1];
@@ -171,6 +177,12 @@ function initSocket(httpServer) {
       try {
         for (const msgId of messageIds) {
           await messageRepository.addReceipt(msgId, userId, 'delivered');
+          try {
+            const broadcastService = require('./services/broadcast.service');
+            await broadcastService.syncFromMessageReceipt(msgId, userId, 'delivered');
+          } catch (syncErr) {
+            logger.warn({ err: syncErr.message, msgId }, 'Failed to sync broadcast delivery receipt');
+          }
         }
         // Avisar al emisor (y al resto de la conversación) para que el tick del
         // chat pase de "enviado" a "entregado" en tiempo real.

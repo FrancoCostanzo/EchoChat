@@ -35,10 +35,12 @@ class BroadcastRepository extends BaseRepository {
 
   async getRecipients(broadcastListId) {
     const { rows } = await this.query(
-      `SELECT br.*, u.username, u.display_name
+      `SELECT br.*, u.username, u.display_name, u.department,
+              u.avatar_bucket, u.avatar_object_key, u.presence
        FROM broadcast_recipients br
        JOIN users u ON u.id = br.user_id
-       WHERE br.broadcast_list_id = $1`,
+       WHERE br.broadcast_list_id = $1
+       ORDER BY u.display_name`,
       [broadcastListId]
     );
     return rows;
@@ -46,7 +48,12 @@ class BroadcastRepository extends BaseRepository {
 
   async findByOwner(ownerId) {
     const { rows } = await this.query(
-      `SELECT * FROM broadcast_lists WHERE owner_id = $1 AND is_active = TRUE ORDER BY updated_at DESC`,
+      `SELECT bl.*,
+              (SELECT COUNT(*)::int FROM broadcast_recipients br
+               WHERE br.broadcast_list_id = bl.id) AS recipient_count
+       FROM broadcast_lists bl
+       WHERE bl.owner_id = $1 AND bl.is_active = TRUE
+       ORDER BY bl.updated_at DESC`,
       [ownerId]
     );
     return rows;
@@ -69,11 +76,112 @@ class BroadcastRepository extends BaseRepository {
   }
 
   async findMessagesByListId(listId) {
+    // Live client-receipt totals (not denormalized fan-out counters).
     const { rows } = await this.query(
-      `SELECT * FROM broadcast_messages WHERE broadcast_list_id = $1 ORDER BY created_at DESC`,
+      `SELECT bm.*,
+              u.username AS sender_username,
+              u.display_name AS sender_display_name,
+              u.avatar_bucket AS sender_avatar_bucket,
+              u.avatar_object_key AS sender_avatar_object_key,
+              COALESCE((
+                SELECT COUNT(*)::int FROM broadcast_deliveries bd
+                WHERE bd.broadcast_msg_id = bm.id AND bd.conversation_id IS NOT NULL
+              ), 0) AS total_sent,
+              COALESCE((
+                SELECT COUNT(*)::int
+                FROM message_receipts mr
+                JOIN messages m ON m.id = mr.message_id
+                WHERE (m.metadata->>'broadcast_msg_id') = bm.id::text
+                  AND mr.delivered_at IS NOT NULL
+              ), 0) AS total_delivered,
+              COALESCE((
+                SELECT COUNT(*)::int
+                FROM message_receipts mr
+                JOIN messages m ON m.id = mr.message_id
+                WHERE (m.metadata->>'broadcast_msg_id') = bm.id::text
+                  AND mr.read_at IS NOT NULL
+              ), 0) AS total_read
+       FROM broadcast_messages bm
+       JOIN users u ON u.id = bm.sender_id
+       WHERE bm.broadcast_list_id = $1
+       ORDER BY bm.created_at DESC`,
       [listId]
     );
     return rows;
+  }
+
+  async getDeliveries(broadcastMsgId) {
+    // Join the fan-out row with the DM that was created and its real client
+    // receipts (delivered/read). `bd.delivered_at` is the server fan-out time;
+    // `mr.*` is what the recipient's client actually acknowledged.
+    const { rows } = await this.query(
+      `SELECT bd.broadcast_msg_id,
+              bd.user_id,
+              bd.conversation_id,
+              bd.delivered_at AS sent_to_chat_at,
+              bd.read_at AS legacy_read_at,
+              u.username, u.display_name, u.department,
+              u.avatar_bucket, u.avatar_object_key, u.presence,
+              m.id AS message_id,
+              mr.delivered_at AS received_at,
+              mr.read_at AS read_at
+       FROM broadcast_deliveries bd
+       JOIN users u ON u.id = bd.user_id
+       LEFT JOIN messages m
+         ON m.conversation_id = bd.conversation_id
+        AND m.deleted_at IS NULL
+        AND (m.metadata->>'broadcast_msg_id') = bd.broadcast_msg_id::text
+       LEFT JOIN message_receipts mr
+         ON mr.message_id = m.id
+        AND mr.user_id = bd.user_id
+       WHERE bd.broadcast_msg_id = $1
+       ORDER BY COALESCE(mr.read_at, mr.delivered_at, bd.delivered_at) DESC NULLS LAST,
+                u.display_name`,
+      [broadcastMsgId]
+    );
+    return rows;
+  }
+
+  async syncDeliveryReceipt(broadcastMsgId, userId, { received = false, read = false } = {}) {
+    const { rows } = await this.query(
+      `UPDATE broadcast_deliveries
+       SET delivered_at = CASE
+             WHEN $3 THEN COALESCE(delivered_at, NOW())
+             ELSE delivered_at
+           END,
+           read_at = CASE
+             WHEN $4 THEN NOW()
+             ELSE read_at
+           END
+       WHERE broadcast_msg_id = $1 AND user_id = $2
+       RETURNING *`,
+      [broadcastMsgId, userId, received, read]
+    );
+    return rows[0] || null;
+  }
+
+  async refreshMessageTotals(broadcastMsgId) {
+    const { rows } = await this.query(
+      `UPDATE broadcast_messages bm
+       SET total_delivered = (
+             SELECT COUNT(*)::int
+             FROM message_receipts mr
+             JOIN messages m ON m.id = mr.message_id
+             WHERE (m.metadata->>'broadcast_msg_id') = bm.id::text
+               AND mr.delivered_at IS NOT NULL
+           ),
+           total_read = (
+             SELECT COUNT(*)::int
+             FROM message_receipts mr
+             JOIN messages m ON m.id = mr.message_id
+             WHERE (m.metadata->>'broadcast_msg_id') = bm.id::text
+               AND mr.read_at IS NOT NULL
+           )
+       WHERE bm.id = $1
+       RETURNING *`,
+      [broadcastMsgId]
+    );
+    return rows[0] || null;
   }
 
   async findDueScheduledMessages(limit = 50) {
@@ -102,11 +210,13 @@ class BroadcastRepository extends BaseRepository {
   }
 
   async createDelivery({ broadcast_msg_id, user_id, conversation_id }) {
+    // delivered_at here = "fan-out to DM succeeded" (server side). Client
+    // receipt times live on message_receipts and are joined in getDeliveries.
     const { rows } = await this.query(
       `INSERT INTO broadcast_deliveries (broadcast_msg_id, user_id, conversation_id, delivered_at)
        VALUES ($1, $2, $3, NOW())
        ON CONFLICT (broadcast_msg_id, user_id) DO UPDATE
-       SET conversation_id = EXCLUDED.conversation_id, delivered_at = NOW()
+       SET conversation_id = EXCLUDED.conversation_id
        RETURNING *`,
       [broadcast_msg_id, user_id, conversation_id]
     );
