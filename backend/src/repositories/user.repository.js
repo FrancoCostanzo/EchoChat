@@ -108,6 +108,15 @@ class UserRepository extends BaseRepository {
     return rows[0];
   }
 
+  // Activity heartbeat: keeps the presence timeout job at bay without
+  // touching the presence value itself.
+  async touchLastSeen(id) {
+    await this.query(
+      `UPDATE users SET last_seen_at = NOW() WHERE id = $1`,
+      [id]
+    );
+  }
+
   async softDelete(id) {
     const { rows } = await this.query(
       `UPDATE users SET status = 'deleted', updated_at = NOW() WHERE id = $1 RETURNING *`,

@@ -2,6 +2,7 @@ const { Server } = require('socket.io');
 const config = require('./config');
 const logger = require('./config/logger');
 const { registerSocket, unregisterSocket } = require('./config/socketStore');
+const { autoAwayUsers } = require('./config/presenceStore');
 
 // NOTE: services & repositories are lazy-loaded inside functions to avoid
 // a circular dependency (message.service → socket → services → message.service).
@@ -97,6 +98,24 @@ function initSocket(httpServer) {
     // ── Join a new conversation room (when creating/entering one) ───
     socket.on('join:conversation', (conversationId) => {
       socket.join(`conv:${conversationId}`);
+    });
+
+    // ── Activity heartbeat ──────────────────────────────────────────
+    // The client emits this (throttled) on user interaction. It refreshes
+    // last_seen_at so the timeout job doesn't mark active users as away,
+    // and restores 'online' when the away state was set by that job.
+    // A manual away/busy/dnd from Settings is never overridden here.
+    socket.on('presence:active', async () => {
+      try {
+        if (autoAwayUsers.has(userId)) {
+          autoAwayUsers.delete(userId);
+          await updatePresence(userId, 'online');
+        } else {
+          await userRepository.touchLastSeen(userId);
+        }
+      } catch (err) {
+        logger.warn({ err: err.message, userId }, 'Failed to process activity heartbeat');
+      }
     });
 
     // ── Typing indicators ───────────────────────────────────────────
@@ -308,6 +327,8 @@ function registerCallHandlers(io, socket, userId) {
 async function updatePresence(userId, presence) {
   const { userRepository } = require('./repositories');
   try {
+    // Any explicit presence write supersedes a job-set away.
+    autoAwayUsers.delete(userId);
     await userRepository.updatePresence(userId, presence);
     // Broadcast presence change to all users who share a conversation
     io.emit('presence:changed', { userId, presence });

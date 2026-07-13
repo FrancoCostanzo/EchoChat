@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Input, Button, Tabs, Spinner, Tooltip } from '@heroui/react';
@@ -99,6 +99,7 @@ export default function ContactsPage() {
   const navigate = useNavigate();
   const reducedMotion = useReducedMotion();
   const createConversation = useChatStore((s) => s.createConversation);
+  const onlineUsers = useChatStore((s) => s.onlineUsers);
   const [tab, setTab] = useState('contacts');
   const [contacts, setContacts] = useState([]);
   const [favorites, setFavorites] = useState([]);
@@ -198,6 +199,13 @@ export default function ContactsPage() {
     }
   };
 
+  // Contacts/favorites/blocked are fetched once via REST; overlay live
+  // presence from the socket so status dots don't go stale while the page stays open.
+  const listWithPresence = useMemo(
+    () => getList().map((u) => ({ ...u, presence: onlineUsers[targetIdOf(u)] ?? u.presence })),
+    [tab, contacts, favorites, blocked, onlineUsers],
+  );
+
   return (
     <div className="flex h-full flex-col">
       {/* Header — consistent with Saved / Explore pages */}
@@ -276,7 +284,7 @@ export default function ContactsPage() {
             <div className="flex-1 overflow-y-auto px-4">
               {loading ? (
                 <ContactSkeleton />
-              ) : getList().length === 0 ? (
+              ) : listWithPresence.length === 0 ? (
                 <motion.div
                   initial={reducedMotion ? false : { opacity: 0, scale: 0.96 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -299,7 +307,7 @@ export default function ContactsPage() {
                   )}
                 </motion.div>
               ) : (
-                getList().map((u, i) => (
+                listWithPresence.map((u, i) => (
                   <motion.div key={u.id} {...listItemEntry(i, reducedMotion)}>
                     <ContactCard
                       user={{ ...u, is_favorite: favorites.some((f) => targetIdOf(f) === targetIdOf(u)) }}

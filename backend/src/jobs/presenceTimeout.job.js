@@ -1,5 +1,6 @@
 const logger = require('../config/logger');
 const { pool } = require('../config/database');
+const { autoAwayUsers } = require('../config/presenceStore');
 const { userRepository } = require('../repositories');
 
 const DEFAULT_TIMEOUT_MINUTES = 5;
@@ -23,6 +24,9 @@ async function run() {
   const minutes = await getTimeoutMinutes();
   const affectedIds = await userRepository.markStaleOnlineAsAway(minutes);
   if (affectedIds.length === 0) return;
+
+  // Remember these were auto-away so an activity heartbeat can restore them.
+  for (const userId of affectedIds) autoAwayUsers.add(userId);
 
   logger.debug({ count: affectedIds.length }, 'Presence timeout: users set to away');
   try {

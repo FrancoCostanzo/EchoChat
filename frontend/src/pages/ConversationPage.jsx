@@ -1425,6 +1425,7 @@ export default function ConversationPage() {
     conversations,
     patchMessage,
     joinConversation,
+    onlineUsers,
   } = useChatStore();
 
   const [input, setInput] = useState('');
@@ -1554,6 +1555,13 @@ export default function ConversationPage() {
       .finally(() => { if (active) setLoadingMembers(false); });
     return () => { active = false; };
   }, [conversationId, conversation, isDirect]);
+
+  // Members are fetched once via REST; overlay live presence from the socket
+  // so the member panel doesn't go stale while the conversation stays open.
+  const membersWithPresence = useMemo(
+    () => members.map((m) => ({ ...m, presence: onlineUsers[m.user_id] ?? m.presence })),
+    [members, onlineUsers],
+  );
 
   // Build typing text for this conversation
   const currentTyping = typingUsers[conversationId] || {};
@@ -2725,7 +2733,7 @@ export default function ConversationPage() {
         </div>
 
         <PresenceAvatarStack
-          members={members}
+          members={membersWithPresence}
           loading={loadingMembers}
           className="mr-1"
         />

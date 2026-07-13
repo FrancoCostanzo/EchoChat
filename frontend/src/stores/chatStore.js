@@ -9,6 +9,33 @@ import { useCallStore } from '@/stores/callStore';
 // of firing duplicate HTTP requests.
 const _inFlightFetch = new Map();
 
+// Activity heartbeat: tells the backend the user is interacting so the
+// presence timeout job doesn't mark them away (and restores online if it
+// already did). Throttled — with a 5 min server timeout, one ping per minute
+// of activity is plenty.
+const ACTIVITY_THROTTLE_MS = 60_000;
+let _activityCleanup = null;
+
+function startActivityHeartbeat(socket) {
+  _activityCleanup?.();
+  let lastPing = 0;
+  const ping = () => {
+    const now = Date.now();
+    if (now - lastPing < ACTIVITY_THROTTLE_MS) return;
+    lastPing = now;
+    if (socket.connected) socket.emit('presence:active');
+  };
+  const onVisible = () => { if (!document.hidden) ping(); };
+  const events = ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart'];
+  for (const ev of events) window.addEventListener(ev, ping, { passive: true });
+  document.addEventListener('visibilitychange', onVisible);
+  _activityCleanup = () => {
+    for (const ev of events) window.removeEventListener(ev, ping);
+    document.removeEventListener('visibilitychange', onVisible);
+    _activityCleanup = null;
+  };
+}
+
 // Last rendered timeline per conversation. Switching back to a recently
 // visited chat paints the cached messages instantly (no blank/skeleton flash)
 // while a background fetch reconciles anything received meanwhile.
@@ -47,6 +74,8 @@ export const useChatStore = create((set, get) => ({
     const attachCalls = () => useCallStore.getState().attach(userId);
     socket.on('connect', attachCalls);
     if (socket.connected) attachCalls();
+
+    startActivityHeartbeat(socket);
 
     socket.on('message:new', (message) => {
       const state = get();
@@ -199,6 +228,7 @@ export const useChatStore = create((set, get) => ({
   },
 
   destroySocket: () => {
+    _activityCleanup?.();
     useCallStore.getState().detach();
     disconnectSocket();
     set({ typingUsers: {}, onlineUsers: {}, activeUserId: null });
