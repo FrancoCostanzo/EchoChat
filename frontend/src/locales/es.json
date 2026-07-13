@@ -109,6 +109,8 @@
     "loadingMessages": "Cargando mensajes...",
     "loadMore": "Cargar mensajes anteriores",
     "edited": "(editado)",
+    "fromBroadcast": "Difusión",
+    "fromBroadcastList": "Difusión · {{name}}",
     "react": "Reaccionar",
     "copyText": "Copiar texto",
     "reply": "Responder",

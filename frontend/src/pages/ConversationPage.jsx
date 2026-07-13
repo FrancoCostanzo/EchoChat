@@ -47,6 +47,7 @@ import {
   PhoneMissed,
   Video as VideoIcon,
   Sticker,
+  Megaphone,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
@@ -1064,6 +1065,8 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
 
   const sticker = message.type === 'sticker' ? message.metadata?.sticker : null;
   const isSticker = Boolean(sticker);
+  const broadcastListName = message.metadata?.broadcast_list_name || null;
+  const isBroadcast = Boolean(message.metadata?.broadcast_msg_id || message.metadata?.broadcast_list_id);
 
   const isMediaOnly =
     message.type === 'media' && message.attachments?.length > 0 && !message.body;
@@ -1149,6 +1152,28 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
             <p className="mb-0.5 text-[13px] font-semibold" style={{ color: userColor(message.sender_id) }}>
               {displayName}
             </p>
+          )}
+
+          {/* Broadcast origin — DM came from a broadcast list fan-out */}
+          {isBroadcast && !message.is_deleted && (
+            <div
+              className={[
+                'mb-1 flex max-w-full items-center gap-1 text-[11px] font-medium leading-tight',
+                isOwn ? 'text-white/75' : 'text-accent',
+              ].join(' ')}
+              title={
+                broadcastListName
+                  ? t('chat.fromBroadcastList', { name: broadcastListName })
+                  : t('chat.fromBroadcast')
+              }
+            >
+              <Megaphone size={11} className="shrink-0 opacity-90" aria-hidden />
+              <span className="truncate">
+                {broadcastListName
+                  ? t('chat.fromBroadcastList', { name: broadcastListName })
+                  : t('chat.fromBroadcast')}
+              </span>
+            </div>
           )}
 
           {/* Reply preview — click to jump to the original message */}

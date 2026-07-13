@@ -200,6 +200,7 @@ class BroadcastService {
           metadata: {
             broadcast_msg_id: message.id,
             broadcast_list_id: message.broadcast_list_id,
+            broadcast_list_name: list?.name || null,
           },
         });
 
