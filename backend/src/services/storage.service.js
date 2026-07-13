@@ -4,7 +4,7 @@ const logger = require('../config/logger');
 const { minioClient, publicMinioClient } = require('../config/minio');
 const config = require('../config');
 const { storageRepository } = require('../repositories');
-const { NotFoundError } = require('../errors');
+const { NotFoundError, ForbiddenError } = require('../errors');
 const { toStorageObjectResponse } = require('../models');
 
 // Map object_type to bucket
@@ -93,6 +93,33 @@ class StorageService {
     const obj = await storageRepository.findById(objectId);
     if (!obj) throw new NotFoundError('Storage object');
     return toStorageObjectResponse(obj);
+  }
+
+  // ── Custom stickers (WhatsApp-style personal sticker collection) ──────
+  async listUserStickers(userId) {
+    const objects = await storageRepository.findStickersByUploader(userId);
+    return Promise.all(
+      objects.map(async (o) => ({
+        id: o.id,
+        url: await this.getPresignedUrl(o.id, userId),
+        mime_type: o.mime_type,
+        width: o.image_width,
+        height: o.image_height,
+        original_filename: o.original_filename,
+        uploaded_at: o.uploaded_at,
+      })),
+    );
+  }
+
+  async deleteUserSticker(userId, objectId) {
+    const obj = await storageRepository.findById(objectId);
+    if (!obj) throw new NotFoundError('Storage object');
+    if (obj.uploader_id !== userId || obj.object_type !== 'sticker') {
+      throw new ForbiddenError('Not your sticker');
+    }
+    await minioClient.removeObject(obj.bucket_name, obj.object_key);
+    await storageRepository.deleteById(objectId);
+    logger.info({ objectId, userId }, 'Custom sticker deleted');
   }
 
   async delete(objectId) {

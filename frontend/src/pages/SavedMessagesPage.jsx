@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Button, Card } from '@heroui/react';
 import { Bookmark, BookmarkX, Hash, MessageSquare } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { messagesApi } from '@/lib/endpoints';
+import { listItemEntry } from '@/lib/motion';
 import UserAvatar from '@/components/UserAvatar';
 import MessageBody from '@/components/MessageBody';
 import CodeMessage from '@/components/CodeMessage';
@@ -12,6 +14,7 @@ import { formatMessageTime } from '@/lib/dates';
 export default function SavedMessagesPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const reducedMotion = useReducedMotion();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -69,15 +72,26 @@ export default function SavedMessagesPage() {
             ))}
           </div>
         ) : items.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-16 text-ink-200">
+          <motion.div
+            initial={reducedMotion ? false : { opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.22 }}
+            className="flex flex-col items-center gap-2 py-16 text-ink-200"
+          >
             <Bookmark size={32} className="opacity-50" />
             <p className="text-sm">{t('saved.empty')}</p>
-          </div>
+          </motion.div>
         ) : (
           <div className="flex flex-col gap-2">
-            {items.map((m) => (
-              <Card
+            <AnimatePresence initial={false}>
+            {items.map((m, i) => (
+              <motion.div
                 key={m.id}
+                layout
+                {...listItemEntry(i, reducedMotion)}
+                exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.15 } }}
+              >
+              <Card
                 className="group flex flex-col gap-2 p-4"
               >
                 <div className="flex items-center gap-2">
@@ -133,7 +147,9 @@ export default function SavedMessagesPage() {
                   <MessageSquare size={14} /> {t('saved.openConversation')}
                 </Button>
               </Card>
+              </motion.div>
             ))}
+            </AnimatePresence>
           </div>
         )}
       </div>

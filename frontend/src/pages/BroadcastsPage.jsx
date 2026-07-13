@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   Button,
   Card,
@@ -22,6 +23,7 @@ import { useTranslation } from 'react-i18next';
 import { broadcastsApi, relationshipsApi } from '@/lib/endpoints';
 import UserAvatar from '@/components/UserAvatar';
 import { formatMessageTime } from '@/lib/dates';
+import { listItemEntry, PANEL_FADE } from '@/lib/motion';
 
 const STATUS_ICONS = {
   draft: Clock,
@@ -289,6 +291,7 @@ function BroadcastDetail({ listId, onBack, t }) {
 
 export default function BroadcastsPage() {
   const { t } = useTranslation();
+  const reducedMotion = useReducedMotion();
   const [lists, setLists] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState(null);
@@ -348,17 +351,8 @@ export default function BroadcastsPage() {
     });
   };
 
-  if (selectedId) {
-    return (
-      <BroadcastDetail
-        listId={selectedId}
-        onBack={() => { setSelectedId(null); loadLists(); }}
-        t={t}
-      />
-    );
-  }
-
-  return (
+  // Keyed panel so the list ↔ detail swap cross-fades instead of cutting.
+  const listView = (
     <div className="flex h-full flex-col gap-6 overflow-y-auto p-4 md:p-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -379,24 +373,36 @@ export default function BroadcastsPage() {
           <Spinner size="lg" />
         </div>
       ) : error ? (
-        <Card className="flex flex-col items-center gap-3 p-8 text-center">
-          <AlertCircle size={32} className="text-ink-200" />
-          <p className="text-sm text-ink-200">{error}</p>
-        </Card>
+        <motion.div
+          initial={reducedMotion ? false : { opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.22 }}
+        >
+          <Card className="flex flex-col items-center gap-3 p-8 text-center">
+            <AlertCircle size={32} className="text-ink-200" />
+            <p className="text-sm text-ink-200">{error}</p>
+          </Card>
+        </motion.div>
       ) : lists.length === 0 ? (
-        <Card className="flex flex-col items-center gap-3 p-12 text-center">
-          <Megaphone size={40} className="text-ink-400" />
-          <p className="text-sm text-ink-200">{t('broadcasts.empty')}</p>
-          <Button variant="secondary" onPress={() => setCreateOpen(true)}>
-            {t('broadcasts.createFirst')}
-          </Button>
-        </Card>
+        <motion.div
+          initial={reducedMotion ? false : { opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.22 }}
+        >
+          <Card className="flex flex-col items-center gap-3 p-12 text-center">
+            <Megaphone size={40} className="text-ink-400" />
+            <p className="text-sm text-ink-200">{t('broadcasts.empty')}</p>
+            <Button variant="secondary" onPress={() => setCreateOpen(true)}>
+              {t('broadcasts.createFirst')}
+            </Button>
+          </Card>
+        </motion.div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {lists.map((list) => (
+          {lists.map((list, i) => (
+            <motion.div key={list.id} {...listItemEntry(i, reducedMotion)} className="flex">
             <Card
-              key={list.id}
-              className="flex cursor-pointer flex-col gap-3 p-4 transition-colors hover:border-accent/40"
+              className="flex w-full cursor-pointer flex-col gap-3 p-4 transition-colors hover:border-accent/40"
               onClick={() => setSelectedId(list.id)}
             >
               <div className="flex items-start gap-3">
@@ -415,6 +421,7 @@ export default function BroadcastsPage() {
                 {t('broadcasts.listMeta')}
               </div>
             </Card>
+            </motion.div>
           ))}
         </div>
       )}
@@ -481,5 +488,25 @@ export default function BroadcastsPage() {
         </Modal.Backdrop>
       </Modal>
     </div>
+  );
+
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={selectedId ?? 'list'}
+        {...(reducedMotion ? {} : PANEL_FADE)}
+        className="h-full"
+      >
+        {selectedId ? (
+          <BroadcastDetail
+            listId={selectedId}
+            onBack={() => { setSelectedId(null); loadLists(); }}
+            t={t}
+          />
+        ) : (
+          listView
+        )}
+      </motion.div>
+    </AnimatePresence>
   );
 }

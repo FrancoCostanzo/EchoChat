@@ -19,9 +19,35 @@ export default defineConfig({
 			title: 'EchoChat',
 			description:
 				'Plataforma de mensajería empresarial en tiempo real, open source (AGPL-3.0).',
+			logo: {
+				src: './public/icon-192.png',
+				alt: 'EchoChat',
+			},
+			defaultLocale: 'root',
+			locales: {
+				root: { label: 'Español', lang: 'es' },
+				en: { label: 'English', lang: 'en' },
+				pt: { label: 'Português', lang: 'pt' },
+			},
 			customCss: ['./src/styles/starlight.css'],
 			// Tipografías del design system (Clash Display + Satoshi + JetBrains Mono)
 			head: [
+				{
+					tag: 'link',
+					attrs: { rel: 'icon', href: '/favicon.ico', sizes: 'any' },
+				},
+				{
+					tag: 'link',
+					attrs: { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
+				},
+				{
+					tag: 'link',
+					attrs: { rel: 'manifest', href: '/site.webmanifest' },
+				},
+				{
+					tag: 'meta',
+					attrs: { name: 'theme-color', content: '#0B0D14' },
+				},
 				{
 					tag: 'link',
 					attrs: { rel: 'preconnect', href: 'https://api.fontshare.com', crossorigin: true },
@@ -52,13 +78,73 @@ export default defineConfig({
 				{ label: '← Volver al inicio', link: '/' },
 				{ label: 'FAQ', link: '/faq' },
 				{
-					label: 'Documentación',
+					label: 'Empezar',
 					items: [
 						{ label: 'Introducción', slug: 'docs' },
+						{ label: 'Características', slug: 'docs/caracteristicas' },
+						{ label: 'Conceptos', slug: 'docs/conceptos' },
+						{ label: 'Estado del proyecto', slug: 'docs/estado' },
+					],
+				},
+				{
+					label: 'Instalación y despliegue',
+					collapsed: true,
+					items: [
+						{ label: 'Requisitos', slug: 'docs/despliegue/requisitos' },
 						{ label: 'Instalación (desarrollo)', slug: 'docs/instalacion' },
 						{ label: 'Despliegue con Docker', slug: 'docs/despliegue' },
-						{ label: 'Arquitectura', slug: 'docs/arquitectura' },
+						{ label: 'Variables de entorno', slug: 'docs/despliegue/variables-entorno' },
+						{ label: 'Base de datos', slug: 'docs/despliegue/base-de-datos' },
+						{ label: 'Almacenamiento', slug: 'docs/despliegue/almacenamiento' },
+						{ label: 'Red y TURN', slug: 'docs/despliegue/red-y-turn' },
+						{ label: 'Backups', slug: 'docs/despliegue/backups' },
+						{ label: 'Actualización', slug: 'docs/despliegue/actualizacion' },
+						{ label: 'Troubleshooting', slug: 'docs/despliegue/troubleshooting' },
+					],
+				},
+				{
+					label: 'Guía de uso',
+					collapsed: true,
+					items: [
+						{ label: 'Primeros pasos', slug: 'docs/uso/primeros-pasos' },
+						{ label: 'Mensajería', slug: 'docs/uso/mensajeria' },
+						{ label: 'Formato enriquecido', slug: 'docs/uso/formato' },
+						{ label: 'Emojis, stickers y GIFs', slug: 'docs/uso/stickers-y-gifs' },
+						{ label: 'Encuestas', slug: 'docs/uso/encuestas' },
 						{ label: 'Llamadas de voz y video', slug: 'docs/llamadas' },
+						{ label: 'Canales', slug: 'docs/uso/canales' },
+						{ label: 'Difusiones', slug: 'docs/uso/difusiones' },
+						{ label: 'Notificaciones', slug: 'docs/uso/notificaciones' },
+						{ label: 'Contactos', slug: 'docs/uso/contactos' },
+						{ label: 'Personalización', slug: 'docs/uso/personalizacion' },
+					],
+				},
+				{
+					label: 'Administración',
+					collapsed: true,
+					items: [
+						{ label: 'Panel de administración', slug: 'docs/admin/panel' },
+						{ label: 'Usuarios', slug: 'docs/admin/usuarios' },
+						{ label: 'RBAC', slug: 'docs/admin/rbac' },
+						{ label: 'Configuración del sistema', slug: 'docs/admin/sistema' },
+						{ label: 'Auditoría', slug: 'docs/admin/auditoria' },
+						{ label: 'Almacenamiento', slug: 'docs/admin/almacenamiento' },
+						{ label: 'Monitoreo', slug: 'docs/admin/monitoreo' },
+					],
+				},
+				{
+					label: 'Arquitectura y desarrollo',
+					collapsed: true,
+					items: [
+						{ label: 'Arquitectura', slug: 'docs/arquitectura' },
+						{ label: 'Modelo de datos', slug: 'docs/desarrollo/modelo-datos' },
+						{ label: 'Backend', slug: 'docs/desarrollo/backend' },
+						{ label: 'Frontend', slug: 'docs/desarrollo/frontend' },
+						{ label: 'Tiempo real', slug: 'docs/desarrollo/tiempo-real' },
+						{ label: 'API REST', slug: 'docs/desarrollo/api' },
+						{ label: 'Spatial Canvas', slug: 'docs/desarrollo/spatial-canvas' },
+						{ label: 'Internacionalización', slug: 'docs/desarrollo/i18n' },
+						{ label: 'Contribuir', slug: 'docs/desarrollo/contribuir' },
 					],
 				},
 			],

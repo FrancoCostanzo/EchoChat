@@ -46,6 +46,7 @@ import {
   Phone,
   PhoneMissed,
   Video as VideoIcon,
+  Sticker,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
@@ -73,6 +74,8 @@ import FloatingComposer from '@/components/FloatingComposer';
 import MessageBody from '@/components/MessageBody';
 import FormatToolbar, { handleFormatShortcut } from '@/components/FormatToolbar';
 import DynamicMessageInput from '@/components/DynamicMessageInput';
+import StickerGifPicker from '@/components/StickerGifPicker';
+import EmojiPicker from '@/components/EmojiPicker';
 import { detectBodyFormat } from '@/lib/markdown';
 import { parseCodeFence } from '@/lib/codeLanguages';
 import PresenceAvatarStack from '@/components/PresenceAvatarStack';
@@ -193,39 +196,43 @@ function FilePickerMenu({ onPick, onPoll, onCode, disabled, uploading }) {
     };
   }, [open]);
 
-  const menu = open && createPortal(
+  // The portal must stay mounted while AnimatePresence runs the exit animation;
+  // the `open` conditional lives inside it so closing doesn't unmount abruptly.
+  const menu = createPortal(
     <AnimatePresence>
-      <motion.div
-        ref={menuRef}
-        initial={{ opacity: 0, scale: 0.96 }}
-        animate={{ opacity: menuPos ? 1 : 0, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.97 }}
-        transition={{ duration: 0.18, ease: 'easeOut' }}
-        style={{
-          position: 'fixed',
-          left: menuPos?.left ?? -9999,
-          top: menuPos?.top ?? -9999,
-          visibility: menuPos ? 'visible' : 'hidden',
-          zIndex: 9999,
-        }}
-        className="min-w-48 overflow-hidden rounded-lg border border-ink-400/40 bg-ink-850 shadow-xl"
-      >
-        {MENU_ITEMS.map(({ icon: Icon, label, ref, action }) => (
-          <Button
-            key={label}
-            variant="ghost"
-            onPress={() => {
-              setOpen(false);
-              if (action) action();
-              else pick(ref);
-            }}
-            className="flex h-auto w-full items-center justify-start gap-3 rounded-none px-3 py-2 text-[14px] text-ink-50 transition-colors hover:bg-accent hover:text-accent-foreground"
-          >
-            <Icon size={16} className="shrink-0" />
-            {label}
-          </Button>
-        ))}
-      </motion.div>
+      {open && (
+        <motion.div
+          ref={menuRef}
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: menuPos ? 1 : 0, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.97 }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
+          style={{
+            position: 'fixed',
+            left: menuPos?.left ?? -9999,
+            top: menuPos?.top ?? -9999,
+            visibility: menuPos ? 'visible' : 'hidden',
+            zIndex: 9999,
+          }}
+          className="min-w-48 overflow-hidden rounded-lg border border-ink-400/40 bg-ink-850 shadow-xl"
+        >
+          {MENU_ITEMS.map(({ icon: Icon, label, ref, action }) => (
+            <Button
+              key={label}
+              variant="ghost"
+              onPress={() => {
+                setOpen(false);
+                if (action) action();
+                else pick(ref);
+              }}
+              className="flex h-auto w-full items-center justify-start gap-3 rounded-none px-3 py-2 text-[14px] text-ink-50 transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              <Icon size={16} className="shrink-0" />
+              {label}
+            </Button>
+          ))}
+        </motion.div>
+      )}
     </AnimatePresence>,
     document.body,
   );
@@ -263,66 +270,7 @@ function FilePickerMenu({ onPick, onPoll, onCode, disabled, uploading }) {
   );
 }
 
-/* ─────────────────────────── Emoji Picker (input) ─────────────────────────── */
-const EMOJIS = [
-  '😀', '😂', '🥹', '😊', '😍', '😎', '🤔', '😅',
-  '😉', '🙃', '😴', '😭', '😡', '🥳', '🤩', '😘',
-  '🥰', '🤗', '🤓', '😬', '😮', '👀', '🫡', '🤯',
-  '👍', '👎', '👏', '🙌', '🙏', '💪', '🤝', '🔥',
-  '❤️', '💯', '🎉', '✅', '❌', '⭐', '💡', '🚀',
-];
-
-function EmojiPicker({ onPick }) {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
-
-  return (
-    <div className="relative" ref={ref}>
-      <Tooltip content={t('chat.emoji')} placement="top">
-        <Button
-          isIconOnly
-          variant="ghost"
-          onPress={() => setOpen((p) => !p)}
-          className="flex h-8 w-8 min-w-0 shrink-0 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
-        >
-          <Smile size={18} />
-        </Button>
-      </Tooltip>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: 6, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 4, scale: 0.97 }}
-            transition={{ duration: 0.16, ease: 'easeOut' }}
-            className="absolute bottom-11 right-0 z-30 w-[296px] rounded-lg border border-ink-400/40 bg-ink-850 p-2 shadow-xl"
-          >
-            <div className="grid grid-cols-8 gap-0.5">
-              {EMOJIS.map((emoji) => (
-                <Button
-                  key={emoji}
-                  variant="ghost"
-                  onPress={() => { onPick(emoji); setOpen(false); }}
-                  className="flex h-8 w-8 min-w-0 items-center justify-center rounded-md p-0 text-lg transition-transform hover:scale-125 hover:bg-ink-750"
-                >
-                  {emoji}
-                </Button>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
+/* Emoji picker now lives in components/EmojiPicker.jsx (emoji-mart library). */
 
 /* ─────────────────────────── File Preview Bar ─────────────────────────── */
 function FilePreviewBar({ file, onSend, onCancel }) {
@@ -529,6 +477,70 @@ function ConfirmDeleteModal({ message, onConfirm, onCancel }) {
 // in multiple messages.  Values are either a resolved URL string or an
 // in-flight Promise, so concurrent mounts share the same request.
 const _attachmentUrlCache = new Map();
+
+// Resolve (and cache) a presigned URL for a storage object id. Shared by
+// attachments and custom stickers.
+function useStorageUrl(objectId) {
+  const [url, setUrl] = useState(() => {
+    const c = objectId ? _attachmentUrlCache.get(objectId) : null;
+    return typeof c === 'string' ? c : null;
+  });
+  useEffect(() => {
+    if (!objectId) return;
+    const cached = _attachmentUrlCache.get(objectId);
+    if (typeof cached === 'string') { setUrl(cached); return; }
+    const promise = cached instanceof Promise
+      ? cached
+      : (() => {
+          const p = storageApi.getUrl(objectId)
+            .then((res) => { _attachmentUrlCache.set(objectId, res.data.url); return res.data.url; })
+            .catch(() => { _attachmentUrlCache.delete(objectId); });
+          _attachmentUrlCache.set(objectId, p);
+          return p;
+        })();
+    promise.then((u) => { if (u) setUrl(u); }).catch(() => {});
+  }, [objectId]);
+  return url;
+}
+
+/* ─────────────────────────── Sticker / GIF ─────────────────────────── */
+// Bare artwork with no bubble chrome. Custom stickers resolve a signed URL
+// from their storage object_id; Giphy GIFs use the external CDN url directly.
+function StickerImage({ sticker, sending, error }) {
+  const objectId = sticker.source === 'custom' ? sticker.object_id : null;
+  const resolved = useStorageUrl(objectId);
+  const src = objectId ? resolved : sticker.url;
+  const isGif = sticker.kind === 'gif';
+
+  return (
+    <div
+      className={[
+        'overflow-hidden',
+        isGif ? 'rounded-xl' : '',
+        sending ? 'opacity-70' : '',
+        error ? 'opacity-50 grayscale' : '',
+      ].filter(Boolean).join(' ')}
+      style={{
+        width: isGif ? 'min(240px, 60vw)' : 'min(160px, 44vw)',
+        aspectRatio: sticker.width && sticker.height ? `${sticker.width} / ${sticker.height}` : '1 / 1',
+      }}
+    >
+      {src ? (
+        <img
+          src={src}
+          alt={sticker.alt || (isGif ? 'GIF' : 'Sticker')}
+          loading="lazy"
+          draggable={false}
+          className="h-full w-full object-contain"
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center">
+          <Loader size={18} className="animate-spin text-ink-200" />
+        </div>
+      )}
+    </div>
+  );
+}
 
 function AttachmentView({ attachment }) {
   const { t } = useTranslation();
@@ -826,6 +838,7 @@ function MessageContextMenu({ pos, onClose, quickEmojis, onEmoji, items }) {
         ref={ref}
         initial={{ opacity: 0, scale: 0.92, y: 6 }}
         animate={{ opacity: coords.ready ? 1 : 0, scale: coords.ready ? 1 : 0.92, y: coords.ready ? 0 : 6 }}
+        exit={{ opacity: 0, scale: 0.95, y: 4, transition: { duration: 0.12, ease: 'easeIn' } }}
         transition={SPRING_BOUNCY}
         style={{ left: coords.left, top: coords.top, transformOrigin: 'top left' }}
         className="echo-glass-strong pointer-events-auto fixed z-80 w-56 overflow-hidden rounded-2xl p-1.5"
@@ -1049,23 +1062,32 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
     if (longPressTimer.current) clearTimeout(longPressTimer.current);
   };
 
+  const sticker = message.type === 'sticker' ? message.metadata?.sticker : null;
+  const isSticker = Boolean(sticker);
+
   const isMediaOnly =
     message.type === 'media' && message.attachments?.length > 0 && !message.body;
 
   // WhatsApp-style asymmetric corners: the "tail" corner is squared off on the
   // first bubble of a group, on the side the bubble is anchored to.
-  const bubbleClass = [
-    'relative max-w-full transition-shadow',
-    isMediaOnly ? 'overflow-hidden p-1' : 'px-3 py-1.5',
-    isOwn
-      ? 'echo-grad-own echo-glow-own echo-on-accent'
-      : 'bg-ink-800/85 text-ink-0 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.4)] ring-1 ring-white/8',
-    'rounded-2xl',
-    isFirstInGroup ? (isOwn ? 'rounded-tr-md' : 'rounded-tl-md') : '',
-    isContextOpen ? 'echo-selected' : '',
-  ].join(' ');
+  // Stickers/GIFs float bare — no bubble chrome, just the artwork.
+  const bubbleClass = isSticker
+    ? [
+        'relative max-w-full bg-transparent',
+        isContextOpen ? 'echo-selected' : '',
+      ].join(' ')
+    : [
+        'relative max-w-full transition-shadow',
+        isMediaOnly ? 'overflow-hidden p-1' : 'px-3 py-1.5',
+        isOwn
+          ? 'echo-grad-own echo-glow-own echo-on-accent'
+          : 'bg-ink-800/85 text-ink-0 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.4)] ring-1 ring-white/8',
+        'rounded-2xl',
+        isFirstInGroup ? (isOwn ? 'rounded-tr-md' : 'rounded-tl-md') : '',
+        isContextOpen ? 'echo-selected' : '',
+      ].join(' ');
 
-  const metaClass = isOwn ? 'echo-on-accent-muted' : 'text-ink-200';
+  const metaClass = isSticker ? 'text-ink-200' : isOwn ? 'echo-on-accent-muted' : 'text-ink-200';
 
   const justSent = isOwn && message._status === 'sent';
 
@@ -1153,7 +1175,9 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
               <span className={['truncate', isOwn ? 'text-white/70' : 'text-ink-200'].join(' ')}>
                 {message.reply_to_type === 'media'
                   ? <span className="inline-flex items-center gap-1"><Paperclip size={11} />{t('chat.attachedFile')}</span>
-                  : message.reply_to_body}
+                  : message.reply_to_type === 'sticker'
+                    ? <span className="inline-flex items-center gap-1"><Sticker size={11} />{t('sticker.previewSticker')}</span>
+                    : message.reply_to_body}
               </span>
             </button>
           )}
@@ -1176,8 +1200,17 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
                 <CodeMessage message={message} variant={isOwn ? 'own' : 'other'} />
               )}
 
+              {/* Sticker / GIF — bare artwork, no bubble */}
+              {isSticker && (
+                <StickerImage
+                  sticker={sticker}
+                  sending={message._status === 'sending'}
+                  error={message._status === 'error'}
+                />
+              )}
+
               {/* Body */}
-              {message.type !== 'media' && message.type !== 'poll' && message.type !== 'code' && message.body && (
+              {message.type !== 'media' && message.type !== 'poll' && message.type !== 'code' && message.type !== 'sticker' && message.body && (
                 <MessageBody
                   body={message.body}
                   bodyFormat={message.body_format}
@@ -1775,6 +1808,41 @@ export default function ConversationPage() {
   const handleFilePick = useCallback((file) => {
     setPreviewFile(file);
   }, []);
+
+  // Stickers & GIFs travel as a lightweight `sticker` message whose payload
+  // lives in metadata; the body stays empty. Two sources:
+  //   · custom — a user-uploaded sticker in storage (referenced by object_id)
+  //   · giphy  — an external GIF hosted on Giphy's CDN (referenced by url)
+  const handleStickerSend = useCallback(async (item) => {
+    if (!item) return;
+    const sticker =
+      item.source === 'custom'
+        ? {
+            source: 'custom',
+            kind: 'sticker',
+            object_id: item.object_id,
+            width: item.width || null,
+            height: item.height || null,
+          }
+        : {
+            source: item.source,      // 'giphy'
+            kind: item.kind,          // 'gif'
+            url: item.url,
+            width: item.width || null,
+            height: item.height || null,
+            alt: item.alt || null,
+          };
+    if (sticker.source === 'custom' ? !sticker.object_id : !sticker.url) return;
+
+    const data = { conversation_id: conversationId, type: 'sticker', metadata: { sticker } };
+    if (replyTo) data.reply_to_id = replyTo.id;
+    try {
+      await sendMessage(data, user);
+      setReplyTo(null);
+    } catch (err) {
+      console.error('Sticker send failed:', err);
+    }
+  }, [conversationId, replyTo, sendMessage, user]);
 
   const handleFileSend = useCallback(async (file, caption) => {
     setPreviewFile(null);
@@ -2632,6 +2700,11 @@ export default function ConversationPage() {
                 onPaste={handlePaste}
               />
 
+              <StickerGifPicker
+                onPick={handleStickerSend}
+                disabled={!!previewFile || sendingFile}
+              />
+
               <EmojiPicker
                 onPick={(emoji) => {
                   setInput((v) => v + emoji);
@@ -2734,15 +2807,17 @@ export default function ConversationPage() {
         </AnimatePresence>
 
         {/* ── Message context menu (single instance per conversation) ── */}
-        {contextMenu && contextMenuMessage && (
-          <MessageContextMenu
-            pos={contextMenu}
-            onClose={handleCloseContextMenu}
-            quickEmojis={QUICK_EMOJIS}
-            onEmoji={(em) => { handleCloseContextMenu(); handleReact(contextMenuMessage.id, em); }}
-            items={contextMenuItems}
-          />
-        )}
+        <AnimatePresence>
+          {contextMenu && contextMenuMessage && (
+            <MessageContextMenu
+              pos={contextMenu}
+              onClose={handleCloseContextMenu}
+              quickEmojis={QUICK_EMOJIS}
+              onEmoji={(em) => { handleCloseContextMenu(); handleReact(contextMenuMessage.id, em); }}
+              items={contextMenuItems}
+            />
+          )}
+        </AnimatePresence>
       </div>
     </>
   );

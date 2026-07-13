@@ -7,6 +7,7 @@ import { useThemeStore } from '@/stores/themeStore';
 import { useWallpaperStore } from '@/stores/wallpaperStore';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { ConfirmProvider } from '@/components/ConfirmProvider';
+import AppLogo from '@/components/AppLogo';
 
 const ChatLayout = lazy(() => import('@/layouts/ChatLayout'));
 const LoginPage = lazy(() => import('@/pages/LoginPage'));
@@ -25,7 +26,8 @@ const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
 
 function PageLoader() {
   return (
-    <div className="flex h-screen items-center justify-center">
+    <div className="flex h-screen flex-col items-center justify-center gap-4">
+      <AppLogo size="sm" withGlow />
       <Spinner size="lg" />
     </div>
   );
