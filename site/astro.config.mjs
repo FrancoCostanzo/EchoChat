@@ -125,6 +125,7 @@ export default defineConfig({
 					items: [
 						{ label: 'Panel de administración', slug: 'docs/admin/panel' },
 						{ label: 'Usuarios', slug: 'docs/admin/usuarios' },
+						{ label: 'Integraciones', slug: 'docs/admin/integraciones' },
 						{ label: 'RBAC', slug: 'docs/admin/rbac' },
 						{ label: 'Configuración del sistema', slug: 'docs/admin/sistema' },
 						{ label: 'Auditoría', slug: 'docs/admin/auditoria' },
