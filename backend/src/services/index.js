@@ -13,4 +13,5 @@ module.exports = {
   adminService: require('./admin.service'),
   wallpaperService: require('./wallpaper.service'),
   ldapService: require('./ldap.service'),
+  oidcService: require('./oidc.service'),
 };

@@ -7,6 +7,7 @@ const jobs = [
   require('./presignedCleanup.job'),
   require('./scheduledBroadcasts.job'),
   require('./monitoringSnapshot.job'),
+  require('./ldapSync.job'),
 ];
 
 const tasks = [];

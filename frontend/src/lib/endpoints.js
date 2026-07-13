@@ -16,6 +16,9 @@ export const authApi = {
   disable2fa: (password, code) => api.post('/auth/2fa/disable', { password, code }),
   verify2faChallenge: (data) => api.post('/auth/2fa/challenge', data),
   regenerateBackupCodes: (code) => api.post('/auth/2fa/backup-codes/regenerate', { code }),
+  // SSO: la lista es un fetch normal; el login es una navegación top-level del navegador.
+  ssoProviders: () => api.get('/auth/sso/providers'),
+  ssoLoginUrl: (provider) => `/api/auth/sso/${provider}/login`,
 };
 
 export const usersApi = {

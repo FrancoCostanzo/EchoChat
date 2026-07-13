@@ -122,8 +122,52 @@ class AuthService {
     return this._createSession(user, { device_name, device_type }, ip, userAgent);
   }
 
+  // Login por SSO/OIDC: el IdP ya autenticó al usuario y nos pasa sus claims mapeados.
+  // Hace JIT provisioning (crea al usuario en el primer login), respeta el estado de
+  // la cuenta y termina en el mismo _createSession que los demás caminos.
+  async loginWithClaims(claims, provider, { device_name, device_type } = {}, ip, userAgent) {
+    const { user, created } = await userRepository.upsertOidcUser(claims);
+
+    if (created) {
+      const role = config.oidc.defaultRole;
+      if (role) await userRepository.setUserRoles(user.id, [role], null);
+      await auditRepository.log({
+        actor_id: user.id,
+        action: 'user.sso_provision',
+        resource_type: 'user',
+        resource_id: user.id,
+        ip_address: ip,
+        user_agent: userAgent,
+        severity: 'info',
+        category: 'auth',
+        metadata: { provider },
+      });
+      logger.info({ userId: user.id, provider }, 'SSO user provisioned (JIT)');
+    }
+
+    // Un admin pudo deshabilitar/borrar al usuario: el IdP no lo sabe, nosotros sí.
+    if (user.status !== 'active') {
+      await auditRepository.log({
+        actor_id: user.id,
+        action: 'user.login',
+        resource_type: 'user',
+        resource_id: user.id,
+        ip_address: ip,
+        user_agent: userAgent,
+        success: false,
+        error_message: 'Account is not active',
+        severity: 'warning',
+        category: 'security',
+        metadata: { provider },
+      });
+      throw new UnauthorizedError('Account is not active');
+    }
+
+    return this._createSession(user, { device_name, device_type }, ip, userAgent);
+  }
+
   // Emite token + sesión, marca presencia y audita un login exitoso.
-  // Compartido por el camino local (sin 2FA) y el camino LDAP.
+  // Compartido por el camino local (sin 2FA), el LDAP y el SSO/OIDC.
   async _createSession(user, { device_name, device_type }, ip, userAgent) {
     const token = this._generateToken(user);
     const tokenHash = this._hashToken(token);

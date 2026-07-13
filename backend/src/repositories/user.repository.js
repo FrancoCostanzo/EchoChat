@@ -44,8 +44,11 @@ class UserRepository extends BaseRepository {
   }
 
   // Inserta o actualiza un usuario LDAP identificado por external_id.
-  // Devuelve { user, created } para que el caller pueda contar altas vs. updates.
-  async upsertLdapUser({ external_id, username, display_name, email, department, job_title }) {
+  // `is_disabled` refleja el estado en el directorio (AD): sincroniza status
+  // active/disabled, pero nunca reactiva una cuenta borrada localmente.
+  // Devuelve { user, created, reactivated } para que el caller pueda contar/auditar.
+  async upsertLdapUser({ external_id, username, display_name, email, department, job_title, is_disabled = false }) {
+    const targetStatus = is_disabled ? 'disabled' : 'active';
     const existing = await this.findByExternalId(external_id);
     if (existing) {
       const { rows } = await this.query(
@@ -54,18 +57,79 @@ class UserRepository extends BaseRepository {
              email = $3,
              department = $4,
              job_title = $5,
+             status = CASE WHEN status = 'deleted' THEN status ELSE $6 END,
              updated_at = NOW()
          WHERE external_id = $1
          RETURNING *`,
-        [external_id, display_name, email || null, department || null, job_title || null]
+        [external_id, display_name, email || null, department || null, job_title || null, targetStatus]
       );
-      return { user: rows[0], created: false };
+      const reactivated = existing.status === 'disabled' && targetStatus === 'active';
+      return { user: rows[0], created: false, reactivated };
     }
     const user = await this.create({
       username, display_name, email, department, job_title,
       auth_provider: 'ldap', external_id,
     });
+    if (is_disabled) await this.updateStatus(user.id, 'disabled');
+    return { user, created: true, reactivated: false };
+  }
+
+  // Genera un username libre a partir de `base`, agregando sufijo numérico si ya
+  // existe (los usuarios SSO nuevos podrían chocar con un username local existente).
+  async _uniqueUsername(base) {
+    const seed = base || 'user';
+    let candidate = seed;
+    let n = 1;
+    // Límite defensivo para no iterar indefinidamente ante datos corruptos.
+    while (n < 1000 && (await this.findByUsername(candidate))) {
+      candidate = `${seed}.${n}`;
+      n += 1;
+    }
+    return candidate;
+  }
+
+  // Inserta o actualiza un usuario OIDC identificado por external_id (oidc:<prov>:<sub>).
+  // Devuelve { user, created } al estilo de upsertLdapUser.
+  async upsertOidcUser({ external_id, username, display_name, email }) {
+    const existing = await this.findByExternalId(external_id);
+    if (existing) {
+      // No tocamos `status`: si un admin deshabilitó al usuario, debe seguir bloqueado
+      // aunque el IdP lo siga autenticando. El guard de estado vive en el login.
+      const { rows } = await this.query(
+        `UPDATE users
+         SET display_name = COALESCE($2, display_name),
+             email = COALESCE($3, email),
+             updated_at = NOW()
+         WHERE external_id = $1
+         RETURNING *`,
+        [external_id, display_name, email || null]
+      );
+      return { user: rows[0], created: false };
+    }
+    const finalUsername = await this._uniqueUsername(username);
+    const user = await this.create({
+      username: finalUsername, display_name, email,
+      auth_provider: 'oidc', external_id,
+    });
     return { user, created: true };
+  }
+
+  // Deprovisioning: deshabilita a los usuarios LDAP activos cuyo external_id ya no
+  // aparece en el directorio. Devuelve los ids afectados para revocar sus sesiones.
+  async disableLdapUsersNotIn(seenExternalIds) {
+    // Sin ids vistos no deshabilitamos nada: evita un apagón masivo ante un fetch vacío.
+    if (!Array.isArray(seenExternalIds) || seenExternalIds.length === 0) return [];
+    const { rows } = await this.query(
+      `UPDATE users
+       SET status = 'disabled', updated_at = NOW()
+       WHERE auth_provider = 'ldap'
+         AND status = 'active'
+         AND external_id IS NOT NULL
+         AND NOT (external_id = ANY($1::text[]))
+       RETURNING id`,
+      [seenExternalIds]
+    );
+    return rows.map((r) => r.id);
   }
 
   async updateProfile(id, fields) {
