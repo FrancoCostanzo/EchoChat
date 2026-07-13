@@ -2,6 +2,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { Spinner } from '@heroui/react';
 import { useTranslation } from 'react-i18next';
+import AppLogo from '@/components/AppLogo';
 
 export default function ProtectedRoute({ children }) {
   const { t } = useTranslation();
@@ -10,7 +11,8 @@ export default function ProtectedRoute({ children }) {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex h-screen flex-col items-center justify-center gap-4">
+        <AppLogo size="sm" withGlow />
         <Spinner size="lg" label={t('common.loading')} />
       </div>
     );

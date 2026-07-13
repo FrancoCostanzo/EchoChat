@@ -19,6 +19,19 @@ class StorageRepository extends BaseRepository {
     return rows[0];
   }
 
+  // A user's personal sticker collection = their uploaded sticker objects.
+  // No separate table needed; the object_type discriminates them.
+  async findStickersByUploader(uploaderId, { limit = 200, offset = 0 } = {}) {
+    const { rows } = await this.query(
+      `SELECT * FROM storage_objects
+       WHERE uploader_id = $1 AND object_type = 'sticker'
+       ORDER BY uploaded_at DESC
+       LIMIT $2 OFFSET $3`,
+      [uploaderId, limit, offset]
+    );
+    return rows;
+  }
+
   async findByHash(hash) {
     const { rows } = await this.query(
       `SELECT * FROM storage_objects WHERE file_hash_sha256 = $1 LIMIT 1`,

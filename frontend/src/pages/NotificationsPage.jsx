@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Button } from '@heroui/react';
 import { Bell, BellOff, Check, CheckCheck, ArrowLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { notificationsApi } from '@/lib/endpoints';
 import { formatRelative } from '@/lib/dates';
+import { listItemEntry } from '@/lib/motion';
 
 function NotificationItem({ notification, onRead }) {
   return (
@@ -37,6 +39,7 @@ function NotificationItem({ notification, onRead }) {
 export default function NotificationsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const reducedMotion = useReducedMotion();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -107,13 +110,20 @@ export default function NotificationsPage() {
             ))}
           </div>
         ) : notifications.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-12 text-muted">
+          <motion.div
+            initial={reducedMotion ? false : { opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.22 }}
+            className="flex flex-col items-center gap-2 py-12 text-muted"
+          >
             <BellOff size={40} />
             <p className="text-sm">{t('notifications.empty')}</p>
-          </div>
+          </motion.div>
         ) : (
-          notifications.map((n) => (
-            <NotificationItem key={n.id} notification={n} onRead={markAsRead} />
+          notifications.map((n, i) => (
+            <motion.div key={n.id} {...listItemEntry(i, reducedMotion)}>
+              <NotificationItem notification={n} onRead={markAsRead} />
+            </motion.div>
           ))
         )}
       </div>

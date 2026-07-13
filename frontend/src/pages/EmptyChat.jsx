@@ -1,4 +1,5 @@
-import { MessageSquare, Sparkles, Plus, Compass } from 'lucide-react';
+import { Plus, Compass } from 'lucide-react';
+import AppLogo from '@/components/AppLogo';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -16,12 +17,7 @@ export default function EmptyChat() {
         transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
         className="relative"
       >
-        <div className="echo-grad-brand-soft flex h-28 w-28 items-center justify-center rounded-3xl shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]">
-          <MessageSquare size={52} strokeWidth={1.5} className="text-accent" />
-        </div>
-        <div className="echo-grad-brand echo-glow-md absolute -right-2 -top-2 flex h-9 w-9 items-center justify-center rounded-full">
-          <Sparkles size={18} className="echo-on-accent" />
-        </div>
+        <AppLogo size="lg" circular />
       </motion.div>
 
       <motion.div

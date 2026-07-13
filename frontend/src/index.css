@@ -256,6 +256,19 @@
    Reusable utilities
    ────────────────────────────────────────────────────────── */
 @layer utilities {
+  /* ── Checkerboard — sits behind transparent stickers so their alpha edges
+     read clearly in both the picker grid and the message bubble ── */
+  .echo-checker {
+    background-color: color-mix(in oklch, var(--color-ink-900) 60%, transparent);
+    background-image:
+      linear-gradient(45deg, color-mix(in oklch, var(--color-ink-600) 45%, transparent) 25%, transparent 25%),
+      linear-gradient(-45deg, color-mix(in oklch, var(--color-ink-600) 45%, transparent) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, color-mix(in oklch, var(--color-ink-600) 45%, transparent) 75%),
+      linear-gradient(-45deg, transparent 75%, color-mix(in oklch, var(--color-ink-600) 45%, transparent) 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+  }
+
   /* ── Glass surfaces — translucent panels with blur + top highlight so the
      ambient backdrop bleeds through and surfaces feel layered ── */
   .echo-glass {
@@ -413,6 +426,77 @@
     letter-spacing: -0.02em;
   }
 
+  /* ── Mobile pane swap (<lg) — the sidebar/content alternate via `hidden`,
+     so a CSS animation (replays on every display:none → flex flip) is the
+     only way to ease them in. Desktop keeps its width transition. ── */
+  @media (max-width: 63.9375rem) {
+    .echo-mobile-pane {
+      animation: echo-mobile-pane-in 220ms var(--ease-echo);
+    }
+  }
+
+  /* ── Auth background (echo ripples) — see components/AuthBackground.jsx ──
+     An "echo" propagating outwards: ripple rings + drifting orbs + dot grid.
+     Everything animates transform/opacity only (GPU-friendly). */
+  .echo-auth-grid {
+    background-image: radial-gradient(
+      color-mix(in oklch, var(--accent) 26%, transparent) 1px,
+      transparent 1px
+    );
+    background-size: 28px 28px;
+    mask-image: radial-gradient(56rem 38rem at 50% 42%, black 0%, transparent 72%);
+    -webkit-mask-image: radial-gradient(56rem 38rem at 50% 42%, black 0%, transparent 72%);
+    opacity: 0.5;
+  }
+  html:not(.dark) .echo-auth-grid { opacity: 0.35; }
+
+  .echo-auth-orb {
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(80px);
+    will-change: transform;
+  }
+  .echo-auth-orb--accent {
+    width: 34rem;
+    height: 34rem;
+    left: -9rem;
+    top: -11rem;
+    background: radial-gradient(circle, color-mix(in oklch, var(--accent) 32%, transparent), transparent 70%);
+    animation: echo-auth-drift-a 26s ease-in-out infinite alternate;
+  }
+  .echo-auth-orb--energy {
+    width: 28rem;
+    height: 28rem;
+    right: -10rem;
+    bottom: -9rem;
+    background: radial-gradient(circle, color-mix(in oklch, var(--color-echo-accent-energy) 20%, transparent), transparent 70%);
+    animation: echo-auth-drift-b 32s ease-in-out infinite alternate;
+  }
+  html:not(.dark) .echo-auth-orb--accent {
+    background: radial-gradient(circle, color-mix(in oklch, var(--accent) 20%, transparent), transparent 70%);
+  }
+  html:not(.dark) .echo-auth-orb--energy {
+    background: radial-gradient(circle, color-mix(in oklch, var(--color-echo-accent-energy) 14%, transparent), transparent 70%);
+  }
+
+  .echo-auth-ring {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 32rem;
+    height: 32rem;
+    margin-left: -16rem;
+    margin-top: -16rem;
+    border-radius: 9999px;
+    border: 1.5px solid color-mix(in oklch, var(--accent) 42%, transparent);
+    opacity: 0;
+    animation: echo-auth-ripple 9s var(--ease-echo) infinite;
+    will-change: transform, opacity;
+  }
+  html:not(.dark) .echo-auth-ring {
+    border-color: color-mix(in oklch, var(--accent) 30%, transparent);
+  }
+
   /* Floating composer — gains elevation while the user is typing */
   .echo-composer {
     transition: transform 200ms var(--ease-echo), box-shadow 200ms var(--ease-echo);
@@ -436,6 +520,9 @@
   .echo-fade-in { animation: none; }
   .echo-shimmer { animation: none; }
   .send-btn.send-btn--pulse { animation: none; }
+  .echo-auth-ring { animation: none; opacity: 0.16; transform: scale(1); }
+  .echo-auth-orb--accent, .echo-auth-orb--energy { animation: none; }
+  .echo-mobile-pane { animation: none; }
 }
 
 /* ──────────────────────────────────────────────────────────
@@ -465,6 +552,27 @@
 @keyframes echo-typing {
   0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
   30%            { transform: translateY(-3px); opacity: 1; }
+}
+
+@keyframes echo-mobile-pane-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes echo-auth-ripple {
+  0%   { transform: scale(0.3); opacity: 0; }
+  12%  { opacity: 0.5; }
+  100% { transform: scale(2.1); opacity: 0; }
+}
+
+@keyframes echo-auth-drift-a {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(4rem, 3rem, 0); }
+}
+
+@keyframes echo-auth-drift-b {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-3.5rem, -4rem, 0); }
 }
 
 /* ──────────────────────────────────────────────────────────

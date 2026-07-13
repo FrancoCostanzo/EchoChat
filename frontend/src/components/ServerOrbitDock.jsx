@@ -88,7 +88,6 @@ export default function ServerOrbitDock({
     || (user?.permissions || []).some((p) => p.startsWith('admin.'));
 
   const pathname = location.pathname;
-  const isChat = pathname === '/chat' || pathname.startsWith('/chat/');
   const isContacts = pathname.startsWith('/contacts');
   const isCalls = pathname.startsWith('/calls');
   const isChannels = pathname.startsWith('/channels');
@@ -98,9 +97,10 @@ export default function ServerOrbitDock({
   const isSettings = pathname.startsWith('/settings');
   const isAdmin = pathname.startsWith('/admin');
   const isNew = pathname === '/chat/new';
+  const isConversationOpen = pathname.startsWith('/chat/') && pathname !== '/chat/new';
+  const brandActive = isConversationOpen;
 
   const totalUnread = conversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
-  const brandActive = isChat && !isNew;
 
   const handleLogout = async () => {
     const ok = await confirm({
