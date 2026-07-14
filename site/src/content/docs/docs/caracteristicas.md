@@ -7,10 +7,11 @@ Panorama de todas las funciones de EchoChat, con enlace a la guía de cada una.
 
 ## Mensajería
 
-Mensajes directos y grupales, edición con historial, reacciones, respuestas en hilo,
-reenvío, mensajes fijados y guardados, borradores auto-guardados, búsqueda full-text,
-recibos de lectura/entrega e indicadores de escritura en tiempo real. Selector de emojis
-completo, stickers personalizados por usuario y GIFs vía Giphy.
+Mensajes directos y grupales, edición y eliminación con ventana de tiempo (soft delete),
+historial de ediciones, reacciones, respuestas en hilo, reenvío, mensajes fijados y
+guardados, borradores auto-guardados, búsqueda full-text, recibos de lectura/entrega e
+indicadores de escritura en tiempo real. Selector de emojis completo, stickers
+personalizados por usuario y GIFs vía Giphy.
 
 Ver [Mensajería](/docs/uso/mensajeria), [Formato enriquecido](/docs/uso/formato) y
 [Emojis, stickers y GIFs](/docs/uso/stickers-y-gifs).
@@ -33,7 +34,8 @@ Ver [Canales](/docs/uso/canales) y [Conceptos](/docs/conceptos).
 ## Difusiones
 
 Listas de difusión personalizadas con envío masivo sin visibilidad entre destinatarios,
-difusiones programadas y seguimiento de entrega/lectura por destinatario.
+programación, métricas de enviado/recibido/leído y sello de origen en el chat del
+destinatario.
 
 Ver [Difusiones](/docs/uso/difusiones).
 

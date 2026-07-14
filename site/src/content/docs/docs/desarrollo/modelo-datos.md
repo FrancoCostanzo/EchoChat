@@ -25,9 +25,9 @@ identificador es UUID; las tablas siguen `snake_case` estrictamente.
 
 | Tabla | Descripción |
 |-------|--------------|
-| `messages` | Mensaje principal (`type`, `body`, `body_format`, `thread_id`, `reply_to_id`) |
-| `message_edits` | Historial de ediciones |
-| `message_receipts` | Entrega/lectura por destinatario |
+| `messages` | Mensaje principal (`type`, `body`, `body_format`, `thread_id`, `reply_to_id`; soft delete → `is_deleted` + `deleted_placeholder`) |
+| `message_edits` | Historial de ediciones (ventana `message_edit_window_minutes`) |
+| `message_receipts` | Entrega/lectura por destinatario (también alimenta métricas de difusión) |
 | `message_reactions` | Reacciones con emoji |
 | `message_attachments` | Vínculo mensaje ↔ `storage_objects` |
 | `saved_messages` | Mensajes guardados por usuario |
@@ -59,7 +59,7 @@ identificador es UUID; las tablas siguen `snake_case` estrictamente.
 | `broadcast_lists` | Lista de difusión |
 | `broadcast_recipients` | Destinatarios (individuales o por departamento) |
 | `broadcast_messages` | Mensaje enviado a la lista, con `scheduled_at` opcional |
-| `broadcast_deliveries` | Entrega/lectura por destinatario |
+| `broadcast_deliveries` | Fan-out por destinatario; recibido/leído se cruzan con `message_receipts` |
 | `polls` / `poll_options` / `poll_votes` | Encuesta, opciones con conteo desnormalizado, votos individuales |
 
 ## Notificaciones y sistema

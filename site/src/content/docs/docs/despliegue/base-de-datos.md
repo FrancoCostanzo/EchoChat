@@ -30,6 +30,9 @@ orden** sobre una base ya inicializada con el esquema base:
 | `007_message_encryption.sql` | Columnas para cifrado de mensajes en reposo |
 | `008_drop_message_search_vector.sql` | Limpieza de búsqueda full-text |
 | `009_audit_log_improvements.sql` | Agrega `severity`, `category`, `session_id`, `duration_ms`, `metadata` al audit log |
+| `010_add_message_type_sticker.sql` | Agrega el tipo de mensaje `sticker` |
+| `010_oidc_sso.sql` | Soporte de inicio de sesión OIDC/SSO |
+| `011_message_edit_delete_window.sql` | Settings `message_edit_window_minutes` y `message_delete_window_minutes` |
 | `monitoring_snapshots.sql` | Tabla de snapshots históricos para el dashboard de monitoreo |
 
 Todas son **idempotentes** (`ON CONFLICT DO NOTHING` o equivalentes), se pueden correr
