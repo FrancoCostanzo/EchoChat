@@ -75,9 +75,27 @@ El `redirect_uri` a registrar en el IdP es
 
 ## SCIM 2.0
 
-Aprovisionamiento y desaprovisionamiento automático que empujan Okta / Azure (alta y baja
-de empleados antes de que inicien sesión). En preparación; el modelo de datos ya reserva
-el `auth_provider='scim'`.
+Aprovisionamiento y desaprovisionamiento **automático** que empujan Okta / Azure: dan de
+alta, actualizan y dan de baja usuarios antes incluso de que inicien sesión. Cuando RR.HH.
+desactiva a un empleado en el IdP, este llama al endpoint SCIM y el acceso se corta al
+instante (se le revocan las sesiones).
+
+- **Endpoint base** a registrar en el IdP: `<URL_DEL_BACKEND>/scim/v2`
+- **Autenticación**: bearer token estático (`SCIM_TOKEN`), independiente del login de los
+  usuarios.
+- Los usuarios creados por SCIM quedan con `auth_provider='scim'`.
+- La **baja** (`active: false` vía PATCH, o DELETE) suspende la cuenta y revoca sus sesiones.
+
+Operaciones soportadas sobre `/scim/v2/Users`: `GET` (con filtro `userName eq "..."` y
+paginación), `POST`, `PUT`, `PATCH` y `DELETE`, más `GET /ServiceProviderConfig`.
+
+Variables:
+
+| Variable | Descripción |
+| --- | --- |
+| `SCIM_ENABLED` | Activa el endpoint SCIM |
+| `SCIM_TOKEN` | Bearer token que presenta el IdP (largo y secreto) |
+| `SCIM_DEFAULT_ROLE` | Rol de los usuarios aprovisionados |
 
 ## Auditoría
 
