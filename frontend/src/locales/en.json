@@ -858,6 +858,8 @@
     "cameraOff": "Turn camera off",
     "share": "Share screen",
     "stopShare": "Stop sharing",
+    "fullscreen": "Fullscreen",
+    "exitFullscreen": "Exit fullscreen",
     "hangup": "Hang up",
     "startVoice": "Voice call",
     "startVideo": "Video call",

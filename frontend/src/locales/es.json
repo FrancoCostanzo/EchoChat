@@ -858,6 +858,8 @@
     "cameraOff": "Apagar cámara",
     "share": "Compartir pantalla",
     "stopShare": "Dejar de compartir",
+    "fullscreen": "Pantalla completa",
+    "exitFullscreen": "Salir de pantalla completa",
     "hangup": "Colgar",
     "startVoice": "Llamada de voz",
     "startVideo": "Videollamada",
