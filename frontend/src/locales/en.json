@@ -136,6 +136,8 @@
     "replyingTo": "Replying to {{name}}",
     "deleteMessage": "Delete message",
     "deleteMessageWarning": "This action is permanent and cannot be undone.",
+    "editWindowExpired": "You can no longer edit this message (only within the first 15 minutes)",
+    "deleteWindowExpired": "You can no longer delete this message (only within the first 15 minutes)",
     "creating": "Creating...",
     "messageDeleted": "Message deleted",
     "send": "Send",
@@ -717,7 +719,15 @@
         "disabledHint": "Set OIDC_ENABLED and the OIDC_* providers in the backend to enable SSO."
       },
       "docsHint": "These integrations are configured via backend environment variables (see .env.example).",
-      "docsLink": "View documentation"
+      "docsLink": "View documentation",
+      "scim": {
+        "title": "SCIM 2.0",
+        "subtitle": "Automatic user provisioning and deprovisioning from Okta / Azure",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "endpoint": "Endpoint base URL",
+        "disabledHint": "Set SCIM_ENABLED and SCIM_TOKEN in the backend to enable automatic provisioning."
+      }
     }
   },
   "monitoring": {

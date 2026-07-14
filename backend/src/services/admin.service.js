@@ -223,6 +223,9 @@ class AdminService {
         enabled: oidcService.isEnabled(),
         providers: oidcService.listProviders(),
       },
+      scim: {
+        enabled: Boolean(config.scim.enabled && config.scim.token),
+      },
     };
   }
 

@@ -45,10 +45,10 @@ class UserRepository extends BaseRepository {
 
   // Inserta o actualiza un usuario LDAP identificado por external_id.
   // `is_disabled` refleja el estado en el directorio (AD): sincroniza status
-  // active/disabled, pero nunca reactiva una cuenta borrada localmente.
+  // active/suspended, pero nunca reactiva una cuenta borrada localmente.
   // Devuelve { user, created, reactivated } para que el caller pueda contar/auditar.
   async upsertLdapUser({ external_id, username, display_name, email, department, job_title, is_disabled = false }) {
-    const targetStatus = is_disabled ? 'disabled' : 'active';
+    const targetStatus = is_disabled ? 'suspended' : 'active';
     const existing = await this.findByExternalId(external_id);
     if (existing) {
       const { rows } = await this.query(
@@ -63,14 +63,14 @@ class UserRepository extends BaseRepository {
          RETURNING *`,
         [external_id, display_name, email || null, department || null, job_title || null, targetStatus]
       );
-      const reactivated = existing.status === 'disabled' && targetStatus === 'active';
+      const reactivated = existing.status === 'suspended' && targetStatus === 'active';
       return { user: rows[0], created: false, reactivated };
     }
     const user = await this.create({
       username, display_name, email, department, job_title,
       auth_provider: 'ldap', external_id,
     });
-    if (is_disabled) await this.updateStatus(user.id, 'disabled');
+    if (is_disabled) await this.updateStatus(user.id, 'suspended');
     return { user, created: true, reactivated: false };
   }
 
@@ -114,6 +114,34 @@ class UserRepository extends BaseRepository {
     return { user, created: true };
   }
 
+  // ── SCIM ──────────────────────────────────────────────────────────────────
+  // Usuario gestionado por SCIM (excluye borrados). Los suspendidos sí se devuelven:
+  // desaprovisionar es active=false, no un delete.
+  async findScimById(id) {
+    const { rows } = await this.query(
+      `SELECT * FROM users WHERE id = $1 AND auth_provider = 'scim' AND status <> 'deleted'`,
+      [id]
+    );
+    return rows[0] || null;
+  }
+
+  // Lista usuarios SCIM con filtro opcional por userName / externalId y paginación.
+  // Devuelve { rows, total } para armar la ListResponse.
+  async listScimUsers({ username, externalId, limit, offset }) {
+    const cond = [`auth_provider = 'scim'`, `status <> 'deleted'`];
+    const params = [];
+    let i = 1;
+    if (username) { cond.push(`username = $${i++}`); params.push(username); }
+    if (externalId) { cond.push(`external_id = $${i++}`); params.push(`scim:${externalId}`); }
+    const where = cond.join(' AND ');
+    const totalRes = await this.query(`SELECT COUNT(*)::int AS c FROM users WHERE ${where}`, params);
+    const rowsRes = await this.query(
+      `SELECT * FROM users WHERE ${where} ORDER BY created_at ASC LIMIT $${i++} OFFSET $${i}`,
+      [...params, limit, offset]
+    );
+    return { rows: rowsRes.rows, total: totalRes.rows[0].c };
+  }
+
   // Deprovisioning: deshabilita a los usuarios LDAP activos cuyo external_id ya no
   // aparece en el directorio. Devuelve los ids afectados para revocar sus sesiones.
   async disableLdapUsersNotIn(seenExternalIds) {
@@ -121,7 +149,7 @@ class UserRepository extends BaseRepository {
     if (!Array.isArray(seenExternalIds) || seenExternalIds.length === 0) return [];
     const { rows } = await this.query(
       `UPDATE users
-       SET status = 'disabled', updated_at = NOW()
+       SET status = 'suspended', updated_at = NOW()
        WHERE auth_provider = 'ldap'
          AND status = 'active'
          AND external_id IS NOT NULL

@@ -14,4 +14,5 @@ module.exports = {
   wallpaperService: require('./wallpaper.service'),
   ldapService: require('./ldap.service'),
   oidcService: require('./oidc.service'),
+  scimService: require('./scim.service'),
 };

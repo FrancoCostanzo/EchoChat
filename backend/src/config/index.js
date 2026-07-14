@@ -122,6 +122,15 @@ const config = {
     providers: parseOidcProviders(process.env.OIDC_PROVIDERS),
   },
 
+  // SCIM 2.0 — aprovisionamiento/desaprovisionamiento que empujan Okta/Azure.
+  scim: {
+    enabled: process.env.SCIM_ENABLED === 'true',
+    // Bearer token estático que el IdP presenta en cada request. Largo y secreto.
+    token: process.env.SCIM_TOKEN || '',
+    // Rol asignado a los usuarios aprovisionados por SCIM.
+    defaultRole: process.env.SCIM_DEFAULT_ROLE || 'user',
+  },
+
   // Cifrado de contenido de mensajes en reposo (AES-256-GCM). La clave maestra
   // (32 bytes en base64) deriva la clave de cifrado y la de búsqueda (índice ciego).
   messageEnc: {

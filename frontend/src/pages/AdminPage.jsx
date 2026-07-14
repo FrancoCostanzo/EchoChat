@@ -43,6 +43,7 @@ import {
   CheckCircle2,
   Circle,
   ExternalLink,
+  UserCog,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { adminApi } from '@/lib/endpoints';
@@ -1222,6 +1223,7 @@ function IntegrationsTab({ t }) {
 
   const ldap = data?.ldap || {};
   const sso = data?.sso || {};
+  const scim = data?.scim || {};
 
   return (
     <div className="flex w-full flex-col gap-4">
@@ -1308,6 +1310,32 @@ function IntegrationsTab({ t }) {
           </div>
         ) : (
           <p className="text-sm text-muted">{t('admin.integrations.sso.disabledHint')}</p>
+        )}
+      </IntegrationCard>
+
+      <IntegrationCard
+        icon={UserCog}
+        title={t('admin.integrations.scim.title')}
+        subtitle={t('admin.integrations.scim.subtitle')}
+        statusPill={
+          <StatusPill
+            active={scim.enabled}
+            activeLabel={t('admin.integrations.scim.enabled')}
+            inactiveLabel={t('admin.integrations.scim.disabled')}
+          />
+        }
+      >
+        {scim.enabled ? (
+          <div className="flex flex-col gap-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted">
+              {t('admin.integrations.scim.endpoint')}
+            </p>
+            <code className="w-fit max-w-full truncate rounded-lg bg-white/[0.03] px-3 py-1.5 text-xs text-muted">
+              {`${window.location.origin}/scim/v2`}
+            </code>
+          </div>
+        ) : (
+          <p className="text-sm text-muted">{t('admin.integrations.scim.disabledHint')}</p>
         )}
       </IntegrationCard>
 
