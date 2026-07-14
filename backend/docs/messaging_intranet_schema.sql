@@ -958,6 +958,10 @@ INSERT INTO system_settings (key, value, description, category) VALUES
     ('require_call_consent',       'true',  'Requerir consentimiento explícito para grabar', 'calls'),
     ('message_retention_days',     '0',     'Días de retención de mensajes (0 = sin límite)', 'general'),
     ('presence_timeout_minutes',   '5',     'Minutos de inactividad para pasar a "away"', 'general'),
+    ('message_edit_window_minutes', '15',
+     'Minutos para editar un mensaje propio (0 = sin límite)', 'messages'),
+    ('message_delete_window_minutes', '15',
+     'Minutos para eliminar un mensaje propio (0 = sin límite)', 'messages'),
     ('max_broadcast_recipients',   '1000',  'Máximo de destinatarios en una difusión', 'broadcast'),
     -- Seguridad / altas
     ('allow_registration',         'true',  'Permitir el auto-registro público de usuarios (POST /auth/register)', 'security');

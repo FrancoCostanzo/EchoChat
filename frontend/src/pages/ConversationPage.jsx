@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, mem
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Button, Input, Dropdown, Label, Spinner, Tooltip, Modal, toast } from '@heroui/react';
+import { AlertDialog, Button, Input, Dropdown, Label, Spinner, Tooltip, Modal, toast } from '@heroui/react';
 import {
   Paperclip,
   MoreVertical,
@@ -28,7 +28,6 @@ import {
   Check,
   CheckCheck,
   X,
-  AlertTriangle,
   Loader,
   AlertCircle,
   RefreshCw,
@@ -79,6 +78,11 @@ import StickerGifPicker from '@/components/StickerGifPicker';
 import EmojiPicker from '@/components/EmojiPicker';
 import { detectBodyFormat } from '@/lib/markdown';
 import { parseCodeFence } from '@/lib/codeLanguages';
+import {
+  MESSAGE_DELETE_WINDOW_MS,
+  MESSAGE_EDIT_WINDOW_MS,
+  isWithinMessageWindow,
+} from '@/lib/messageWindow';
 import PresenceAvatarStack from '@/components/PresenceAvatarStack';
 import { storageApi, messagesApi, conversationsApi } from '@/lib/endpoints';
 import { EASE_OUT, SPRING_BOUNCY, msgEntryInitial, msgEntryTransition } from '@/lib/motion';
@@ -400,75 +404,43 @@ function TypingDots() {
 }
 
 /* ─────────────────────────── Confirm Delete Modal ─────────────────────────── */
-function ConfirmDeleteModal({ message, onConfirm, onCancel }) {
+function ConfirmDeleteModal({ message, isOpen, onConfirm, onCancel }) {
   const { t } = useTranslation();
-  // Close on Escape
-  useEffect(() => {
-    const handler = (e) => { if (e.key === 'Escape') onCancel(); };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [onCancel]);
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.15, ease: 'easeOut' }}
-      className="fixed inset-0 z-50 flex items-center justify-center"
+    <AlertDialog.Backdrop
+      isOpen={isOpen}
+      onOpenChange={(open) => { if (!open) onCancel(); }}
     >
-      {/* Backdrop */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.15, ease: 'easeOut' }}
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onCancel}
-      />
-      {/* Dialog */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.92 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.96 }}
-        transition={{ duration: 0.2, ease: SPRING_OUT }}
-        className="relative z-10 mx-4 w-full max-w-md overflow-hidden rounded-md bg-ink-850 shadow-2xl ring-1 ring-black/40"
-      >
-        <div className="p-5">
-          <div className="mb-3 flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-echo-dnd/15">
-              <AlertTriangle size={18} className="text-echo-dnd" />
-            </div>
-            <div>
-              <h3 className="text-[16px] font-bold text-foreground">{t('chat.deleteMessage')}</h3>
-              <p className="mt-0.5 text-[13px] text-ink-100">
-                {t('chat.deleteMessageWarning')}
-              </p>
-            </div>
-          </div>
-
-          {message?.body && message.type !== 'media' && (
-            <div className="mb-5 rounded-md border border-ink-400/40 bg-ink-800 px-3 py-2 text-[14px] text-ink-100 line-clamp-3">
-              {message.body}
-            </div>
-          )}
-
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" size="sm" onPress={onCancel}>
+      <AlertDialog.Container>
+        <AlertDialog.Dialog className="sm:max-w-[400px]">
+          <AlertDialog.CloseTrigger />
+          <AlertDialog.Header>
+            <AlertDialog.Icon status="danger" />
+            <AlertDialog.Heading>{t('chat.deleteMessage')}</AlertDialog.Heading>
+          </AlertDialog.Header>
+          <AlertDialog.Body className="flex flex-col gap-3">
+            <p className="text-pretty text-ink-100">
+              {t('chat.deleteMessageWarning')}
+            </p>
+            {message?.body && message.type !== 'media' && (
+              <div className="rounded-xl border border-ink-700/60 bg-ink-800/70 px-3.5 py-2.5 text-[13px] leading-relaxed text-ink-100 line-clamp-3">
+                {message.body}
+              </div>
+            )}
+          </AlertDialog.Body>
+          <AlertDialog.Footer>
+            <Button variant="tertiary" onPress={onCancel}>
               {t('common.cancel')}
             </Button>
-            <Button
-              size="sm"
-              className="bg-echo-dnd text-white hover:bg-echo-dnd/90"
-              onPress={onConfirm}
-            >
-              <Trash2 size={13} />
+            <Button variant="danger" onPress={onConfirm} autoFocus>
+              <Trash2 size={14} />
               {t('common.delete')}
             </Button>
-          </div>
-        </div>
-      </motion.div>
-    </motion.div>
+          </AlertDialog.Footer>
+        </AlertDialog.Dialog>
+      </AlertDialog.Container>
+    </AlertDialog.Backdrop>
   );
 }
 
@@ -887,7 +859,13 @@ function buildMessageMenuItems({
   message, isOwn, saved, pinned, t, closeMenu,
   onReply, onOpenThread, onForward, onEdit, onDelete, onToggleSave, onTogglePin, onInfo,
 }) {
-  const canEdit = isOwn && (message.type !== 'media' || message.body);
+  const withinEditWindow = isWithinMessageWindow(message.sent_at, MESSAGE_EDIT_WINDOW_MS);
+  const withinDeleteWindow = isWithinMessageWindow(message.sent_at, MESSAGE_DELETE_WINDOW_MS);
+  const canEdit = isOwn
+    && withinEditWindow
+    && !message.is_deleted
+    && (message.type !== 'media' || message.body);
+  const canDelete = isOwn && withinDeleteWindow && !message.is_deleted;
   const canCopy = !!message.body;
   return [
     { key: 'reply', icon: Reply, label: t('chat.reply'), onClick: () => { closeMenu(); onReply(message); } },
@@ -898,7 +876,7 @@ function buildMessageMenuItems({
     { key: 'save', icon: saved ? BookmarkCheck : Bookmark, label: saved ? t('saved.remove') : t('chat.save'), onClick: () => { closeMenu(); onToggleSave(message); } },
     isOwn && { key: 'info', icon: Info, label: t('chat.messageInfo'), onClick: () => { closeMenu(); onInfo(message); } },
     canEdit && { key: 'edit', icon: Pencil, label: t('common.edit'), onClick: () => { closeMenu(); onEdit(message); } },
-    isOwn && { key: 'delete', icon: Trash2, label: t('common.delete'), danger: true, onClick: () => { closeMenu(); onDelete(message); } },
+    canDelete && { key: 'delete', icon: Trash2, label: t('common.delete'), danger: true, onClick: () => { closeMenu(); onDelete(message); } },
   ];
 }
 
@@ -1808,9 +1786,19 @@ export default function ConversationPage() {
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
 
     if (editing) {
-      const bodyFormat = detectBodyFormat(body);
-      await editMessage(editing.id, body, bodyFormat);
-      setEditing(null);
+      if (!isWithinMessageWindow(editing.sent_at, MESSAGE_EDIT_WINDOW_MS)) {
+        toast.danger(t('chat.editWindowExpired'));
+        setEditing(null);
+        return;
+      }
+      try {
+        const bodyFormat = detectBodyFormat(body);
+        await editMessage(editing.id, body, bodyFormat);
+        setEditing(null);
+      } catch (err) {
+        toast.danger(err?.message || t('chat.editWindowExpired'));
+        return;
+      }
     } else {
       const bodyFormat = detectBodyFormat(body);
       const data = { conversation_id: conversationId, body, type: 'text', body_format: bodyFormat };
@@ -2058,8 +2046,17 @@ export default function ConversationPage() {
   }, []);
 
   const handleDeleteConfirm = async () => {
-    if (deleteTarget) {
+    if (!deleteTarget) return;
+    if (!isWithinMessageWindow(deleteTarget.sent_at, MESSAGE_DELETE_WINDOW_MS)) {
+      toast.danger(t('chat.deleteWindowExpired'));
+      setDeleteTarget(null);
+      return;
+    }
+    try {
       await deleteMessage(deleteTarget.id);
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.danger(err?.message || t('chat.deleteWindowExpired'));
       setDeleteTarget(null);
     }
   };
@@ -2287,16 +2284,12 @@ export default function ConversationPage() {
 
   return (
     <>
-      {/* Delete confirmation modal */}
-      <AnimatePresence>
-        {deleteTarget && (
-          <ConfirmDeleteModal
-            message={deleteTarget}
-            onConfirm={handleDeleteConfirm}
-            onCancel={handleDeleteCancel}
-          />
-        )}
-      </AnimatePresence>
+      <ConfirmDeleteModal
+        isOpen={!!deleteTarget}
+        message={deleteTarget}
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+      />
 
       {/* Forward modal */}
       <ForwardModal

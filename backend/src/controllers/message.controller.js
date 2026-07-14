@@ -37,8 +37,8 @@ class MessageController {
   }
 
   async delete(req, res) {
-    await messageService.delete(req.params.messageId, req.user.id);
-    res.json({ status: 'success', message: 'Message deleted' });
+    const message = await messageService.delete(req.params.messageId, req.user.id);
+    res.json({ status: 'success', data: message });
   }
 
   async addReaction(req, res) {

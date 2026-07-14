@@ -466,9 +466,24 @@ export const useChatStore = create((set, get) => ({
   },
 
   deleteMessage: async (messageId) => {
-    await messagesApi.delete(messageId);
+    const res = await messagesApi.delete(messageId);
+    const deleted = res?.data;
+    // Soft-delete: keep the row and show the "deleted" placeholder (same as
+    // after refresh / message:deleted). Never remove it from the timeline.
     set((state) => ({
-      messages: state.messages.filter((m) => m.id !== messageId),
+      messages: state.messages.map((m) =>
+        m.id === messageId
+          ? {
+              ...m,
+              ...(deleted || {}),
+              is_deleted: true,
+              body: null,
+              type: 'deleted_placeholder',
+              attachments: [],
+              reactions: [],
+            }
+          : m,
+      ),
     }));
   },
 
