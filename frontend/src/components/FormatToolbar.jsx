@@ -1,23 +1,27 @@
 import { useCallback } from 'react';
 import { Button, Tooltip } from '@heroui/react';
-import { Bold, Italic, Strikethrough, Code2 } from 'lucide-react';
+import { Bold, Italic, Strikethrough, Code } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { applyWrap } from '@/lib/formatText';
+import { applyWrap, applyCodeWrap } from '@/lib/formatText';
 
 const FORMAT_ACTIONS = [
   { key: 'bold', icon: Bold, prefix: '**', suffix: '**', shortcut: 'Ctrl+B' },
   { key: 'italic', icon: Italic, prefix: '*', suffix: '*', shortcut: 'Ctrl+I' },
   { key: 'strikethrough', icon: Strikethrough, prefix: '~~', suffix: '~~' },
-  { key: 'code', icon: Code2, prefix: '`', suffix: '`', shortcut: 'Ctrl+E' },
+  { key: 'code', icon: Code, prefix: '`', suffix: '`', shortcut: 'Ctrl+E' },
 ];
 
 export default function FormatToolbar({ inputRef, onChange, disabled = false }) {
   const { t } = useTranslation();
 
   const handleFormat = useCallback(
-    (prefix, suffix, placeholderKey) => {
+    (key, prefix, suffix, placeholderKey) => {
       const el = inputRef.current;
       if (!el || disabled) return;
+      if (key === 'code') {
+        applyCodeWrap(el, onChange, t(placeholderKey));
+        return;
+      }
       applyWrap(el, prefix, suffix, onChange, t(placeholderKey));
     },
     [inputRef, onChange, disabled, t],
@@ -39,7 +43,7 @@ export default function FormatToolbar({ inputRef, onChange, disabled = false }) 
             isIconOnly
             variant="ghost"
             isDisabled={disabled}
-            onPress={() => handleFormat(prefix, suffix, 'chat.format.placeholder')}
+            onPress={() => handleFormat(key, prefix, suffix, 'chat.format.placeholder')}
             className="flex h-7 w-7 min-w-0 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
             aria-label={t(`chat.format.${key}`)}
           >
@@ -57,12 +61,18 @@ export function handleFormatShortcut(e, inputRef, onChange, t) {
   const el = inputRef.current;
   if (!el) return false;
 
+  const key = e.key.toLowerCase();
+  if (key === 'e') {
+    e.preventDefault();
+    applyCodeWrap(el, onChange, t('chat.format.placeholder'));
+    return true;
+  }
+
   const map = {
     b: ['**', '**'],
     i: ['*', '*'],
-    e: ['`', '`'],
   };
-  const delimiters = map[e.key.toLowerCase()];
+  const delimiters = map[key];
   if (!delimiters) return false;
 
   e.preventDefault();

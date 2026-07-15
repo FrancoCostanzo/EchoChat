@@ -176,10 +176,7 @@
       "italic": "Cursiva",
       "strikethrough": "Tachado",
       "code": "Código inline",
-      "placeholder": "texto",
-      "preview": "Vista previa",
-      "showPreview": "Mostrar vista previa",
-      "hidePreview": "Ocultar vista previa"
+      "placeholder": "texto"
     },
     "welcomeTo": "Bienvenido a",
     "startOfDirect": "Este es el comienzo de tu historial de mensajes con {{name}}.",

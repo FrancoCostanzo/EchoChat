@@ -497,6 +497,17 @@
     border-color: color-mix(in oklch, var(--accent) 30%, transparent);
   }
 
+  /* Live-formatting composer — WhatsApp-style inline bold/italic/strike/code
+     as you type, no separate preview pane. Placeholder only shows once the
+     box is truly empty (toggled imperatively via data-empty, not CSS :empty,
+     since a contentEditable can be textually empty yet still hold a stray
+     browser-inserted node). */
+  .echo-rich-input[data-empty='true']::before {
+    content: attr(data-placeholder);
+    color: var(--color-ink-200);
+    pointer-events: none;
+  }
+
   /* Floating composer — gains elevation while the user is typing */
   .echo-composer {
     transition: transform 200ms var(--ease-echo), box-shadow 200ms var(--ease-echo);
@@ -603,11 +614,10 @@
 @media (min-width: 640px) {
   .send-btn {
     width: auto;
-    height: auto;
+    height: 2.25rem;
     min-width: 2.25rem;
     min-height: 2.25rem;
-    padding: 0.5em 0.85em;
-    padding-left: 0.7em;
+    padding: 0 0.85em 0 0.7em;
   }
 }
 .send-btn:disabled {

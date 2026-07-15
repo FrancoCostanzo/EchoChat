@@ -176,10 +176,7 @@
       "italic": "Italic",
       "strikethrough": "Strikethrough",
       "code": "Inline code",
-      "placeholder": "text",
-      "preview": "Preview",
-      "showPreview": "Show preview",
-      "hidePreview": "Hide preview"
+      "placeholder": "text"
     },
     "welcomeTo": "Welcome to",
     "startOfDirect": "This is the beginning of your message history with {{name}}.",
