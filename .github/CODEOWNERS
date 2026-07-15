@@ -1,0 +1,5 @@
+# CODEOWNERS
+# Estas reglas determinan quién debe revisar los Pull Requests por defecto.
+# Ver: https://docs.github.com/articles/about-code-owners
+
+* @FrancoCostanzo
