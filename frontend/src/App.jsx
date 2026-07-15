@@ -62,7 +62,7 @@ export default function App() {
 
   return (
     <ConfirmProvider>
-      <Toast.Provider placement="bottom-right" />
+      <Toast.Provider placement="bottom end" maxVisibleToasts={4} width={360} />
       <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />

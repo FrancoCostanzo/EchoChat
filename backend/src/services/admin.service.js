@@ -54,8 +54,13 @@ class AdminService {
     const users = await userRepository.listUsers(filters);
     const enriched = await Promise.all(
       users.map(async (u) => {
-        const roles = await userRepository.getUserRoles(u.id);
-        return withAvatarUrl(toAdminUserResponse(u, roles));
+        const [roles, creds] = await Promise.all([
+          userRepository.getUserRoles(u.id),
+          credentialRepository.findByUserId(u.id),
+        ]);
+        return withAvatarUrl(toAdminUserResponse(u, roles, {
+          totp_enabled: !!creds?.totp_enabled,
+        }));
       }),
     );
     return enriched;
@@ -138,7 +143,100 @@ class AdminService {
     });
 
     const roles = await userRepository.getUserRoles(userId);
-    return toAdminUserResponse(user, roles);
+    const creds = await credentialRepository.findByUserId(userId);
+    return withAvatarUrl(toAdminUserResponse(user, roles, {
+      totp_enabled: !!creds?.totp_enabled,
+    }));
+  }
+
+  async uploadUserAvatar(actorId, userId, file, ip, userAgent) {
+    if (!file) throw new BadRequestError('No file provided');
+
+    // Require directo para no importar vía ../services (ciclo).
+    const userService = require('./user.service');
+    await userService.uploadAvatar(
+      userId,
+      file.buffer,
+      file.mimetype,
+      file.size,
+      file.originalname,
+      {
+        actorId,
+        action: 'admin.user_avatar_update',
+        severity: 'warning',
+        category: 'admin',
+        ip,
+        userAgent,
+      },
+    );
+
+    const user = await userRepository.findById(userId);
+    if (!user || user.status === 'deleted') throw new NotFoundError('User');
+    const roles = await userRepository.getUserRoles(userId);
+    const creds = await credentialRepository.findByUserId(userId);
+    logger.info({ userId, actorId }, 'Admin uploaded user avatar');
+    return withAvatarUrl(toAdminUserResponse(user, roles, {
+      totp_enabled: !!creds?.totp_enabled,
+    }));
+  }
+
+  async removeUserAvatar(actorId, userId, ip, userAgent) {
+    const userService = require('./user.service');
+    await userService.removeAvatar(userId, {
+      actorId,
+      action: 'admin.user_avatar_remove',
+      severity: 'warning',
+      category: 'admin',
+      ip,
+      userAgent,
+    });
+
+    const user = await userRepository.findById(userId);
+    if (!user || user.status === 'deleted') throw new NotFoundError('User');
+    const roles = await userRepository.getUserRoles(userId);
+    const creds = await credentialRepository.findByUserId(userId);
+    logger.info({ userId, actorId }, 'Admin removed user avatar');
+    return withAvatarUrl(toAdminUserResponse(user, roles, {
+      totp_enabled: !!creds?.totp_enabled,
+    }));
+  }
+
+  /**
+   * Admin force-disable of TOTP 2FA (no password/code required).
+   * Clears secret + backup codes, audits under security, and revokes sessions
+   * so a stolen cookie cannot keep the account open without re-login.
+   */
+  async disableUser2fa(actorId, userId, ip, userAgent) {
+    const user = await userRepository.findById(userId);
+    if (!user || user.status === 'deleted') throw new NotFoundError('User');
+
+    const creds = await credentialRepository.findByUserId(userId);
+    if (!creds) throw new BadRequestError('User has no local credentials (external auth)');
+    if (!creds.totp_enabled) throw new BadRequestError('2FA is not enabled for this user');
+
+    await credentialRepository.disableTotp(userId);
+    await sessionRepository.deactivateAllForUser(userId);
+
+    await auditRepository.log({
+      actor_id: actorId,
+      action: 'admin.user_2fa_disabled',
+      resource_type: 'user',
+      resource_id: userId,
+      ip_address: ip,
+      user_agent: userAgent,
+      severity: 'critical',
+      category: 'security',
+      data_before: { totp_enabled: true },
+      data_after: { totp_enabled: false },
+      metadata: {
+        target_username: user.username,
+        sessions_revoked: true,
+      },
+    });
+
+    logger.warn({ userId, actorId }, 'Admin disabled user 2FA');
+    const roles = await userRepository.getUserRoles(userId);
+    return withAvatarUrl(toAdminUserResponse(user, roles, { totp_enabled: false }));
   }
 
   async deleteUser(actorId, userId, ip, userAgent) {

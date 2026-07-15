@@ -65,7 +65,7 @@ class UserService {
     return withAvatarUrl(toUserResponse(user));
   }
 
-  async uploadAvatar(userId, fileBuffer, mimeType, fileSize, originalFilename) {
+  async uploadAvatar(userId, fileBuffer, mimeType, fileSize, originalFilename, opts = {}) {
     if (!AVATAR_ALLOWED_TYPES.includes(mimeType)) {
       throw new BadRequestError('Invalid file type. Allowed: JPEG, PNG, WebP, GIF');
     }
@@ -75,7 +75,9 @@ class UserService {
 
     // Delete previous avatar from MinIO if it exists
     const current = await userRepository.findById(userId);
-    if (current?.avatar_object_key) {
+    if (!current || current.status === 'deleted') throw new NotFoundError('User');
+
+    if (current.avatar_object_key) {
       try {
         await minioClient.removeObject(
           current.avatar_bucket || AVATAR_BUCKET,
@@ -95,15 +97,47 @@ class UserService {
 
     const user = await userRepository.updateAvatar(userId, AVATAR_BUCKET, objectKey);
     await auditRepository.log({
-      actor_id: userId,
-      action: 'user.avatar_update',
+      actor_id: opts.actorId || userId,
+      action: opts.action || 'user.avatar_update',
       resource_type: 'user',
       resource_id: userId,
-      severity: 'info',
-      category: 'content',
+      severity: opts.severity || 'info',
+      category: opts.category || 'content',
       metadata: { mime_type: mimeType, size_bytes: fileSize },
+      ip_address: opts.ip || null,
+      user_agent: opts.userAgent || null,
     });
-    logger.info({ userId, objectKey }, 'Avatar uploaded');
+    logger.info({ userId, objectKey, actorId: opts.actorId || userId }, 'Avatar uploaded');
+    return withAvatarUrl(toUserResponse(user));
+  }
+
+  async removeAvatar(userId, opts = {}) {
+    const current = await userRepository.findById(userId);
+    if (!current || current.status === 'deleted') throw new NotFoundError('User');
+
+    if (current.avatar_object_key) {
+      try {
+        await minioClient.removeObject(
+          current.avatar_bucket || AVATAR_BUCKET,
+          current.avatar_object_key,
+        );
+      } catch (err) {
+        logger.warn({ err }, 'Failed to remove avatar from MinIO');
+      }
+    }
+
+    const user = await userRepository.clearAvatar(userId);
+    await auditRepository.log({
+      actor_id: opts.actorId || userId,
+      action: opts.action || 'user.avatar_remove',
+      resource_type: 'user',
+      resource_id: userId,
+      severity: opts.severity || 'info',
+      category: opts.category || 'content',
+      ip_address: opts.ip || null,
+      user_agent: opts.userAgent || null,
+    });
+    logger.info({ userId, actorId: opts.actorId || userId }, 'Avatar removed');
     return withAvatarUrl(toUserResponse(user));
   }
 

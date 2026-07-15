@@ -47,6 +47,7 @@ import {
   Video as VideoIcon,
   Sticker,
   Megaphone,
+  UserPlus,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
@@ -84,7 +85,7 @@ import {
   isWithinMessageWindow,
 } from '@/lib/messageWindow';
 import PresenceAvatarStack from '@/components/PresenceAvatarStack';
-import { storageApi, messagesApi, conversationsApi } from '@/lib/endpoints';
+import { storageApi, messagesApi, conversationsApi, relationshipsApi } from '@/lib/endpoints';
 import { EASE_OUT, SPRING_BOUNCY, msgEntryInitial, msgEntryTransition } from '@/lib/motion';
 import { userColor } from '@/lib/userColor';
 
@@ -1459,6 +1460,8 @@ export default function ConversationPage() {
 
   const [wallpaperPickerOpen, setWallpaperPickerOpen] = useState(false);
   const [wallpaperStyle, setWallpaperStyle] = useState(null); // null = default echo-chat-bg
+  const [isContact, setIsContact] = useState(null); // null = unknown, true/false once loaded
+  const [addingContact, setAddingContact] = useState(false);
 
   const wallpapers = useWallpaperStore((s) => s.wallpapers);
   const resolveWallpaper = useWallpaperStore((s) => s.resolveWallpaper);
@@ -1485,6 +1488,47 @@ export default function ConversationPage() {
   const conversation =
     conversations.find((c) => c.id === conversationId) ?? getActiveConversation();
   const isDirect = conversation?.type === 'direct';
+  const otherUserId = isDirect ? (conversation?.other_user_id || conversation?.member_user_id) : null;
+
+  // Check whether the DM peer is already in contacts (only for direct chats).
+  useEffect(() => {
+    if (!otherUserId) {
+      setIsContact(null);
+      return undefined;
+    }
+    let alive = true;
+    setIsContact(null);
+    relationshipsApi.getContacts()
+      .then(({ data }) => {
+        if (!alive) return;
+        const found = (data || []).some(
+          (c) => (c.target_user_id || c.id) === otherUserId,
+        );
+        setIsContact(found);
+      })
+      .catch(() => {
+        if (alive) setIsContact(false);
+      });
+    return () => { alive = false; };
+  }, [otherUserId]);
+
+  const handleAddContact = useCallback(async () => {
+    if (!otherUserId || addingContact) return;
+    setAddingContact(true);
+    try {
+      await relationshipsApi.create({ target_user_id: otherUserId, type: 'contact' });
+      setIsContact(true);
+      toast.success(t('contacts.addedToast', {
+        name: conversation?.display_name || conversation?.name || t('chat.conversation'),
+      }), {
+        indicator: <UserPlus size={16} />,
+      });
+    } catch (err) {
+      toast.danger(err?.message || t('contacts.addError'));
+    } finally {
+      setAddingContact(false);
+    }
+  }, [otherUserId, addingContact, conversation?.display_name, conversation?.name, t]);
 
   // Resolve and apply wallpaper using URL conversationId (works before chat list loads)
   useEffect(() => {
@@ -2401,6 +2445,21 @@ export default function ConversationPage() {
           </div>
 
           <div className="flex items-center gap-0.5">
+            {isDirect && isContact === false && (
+              <Tooltip content={t('contacts.addFromChat')} placement="bottom">
+                <Button
+                  isIconOnly
+                  size="sm"
+                  variant="ghost"
+                  onPress={handleAddContact}
+                  isPending={addingContact}
+                  className="h-8 w-8 min-w-0 rounded-md text-ink-100 hover:bg-ink-600 hover:text-foreground"
+                  aria-label={t('contacts.addFromChat')}
+                >
+                  <UserPlus size={18} />
+                </Button>
+              </Tooltip>
+            )}
             {conversation.type !== 'channel' && (
               <>
                 <Tooltip content={t('call.startVoice')} placement="bottom">
@@ -2466,6 +2525,12 @@ export default function ConversationPage() {
               </Button>
               <Dropdown.Popover>
                 <Dropdown.Menu>
+                  {isDirect && isContact === false && (
+                    <Dropdown.Item id="addContact" textValue={t('contacts.addFromChat')} onAction={handleAddContact}>
+                      <UserPlus size={15} />
+                      <Label>{t('contacts.addFromChat')}</Label>
+                    </Dropdown.Item>
+                  )}
                   <Dropdown.Item id="pinned" textValue={t('chat.pinnedMessages')} onAction={handleOpenPinned}>
                     <Pin size={15} />
                     <Label>{t('chat.pinnedMessages')}</Label>

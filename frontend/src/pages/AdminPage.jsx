@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import {
@@ -19,6 +19,7 @@ import {
   Switch,
   Table,
   Tabs,
+  TextField,
   toast,
 } from '@heroui/react';
 import {
@@ -44,6 +45,10 @@ import {
   Circle,
   ExternalLink,
   UserCog,
+  Pencil,
+  Camera,
+  ShieldCheck,
+  ShieldOff,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { adminApi } from '@/lib/endpoints';
@@ -51,6 +56,7 @@ import { useAuthStore } from '@/stores/authStore';
 import MonitoreoDashboard from '@/components/monitoring/MonitoreoDashboard';
 import { useConfirm } from '@/components/ConfirmProvider';
 import UserAvatar from '@/components/UserAvatar';
+import AvatarCropModal from '@/components/AvatarCropModal';
 import { formatMessageTime } from '@/lib/dates';
 
 const ENTRY_EASE = [0.34, 1.2, 0.64, 1];
@@ -83,30 +89,53 @@ const STORAGE_STATUS_COLOR = {
   failed: 'danger',
 };
 
-/* Reusable HeroUI Select — replaces raw <select> across the admin tabs. */
-function AdminSelect({ value, onChange, ariaLabel, items, className = 'min-w-[170px]' }) {
+/* Reusable HeroUI Select — fullWidth + secondary so it remains visible on dark panels/modals. */
+function AdminSelect({
+  value,
+  onChange,
+  ariaLabel,
+  label,
+  items,
+  className = '',
+  fullWidth = false,
+}) {
   return (
     <Select
-      aria-label={ariaLabel}
+      aria-label={ariaLabel || label}
       value={value}
       onChange={(v) => onChange(String(v))}
-      className={className}
+      className={[fullWidth ? 'w-full' : 'min-w-[170px]', className].filter(Boolean).join(' ')}
+      fullWidth={fullWidth}
+      variant="secondary"
+      placeholder={ariaLabel || label}
     >
-      <Select.Trigger>
+      {label ? <Label>{label}</Label> : null}
+      <Select.Trigger className={fullWidth ? 'w-full' : undefined}>
         <Select.Value />
         <Select.Indicator />
       </Select.Trigger>
       <Select.Popover>
         <ListBox>
-          {items.map(({ id, label }) => (
-            <ListBox.Item key={id} id={id} textValue={label}>
-              {label}
+          {items.map(({ id, label: itemLabel }) => (
+            <ListBox.Item key={id} id={id} textValue={itemLabel}>
+              {itemLabel}
               <ListBox.ItemIndicator />
             </ListBox.Item>
           ))}
         </ListBox>
       </Select.Popover>
     </Select>
+  );
+}
+
+function AdminTextField({ label, children, className = '' }) {
+  return (
+    <TextField fullWidth className={className}>
+      <Label>{label}</Label>
+      <InputGroup fullWidth variant="secondary">
+        {children}
+      </InputGroup>
+    </TextField>
   );
 }
 
@@ -257,7 +286,15 @@ function UsersTab({ t }) {
   };
 
   const openCreate = () => {
-    setForm({ username: '', display_name: '', email: '', password: '', department: '', role_names: ['user'] });
+    setForm({
+      username: '',
+      display_name: '',
+      email: '',
+      password: '',
+      department: '',
+      job_title: '',
+      role_names: ['user'],
+    });
     setCreateOpen(true);
   };
 
@@ -329,19 +366,30 @@ function UsersTab({ t }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative min-w-[180px] flex-1">
-          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-200" />
-          <Input className="pl-9" placeholder={t('admin.users.search')} value={search} onChange={(e) => setSearch(e.target.value)} />
-        </div>
-        <Input
-          className="min-w-[150px]"
-          placeholder={t('admin.users.filterDept')}
-          value={deptFilter}
-          onChange={(e) => setDeptFilter(e.target.value)}
-        />
+      <div className="flex flex-wrap items-end gap-3">
+        <TextField className="min-w-[200px] flex-1" aria-label={t('admin.users.search')}>
+          <Label className="sr-only">{t('admin.users.search')}</Label>
+          <InputGroup fullWidth variant="secondary">
+            <InputGroup.Prefix>
+              <Search size={15} className="text-ink-300" />
+            </InputGroup.Prefix>
+            <InputGroup.Input
+              placeholder={t('admin.users.search')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </InputGroup>
+        </TextField>
+        <AdminTextField label={t('admin.users.filterDept')} className="min-w-[160px] w-[180px]">
+          <InputGroup.Input
+            placeholder={t('admin.users.filterDept')}
+            value={deptFilter}
+            onChange={(e) => setDeptFilter(e.target.value)}
+          />
+        </AdminTextField>
         <AdminSelect
           ariaLabel={t('admin.users.allStatuses')}
+          label={t('admin.users.statusLabel')}
           value={statusFilter}
           onChange={setStatusFilter}
           items={[
@@ -349,7 +397,7 @@ function UsersTab({ t }) {
             ...USER_STATUSES.map((s) => ({ id: s, label: t(`admin.users.status.${s}`) })),
           ]}
         />
-        <Button className="gap-2" onPress={openCreate}>
+        <Button className="gap-2 shrink-0" onPress={openCreate}>
           <Plus size={16} /> {t('admin.users.create')}
         </Button>
       </div>
@@ -473,28 +521,38 @@ function UsersTab({ t }) {
         toggleRole={toggleRole}
         onSave={handleUpdate}
         busy={busy}
+        editUser={editUser}
+        onAvatarUpdated={(updated) => {
+          setEditUser(updated);
+          setUsers((prev) => prev.map((u) => (u.id === updated.id ? { ...u, ...updated } : u)));
+        }}
         t={t}
       />
 
       <Modal isOpen={!!resetUser} onOpenChange={(o) => { if (!o) setResetUser(null); }}>
-        <Modal.Backdrop>
+        <Modal.Backdrop variant="blur">
           <Modal.Container placement="center" size="sm">
             <Modal.Dialog>
+              <Modal.CloseTrigger />
               <Modal.Header>
+                <Modal.Icon className="bg-accent/15 text-accent">
+                  <KeyRound size={18} />
+                </Modal.Icon>
                 <Modal.Heading>{t('admin.users.resetPasswordTitle')}</Modal.Heading>
-                <Modal.CloseTrigger />
               </Modal.Header>
-              <Modal.Body className="flex flex-col gap-3">
+              <Modal.Body className="flex flex-col gap-4">
                 <p className="text-sm text-ink-200">
                   {t('admin.users.resetPasswordFor', { name: resetUser?.display_name || '' })}
                 </p>
-                <Field label={t('admin.users.newPassword')}>
-                  <Input
+                <AdminTextField label={t('admin.users.newPassword')}>
+                  <InputGroup.Input
                     type="password"
                     value={resetPw}
                     onChange={(e) => setResetPw(e.target.value)}
+                    autoComplete="new-password"
+                    autoFocus
                   />
-                </Field>
+                </AdminTextField>
               </Modal.Body>
               <Modal.Footer>
                 <Button variant="ghost" onPress={() => setResetUser(null)}>{t('common.cancel')}</Button>
@@ -510,67 +568,342 @@ function UsersTab({ t }) {
   );
 }
 
-function UserFormModal({ open, onClose, title, form, setForm, roles, toggleRole, onSave, busy, isCreate, t }) {
+function UserFormModal({
+  open,
+  onClose,
+  title,
+  form,
+  setForm,
+  roles,
+  toggleRole,
+  onSave,
+  busy,
+  isCreate,
+  editUser,
+  onAvatarUpdated,
+  t,
+}) {
+  const confirm = useConfirm();
+  const update = (key) => (e) => setForm({ ...form, [key]: e.target.value });
+  const avatarInputRef = useRef(null);
+  const cropObjectUrlRef = useRef(null);
+  const [avatarPreview, setAvatarPreview] = useState(null);
+  const [avatarLoading, setAvatarLoading] = useState(false);
+  const [totpEnabled, setTotpEnabled] = useState(false);
+  const [disabling2fa, setDisabling2fa] = useState(false);
+  const [cropOpen, setCropOpen] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState(null);
+  const [cropFileName, setCropFileName] = useState('avatar.jpg');
+
+  useEffect(() => {
+    if (open && editUser) {
+      setAvatarPreview(editUser.avatar_url || null);
+      setTotpEnabled(!!editUser.totp_enabled);
+    }
+    if (!open) {
+      setAvatarPreview(null);
+      setTotpEnabled(false);
+      setCropOpen(false);
+      setCropImageSrc(null);
+      if (cropObjectUrlRef.current) {
+        URL.revokeObjectURL(cropObjectUrlRef.current);
+        cropObjectUrlRef.current = null;
+      }
+    }
+  }, [open, editUser]);
+
+  useEffect(() => () => {
+    if (cropObjectUrlRef.current) URL.revokeObjectURL(cropObjectUrlRef.current);
+  }, []);
+
+  const closeCropModal = () => {
+    setCropOpen(false);
+    setCropImageSrc(null);
+    if (cropObjectUrlRef.current) {
+      URL.revokeObjectURL(cropObjectUrlRef.current);
+      cropObjectUrlRef.current = null;
+    }
+  };
+
+  const handleAvatarPick = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !editUser?.id) return;
+    if (cropObjectUrlRef.current) URL.revokeObjectURL(cropObjectUrlRef.current);
+    const objectUrl = URL.createObjectURL(file);
+    cropObjectUrlRef.current = objectUrl;
+    setCropFileName(file.name || 'avatar.jpg');
+    setCropImageSrc(objectUrl);
+    setCropOpen(true);
+  };
+
+  const handleAvatarCropConfirm = async (file) => {
+    if (!editUser?.id) return;
+    setAvatarLoading(true);
+    try {
+      const { data } = await adminApi.uploadUserAvatar(editUser.id, file);
+      setAvatarPreview(data.avatar_url || null);
+      onAvatarUpdated?.(data);
+      toast.success(t('admin.users.avatarUpdated'));
+      closeCropModal();
+    } catch (err) {
+      toast.danger(err?.message || t('admin.users.avatarError'));
+    } finally {
+      setAvatarLoading(false);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!editUser?.id || !avatarPreview) return;
+    setAvatarLoading(true);
+    try {
+      const { data } = await adminApi.removeUserAvatar(editUser.id);
+      setAvatarPreview(null);
+      onAvatarUpdated?.({ ...data, avatar_url: null });
+      toast.success(t('admin.users.avatarRemoved'));
+    } catch (err) {
+      toast.danger(err?.message || t('admin.users.avatarError'));
+    } finally {
+      setAvatarLoading(false);
+    }
+  };
+
+  const handleDisable2fa = async () => {
+    if (!editUser?.id || !totpEnabled) return;
+    const ok = await confirm({
+      status: 'danger',
+      title: t('admin.users.disable2faTitle'),
+      message: t('admin.users.disable2faConfirm', {
+        name: editUser.display_name || editUser.username,
+      }),
+      confirmLabel: t('admin.users.disable2fa'),
+    });
+    if (!ok) return;
+
+    setDisabling2fa(true);
+    try {
+      const { data } = await adminApi.disableUser2fa(editUser.id);
+      setTotpEnabled(false);
+      onAvatarUpdated?.({ ...data, totp_enabled: false });
+      toast.success(t('admin.users.disable2faSuccess', {
+        name: editUser.display_name || editUser.username,
+      }));
+    } catch (err) {
+      toast.danger(err?.message || t('admin.users.disable2faError'));
+    } finally {
+      setDisabling2fa(false);
+    }
+  };
+
+  const avatarUser = editUser
+    ? {
+        ...editUser,
+        display_name: form.display_name || editUser.display_name,
+        avatar_url: avatarPreview,
+      }
+    : null;
+
   return (
+    <>
     <Modal isOpen={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <Modal.Backdrop>
-        <Modal.Container placement="center" size="md">
-          <Modal.Dialog>
+      <Modal.Backdrop variant="blur">
+        <Modal.Container placement="center" size="lg" scroll="inside">
+          <Modal.Dialog className="sm:max-w-lg">
+            <Modal.CloseTrigger />
             <Modal.Header>
+              <Modal.Icon className="bg-accent/15 text-accent">
+                {isCreate ? <Plus size={18} /> : <Pencil size={18} />}
+              </Modal.Icon>
               <Modal.Heading>{title}</Modal.Heading>
-              <Modal.CloseTrigger />
             </Modal.Header>
-            <Modal.Body className="flex max-h-[70vh] flex-col gap-3 overflow-y-auto">
-              {isCreate && (
-                <>
-                  <Field label={t('admin.users.username')}>
-                    <Input value={form.username || ''} onChange={(e) => setForm({ ...form, username: e.target.value })} />
-                  </Field>
-                  <Field label={t('admin.users.password')}>
-                    <Input type="password" value={form.password || ''} onChange={(e) => setForm({ ...form, password: e.target.value })} />
-                  </Field>
-                </>
-              )}
-              <Field label={t('admin.users.displayName')}>
-                <Input value={form.display_name || ''} onChange={(e) => setForm({ ...form, display_name: e.target.value })} />
-              </Field>
-              <Field label={t('admin.users.email')}>
-                <Input value={form.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-              </Field>
-              <Field label={t('admin.users.department')}>
-                <Input value={form.department || ''} onChange={(e) => setForm({ ...form, department: e.target.value })} />
-              </Field>
-              {!isCreate && (
-                <Field label={t('admin.users.statusLabel')}>
-                  <AdminSelect
-                    ariaLabel={t('admin.users.statusLabel')}
-                    className="w-full"
-                    value={form.status || 'active'}
-                    onChange={(v) => setForm({ ...form, status: v })}
-                    items={USER_STATUSES.map((s) => ({ id: s, label: t(`admin.users.status.${s}`) }))}
-                  />
-                </Field>
-              )}
-              <div>
-                <p className="mb-2 text-xs font-medium text-muted">{t('admin.users.roles')}</p>
-                <div className="flex flex-wrap gap-3">
-                  {roles.map((r) => (
-                    <Checkbox
-                      key={r.id}
-                      isSelected={(form.role_names || []).includes(r.name)}
-                      onChange={() => toggleRole(r.name)}
+
+            <Modal.Body className="flex flex-col gap-4">
+              {!isCreate && avatarUser && (
+                <div className="flex items-center gap-4 rounded-xl bg-ink-800/60 p-3 ring-1 ring-white/5">
+                  <div className="relative size-12 shrink-0 overflow-hidden rounded-full">
+                    <UserAvatar user={avatarUser} size="lg" />
+                    <label
+                      htmlFor="admin-user-avatar-input"
+                      className={[
+                        'absolute inset-0 z-10 flex cursor-pointer items-center justify-center rounded-full bg-black/50 transition-opacity',
+                        avatarLoading ? 'opacity-100' : 'opacity-0 hover:opacity-100 focus-within:opacity-100',
+                      ].join(' ')}
+                      aria-label={t('admin.users.changeAvatar')}
                     >
-                      <Checkbox.Content>
-                        <Checkbox.Control>
-                          <Checkbox.Indicator />
-                        </Checkbox.Control>
-                        {r.display_name || r.name}
-                      </Checkbox.Content>
-                    </Checkbox>
-                  ))}
+                      {avatarLoading ? (
+                        <Spinner size="sm" />
+                      ) : (
+                        <Camera size={16} className="text-white" />
+                      )}
+                    </label>
+                    <input
+                      id="admin-user-avatar-input"
+                      ref={avatarInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      className="sr-only"
+                      disabled={avatarLoading}
+                      onChange={handleAvatarPick}
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{avatarUser.display_name}</p>
+                    <p className="truncate text-xs text-ink-200">@{editUser.username}</p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto min-h-0 gap-1.5 px-0 text-xs font-medium text-accent"
+                        isDisabled={avatarLoading}
+                        onPress={() => avatarInputRef.current?.click()}
+                      >
+                        <Camera size={13} />
+                        {t('admin.users.changeAvatar')}
+                      </Button>
+                      {avatarPreview && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-auto min-h-0 gap-1.5 px-0 text-xs font-medium text-echo-dnd"
+                          isDisabled={avatarLoading}
+                          onPress={handleRemoveAvatar}
+                        >
+                          <Trash2 size={13} />
+                          {t('admin.users.removeAvatar')}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!isCreate && editUser && (
+                <div className="flex flex-col gap-2 rounded-xl bg-ink-800/60 p-3 ring-1 ring-white/5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${totpEnabled ? 'bg-success/15 text-success' : 'bg-ink-700 text-ink-300'}`}>
+                        {totpEnabled ? <ShieldCheck size={16} /> : <ShieldOff size={16} />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium">{t('admin.users.twoFactor')}</p>
+                        <p className="text-xs text-ink-200">
+                          {totpEnabled
+                            ? t('admin.users.twoFactorEnabled')
+                            : t('admin.users.twoFactorDisabled')}
+                        </p>
+                      </div>
+                    </div>
+                    {totpEnabled && (
+                      <Button
+                        size="sm"
+                        variant="danger-soft"
+                        className="shrink-0 gap-1.5"
+                        isPending={disabling2fa}
+                        onPress={handleDisable2fa}
+                      >
+                        <ShieldOff size={14} />
+                        {t('admin.users.disable2fa')}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {isCreate && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <AdminTextField label={t('admin.users.username')}>
+                    <InputGroup.Input
+                      value={form.username || ''}
+                      onChange={update('username')}
+                      autoComplete="off"
+                      autoFocus
+                    />
+                  </AdminTextField>
+                  <AdminTextField label={t('admin.users.password')}>
+                    <InputGroup.Input
+                      type="password"
+                      value={form.password || ''}
+                      onChange={update('password')}
+                      autoComplete="new-password"
+                    />
+                  </AdminTextField>
+                </div>
+              )}
+
+              <AdminTextField label={t('admin.users.displayName')}>
+                <InputGroup.Input
+                  value={form.display_name || ''}
+                  onChange={update('display_name')}
+                  autoFocus={!isCreate}
+                />
+              </AdminTextField>
+
+              <AdminTextField label={t('admin.users.email')}>
+                <InputGroup.Input
+                  type="email"
+                  value={form.email || ''}
+                  onChange={update('email')}
+                  autoComplete="off"
+                />
+              </AdminTextField>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <AdminTextField label={t('admin.users.department')}>
+                  <InputGroup.Input
+                    value={form.department || ''}
+                    onChange={update('department')}
+                  />
+                </AdminTextField>
+                <AdminTextField label={t('settings.jobTitle')}>
+                  <InputGroup.Input
+                    value={form.job_title || ''}
+                    onChange={update('job_title')}
+                  />
+                </AdminTextField>
+              </div>
+
+              {!isCreate && (
+                <AdminSelect
+                  fullWidth
+                  label={t('admin.users.statusLabel')}
+                  ariaLabel={t('admin.users.statusLabel')}
+                  value={form.status || 'active'}
+                  onChange={(v) => setForm({ ...form, status: v })}
+                  items={USER_STATUSES.map((s) => ({
+                    id: s,
+                    label: t(`admin.users.status.${s}`),
+                  }))}
+                />
+              )}
+
+              <div className="flex flex-col gap-2">
+                <Label>{t('admin.users.roles')}</Label>
+                <div className="flex flex-wrap gap-2 rounded-xl bg-ink-800/60 p-3 ring-1 ring-white/5">
+                  {roles.length === 0 ? (
+                    <p className="text-xs text-ink-300">{t('common.loading')}</p>
+                  ) : (
+                    roles.map((r) => {
+                      const selected = (form.role_names || []).includes(r.name);
+                      return (
+                        <Checkbox
+                          key={r.id}
+                          isSelected={selected}
+                          onChange={() => toggleRole(r.name)}
+                        >
+                          <Checkbox.Content>
+                            <Checkbox.Control>
+                              <Checkbox.Indicator />
+                            </Checkbox.Control>
+                            <span className="text-sm">{r.display_name || r.name}</span>
+                          </Checkbox.Content>
+                        </Checkbox>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             </Modal.Body>
+
             <Modal.Footer>
               <Button variant="ghost" onPress={onClose}>{t('common.cancel')}</Button>
               <Button isPending={busy} onPress={onSave}>{t('common.save')}</Button>
@@ -579,15 +912,16 @@ function UserFormModal({ open, onClose, title, form, setForm, roles, toggleRole,
         </Modal.Container>
       </Modal.Backdrop>
     </Modal>
-  );
-}
 
-function Field({ label, children }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <label className="text-xs font-medium text-ink-200">{label}</label>
-      {children}
-    </div>
+    <AvatarCropModal
+      isOpen={cropOpen}
+      imageSrc={cropImageSrc}
+      fileName={cropFileName}
+      onClose={closeCropModal}
+      onConfirm={handleAvatarCropConfirm}
+      loading={avatarLoading}
+    />
+    </>
   );
 }
 
@@ -642,14 +976,21 @@ function SettingsTab({ t }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <Tabs selectedKey={category} onSelectionChange={setCategory}>
-        <Tabs.List aria-label={t('admin.settings.categories')}>
-          {categories.map((cat) => (
-            <Tabs.Tab key={cat} id={cat}>
-              {cat === 'all' ? t('admin.settings.all') : cat}
-            </Tabs.Tab>
-          ))}
-        </Tabs.List>
+      <Tabs
+        selectedKey={category}
+        onSelectionChange={(key) => setCategory(String(key))}
+        className="w-full"
+      >
+        <Tabs.ListContainer>
+          <Tabs.List aria-label={t('admin.settings.categories')} className="w-full">
+            {categories.map((cat) => (
+              <Tabs.Tab key={cat} id={cat}>
+                {cat === 'all' ? t('admin.settings.all') : cat}
+                <Tabs.Indicator />
+              </Tabs.Tab>
+            ))}
+          </Tabs.List>
+        </Tabs.ListContainer>
       </Tabs>
       <div className="space-y-2">
         {filtered.map((s) => (

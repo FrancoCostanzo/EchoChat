@@ -1,4 +1,5 @@
 const { Router } = require('express');
+const multer = require('multer');
 const { adminController } = require('../controllers');
 const { validate, authenticate, requirePermission } = require('../middlewares');
 const {
@@ -8,6 +9,15 @@ const {
   adminResetPasswordDto,
 } = require('../dtos');
 
+const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    cb(null, allowed.includes(file.mimetype));
+  },
+});
+
 const router = Router();
 router.use(authenticate);
 
@@ -15,6 +25,9 @@ router.use(authenticate);
 router.get('/users', requirePermission('admin.users'), (req, res) => adminController.listUsers(req, res));
 router.post('/users', requirePermission('admin.users'), validate(adminCreateUserDto), (req, res) => adminController.createUser(req, res));
 router.patch('/users/:userId', requirePermission('admin.users'), validate(adminUpdateUserDto), (req, res) => adminController.updateUser(req, res));
+router.post('/users/:userId/avatar', requirePermission('admin.users'), avatarUpload.single('file'), (req, res) => adminController.uploadUserAvatar(req, res));
+router.delete('/users/:userId/avatar', requirePermission('admin.users'), (req, res) => adminController.removeUserAvatar(req, res));
+router.delete('/users/:userId/2fa', requirePermission('admin.users'), (req, res) => adminController.disableUser2fa(req, res));
 router.patch('/users/:userId/password', requirePermission('admin.users'), validate(adminResetPasswordDto), (req, res) => adminController.resetUserPassword(req, res));
 router.delete('/users/:userId', requirePermission('admin.users'), (req, res) => adminController.deleteUser(req, res));
 router.get('/roles', requirePermission('admin.users'), (req, res) => adminController.listRoles(req, res));

@@ -192,6 +192,14 @@ class UserRepository extends BaseRepository {
     return rows[0];
   }
 
+  async clearAvatar(id) {
+    const { rows } = await this.query(
+      `UPDATE users SET avatar_bucket = NULL, avatar_object_key = NULL WHERE id = $1 RETURNING *`,
+      [id]
+    );
+    return rows[0];
+  }
+
   async updatePresence(id, presence) {
     const { rows } = await this.query(
       `UPDATE users SET presence = $1, last_seen_at = NOW() WHERE id = $2 RETURNING *`,
