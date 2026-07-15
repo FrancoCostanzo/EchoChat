@@ -220,6 +220,10 @@ export const useChatStore = create((set, get) => ({
       get().applyPollUpdate(messageId, poll, { preserveVotes: true });
     });
 
+    socket.on('game:update', ({ messageId, game }) => {
+      get().applyGameUpdate(messageId, game);
+    });
+
     socket.off('presence:changed');
     socket.on('presence:changed', ({ userId, presence }) => {
       set((state) => ({
@@ -513,6 +517,14 @@ export const useChatStore = create((set, get) => ({
           },
         };
       }),
+    }));
+  },
+
+  // Each `game:update` arrives already redacted for this viewer (server-side),
+  // so unlike polls there's nothing to merge locally — just replace it.
+  applyGameUpdate: (messageId, game) => {
+    set((state) => ({
+      messages: state.messages.map((m) => (m.id === messageId ? { ...m, game } : m)),
     }));
   },
 

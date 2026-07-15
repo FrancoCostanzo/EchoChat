@@ -7,6 +7,7 @@ module.exports = {
   ...require('./storage.dto'),
   ...require('./broadcast.dto'),
   ...require('./poll.dto'),
+  ...require('./game.dto'),
   ...require('./notification.dto'),
   ...require('./relationship.dto'),
   ...require('./admin.dto'),

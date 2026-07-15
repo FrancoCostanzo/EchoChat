@@ -336,6 +336,38 @@
     "previewGif": "GIF",
     "previewSticker": "Sticker"
   },
+  "game": {
+    "play": "Play",
+    "startError": "Couldn't start the game",
+    "moveError": "Couldn't register your move",
+    "kind": {
+      "tictactoe": "Tic-Tac-Toe",
+      "rps": "Rock, Paper, Scissors",
+      "hangman": "Hangman"
+    },
+    "yourTurn": "Your turn",
+    "opponentTurn": "Opponent's turn",
+    "youWon": "You won! 🎉",
+    "youLost": "You lost",
+    "draw": "Draw"
+  },
+  "rps": {
+    "vs": "vs",
+    "chooseYours": "Pick your move",
+    "waiting": "Waiting for the other player...",
+    "resolving": "Resolving..."
+  },
+  "hangman": {
+    "wordPrompt": "Type the secret word",
+    "wordPlaceholder": "E.g.: elephant",
+    "wordHint": "Letters only, no spaces or accents (2-20 characters). Your opponent won't see it — they'll guess it letter by letter.",
+    "wordInvalid": "The word must contain only letters (2-20 characters)",
+    "sendInvite": "Send invite",
+    "guesserPrompt": "Guess the word",
+    "spectatorPrompt": "You picked the word — your opponent is guessing it",
+    "attemptsLeft": "Attempts left: {{count}}",
+    "wrongLetters": "Wrong"
+  },
   "contacts": {
     "title": "Contacts",
     "contacts": "Contacts",

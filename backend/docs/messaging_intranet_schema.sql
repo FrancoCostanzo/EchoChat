@@ -312,7 +312,7 @@ CREATE TABLE messages (
     sender_id        UUID REFERENCES users(id),      -- NULL = mensaje del sistema
 
     type             VARCHAR(30) DEFAULT 'text'
-                     CHECK (type IN ('text','media','location','contact','system','poll','forwarded','deleted_placeholder','code','sticker')),
+                     CHECK (type IN ('text','media','location','contact','system','poll','forwarded','deleted_placeholder','code','sticker','game')),
 
     -- Contenido de texto
     body             TEXT,
@@ -703,6 +703,32 @@ CREATE TABLE system_settings (
     updated_by       UUID REFERENCES users(id),
     updated_at       TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- =============================================================================
+-- SECCIÓN 15: JUEGOS (MINIJUEGOS EN CHATS PERSONALES)
+-- =============================================================================
+-- Un juego vive sobre un mensaje tipo 'game' (igual que polls sobre 'poll').
+-- Solo se permiten en conversaciones directas (1:1); player1 = quien invita,
+-- player2 = el otro miembro. `state` guarda el tablero/elecciones/palabra
+-- según `kind`; el service redacta lo que cada jugador no debe ver todavía
+-- (la palabra del ahorcado, la elección de piedra-papel-o-tijera del rival).
+
+CREATE TABLE games (
+    id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    message_id       UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+    conversation_id  UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    kind             VARCHAR(20) NOT NULL CHECK (kind IN ('tictactoe','rps','hangman')),
+    player1_id       UUID NOT NULL REFERENCES users(id),
+    player2_id       UUID NOT NULL REFERENCES users(id),
+    state            JSONB NOT NULL DEFAULT '{}',
+    status           VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active','finished')),
+    winner_id        UUID REFERENCES users(id),
+    result           VARCHAR(20) CHECK (result IN ('win','draw')),
+    created_at       TIMESTAMPTZ DEFAULT NOW(),
+    updated_at       TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_games_message ON games(message_id);
 
 -- =============================================================================
 -- ÍNDICES DE PERFORMANCE

@@ -65,6 +65,8 @@ import CallHistoryPanel from '@/components/CallHistoryPanel';
 import ThreadPanel from '@/components/ThreadPanel';
 import PollMessage from '@/components/PollMessage';
 import CodeMessage from '@/components/CodeMessage';
+import GameMessage from '@/components/GameMessage';
+import GamePickerMenu from '@/components/GamePickerMenu';
 import MessageInfoModal from '@/components/MessageInfoModal';
 import CreatePollModal from '@/components/CreatePollModal';
 import CreateCodeModal from '@/components/CreateCodeModal';
@@ -73,7 +75,7 @@ import { PRESETS } from '@/components/WallpaperPicker';
 import { formatMessageTime, formatFullTime, formatDaySeparator } from '@/lib/dates';
 import FloatingComposer from '@/components/FloatingComposer';
 import MessageBody from '@/components/MessageBody';
-import FormatToolbar, { handleFormatShortcut } from '@/components/FormatToolbar';
+import { handleFormatShortcut } from '@/components/FormatToolbar';
 import DynamicMessageInput from '@/components/DynamicMessageInput';
 import StickerGifPicker from '@/components/StickerGifPicker';
 import EmojiPicker from '@/components/EmojiPicker';
@@ -106,9 +108,11 @@ function downloadBlob(url, filename) {
 const SPRING_OUT = [0.34, 1.56, 0.64, 1];
 
 /* ─────────────────────────── File Picker Menu ─────────────────────────── */
-function FilePickerMenu({ onPick, onPoll, onCode, disabled, uploading }) {
+function FilePickerMenu({ onPick, onPoll, onCode, disabled, uploading, open, onOpenChange }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
+  const setOpen = useCallback((next) => {
+    onOpenChange(typeof next === 'function' ? next(open) : next);
+  }, [open, onOpenChange]);
   const [menuPos, setMenuPos] = useState(null);
   const rootRef = useRef(null);
   const triggerRef = useRef(null);
@@ -161,7 +165,7 @@ function FilePickerMenu({ onPick, onPoll, onCode, disabled, uploading }) {
 
   const toggleOpen = useCallback(() => {
     setOpen((prev) => !prev);
-  }, []);
+  }, [setOpen]);
 
   useLayoutEffect(() => {
     if (!open) {
@@ -265,7 +269,7 @@ function FilePickerMenu({ onPick, onPoll, onCode, disabled, uploading }) {
           aria-label={t('chat.attachFile')}
           aria-expanded={open}
           aria-haspopup="menu"
-          className="flex h-8 w-8 min-w-0 shrink-0 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
+          className="flex h-9 w-9 min-w-0 shrink-0 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
         >
           {uploading ? <Loader size={18} className="animate-spin" /> : <Paperclip size={18} />}
         </Button>
@@ -1204,6 +1208,11 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
                 <CodeMessage message={message} variant={isOwn ? 'own' : 'other'} />
               )}
 
+              {/* Mini-game invite/board */}
+              {message.type === 'game' && message.game && (
+                <GameMessage message={message} currentUserId={currentUserId} variant={isOwn ? 'own' : 'other'} />
+              )}
+
               {/* Sticker / GIF — bare artwork, no bubble */}
               {isSticker && (
                 <StickerImage
@@ -1214,7 +1223,7 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
               )}
 
               {/* Body */}
-              {message.type !== 'media' && message.type !== 'poll' && message.type !== 'code' && message.type !== 'sticker' && message.body && (
+              {message.type !== 'media' && message.type !== 'poll' && message.type !== 'code' && message.type !== 'sticker' && message.type !== 'game' && message.body && (
                 <MessageBody
                   body={message.body}
                   bodyFormat={message.body_format}
@@ -1451,6 +1460,8 @@ export default function ConversationPage() {
   const [sendingHi, setSendingHi] = useState(false);
   const sendPulseTimerRef = useRef(null);
   const [showPollModal, setShowPollModal] = useState(false);
+  // Which composer flyout is open — at most one at a time (attach menu, sticker/GIF, emoji).
+  const [activePicker, setActivePicker] = useState(null);
   const [showCodeModal, setShowCodeModal] = useState(false);
   const [codeModalInitial, setCodeModalInitial] = useState({ body: '', language: 'plaintext' });
   const [isDragging, setIsDragging] = useState(false);
@@ -2755,62 +2766,70 @@ export default function ConversationPage() {
             </div>
           }
         >
-          <div className="flex min-w-0 w-full flex-1 flex-col">
-            <FormatToolbar
-              inputRef={inputRef}
-              onChange={setInput}
+          <div className="flex min-w-0 w-full flex-1 items-center gap-1 sm:gap-2">
+            <FilePickerMenu
+              onPick={handleFilePick}
+              onPoll={() => setShowPollModal(true)}
+              onCode={() => {
+                setCodeModalInitial({ body: '', language: 'plaintext' });
+                setShowCodeModal(true);
+              }}
               disabled={!!previewFile || sendingFile}
+              uploading={sendingFile}
+              open={activePicker === 'file'}
+              onOpenChange={(next) => setActivePicker(next ? 'file' : null)}
             />
-            <div className="flex min-w-0 flex-1 items-end gap-1 sm:gap-2">
-              <FilePickerMenu
-                onPick={handleFilePick}
-                onPoll={() => setShowPollModal(true)}
-                onCode={() => {
-                  setCodeModalInitial({ body: '', language: 'plaintext' });
-                  setShowCodeModal(true);
-                }}
+
+            <DynamicMessageInput
+              ref={inputRef}
+              placeholder={isDirect
+                ? t('chat.writeMessage') + ` @${convName}`
+                : t('chat.writeMessage') + ` #${convName}`}
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                emitTyping(conversationId, true);
+                if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                typingTimeoutRef.current = setTimeout(() => {
+                  emitTyping(conversationId, false);
+                }, 2000);
+              }}
+              onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
+            />
+
+            {isDirect && (
+              <GamePickerMenu
+                conversationId={conversationId}
                 disabled={!!previewFile || sendingFile}
-                uploading={sendingFile}
+                open={activePicker === 'game'}
+                onOpenChange={(next) => setActivePicker(next ? 'game' : null)}
               />
+            )}
 
-              <DynamicMessageInput
-                ref={inputRef}
-                placeholder={isDirect
-                  ? t('chat.writeMessage') + ` @${convName}`
-                  : t('chat.writeMessage') + ` #${convName}`}
-                value={input}
-                onChange={(e) => {
-                  setInput(e.target.value);
-                  emitTyping(conversationId, true);
-                  if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-                  typingTimeoutRef.current = setTimeout(() => {
-                    emitTyping(conversationId, false);
-                  }, 2000);
-                }}
-                onKeyDown={handleKeyDown}
-                onPaste={handlePaste}
-              />
+            <StickerGifPicker
+              onPick={handleStickerSend}
+              disabled={!!previewFile || sendingFile}
+              open={activePicker === 'sticker'}
+              onOpenChange={(next) => setActivePicker(next ? 'sticker' : null)}
+            />
 
-              <StickerGifPicker
-                onPick={handleStickerSend}
-                disabled={!!previewFile || sendingFile}
-              />
+            <EmojiPicker
+              onPick={(emoji) => {
+                setInput((v) => v + emoji);
+                inputRef.current?.focus();
+              }}
+              open={activePicker === 'emoji'}
+              onOpenChange={(next) => setActivePicker(next ? 'emoji' : null)}
+            />
 
-              <EmojiPicker
-                onPick={(emoji) => {
-                  setInput((v) => v + emoji);
-                  inputRef.current?.focus();
-                }}
-              />
-
-              <SendButton
-                onPress={handleSend}
-                isDisabled={!(input ?? '').trim()}
-                label={t('chat.send')}
-                pulse={sendPulse}
-                className="shrink-0"
-              />
-            </div>
+            <SendButton
+              onPress={handleSend}
+              isDisabled={!(input ?? '').trim()}
+              label={t('chat.send')}
+              pulse={sendPulse}
+              className="shrink-0"
+            />
           </div>
         </FloatingComposer>
         </div>

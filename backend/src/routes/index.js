@@ -8,6 +8,7 @@ router.use('/conversations', require('./conversation.routes'));
 router.use('/channels', require('./channel.routes'));
 router.use('/messages', require('./message.routes'));
 router.use('/polls', require('./poll.routes'));
+router.use('/games', require('./game.routes'));
 router.use('/calls', require('./call.routes'));
 router.use('/storage', require('./storage.routes'));
 router.use('/broadcasts', require('./broadcast.routes'));

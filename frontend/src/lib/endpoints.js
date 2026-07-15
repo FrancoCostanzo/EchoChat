@@ -87,6 +87,11 @@ export const pollsApi = {
   close: (pollId) => api.post(`/polls/${pollId}/close`),
 };
 
+export const gamesApi = {
+  create: (data) => api.post('/games', data),
+  move: (gameId, data) => api.post(`/games/${gameId}/move`, data),
+};
+
 export const callsApi = {
   create: (data) => api.post('/calls', data),
   getById: (id) => api.get(`/calls/${id}`),

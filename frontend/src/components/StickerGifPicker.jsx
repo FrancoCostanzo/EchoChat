@@ -144,9 +144,11 @@ function StickerGrid({ stickers, loading, uploading, managing, onPick, onAdd, on
   );
 }
 
-export default function StickerGifPicker({ onPick, disabled }) {
+export default function StickerGifPicker({ onPick, disabled, open, onOpenChange }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
+  const setOpen = useCallback((next) => {
+    onOpenChange(typeof next === 'function' ? next(open) : next);
+  }, [open, onOpenChange]);
   const [kind, setKind] = useState('sticker');
   const [query, setQuery] = useState('');
 
@@ -271,7 +273,7 @@ export default function StickerGifPicker({ onPick, disabled }) {
           onPress={() => setOpen((p) => !p)}
           aria-label={t('sticker.title')}
           aria-expanded={open}
-          className="flex h-8 w-8 min-w-0 shrink-0 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
+          className="flex h-9 w-9 min-w-0 shrink-0 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
         >
           <Sticker size={18} />
         </Button>

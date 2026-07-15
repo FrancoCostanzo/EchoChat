@@ -336,6 +336,38 @@
     "previewGif": "GIF",
     "previewSticker": "Sticker"
   },
+  "game": {
+    "play": "Jugar",
+    "startError": "No se pudo iniciar el juego",
+    "moveError": "No se pudo registrar la jugada",
+    "kind": {
+      "tictactoe": "Tatetí",
+      "rps": "Piedra, papel o tijera",
+      "hangman": "Ahorcado"
+    },
+    "yourTurn": "Tu turno",
+    "opponentTurn": "Turno del otro jugador",
+    "youWon": "¡Ganaste! 🎉",
+    "youLost": "Perdiste",
+    "draw": "Empate"
+  },
+  "rps": {
+    "vs": "vs",
+    "chooseYours": "Elegí tu jugada",
+    "waiting": "Esperando la jugada del otro jugador...",
+    "resolving": "Resolviendo..."
+  },
+  "hangman": {
+    "wordPrompt": "Escribí la palabra secreta",
+    "wordPlaceholder": "Ej: elefante",
+    "wordHint": "Solo letras, sin espacios ni acentos (2-20 caracteres). Tu rival no la va a ver, solo la va a ir adivinando letra por letra.",
+    "wordInvalid": "La palabra debe tener solo letras (2-20 caracteres)",
+    "sendInvite": "Enviar invitación",
+    "guesserPrompt": "Adiviná la palabra",
+    "spectatorPrompt": "Elegiste la palabra — tu rival la está adivinando",
+    "attemptsLeft": "Intentos restantes: {{count}}",
+    "wrongLetters": "Falladas"
+  },
   "contacts": {
     "title": "Contactos",
     "contacts": "Contactos",

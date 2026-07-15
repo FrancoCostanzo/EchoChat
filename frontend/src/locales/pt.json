@@ -336,6 +336,38 @@
     "previewGif": "GIF",
     "previewSticker": "Sticker"
   },
+  "game": {
+    "play": "Jogar",
+    "startError": "Não foi possível iniciar o jogo",
+    "moveError": "Não foi possível registrar a jogada",
+    "kind": {
+      "tictactoe": "Jogo da velha",
+      "rps": "Pedra, papel ou tesoura",
+      "hangman": "Forca"
+    },
+    "yourTurn": "Sua vez",
+    "opponentTurn": "Vez do outro jogador",
+    "youWon": "Você venceu! 🎉",
+    "youLost": "Você perdeu",
+    "draw": "Empate"
+  },
+  "rps": {
+    "vs": "vs",
+    "chooseYours": "Escolha sua jogada",
+    "waiting": "Aguardando a jogada do outro jogador...",
+    "resolving": "Resolvendo..."
+  },
+  "hangman": {
+    "wordPrompt": "Digite a palavra secreta",
+    "wordPlaceholder": "Ex: elefante",
+    "wordHint": "Somente letras, sem espaços ou acentos (2-20 caracteres). Seu rival não vai vê-la, só vai adivinhar letra por letra.",
+    "wordInvalid": "A palavra deve conter apenas letras (2-20 caracteres)",
+    "sendInvite": "Enviar convite",
+    "guesserPrompt": "Adivinhe a palavra",
+    "spectatorPrompt": "Você escolheu a palavra — seu rival está adivinhando",
+    "attemptsLeft": "Tentativas restantes: {{count}}",
+    "wrongLetters": "Erradas"
+  },
   "contacts": {
     "title": "Contatos",
     "contacts": "Contatos",

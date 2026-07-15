@@ -7,10 +7,11 @@ const {
   savedMessageRepository,
   draftRepository,
   pollRepository,
+  gameRepository,
   systemSettingsRepository,
 } = require('../repositories');
 const { NotFoundError, ForbiddenError, BadRequestError } = require('../errors');
-const { toMessageResponse, toSavedMessageResponse, toDraftResponse, toPollResponse } = require('../models');
+const { toMessageResponse, toSavedMessageResponse, toDraftResponse, toPollResponse, toGameResponse } = require('../models');
 const { resolveBodyFormat } = require('../utils/markdown.util');
 const { minioClient } = require('../config/minio');
 
@@ -129,6 +130,7 @@ class MessageService {
     const rootResponse = toMessageResponse(root);
     const replyResponses = replies.map(toMessageResponse);
     await this._attachPolls([rootResponse, ...replyResponses], userId);
+    await this._attachGames([rootResponse, ...replyResponses], userId);
     return { root: rootResponse, replies: replyResponses };
   }
 
@@ -142,6 +144,7 @@ class MessageService {
     });
     const responses = messages.map(toMessageResponse);
     await this._attachPolls(responses, userId);
+    await this._attachGames(responses, userId);
     return responses;
   }
 
@@ -154,6 +157,18 @@ class MessageService {
       const options = await pollRepository.getOptions(poll.id);
       const myVotes = await pollRepository.getUserVotes(poll.id, userId);
       m.poll = toPollResponse(poll, options, myVotes);
+    }
+    return responses;
+  }
+
+  // Attach game state (board/choices/masked word, redacted per viewer) to
+  // any 'game' type messages.
+  async _attachGames(responses, userId) {
+    for (const m of responses) {
+      if (m.type !== 'game') continue;
+      const game = await gameRepository.findByMessageId(m.id);
+      if (!game) continue;
+      m.game = toGameResponse(game, userId);
     }
     return responses;
   }

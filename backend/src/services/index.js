@@ -5,6 +5,7 @@ module.exports = {
   channelService: require('./channel.service'),
   messageService: require('./message.service'),
   pollService: require('./poll.service'),
+  gameService: require('./game.service'),
   callService: require('./call.service'),
   storageService: require('./storage.service'),
   broadcastService: require('./broadcast.service'),
