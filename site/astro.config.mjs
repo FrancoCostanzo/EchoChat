@@ -30,6 +30,12 @@ export default defineConfig({
 				pt: { label: 'Português', lang: 'pt' },
 			},
 			customCss: ['./src/styles/starlight.css'],
+			components: {
+				Header: './src/components/starlight/Header.astro',
+				MobileMenuFooter: './src/components/starlight/MobileMenuFooter.astro',
+				ThemeSelect: './src/components/starlight/ThemeSelect.astro',
+				LanguageSelect: './src/components/starlight/LanguageSelect.astro',
+			},
 			// Tipografías del design system (Clash Display + Satoshi + JetBrains Mono)
 			head: [
 				{

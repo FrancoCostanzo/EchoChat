@@ -42,6 +42,9 @@ export const strings = {
 			faq: 'FAQ',
 			github: 'GitHub',
 			langLabel: 'Idioma',
+			menuOpen: 'Abrir menú',
+			menuClose: 'Cerrar menú',
+			backToTop: 'Volver arriba',
 		},
 		footer: {
 			license: 'Licencia',
@@ -302,6 +305,9 @@ export const strings = {
 			faq: 'FAQ',
 			github: 'GitHub',
 			langLabel: 'Language',
+			menuOpen: 'Open menu',
+			menuClose: 'Close menu',
+			backToTop: 'Back to top',
 		},
 		footer: {
 			license: 'License',
@@ -562,6 +568,9 @@ export const strings = {
 			faq: 'FAQ',
 			github: 'GitHub',
 			langLabel: 'Idioma',
+			menuOpen: 'Abrir menu',
+			menuClose: 'Fechar menu',
+			backToTop: 'Voltar ao topo',
 		},
 		footer: {
 			license: 'Licença',

@@ -41,6 +41,9 @@
 		0 2px 6px rgb(11 13 20 / 0.35),
 		0 0 0 1px rgb(255 255 255 / 0.06);
 	--echo-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+	/* Permite animar height: 0 ↔ auto en <details> del sidebar */
+	interpolate-size: allow-keywords;
 }
 
 /* ── Tokens: tema claro ── */
@@ -106,6 +109,16 @@ header.header {
 		opacity: 0;
 		transform: translateY(12px);
 	}
+}
+
+/* Cambio de tema: revelado circular (ThemeSelect custom) */
+:root.theme-vt::view-transition-old(root),
+:root.theme-vt::view-transition-new(root) {
+	animation: none;
+	mix-blend-mode: normal;
+}
+:root.theme-vt::view-transition-new(root) {
+	z-index: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -185,6 +198,45 @@ main h1,
 .sidebar-content a:hover {
 	background-color: color-mix(in oklch, var(--sl-color-gray-5) 45%, transparent);
 	color: var(--sl-color-white);
+}
+
+/* ── Sidebar / TOC móvil: animar expandir-colapsar de grupos <details> ── */
+@supports (interpolate-size: allow-keywords) {
+	.sidebar-content details::details-content,
+	#starlight__mobile-toc::details-content,
+	.mobile-starlight-toc details::details-content {
+		height: 0;
+		overflow: clip;
+		opacity: 0;
+		transition:
+			height 0.28s var(--echo-ease),
+			opacity 0.22s var(--echo-ease),
+			content-visibility 0.28s allow-discrete;
+	}
+
+	.sidebar-content details[open]::details-content,
+	#starlight__mobile-toc[open]::details-content,
+	.mobile-starlight-toc details[open]::details-content {
+		height: auto;
+		opacity: 1;
+	}
+}
+
+.sidebar-content details > summary .caret,
+.mobile-starlight-toc details > summary .caret,
+#starlight__mobile-toc > summary .caret {
+	transition: transform 0.28s var(--echo-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.sidebar-content details::details-content,
+	#starlight__mobile-toc::details-content,
+	.mobile-starlight-toc details::details-content,
+	.sidebar-content details > summary .caret,
+	.mobile-starlight-toc details > summary .caret,
+	#starlight__mobile-toc > summary .caret {
+		transition: none;
+	}
 }
 
 /* ── TOC derecho ("On this page") ── */
@@ -282,15 +334,42 @@ aside.right-sidebar {
 	color: var(--sl-color-accent-high);
 }
 
-/* ── Buscador (Pagefind): pastilla redondeada ── */
+/* ── Buscador (Pagefind): pill glass con acento al hover ── */
 button[data-open-modal] {
-	border-radius: 12px;
+	border-radius: 999px;
 	border: 1px solid var(--sl-color-hairline);
 	background: color-mix(in oklch, var(--sl-color-gray-6) 55%, transparent);
-	transition: border-color 0.15s;
+	backdrop-filter: blur(10px) saturate(1.2);
+	-webkit-backdrop-filter: blur(10px) saturate(1.2);
+	box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.05);
+	color: var(--sl-color-gray-3);
+	transition:
+		border-color 0.15s,
+		background 0.15s,
+		color 0.15s,
+		box-shadow 0.2s var(--echo-ease);
 }
-button[data-open-modal]:hover {
+button[data-open-modal]:hover,
+button[data-open-modal]:focus-visible {
 	border-color: color-mix(in oklch, var(--sl-color-accent) 45%, transparent);
+	background: color-mix(in oklch, var(--sl-color-gray-6) 80%, transparent);
+	color: var(--sl-color-gray-1);
+	box-shadow:
+		inset 0 1px 0 rgb(255 255 255 / 0.06),
+		0 0 16px -6px color-mix(in oklch, var(--sl-color-accent) 60%, transparent);
+}
+/* Atajo Ctrl K como mini-pill mono, al estilo de la app */
+button[data-open-modal] > kbd {
+	background: color-mix(in oklch, var(--sl-color-gray-5) 40%, transparent);
+	border: 1px solid var(--sl-color-hairline);
+	border-radius: 999px;
+	padding-inline: 0.5rem;
+	font-family: 'JetBrains Mono', ui-monospace, monospace;
+	font-size: 0.68rem;
+}
+button[data-open-modal] > kbd kbd {
+	font-family: inherit;
+	color: var(--sl-color-gray-3);
 }
 
 /* ── Título del sitio en el header ── */
@@ -301,18 +380,186 @@ button[data-open-modal]:hover {
 	letter-spacing: -0.01em;
 }
 
-/* Selector de tema y links del header */
-starlight-theme-select select {
-	border-radius: 10px;
+/* Selects custom (tema / idioma) en header */
+.right-group {
+	gap: 0.55rem;
+	align-items: center;
+}
+
+/* ============================================================
+   Topbar desktop — buscador al centro, controles a la derecha.
+   El Header usa un grid de 3 columnas (título | buscador | controles)
+   con .header-tools en display: contents; la utilidad .sl-flex lo
+   pisa por orden de carga, así que lo restauramos acá con más
+   especificidad para que cada pieza caiga en su columna.
+   ============================================================ */
+@media (min-width: 50rem) {
+	header.header {
+		position: relative;
+	}
+	header.header .header-tools {
+		display: contents;
+	}
+	/* El buscador se centra en su columna y no se pega al contenido.
+	   site-search es display: contents ⇒ el grid item es el botón. */
+	header.header site-search button[data-open-modal] {
+		justify-self: center;
+		width: 100%;
+		max-width: 24rem;
+	}
+	/* GitHub + tema + idioma quedan anclados al borde derecho */
+	header.header .right-group {
+		justify-self: end;
+	}
+}
+/* Con espacio de sobra, el buscador se centra respecto del viewport
+   (no de su columna, que arranca después del sidebar) */
+@media (min-width: 72rem) {
+	header.header site-search button[data-open-modal] {
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		transform: translate(-50%, -50%);
+		width: 24rem;
+	}
+}
+
+/* ============================================================
+   Topbar móvil — controles compactos + menú glass
+   ============================================================ */
+@media (max-width: 49.99rem) {
+	:root {
+		--sl-nav-height: 3.5rem;
+		--sl-nav-pad-x: 0.85rem;
+		--sl-nav-pad-y: 0.55rem;
+		--sl-menu-button-size: 2.15rem;
+	}
+
+	header.header {
+		border-bottom-color: color-mix(in oklch, var(--sl-color-hairline) 80%, transparent);
+		background: color-mix(in oklch, var(--sl-color-bg-nav) 92%, transparent);
+		box-shadow: 0 8px 24px -16px color-mix(in oklch, black 45%, transparent);
+	}
+
+	:root[data-has-sidebar] header.header {
+		/* espacio para menú + gap más ajustado */
+		padding-inline-end: calc(var(--sl-nav-pad-x) + var(--sl-menu-button-size) + 0.45rem);
+	}
+
+	.site-title {
+		gap: 0.45rem !important;
+	}
+	.site-title img {
+		height: 1.7rem !important;
+		width: 1.7rem !important;
+		border-radius: 6px;
+	}
+	.site-title span:not(.sr-only) {
+		font-size: 0.98rem;
+		letter-spacing: -0.02em;
+	}
+
+	/* Buscador: botón circular icon-only */
+	site-search button[data-open-modal] {
+		width: 2.15rem;
+		height: 2.15rem;
+		min-width: 2.15rem;
+		padding: 0;
+		margin: 0;
+		border-radius: 999px;
+		border: 1px solid var(--sl-color-hairline);
+		background: color-mix(in oklch, var(--sl-color-gray-6) 70%, transparent);
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0;
+		color: var(--sl-color-gray-2);
+		box-shadow: none;
+	}
+	site-search button[data-open-modal]:hover,
+	site-search button[data-open-modal]:focus-visible {
+		border-color: color-mix(in oklch, var(--sl-color-accent) 45%, transparent);
+		color: var(--sl-color-white);
+		background: color-mix(in oklch, var(--sl-color-gray-5) 45%, transparent);
+	}
+	site-search button[data-open-modal] svg {
+		margin: 0;
+	}
+
+	/* Tema / idioma: pastillas icon-only (detalle en componentes) */
+	.header-tools .echo-select__menu {
+		right: 0;
+		min-width: 9.5rem;
+	}
+
+	/* Menú hamburguesa: misma familia visual que los selects */
+	starlight-menu-button button {
+		top: calc((var(--sl-nav-height) - var(--sl-menu-button-size)) / 2);
+		inset-inline-end: var(--sl-nav-pad-x);
+		width: var(--sl-menu-button-size);
+		height: var(--sl-menu-button-size);
+		border-radius: 999px;
+		border: 1px solid var(--sl-color-hairline);
+		background: color-mix(in oklch, var(--sl-color-gray-6) 78%, transparent) !important;
+		color: var(--sl-color-white) !important;
+		box-shadow: none !important;
+		backdrop-filter: blur(10px);
+		-webkit-backdrop-filter: blur(10px);
+		transition:
+			border-color 0.15s ease,
+			background 0.15s ease,
+			transform 0.15s var(--echo-ease);
+	}
+	starlight-menu-button button:hover {
+		border-color: color-mix(in oklch, var(--sl-color-accent) 45%, transparent);
+		background: color-mix(in oklch, var(--sl-color-gray-5) 50%, transparent) !important;
+	}
+	starlight-menu-button button:active {
+		transform: scale(0.94);
+	}
+	starlight-menu-button[aria-expanded='true'] button {
+		border-color: color-mix(in oklch, var(--sl-color-accent) 50%, transparent);
+		background: color-mix(in oklch, var(--sl-color-accent) 22%, transparent) !important;
+		color: var(--sl-color-accent-high) !important;
+	}
+	:root[data-theme='light'] starlight-menu-button button {
+		background: color-mix(in oklch, white 82%, transparent) !important;
+		color: var(--sl-color-white) !important;
+	}
+	:root[data-theme='light'] starlight-menu-button[aria-expanded='true'] button {
+		background: color-mix(in oklch, var(--sl-color-accent) 16%, transparent) !important;
+		color: var(--sl-color-accent) !important;
+	}
+
+	/* Drawer sidebar más integrado */
+	.sidebar-pane {
+		background: color-mix(in oklch, var(--sl-color-bg) 96%, transparent);
+		backdrop-filter: blur(18px) saturate(1.2);
+		-webkit-backdrop-filter: blur(18px) saturate(1.2);
+		border-block-start: 1px solid var(--sl-color-hairline);
+	}
+}
+
+@media (max-width: 380px) {
+	.site-title span:not(.sr-only) {
+		display: none;
+	}
+	:root {
+		--sl-nav-pad-x: 0.65rem;
+	}
 }
 
 /* Respeto por reduced motion */
 @media (prefers-reduced-motion: reduce) {
 	.pagination-links a,
-	.sidebar-content a {
+	.sidebar-content a,
+	starlight-menu-button button {
 		transition: none;
 	}
 	.pagination-links a:hover {
+		transform: none;
+	}
+	starlight-menu-button button:active {
 		transform: none;
 	}
 }
