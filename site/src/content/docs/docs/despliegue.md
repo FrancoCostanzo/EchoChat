@@ -42,6 +42,14 @@ MINIO_SECRET_KEY=mi_password_segura_minio
 # node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 JWT_SECRET=...
 
+# Clave de cifrado de mensajes (obligatoria, 32 bytes en base64)
+# node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+MESSAGE_ENC_KEY=...
+
+# Primer administrador (se crea solo en el primer arranque)
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=mi_password_de_admin
+
 # URL pública: poner la IP o dominio del servidor
 CORS_ORIGIN=http://192.168.1.100
 MINIO_PUBLIC_ENDPOINT=192.168.1.100
@@ -51,12 +59,14 @@ MINIO_PUBLIC_ENDPOINT=192.168.1.100
 docker compose up -d
 ```
 
-La app estará en **http://192.168.1.100** (o la IP/dominio configurado).
+La app estará en **http://192.168.1.100** (o la IP/dominio configurado). Iniciá sesión con
+`ADMIN_USERNAME`/`ADMIN_PASSWORD` y cambiá la contraseña.
 
 :::note
-El esquema SQL se aplica automáticamente en el primer inicio desde
-`backend/docs/messaging_intranet_schema.sql`. Los buckets de MinIO se crean
-automáticamente al iniciar el backend.
+Al arrancar, el backend prepara la base solo: aplica el esquema, las migraciones
+pendientes y el seed, y crea el primer administrador. Los buckets de MinIO también se
+crean automáticamente. No hay que ejecutar ningún `psql`. Ver
+[Base de datos](/docs/despliegue/base-de-datos).
 :::
 
 ## Modo 2: PostgreSQL y/o MinIO existentes
@@ -82,12 +92,10 @@ MINIO_SECRET_KEY=secret_key_existente
 MINIO_PUBLIC_ENDPOINT=10.0.1.51
 ```
 
-:::caution
-Con PostgreSQL externo debés ejecutar el esquema SQL manualmente:
-
-```bash
-psql -h 10.0.1.50 -U echochat -d echochat -f backend/docs/messaging_intranet_schema.sql
-```
+:::note
+Con PostgreSQL externo **no** hace falta ejecutar nada a mano: el backend detecta que la
+base está vacía y aplica el esquema, las migraciones y el seed al arrancar. (Si preferís
+prepararla antes, corré `npm run migrate` desde `backend/` apuntando al mismo `.env`.)
 :::
 
 ## Modo 3: Mixto

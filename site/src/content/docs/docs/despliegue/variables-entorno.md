@@ -42,8 +42,21 @@ como el MCP de PostgreSQL en Cursor — el backend **no** la lee directamente.
 | `JWT_SECRET` | — | ⚠️ Obligatoria. Generar con `node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"` |
 | `JWT_EXPIRES_IN` | `7d` | Duración del access token |
 | `JWT_REFRESH_EXPIRES_IN` | `30d` | Duración del refresh token |
-| `MESSAGE_ENC_KEY` | — | ⚠️ Clave AES-256-GCM (32 bytes en base64) para cifrar mensajes en reposo. Generar con `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`. **Si se pierde, se pierden todos los mensajes** |
+| `MESSAGE_ENC_KEY` | — | ⚠️ Obligatoria. Clave AES-256-GCM (32 bytes en base64) para cifrar mensajes en reposo. Generar con `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`. **El backend no arranca sin ella; si se pierde, se pierden todos los mensajes** |
 | `MESSAGE_ENC_KEY_ID` | `v1` | Identificador de versión de clave (para rotación) |
+
+## Primer administrador y migraciones
+
+En el primer arranque el backend prepara la base (esquema + migraciones + seed) y crea el
+primer `super_admin` si no existe ninguno. Ver [Base de datos](/docs/despliegue/base-de-datos).
+
+| Variable | Default | Descripción |
+|----------|---------|--------------|
+| `ADMIN_USERNAME` | — | Usuario del primer administrador. Si falta, no se crea (habrá que hacerlo a mano) |
+| `ADMIN_PASSWORD` | — | Contraseña del primer administrador. Cambiala tras el primer login |
+| `ADMIN_DISPLAY_NAME` | `Administrador` | Nombre visible del primer administrador |
+| `ADMIN_EMAIL` | — | Email opcional del primer administrador |
+| `RUN_MIGRATIONS_ON_BOOT` | `true` | Aplicar esquema + migraciones + seed al arrancar. `false` para hacerlo manual con `npm run migrate` |
 
 ## Identidad e integraciones
 
