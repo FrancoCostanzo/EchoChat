@@ -19,8 +19,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Config local de Claude Code (personal, no compartir)
-.claude/settings.local.json
+# Config local de herramientas de IA (personal, no compartir)
+.claude/
+.cursor/
 
 # Scratch / diagnóstico local
 _diag_*.js
