@@ -44,9 +44,21 @@ cd frontend && npm install && npm run dev
 cd backend && npm run migrate
 ```
 
-El backend aplica el esquema base, las migraciones pendientes de
-`backend/docs/migrations/` (registradas en `schema_migrations`) y crea el primer
-`super_admin` desde `ADMIN_USERNAME`/`ADMIN_PASSWORD` al iniciar. Ver `src/config/migrate.js`.
+Modelo de base de datos (ver `src/config/migrate.js`), en este orden al arrancar:
+
+1. **`docs/messaging_intranet_schema.sql`** — solo DDL. Se aplica una vez (se
+   registra como `000_base_schema` en `schema_migrations`).
+2. **`docs/migrations/NNN_*.sql`** — cambios estructurales incrementales. Cada
+   uno se aplica una vez y queda registrado. Deben ser idempotentes.
+3. **`docs/seed.sql`** — datos de referencia (roles, permisos, settings). Todo
+   `ON CONFLICT DO NOTHING`; corre en **cada** arranque para converger: agregar
+   un permiso/setting acá basta para que llegue a instancias existentes.
+4. **Primer admin** — crea el `super_admin` desde `ADMIN_USERNAME`/`ADMIN_PASSWORD`
+   si no existe ninguno.
+
+> Las migraciones arrancan en `003`: `001`/`002` sembraban RBAC y quedaron
+> subsumidas por `seed.sql`. Para un cambio de esquema nuevo, agregá el
+> siguiente número correlativo; para datos de referencia, editá `seed.sql`.
 
 Variables de entorno: `backend/.env` en desarrollo; `.env` en la raíz para Docker. Ver `README.md`.
 

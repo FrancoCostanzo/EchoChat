@@ -25,6 +25,7 @@ const { pool, withTransaction } = require('./database');
 const logger = require('./logger');
 
 const SCHEMA_FILE = path.resolve(__dirname, '../../docs/messaging_intranet_schema.sql');
+const SEED_FILE = path.resolve(__dirname, '../../docs/seed.sql');
 const MIGRATIONS_DIR = path.resolve(__dirname, '../../docs/migrations');
 const BASE_MIGRATION = '000_base_schema';
 const SALT_ROUNDS = 12;
@@ -168,6 +169,18 @@ async function runMigrations() {
 }
 
 /**
+ * Aplica los datos de referencia (docs/seed.sql). Es idempotente
+ * (ON CONFLICT DO NOTHING) y se corre en CADA arranque para converger: los
+ * permisos/settings nuevos que se agreguen al seed llegan solos a instancias
+ * existentes.
+ */
+async function applySeed() {
+  const sql = fs.readFileSync(SEED_FILE, 'utf8');
+  await withTransaction((c) => c.query(sql));
+  logger.info('Datos de referencia (seed) aplicados');
+}
+
+/**
  * Crea el primer super_admin a partir de ADMIN_USERNAME / ADMIN_PASSWORD.
  * No hace nada si ya existe algún super_admin. Idempotente.
  */
@@ -244,7 +257,8 @@ async function setup() {
   }
   const applied = await runMigrations();
   logger.info({ applied }, 'Base de datos al día');
+  await applySeed();
   await bootstrapAdmin();
 }
 
-module.exports = { setup, runMigrations, bootstrapAdmin, waitForDb };
+module.exports = { setup, runMigrations, applySeed, bootstrapAdmin, waitForDb };

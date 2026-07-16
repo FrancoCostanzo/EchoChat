@@ -1070,7 +1070,9 @@ EchoChat/
 │   ├── 📄 Dockerfile              # Imagen Docker del backend
 │   ├── 📄 .dockerignore
 │   ├── 📁 docs/
-│   │   └── 📄 messaging_intranet_schema.sql
+│   │   ├── 📄 messaging_intranet_schema.sql  # DDL (esquema base)
+│   │   ├── 📄 seed.sql                        # Datos de referencia (idempotente)
+│   │   └── 📁 migrations/                     # Cambios de esquema incrementales
 │   ├── 📁 src/
 │   │   ├── 📄 app.js              # Configuración de Express
 │   │   ├── 📄 server.js           # Punto de entrada del servidor
