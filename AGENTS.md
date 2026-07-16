@@ -28,6 +28,17 @@ Plataforma de mensajería empresarial en tiempo real: Node.js + Express + Socket
 | Test | ✅ | Agregar o corregir tests | `Test ✅: tests para notificaciones` |
 | Dependencies | 📦 | Actualización de dependencias | `Dependencies 📦: actualizar mssql a v12` |
 
+**Esta convención es obligatoria, también para agentes de IA (Claude Code, Cursor).**
+El formato es `Tipo <emoji>: descripción en español`, empezando con mayúscula el tipo y
+en minúscula la descripción, que explica el **por qué**.
+
+```text
+❌ Add mini-games to direct chats
+❌ Automatizar instalación: schema + migraciones
+✅ Feat 🆕: minijuegos en chats directos (ta-te-ti, piedra-papel-tijera, ahorcado)
+✅ Refactor ♻️: separar seed del schema para converger datos de referencia
+```
+
 Ramas desde `develop`: `feat/`, `fix/`, `refactor/`, etc. en kebab-case. No commitear directo a `main`.
 
 ## Comandos de desarrollo
