@@ -1,7 +1,7 @@
 node_modules
 npm-debug.log
 .env
-docs
+delivery-debug.log
 *.md
 .git
 .gitignore

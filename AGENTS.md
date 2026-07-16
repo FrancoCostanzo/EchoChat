@@ -39,9 +39,14 @@ cd backend && npm install && npm run dev
 # Frontend (puerto 5173, proxy a /api y /socket.io)
 cd frontend && npm install && npm run dev
 
-# Esquema de BD (solo si falta)
-psql -U echochat -d echochat -f backend/docs/messaging_intranet_schema.sql
+# Esquema + migraciones + primer admin (automático al arrancar el backend;
+# o manual sin levantar la app):
+cd backend && npm run migrate
 ```
+
+El backend aplica el esquema base, las migraciones pendientes de
+`backend/docs/migrations/` (registradas en `schema_migrations`) y crea el primer
+`super_admin` desde `ADMIN_USERNAME`/`ADMIN_PASSWORD` al iniciar. Ver `src/config/migrate.js`.
 
 Variables de entorno: `backend/.env` en desarrollo; `.env` en la raíz para Docker. Ver `README.md`.
 

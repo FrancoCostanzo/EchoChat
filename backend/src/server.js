@@ -3,22 +3,21 @@ const app = require('./app');
 const config = require('./config');
 const logger = require('./config/logger');
 const { pool } = require('./config/database');
+const { setup } = require('./config/migrate');
 const { ensureBuckets } = require('./config/minio');
 const { initSocket } = require('./socket');
 const { startJobs, stopJobs } = require('./jobs');
 
 async function start() {
   try {
-    // Verify database connection
-    let client;
-    try {
-      client = await pool.connect();
-      const { rows } = await client.query('SELECT NOW()');
-      logger.info({ time: rows[0].now }, 'Database connected');
-    } catch (err) {
-      logger.warn({ err }, 'Database not available — requests requiring DB will fail until connected');
-    } finally {
-      client?.release();
+    // Prepare the database: wait for it, apply schema + migrations and create
+    // the first administrator. Controlled by RUN_MIGRATIONS_ON_BOOT (default on).
+    // A failure here is fatal on purpose: better to crash (and let the
+    // orchestrator restart) than to serve requests against a half-set-up DB.
+    if (process.env.RUN_MIGRATIONS_ON_BOOT !== 'false') {
+      await setup();
+    } else {
+      logger.info('RUN_MIGRATIONS_ON_BOOT=false — se omiten las migraciones al arranque');
     }
 
     // Ensure MinIO buckets exist
