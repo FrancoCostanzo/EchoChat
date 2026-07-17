@@ -7,5 +7,6 @@ module.exports = {
   ...require('./game.model'),
   ...require('./call.model'),
   ...require('./storage.model'),
+  ...require('./sticker.model'),
   ...require('./admin.model'),
 };

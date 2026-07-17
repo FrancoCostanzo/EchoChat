@@ -5,6 +5,7 @@ module.exports = {
   ...require('./message.dto'),
   ...require('./call.dto'),
   ...require('./storage.dto'),
+  ...require('./sticker.dto'),
   ...require('./broadcast.dto'),
   ...require('./poll.dto'),
   ...require('./game.dto'),

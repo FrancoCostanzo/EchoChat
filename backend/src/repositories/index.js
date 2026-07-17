@@ -11,6 +11,7 @@ module.exports = {
   gameRepository: require('./game.repository'),
   callRepository: require('./call.repository'),
   storageRepository: require('./storage.repository'),
+  stickerRepository: require('./sticker.repository'),
   broadcastRepository: require('./broadcast.repository'),
   notificationRepository: require('./notification.repository'),
   auditRepository: require('./audit.repository'),

@@ -8,6 +8,7 @@ module.exports = {
   gameService: require('./game.service'),
   callService: require('./call.service'),
   storageService: require('./storage.service'),
+  stickerService: require('./sticker.service'),
   broadcastService: require('./broadcast.service'),
   notificationService: require('./notification.service'),
   relationshipService: require('./relationship.service'),
