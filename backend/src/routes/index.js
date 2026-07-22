@@ -11,6 +11,7 @@ router.use('/polls', require('./poll.routes'));
 router.use('/games', require('./game.routes'));
 router.use('/calls', require('./call.routes'));
 router.use('/storage', require('./storage.routes'));
+router.use('/stickers', require('./sticker.routes'));
 router.use('/broadcasts', require('./broadcast.routes'));
 router.use('/notifications', require('./notification.routes'));
 router.use('/relationships', require('./relationship.routes'));

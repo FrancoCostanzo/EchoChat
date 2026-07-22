@@ -108,9 +108,19 @@ export const storageApi = {
   getById: (id) => api.get(`/storage/${id}`),
   getUrl: (id) => api.get(`/storage/${id}/url`),
   delete: (id) => api.delete(`/storage/${id}`),
-  // Custom stickers (personal collection, derived from uploaded sticker objects)
-  listStickers: () => api.get('/storage/stickers'),
-  deleteSticker: (id) => api.delete(`/storage/stickers/${id}`),
+};
+
+// Personal sticker collection: packs, keywords, favorites, recents.
+export const stickerApi = {
+  list: (search) => api.get('/stickers', search ? { search } : undefined),
+  upload: (file, extra = {}) => api.upload('/stickers/upload', file, extra),
+  save: (objectId) => api.post('/stickers/save', { object_id: objectId }),
+  update: (id, data) => api.patch(`/stickers/${id}`, data),
+  remove: (id) => api.delete(`/stickers/${id}`),
+  use: (id) => api.post(`/stickers/${id}/use`),
+  createPack: (name) => api.post('/stickers/packs', { name }),
+  renamePack: (id, name) => api.patch(`/stickers/packs/${id}`, { name }),
+  deletePack: (id) => api.delete(`/stickers/packs/${id}`),
 };
 
 export const broadcastsApi = {

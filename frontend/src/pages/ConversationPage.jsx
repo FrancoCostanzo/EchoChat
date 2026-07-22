@@ -87,7 +87,7 @@ import {
   isWithinMessageWindow,
 } from '@/lib/messageWindow';
 import PresenceAvatarStack from '@/components/PresenceAvatarStack';
-import { storageApi, messagesApi, conversationsApi, relationshipsApi } from '@/lib/endpoints';
+import { storageApi, stickerApi, messagesApi, conversationsApi, relationshipsApi } from '@/lib/endpoints';
 import { EASE_OUT, SPRING_BOUNCY, msgEntryInitial, msgEntryTransition } from '@/lib/motion';
 import { userColor } from '@/lib/userColor';
 
@@ -862,7 +862,7 @@ function MessageContextMenu({ pos, onClose, quickEmojis, onEmoji, items }) {
 
 function buildMessageMenuItems({
   message, isOwn, saved, pinned, t, closeMenu,
-  onReply, onOpenThread, onForward, onEdit, onDelete, onToggleSave, onTogglePin, onInfo,
+  onReply, onOpenThread, onForward, onEdit, onDelete, onToggleSave, onTogglePin, onInfo, onSaveSticker,
 }) {
   const withinEditWindow = isWithinMessageWindow(message.sent_at, MESSAGE_EDIT_WINDOW_MS);
   const withinDeleteWindow = isWithinMessageWindow(message.sent_at, MESSAGE_DELETE_WINDOW_MS);
@@ -872,10 +872,15 @@ function buildMessageMenuItems({
     && (message.type !== 'media' || message.body);
   const canDelete = isOwn && withinDeleteWindow && !message.is_deleted;
   const canCopy = !!message.body;
+  // Only custom stickers can be saved — Giphy GIFs are external URLs, not storage objects.
+  const canSaveSticker = message.type === 'sticker'
+    && message.metadata?.sticker?.source === 'custom'
+    && !!message.metadata?.sticker?.object_id;
   return [
     { key: 'reply', icon: Reply, label: t('chat.reply'), onClick: () => { closeMenu(); onReply(message); } },
     !message.thread_id && { key: 'thread', icon: MessageSquareText, label: t('chat.replyInThread'), onClick: () => { closeMenu(); onOpenThread(message); } },
     { key: 'forward', icon: Forward, label: t('chat.forward'), onClick: () => { closeMenu(); onForward(message); } },
+    canSaveSticker && { key: 'saveSticker', icon: Sticker, label: t('sticker.saveToCollection'), onClick: () => { closeMenu(); onSaveSticker(message); } },
     canCopy && { key: 'copy', icon: Copy, label: t('chat.copyText'), onClick: () => { closeMenu(); navigator.clipboard?.writeText(message.body); } },
     { key: 'pin', icon: pinned ? PinOff : Pin, label: pinned ? t('chat.unpin') : t('chat.pin'), onClick: () => { closeMenu(); onTogglePin(message); } },
     { key: 'save', icon: saved ? BookmarkCheck : Bookmark, label: saved ? t('saved.remove') : t('chat.save'), onClick: () => { closeMenu(); onToggleSave(message); } },
@@ -2256,6 +2261,18 @@ export default function ConversationPage() {
     }
   }, [handleSavedChange]);
 
+  // Save a received custom sticker into my own collection (shared by reference).
+  const handleSaveSticker = useCallback(async (message) => {
+    const objectId = message.metadata?.sticker?.object_id;
+    if (!objectId) return;
+    try {
+      await stickerApi.save(objectId);
+      toast.success(t('sticker.savedToCollection'));
+    } catch (err) {
+      toast.danger(err?.message || t('sticker.uploadError'));
+    }
+  }, [t]);
+
   const contextMenuMessage = contextMenu
     ? messages.find((m) => m.id === contextMenu.messageId)
     : null;
@@ -2276,6 +2293,7 @@ export default function ConversationPage() {
         onToggleSave: handleToggleSave,
         onTogglePin: handleTogglePin,
         onInfo: handleOpenInfo,
+        onSaveSticker: handleSaveSticker,
       })
     : [];
 

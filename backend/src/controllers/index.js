@@ -8,6 +8,7 @@ module.exports = {
   gameController: require('./game.controller'),
   callController: require('./call.controller'),
   storageController: require('./storage.controller'),
+  stickerController: require('./sticker.controller'),
   broadcastController: require('./broadcast.controller'),
   notificationController: require('./notification.controller'),
   relationshipController: require('./relationship.controller'),
