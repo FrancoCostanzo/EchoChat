@@ -1,6 +1,14 @@
 const { StatusCodes } = require('http-status-codes');
-const { authService, userService } = require('../services');
+const { authService, userService, oidcService } = require('../services');
 const { toUserResponse } = require('../models');
+const config = require('../config');
+const logger = require('../config/logger');
+const { setTransaction, readAndClearTransaction } = require('../utils/ssoTransaction');
+
+// Base del frontend a la que vuelve el navegador tras el SSO.
+function frontendBase() {
+  return (config.oidc.frontendUrl || config.cors.origin || '').replace(/\/$/, '');
+}
 
 class AuthController {
   async register(req, res) {
@@ -35,6 +43,45 @@ class AuthController {
         expires_at: result.expires_at,
       },
     });
+  }
+
+  // ── SSO / OIDC ───────────────────────────────────────────────────────────────
+
+  // Proveedores habilitados para pintar los botones del login (público, sin secretos).
+  async ssoProviders(req, res) {
+    res.json({ status: 'success', data: { providers: oidcService.listProviders() } });
+  }
+
+  // Inicia el login: genera la transacción, la guarda en cookie y redirige al IdP.
+  async ssoLogin(req, res) {
+    const { url, transaction } = await oidcService.buildAuthRequest(req.params.provider, req);
+    setTransaction(res, transaction);
+    res.redirect(url);
+  }
+
+  // Callback del IdP: valida, hace login (JIT) y vuelve al frontend con el token en
+  // el fragmento (#) para que no quede en logs ni en el header Referer.
+  async ssoCallback(req, res) {
+    const provider = req.params.provider;
+    const base = frontendBase();
+    try {
+      const transaction = readAndClearTransaction(req, res);
+      if (!transaction || transaction.provider !== provider) {
+        throw new Error('SSO transaction missing or mismatched');
+      }
+      const claims = await oidcService.handleCallback(provider, req, transaction);
+      const result = await authService.loginWithClaims(
+        claims, provider, { device_type: 'web' }, req.ip, req.get('user-agent')
+      );
+      const fragment = new URLSearchParams({
+        token: result.token,
+        expires_at: new Date(result.expires_at).toISOString(),
+      }).toString();
+      res.redirect(`${base}/auth/callback#${fragment}`);
+    } catch (err) {
+      logger.warn({ err: err.message, provider }, 'SSO login failed');
+      res.redirect(`${base}/login?sso_error=1`);
+    }
   }
 
   async logout(req, res) {

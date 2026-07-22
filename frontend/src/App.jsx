@@ -11,6 +11,7 @@ import AppLogo from '@/components/AppLogo';
 
 const ChatLayout = lazy(() => import('@/layouts/ChatLayout'));
 const LoginPage = lazy(() => import('@/pages/LoginPage'));
+const AuthCallbackPage = lazy(() => import('@/pages/AuthCallbackPage'));
 const RegisterPage = lazy(() => import('@/pages/RegisterPage'));
 const EmptyChat = lazy(() => import('@/pages/EmptyChat'));
 const ConversationPage = lazy(() => import('@/pages/ConversationPage'));
@@ -61,10 +62,11 @@ export default function App() {
 
   return (
     <ConfirmProvider>
-      <Toast.Provider placement="bottom-right" />
+      <Toast.Provider placement="bottom end" maxVisibleToasts={4} width={360} />
       <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route path="/register" element={<RegisterPage />} />
 
         <Route

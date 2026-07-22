@@ -2,6 +2,7 @@ const { Server } = require('socket.io');
 const config = require('./config');
 const logger = require('./config/logger');
 const { registerSocket, unregisterSocket } = require('./config/socketStore');
+const { autoAwayUsers } = require('./config/presenceStore');
 
 // NOTE: services & repositories are lazy-loaded inside functions to avoid
 // a circular dependency (message.service → socket → services → message.service).
@@ -99,6 +100,24 @@ function initSocket(httpServer) {
       socket.join(`conv:${conversationId}`);
     });
 
+    // ── Activity heartbeat ──────────────────────────────────────────
+    // The client emits this (throttled) on user interaction. It refreshes
+    // last_seen_at so the timeout job doesn't mark active users as away,
+    // and restores 'online' when the away state was set by that job.
+    // A manual away/busy/dnd from Settings is never overridden here.
+    socket.on('presence:active', async () => {
+      try {
+        if (autoAwayUsers.has(userId)) {
+          autoAwayUsers.delete(userId);
+          await updatePresence(userId, 'online');
+        } else {
+          await userRepository.touchLastSeen(userId);
+        }
+      } catch (err) {
+        logger.warn({ err: err.message, userId }, 'Failed to process activity heartbeat');
+      }
+    });
+
     // ── Typing indicators ───────────────────────────────────────────
     socket.on('typing:start', ({ conversationId }) => {
       socket.to(`conv:${conversationId}`).emit('typing:start', {
@@ -122,6 +141,12 @@ function initSocket(httpServer) {
       try {
         for (const msgId of messageIds) {
           await messageRepository.addReceipt(msgId, userId, 'read');
+          try {
+            const broadcastService = require('./services/broadcast.service');
+            await broadcastService.syncFromMessageReceipt(msgId, userId, 'read');
+          } catch (syncErr) {
+            logger.warn({ err: syncErr.message, msgId }, 'Failed to sync broadcast read receipt');
+          }
         }
         // Update last_read_at so unread_count recalculates correctly
         const lastMsgId = messageIds[messageIds.length - 1];
@@ -152,6 +177,12 @@ function initSocket(httpServer) {
       try {
         for (const msgId of messageIds) {
           await messageRepository.addReceipt(msgId, userId, 'delivered');
+          try {
+            const broadcastService = require('./services/broadcast.service');
+            await broadcastService.syncFromMessageReceipt(msgId, userId, 'delivered');
+          } catch (syncErr) {
+            logger.warn({ err: syncErr.message, msgId }, 'Failed to sync broadcast delivery receipt');
+          }
         }
         // Avisar al emisor (y al resto de la conversación) para que el tick del
         // chat pase de "enviado" a "entregado" en tiempo real.
@@ -308,6 +339,8 @@ function registerCallHandlers(io, socket, userId) {
 async function updatePresence(userId, presence) {
   const { userRepository } = require('./repositories');
   try {
+    // Any explicit presence write supersedes a job-set away.
+    autoAwayUsers.delete(userId);
     await userRepository.updatePresence(userId, presence);
     // Broadcast presence change to all users who share a conversation
     io.emit('presence:changed', { userId, presence });

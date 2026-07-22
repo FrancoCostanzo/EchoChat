@@ -21,11 +21,17 @@ cd EchoChat
 
 ## 2. Configurar la base de datos
 
-Ejecutá el script SQL para crear el esquema completo:
+Solo creá la base **vacía**; el esquema, las migraciones, el seed y el primer
+administrador se aplican solos cuando arranca el backend (paso 6):
 
 ```bash
-psql -U tu_usuario -d echochat -f backend/docs/messaging_intranet_schema.sql
+createdb -U tu_usuario echochat
 ```
+
+:::tip
+Si preferís prepararla sin levantar la app, corré `npm run migrate` desde `backend/`
+(usa el mismo `.env`). Detalle del modelo en [Base de datos](/docs/despliegue/base-de-datos).
+:::
 
 ## 3. Configurar MinIO
 
@@ -53,7 +59,9 @@ Creá un archivo `.env` en la carpeta `backend/` a partir del ejemplo:
 cp backend/.env.example backend/.env
 ```
 
-Editá los valores según tu entorno (conexión a PostgreSQL, MinIO y el `JWT_SECRET`).
+Editá los valores según tu entorno: conexión a PostgreSQL y MinIO, `JWT_SECRET`,
+`MESSAGE_ENC_KEY` (obligatoria) y `ADMIN_USERNAME`/`ADMIN_PASSWORD` para el primer
+administrador. Ver [Variables de entorno](/docs/despliegue/variables-entorno).
 
 ## 6. Iniciar la aplicación
 

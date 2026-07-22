@@ -37,6 +37,11 @@ Los permisos son códigos atómicos por categoría, verificados en el middleware
 `messages.delete_any`, `groups.manage_any` y `calls.record`; `admin`/`super_admin` tienen
 todos los permisos; `readonly` no tiene ninguno asignado.
 
+`messages.edit` y el borrado propio (`messages.delete_own`) están acotados por la
+[ventana de tiempo del sistema](/docs/admin/sistema#ventana-de-edición-y-eliminación)
+(default 15 minutos). `messages.delete_any` permite eliminar mensajes **sin** ese límite
+(moderación).
+
 ## Roles por conversación
 
 Independiente del rol global, cada miembro de un grupo o canal tiene un rol propio de esa

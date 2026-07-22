@@ -52,13 +52,18 @@ Un job en el backend (`presence-timeout`, cada minuto) pasa a `away` a los usuar
 ## Mensajes y recibos
 
 Un **mensaje** (`messages`) pertenece a una conversación y tiene un `type`: `text`,
-`media`, `code`, `poll`, `sticker`, `forwarded`, `system`, entre otros. Cada mensaje
-puede tener:
+`media`, `code`, `poll`, `sticker`, `forwarded`, `system`, `deleted_placeholder`, entre
+otros. Cada mensaje puede tener:
 
-- **Ediciones** con historial (`message_edits`).
+- **Ediciones** con historial (`message_edits`), solo dentro de la ventana configurada
+  (`message_edit_window_minutes`).
+- **Soft delete**: `is_deleted` + tipo `deleted_placeholder`; el cuerpo se vacía pero la
+  fila permanece en el timeline. El borrado propio respeta
+  `message_delete_window_minutes` (salvo `messages.delete_any`).
 - **Reacciones** con emoji (`message_reactions`).
 - **Recibos** de entrega y lectura por destinatario (`message_receipts`), que alimentan
-  el doble check visual.
+  el doble check visual y, si el DM proviene de una difusión, las métricas de
+  `broadcast_deliveries`.
 - **Adjuntos** vinculados a objetos de MinIO (`message_attachments`).
 
 ## Hilos (threads)
@@ -79,8 +84,11 @@ que un owner/admin del canal aprueba o rechaza.
 
 Una **lista de difusión** (`broadcast_lists`) agrupa destinatarios (`broadcast_recipients`)
 que reciben cada `broadcast_messages` como un mensaje directo individual — nunca se ven
-entre sí. El envío puede ser inmediato o programado (`scheduled_at`), y el seguimiento de
-entrega/lectura se registra por destinatario en `broadcast_deliveries`.
+entre sí. El envío puede ser inmediato o programado (`scheduled_at`). El DM lleva
+metadata de origen y en la UI se marca como difusión. El seguimiento distingue
+**enviado al chat** (fan-out), **recibido** y **leído** (recibos del cliente) vía
+`broadcast_deliveries` + `message_receipts`. Detalle en
+[Difusiones](/docs/uso/difusiones).
 
 ## Notificaciones
 

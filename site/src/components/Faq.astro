@@ -55,7 +55,7 @@ const faqs = t.faq.items;
 				<h2>{t.faq.ctaTitle}</h2>
 				<p>{t.faq.ctaSubtitle}</p>
 				<div class="hero-actions">
-					<a class="btn btn-primary" href={docsHref}>{t.faq.viewDocs}</a>
+					<a class="btn btn-primary" href={docsHref} data-astro-prefetch="viewport">{t.faq.viewDocs}</a>
 					<a
 						class="btn btn-ghost"
 						href="https://github.com/FrancoCostanzo/EchoChat/issues"

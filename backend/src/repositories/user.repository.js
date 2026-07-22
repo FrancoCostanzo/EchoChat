@@ -44,8 +44,11 @@ class UserRepository extends BaseRepository {
   }
 
   // Inserta o actualiza un usuario LDAP identificado por external_id.
-  // Devuelve { user, created } para que el caller pueda contar altas vs. updates.
-  async upsertLdapUser({ external_id, username, display_name, email, department, job_title }) {
+  // `is_disabled` refleja el estado en el directorio (AD): sincroniza status
+  // active/suspended, pero nunca reactiva una cuenta borrada localmente.
+  // Devuelve { user, created, reactivated } para que el caller pueda contar/auditar.
+  async upsertLdapUser({ external_id, username, display_name, email, department, job_title, is_disabled = false }) {
+    const targetStatus = is_disabled ? 'suspended' : 'active';
     const existing = await this.findByExternalId(external_id);
     if (existing) {
       const { rows } = await this.query(
@@ -54,18 +57,107 @@ class UserRepository extends BaseRepository {
              email = $3,
              department = $4,
              job_title = $5,
+             status = CASE WHEN status = 'deleted' THEN status ELSE $6 END,
              updated_at = NOW()
          WHERE external_id = $1
          RETURNING *`,
-        [external_id, display_name, email || null, department || null, job_title || null]
+        [external_id, display_name, email || null, department || null, job_title || null, targetStatus]
       );
-      return { user: rows[0], created: false };
+      const reactivated = existing.status === 'suspended' && targetStatus === 'active';
+      return { user: rows[0], created: false, reactivated };
     }
     const user = await this.create({
       username, display_name, email, department, job_title,
       auth_provider: 'ldap', external_id,
     });
+    if (is_disabled) await this.updateStatus(user.id, 'suspended');
+    return { user, created: true, reactivated: false };
+  }
+
+  // Genera un username libre a partir de `base`, agregando sufijo numérico si ya
+  // existe (los usuarios SSO nuevos podrían chocar con un username local existente).
+  async _uniqueUsername(base) {
+    const seed = base || 'user';
+    let candidate = seed;
+    let n = 1;
+    // Límite defensivo para no iterar indefinidamente ante datos corruptos.
+    while (n < 1000 && (await this.findByUsername(candidate))) {
+      candidate = `${seed}.${n}`;
+      n += 1;
+    }
+    return candidate;
+  }
+
+  // Inserta o actualiza un usuario OIDC identificado por external_id (oidc:<prov>:<sub>).
+  // Devuelve { user, created } al estilo de upsertLdapUser.
+  async upsertOidcUser({ external_id, username, display_name, email }) {
+    const existing = await this.findByExternalId(external_id);
+    if (existing) {
+      // No tocamos `status`: si un admin deshabilitó al usuario, debe seguir bloqueado
+      // aunque el IdP lo siga autenticando. El guard de estado vive en el login.
+      const { rows } = await this.query(
+        `UPDATE users
+         SET display_name = COALESCE($2, display_name),
+             email = COALESCE($3, email),
+             updated_at = NOW()
+         WHERE external_id = $1
+         RETURNING *`,
+        [external_id, display_name, email || null]
+      );
+      return { user: rows[0], created: false };
+    }
+    const finalUsername = await this._uniqueUsername(username);
+    const user = await this.create({
+      username: finalUsername, display_name, email,
+      auth_provider: 'oidc', external_id,
+    });
     return { user, created: true };
+  }
+
+  // ── SCIM ──────────────────────────────────────────────────────────────────
+  // Usuario gestionado por SCIM (excluye borrados). Los suspendidos sí se devuelven:
+  // desaprovisionar es active=false, no un delete.
+  async findScimById(id) {
+    const { rows } = await this.query(
+      `SELECT * FROM users WHERE id = $1 AND auth_provider = 'scim' AND status <> 'deleted'`,
+      [id]
+    );
+    return rows[0] || null;
+  }
+
+  // Lista usuarios SCIM con filtro opcional por userName / externalId y paginación.
+  // Devuelve { rows, total } para armar la ListResponse.
+  async listScimUsers({ username, externalId, limit, offset }) {
+    const cond = [`auth_provider = 'scim'`, `status <> 'deleted'`];
+    const params = [];
+    let i = 1;
+    if (username) { cond.push(`username = $${i++}`); params.push(username); }
+    if (externalId) { cond.push(`external_id = $${i++}`); params.push(`scim:${externalId}`); }
+    const where = cond.join(' AND ');
+    const totalRes = await this.query(`SELECT COUNT(*)::int AS c FROM users WHERE ${where}`, params);
+    const rowsRes = await this.query(
+      `SELECT * FROM users WHERE ${where} ORDER BY created_at ASC LIMIT $${i++} OFFSET $${i}`,
+      [...params, limit, offset]
+    );
+    return { rows: rowsRes.rows, total: totalRes.rows[0].c };
+  }
+
+  // Deprovisioning: deshabilita a los usuarios LDAP activos cuyo external_id ya no
+  // aparece en el directorio. Devuelve los ids afectados para revocar sus sesiones.
+  async disableLdapUsersNotIn(seenExternalIds) {
+    // Sin ids vistos no deshabilitamos nada: evita un apagón masivo ante un fetch vacío.
+    if (!Array.isArray(seenExternalIds) || seenExternalIds.length === 0) return [];
+    const { rows } = await this.query(
+      `UPDATE users
+       SET status = 'suspended', updated_at = NOW()
+       WHERE auth_provider = 'ldap'
+         AND status = 'active'
+         AND external_id IS NOT NULL
+         AND NOT (external_id = ANY($1::text[]))
+       RETURNING id`,
+      [seenExternalIds]
+    );
+    return rows.map((r) => r.id);
   }
 
   async updateProfile(id, fields) {
@@ -100,12 +192,29 @@ class UserRepository extends BaseRepository {
     return rows[0];
   }
 
+  async clearAvatar(id) {
+    const { rows } = await this.query(
+      `UPDATE users SET avatar_bucket = NULL, avatar_object_key = NULL WHERE id = $1 RETURNING *`,
+      [id]
+    );
+    return rows[0];
+  }
+
   async updatePresence(id, presence) {
     const { rows } = await this.query(
       `UPDATE users SET presence = $1, last_seen_at = NOW() WHERE id = $2 RETURNING *`,
       [presence, id]
     );
     return rows[0];
+  }
+
+  // Activity heartbeat: keeps the presence timeout job at bay without
+  // touching the presence value itself.
+  async touchLastSeen(id) {
+    await this.query(
+      `UPDATE users SET last_seen_at = NOW() WHERE id = $1`,
+      [id]
+    );
   }
 
   async softDelete(id) {

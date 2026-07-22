@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Card, InputGroup, TextField, Label, FieldError, Button, Spinner, InputOTP, REGEXP_ONLY_DIGITS } from '@heroui/react';
 import { Eye, EyeOff, AlertCircle, ShieldCheck, ArrowLeft } from 'lucide-react';
@@ -149,18 +149,25 @@ export default function LoginPage() {
   const login = useAuthStore((s) => s.login);
   const cancelPending2fa = useAuthStore((s) => s.cancelPending2fa);
 
+  const [searchParams] = useSearchParams();
   const [step, setStep] = useState('credentials'); // 'credentials' | 'totp'
   const [form, setForm] = useState({ username: '', password: '' });
   const [touched, setTouched] = useState({});
   const [showPassword, setShowPassword] = useState(false);
-  const [serverError, setServerError] = useState('');
+  const [serverError, setServerError] = useState(
+    searchParams.get('sso_error') ? t('auth.errors.ssoFailed', 'No se pudo iniciar sesión con el proveedor externo.') : ''
+  );
   const [loading, setLoading] = useState(false);
   const [registrationAllowed, setRegistrationAllowed] = useState(true);
+  const [ssoProviders, setSsoProviders] = useState([]);
 
   useEffect(() => {
     let alive = true;
     authApi.getRegistrationStatus()
       .then((res) => { if (alive) setRegistrationAllowed(res.data?.allow_registration !== false); })
+      .catch(() => {});
+    authApi.ssoProviders()
+      .then((res) => { if (alive) setSsoProviders(res.data?.providers || []); })
       .catch(() => {});
     return () => { alive = false; };
   }, []);
@@ -298,6 +305,28 @@ export default function LoginPage() {
                       }
                     </Button>
                   </motion.div>
+
+                  {/* SSO: sólo se muestra si hay proveedores OIDC configurados en el backend */}
+                  {ssoProviders.length > 0 && (
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center gap-3">
+                        <span className="h-px flex-1 bg-white/10" />
+                        <span className="text-xs text-muted">{t('auth.orContinueWith', 'o continuá con')}</span>
+                        <span className="h-px flex-1 bg-white/10" />
+                      </div>
+                      {ssoProviders.map((p) => (
+                        <Button
+                          key={p.name}
+                          type="button"
+                          variant="secondary"
+                          className="w-full"
+                          onPress={() => { window.location.href = authApi.ssoLoginUrl(p.name); }}
+                        >
+                          {t('auth.continueWithProvider', { defaultValue: 'Continuar con {{provider}}', provider: p.label })}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
                 </form>
               )}
             </motion.div>

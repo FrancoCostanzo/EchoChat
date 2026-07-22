@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, mem
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Button, Input, Dropdown, Label, Spinner, Tooltip, Modal, toast } from '@heroui/react';
+import { AlertDialog, Button, Input, Dropdown, Label, Spinner, Tooltip, Modal, toast } from '@heroui/react';
 import {
   Paperclip,
   MoreVertical,
@@ -28,7 +28,6 @@ import {
   Check,
   CheckCheck,
   X,
-  AlertTriangle,
   Loader,
   AlertCircle,
   RefreshCw,
@@ -47,6 +46,8 @@ import {
   PhoneMissed,
   Video as VideoIcon,
   Sticker,
+  Megaphone,
+  UserPlus,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
@@ -64,6 +65,8 @@ import CallHistoryPanel from '@/components/CallHistoryPanel';
 import ThreadPanel from '@/components/ThreadPanel';
 import PollMessage from '@/components/PollMessage';
 import CodeMessage from '@/components/CodeMessage';
+import GameMessage from '@/components/GameMessage';
+import GamePickerMenu from '@/components/GamePickerMenu';
 import MessageInfoModal from '@/components/MessageInfoModal';
 import CreatePollModal from '@/components/CreatePollModal';
 import CreateCodeModal from '@/components/CreateCodeModal';
@@ -72,14 +75,19 @@ import { PRESETS } from '@/components/WallpaperPicker';
 import { formatMessageTime, formatFullTime, formatDaySeparator } from '@/lib/dates';
 import FloatingComposer from '@/components/FloatingComposer';
 import MessageBody from '@/components/MessageBody';
-import FormatToolbar, { handleFormatShortcut } from '@/components/FormatToolbar';
+import { handleFormatShortcut } from '@/components/FormatToolbar';
 import DynamicMessageInput from '@/components/DynamicMessageInput';
 import StickerGifPicker from '@/components/StickerGifPicker';
 import EmojiPicker from '@/components/EmojiPicker';
 import { detectBodyFormat } from '@/lib/markdown';
 import { parseCodeFence } from '@/lib/codeLanguages';
+import {
+  MESSAGE_DELETE_WINDOW_MS,
+  MESSAGE_EDIT_WINDOW_MS,
+  isWithinMessageWindow,
+} from '@/lib/messageWindow';
 import PresenceAvatarStack from '@/components/PresenceAvatarStack';
-import { storageApi, messagesApi, conversationsApi } from '@/lib/endpoints';
+import { storageApi, stickerApi, messagesApi, conversationsApi, relationshipsApi } from '@/lib/endpoints';
 import { EASE_OUT, SPRING_BOUNCY, msgEntryInitial, msgEntryTransition } from '@/lib/motion';
 import { userColor } from '@/lib/userColor';
 
@@ -100,9 +108,11 @@ function downloadBlob(url, filename) {
 const SPRING_OUT = [0.34, 1.56, 0.64, 1];
 
 /* ─────────────────────────── File Picker Menu ─────────────────────────── */
-function FilePickerMenu({ onPick, onPoll, onCode, disabled, uploading }) {
+function FilePickerMenu({ onPick, onPoll, onCode, disabled, uploading, open, onOpenChange }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
+  const setOpen = useCallback((next) => {
+    onOpenChange(typeof next === 'function' ? next(open) : next);
+  }, [open, onOpenChange]);
   const [menuPos, setMenuPos] = useState(null);
   const rootRef = useRef(null);
   const triggerRef = useRef(null);
@@ -155,7 +165,7 @@ function FilePickerMenu({ onPick, onPoll, onCode, disabled, uploading }) {
 
   const toggleOpen = useCallback(() => {
     setOpen((prev) => !prev);
-  }, []);
+  }, [setOpen]);
 
   useLayoutEffect(() => {
     if (!open) {
@@ -259,7 +269,7 @@ function FilePickerMenu({ onPick, onPoll, onCode, disabled, uploading }) {
           aria-label={t('chat.attachFile')}
           aria-expanded={open}
           aria-haspopup="menu"
-          className="flex h-8 w-8 min-w-0 shrink-0 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
+          className="flex h-9 w-9 min-w-0 shrink-0 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
         >
           {uploading ? <Loader size={18} className="animate-spin" /> : <Paperclip size={18} />}
         </Button>
@@ -399,75 +409,43 @@ function TypingDots() {
 }
 
 /* ─────────────────────────── Confirm Delete Modal ─────────────────────────── */
-function ConfirmDeleteModal({ message, onConfirm, onCancel }) {
+function ConfirmDeleteModal({ message, isOpen, onConfirm, onCancel }) {
   const { t } = useTranslation();
-  // Close on Escape
-  useEffect(() => {
-    const handler = (e) => { if (e.key === 'Escape') onCancel(); };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [onCancel]);
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.15, ease: 'easeOut' }}
-      className="fixed inset-0 z-50 flex items-center justify-center"
+    <AlertDialog.Backdrop
+      isOpen={isOpen}
+      onOpenChange={(open) => { if (!open) onCancel(); }}
     >
-      {/* Backdrop */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.15, ease: 'easeOut' }}
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onCancel}
-      />
-      {/* Dialog */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.92 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.96 }}
-        transition={{ duration: 0.2, ease: SPRING_OUT }}
-        className="relative z-10 mx-4 w-full max-w-md overflow-hidden rounded-md bg-ink-850 shadow-2xl ring-1 ring-black/40"
-      >
-        <div className="p-5">
-          <div className="mb-3 flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-echo-dnd/15">
-              <AlertTriangle size={18} className="text-echo-dnd" />
-            </div>
-            <div>
-              <h3 className="text-[16px] font-bold text-foreground">{t('chat.deleteMessage')}</h3>
-              <p className="mt-0.5 text-[13px] text-ink-100">
-                {t('chat.deleteMessageWarning')}
-              </p>
-            </div>
-          </div>
-
-          {message?.body && message.type !== 'media' && (
-            <div className="mb-5 rounded-md border border-ink-400/40 bg-ink-800 px-3 py-2 text-[14px] text-ink-100 line-clamp-3">
-              {message.body}
-            </div>
-          )}
-
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" size="sm" onPress={onCancel}>
+      <AlertDialog.Container>
+        <AlertDialog.Dialog className="sm:max-w-[400px]">
+          <AlertDialog.CloseTrigger />
+          <AlertDialog.Header>
+            <AlertDialog.Icon status="danger" />
+            <AlertDialog.Heading>{t('chat.deleteMessage')}</AlertDialog.Heading>
+          </AlertDialog.Header>
+          <AlertDialog.Body className="flex flex-col gap-3">
+            <p className="text-pretty text-ink-100">
+              {t('chat.deleteMessageWarning')}
+            </p>
+            {message?.body && message.type !== 'media' && (
+              <div className="rounded-xl border border-ink-700/60 bg-ink-800/70 px-3.5 py-2.5 text-[13px] leading-relaxed text-ink-100 line-clamp-3">
+                {message.body}
+              </div>
+            )}
+          </AlertDialog.Body>
+          <AlertDialog.Footer>
+            <Button variant="tertiary" onPress={onCancel}>
               {t('common.cancel')}
             </Button>
-            <Button
-              size="sm"
-              className="bg-echo-dnd text-white hover:bg-echo-dnd/90"
-              onPress={onConfirm}
-            >
-              <Trash2 size={13} />
+            <Button variant="danger" onPress={onConfirm} autoFocus>
+              <Trash2 size={14} />
               {t('common.delete')}
             </Button>
-          </div>
-        </div>
-      </motion.div>
-    </motion.div>
+          </AlertDialog.Footer>
+        </AlertDialog.Dialog>
+      </AlertDialog.Container>
+    </AlertDialog.Backdrop>
   );
 }
 
@@ -884,20 +862,31 @@ function MessageContextMenu({ pos, onClose, quickEmojis, onEmoji, items }) {
 
 function buildMessageMenuItems({
   message, isOwn, saved, pinned, t, closeMenu,
-  onReply, onOpenThread, onForward, onEdit, onDelete, onToggleSave, onTogglePin, onInfo,
+  onReply, onOpenThread, onForward, onEdit, onDelete, onToggleSave, onTogglePin, onInfo, onSaveSticker,
 }) {
-  const canEdit = isOwn && (message.type !== 'media' || message.body);
+  const withinEditWindow = isWithinMessageWindow(message.sent_at, MESSAGE_EDIT_WINDOW_MS);
+  const withinDeleteWindow = isWithinMessageWindow(message.sent_at, MESSAGE_DELETE_WINDOW_MS);
+  const canEdit = isOwn
+    && withinEditWindow
+    && !message.is_deleted
+    && (message.type !== 'media' || message.body);
+  const canDelete = isOwn && withinDeleteWindow && !message.is_deleted;
   const canCopy = !!message.body;
+  // Only custom stickers can be saved — Giphy GIFs are external URLs, not storage objects.
+  const canSaveSticker = message.type === 'sticker'
+    && message.metadata?.sticker?.source === 'custom'
+    && !!message.metadata?.sticker?.object_id;
   return [
     { key: 'reply', icon: Reply, label: t('chat.reply'), onClick: () => { closeMenu(); onReply(message); } },
     !message.thread_id && { key: 'thread', icon: MessageSquareText, label: t('chat.replyInThread'), onClick: () => { closeMenu(); onOpenThread(message); } },
     { key: 'forward', icon: Forward, label: t('chat.forward'), onClick: () => { closeMenu(); onForward(message); } },
+    canSaveSticker && { key: 'saveSticker', icon: Sticker, label: t('sticker.saveToCollection'), onClick: () => { closeMenu(); onSaveSticker(message); } },
     canCopy && { key: 'copy', icon: Copy, label: t('chat.copyText'), onClick: () => { closeMenu(); navigator.clipboard?.writeText(message.body); } },
     { key: 'pin', icon: pinned ? PinOff : Pin, label: pinned ? t('chat.unpin') : t('chat.pin'), onClick: () => { closeMenu(); onTogglePin(message); } },
     { key: 'save', icon: saved ? BookmarkCheck : Bookmark, label: saved ? t('saved.remove') : t('chat.save'), onClick: () => { closeMenu(); onToggleSave(message); } },
     isOwn && { key: 'info', icon: Info, label: t('chat.messageInfo'), onClick: () => { closeMenu(); onInfo(message); } },
     canEdit && { key: 'edit', icon: Pencil, label: t('common.edit'), onClick: () => { closeMenu(); onEdit(message); } },
-    isOwn && { key: 'delete', icon: Trash2, label: t('common.delete'), danger: true, onClick: () => { closeMenu(); onDelete(message); } },
+    canDelete && { key: 'delete', icon: Trash2, label: t('common.delete'), danger: true, onClick: () => { closeMenu(); onDelete(message); } },
   ];
 }
 
@@ -1064,6 +1053,8 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
 
   const sticker = message.type === 'sticker' ? message.metadata?.sticker : null;
   const isSticker = Boolean(sticker);
+  const broadcastListName = message.metadata?.broadcast_list_name || null;
+  const isBroadcast = Boolean(message.metadata?.broadcast_msg_id || message.metadata?.broadcast_list_id);
 
   const isMediaOnly =
     message.type === 'media' && message.attachments?.length > 0 && !message.body;
@@ -1151,6 +1142,28 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
             </p>
           )}
 
+          {/* Broadcast origin — DM came from a broadcast list fan-out */}
+          {isBroadcast && !message.is_deleted && (
+            <div
+              className={[
+                'mb-1 flex max-w-full items-center gap-1 text-[11px] font-medium leading-tight',
+                isOwn ? 'text-white/75' : 'text-accent',
+              ].join(' ')}
+              title={
+                broadcastListName
+                  ? t('chat.fromBroadcastList', { name: broadcastListName })
+                  : t('chat.fromBroadcast')
+              }
+            >
+              <Megaphone size={11} className="shrink-0 opacity-90" aria-hidden />
+              <span className="truncate">
+                {broadcastListName
+                  ? t('chat.fromBroadcastList', { name: broadcastListName })
+                  : t('chat.fromBroadcast')}
+              </span>
+            </div>
+          )}
+
           {/* Reply preview — click to jump to the original message */}
           {message.reply_to_id && (message.reply_to_body || message.reply_to_type) && (
             <button
@@ -1200,6 +1213,11 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
                 <CodeMessage message={message} variant={isOwn ? 'own' : 'other'} />
               )}
 
+              {/* Mini-game invite/board */}
+              {message.type === 'game' && message.game && (
+                <GameMessage message={message} currentUserId={currentUserId} variant={isOwn ? 'own' : 'other'} />
+              )}
+
               {/* Sticker / GIF — bare artwork, no bubble */}
               {isSticker && (
                 <StickerImage
@@ -1210,7 +1228,7 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
               )}
 
               {/* Body */}
-              {message.type !== 'media' && message.type !== 'poll' && message.type !== 'code' && message.type !== 'sticker' && message.body && (
+              {message.type !== 'media' && message.type !== 'poll' && message.type !== 'code' && message.type !== 'sticker' && message.type !== 'game' && message.body && (
                 <MessageBody
                   body={message.body}
                   bodyFormat={message.body_format}
@@ -1425,6 +1443,7 @@ export default function ConversationPage() {
     conversations,
     patchMessage,
     joinConversation,
+    onlineUsers,
   } = useChatStore();
 
   const [input, setInput] = useState('');
@@ -1446,6 +1465,8 @@ export default function ConversationPage() {
   const [sendingHi, setSendingHi] = useState(false);
   const sendPulseTimerRef = useRef(null);
   const [showPollModal, setShowPollModal] = useState(false);
+  // Which composer flyout is open — at most one at a time (attach menu, sticker/GIF, emoji).
+  const [activePicker, setActivePicker] = useState(null);
   const [showCodeModal, setShowCodeModal] = useState(false);
   const [codeModalInitial, setCodeModalInitial] = useState({ body: '', language: 'plaintext' });
   const [isDragging, setIsDragging] = useState(false);
@@ -1455,6 +1476,8 @@ export default function ConversationPage() {
 
   const [wallpaperPickerOpen, setWallpaperPickerOpen] = useState(false);
   const [wallpaperStyle, setWallpaperStyle] = useState(null); // null = default echo-chat-bg
+  const [isContact, setIsContact] = useState(null); // null = unknown, true/false once loaded
+  const [addingContact, setAddingContact] = useState(false);
 
   const wallpapers = useWallpaperStore((s) => s.wallpapers);
   const resolveWallpaper = useWallpaperStore((s) => s.resolveWallpaper);
@@ -1481,6 +1504,47 @@ export default function ConversationPage() {
   const conversation =
     conversations.find((c) => c.id === conversationId) ?? getActiveConversation();
   const isDirect = conversation?.type === 'direct';
+  const otherUserId = isDirect ? (conversation?.other_user_id || conversation?.member_user_id) : null;
+
+  // Check whether the DM peer is already in contacts (only for direct chats).
+  useEffect(() => {
+    if (!otherUserId) {
+      setIsContact(null);
+      return undefined;
+    }
+    let alive = true;
+    setIsContact(null);
+    relationshipsApi.getContacts()
+      .then(({ data }) => {
+        if (!alive) return;
+        const found = (data || []).some(
+          (c) => (c.target_user_id || c.id) === otherUserId,
+        );
+        setIsContact(found);
+      })
+      .catch(() => {
+        if (alive) setIsContact(false);
+      });
+    return () => { alive = false; };
+  }, [otherUserId]);
+
+  const handleAddContact = useCallback(async () => {
+    if (!otherUserId || addingContact) return;
+    setAddingContact(true);
+    try {
+      await relationshipsApi.create({ target_user_id: otherUserId, type: 'contact' });
+      setIsContact(true);
+      toast.success(t('contacts.addedToast', {
+        name: conversation?.display_name || conversation?.name || t('chat.conversation'),
+      }), {
+        indicator: <UserPlus size={16} />,
+      });
+    } catch (err) {
+      toast.danger(err?.message || t('contacts.addError'));
+    } finally {
+      setAddingContact(false);
+    }
+  }, [otherUserId, addingContact, conversation?.display_name, conversation?.name, t]);
 
   // Resolve and apply wallpaper using URL conversationId (works before chat list loads)
   useEffect(() => {
@@ -1554,6 +1618,13 @@ export default function ConversationPage() {
       .finally(() => { if (active) setLoadingMembers(false); });
     return () => { active = false; };
   }, [conversationId, conversation, isDirect]);
+
+  // Members are fetched once via REST; overlay live presence from the socket
+  // so the member panel doesn't go stale while the conversation stays open.
+  const membersWithPresence = useMemo(
+    () => members.map((m) => ({ ...m, presence: onlineUsers[m.user_id] ?? m.presence })),
+    [members, onlineUsers],
+  );
 
   // Build typing text for this conversation
   const currentTyping = typingUsers[conversationId] || {};
@@ -1775,9 +1846,19 @@ export default function ConversationPage() {
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
 
     if (editing) {
-      const bodyFormat = detectBodyFormat(body);
-      await editMessage(editing.id, body, bodyFormat);
-      setEditing(null);
+      if (!isWithinMessageWindow(editing.sent_at, MESSAGE_EDIT_WINDOW_MS)) {
+        toast.danger(t('chat.editWindowExpired'));
+        setEditing(null);
+        return;
+      }
+      try {
+        const bodyFormat = detectBodyFormat(body);
+        await editMessage(editing.id, body, bodyFormat);
+        setEditing(null);
+      } catch (err) {
+        toast.danger(err?.message || t('chat.editWindowExpired'));
+        return;
+      }
     } else {
       const bodyFormat = detectBodyFormat(body);
       const data = { conversation_id: conversationId, body, type: 'text', body_format: bodyFormat };
@@ -2025,8 +2106,17 @@ export default function ConversationPage() {
   }, []);
 
   const handleDeleteConfirm = async () => {
-    if (deleteTarget) {
+    if (!deleteTarget) return;
+    if (!isWithinMessageWindow(deleteTarget.sent_at, MESSAGE_DELETE_WINDOW_MS)) {
+      toast.danger(t('chat.deleteWindowExpired'));
+      setDeleteTarget(null);
+      return;
+    }
+    try {
       await deleteMessage(deleteTarget.id);
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.danger(err?.message || t('chat.deleteWindowExpired'));
       setDeleteTarget(null);
     }
   };
@@ -2171,6 +2261,18 @@ export default function ConversationPage() {
     }
   }, [handleSavedChange]);
 
+  // Save a received custom sticker into my own collection (shared by reference).
+  const handleSaveSticker = useCallback(async (message) => {
+    const objectId = message.metadata?.sticker?.object_id;
+    if (!objectId) return;
+    try {
+      await stickerApi.save(objectId);
+      toast.success(t('sticker.savedToCollection'));
+    } catch (err) {
+      toast.danger(err?.message || t('sticker.uploadError'));
+    }
+  }, [t]);
+
   const contextMenuMessage = contextMenu
     ? messages.find((m) => m.id === contextMenu.messageId)
     : null;
@@ -2191,6 +2293,7 @@ export default function ConversationPage() {
         onToggleSave: handleToggleSave,
         onTogglePin: handleTogglePin,
         onInfo: handleOpenInfo,
+        onSaveSticker: handleSaveSticker,
       })
     : [];
 
@@ -2254,16 +2357,12 @@ export default function ConversationPage() {
 
   return (
     <>
-      {/* Delete confirmation modal */}
-      <AnimatePresence>
-        {deleteTarget && (
-          <ConfirmDeleteModal
-            message={deleteTarget}
-            onConfirm={handleDeleteConfirm}
-            onCancel={handleDeleteCancel}
-          />
-        )}
-      </AnimatePresence>
+      <ConfirmDeleteModal
+        isOpen={!!deleteTarget}
+        message={deleteTarget}
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+      />
 
       {/* Forward modal */}
       <ForwardModal
@@ -2375,6 +2474,21 @@ export default function ConversationPage() {
           </div>
 
           <div className="flex items-center gap-0.5">
+            {isDirect && isContact === false && (
+              <Tooltip content={t('contacts.addFromChat')} placement="bottom">
+                <Button
+                  isIconOnly
+                  size="sm"
+                  variant="ghost"
+                  onPress={handleAddContact}
+                  isPending={addingContact}
+                  className="h-8 w-8 min-w-0 rounded-md text-ink-100 hover:bg-ink-600 hover:text-foreground"
+                  aria-label={t('contacts.addFromChat')}
+                >
+                  <UserPlus size={18} />
+                </Button>
+              </Tooltip>
+            )}
             {conversation.type !== 'channel' && (
               <>
                 <Tooltip content={t('call.startVoice')} placement="bottom">
@@ -2440,6 +2554,12 @@ export default function ConversationPage() {
               </Button>
               <Dropdown.Popover>
                 <Dropdown.Menu>
+                  {isDirect && isContact === false && (
+                    <Dropdown.Item id="addContact" textValue={t('contacts.addFromChat')} onAction={handleAddContact}>
+                      <UserPlus size={15} />
+                      <Label>{t('contacts.addFromChat')}</Label>
+                    </Dropdown.Item>
+                  )}
                   <Dropdown.Item id="pinned" textValue={t('chat.pinnedMessages')} onAction={handleOpenPinned}>
                     <Pin size={15} />
                     <Label>{t('chat.pinnedMessages')}</Label>
@@ -2664,68 +2784,76 @@ export default function ConversationPage() {
             </div>
           }
         >
-          <div className="flex min-w-0 w-full flex-1 flex-col">
-            <FormatToolbar
-              inputRef={inputRef}
-              onChange={setInput}
+          <div className="flex min-w-0 w-full flex-1 items-center gap-1 sm:gap-2">
+            <FilePickerMenu
+              onPick={handleFilePick}
+              onPoll={() => setShowPollModal(true)}
+              onCode={() => {
+                setCodeModalInitial({ body: '', language: 'plaintext' });
+                setShowCodeModal(true);
+              }}
               disabled={!!previewFile || sendingFile}
+              uploading={sendingFile}
+              open={activePicker === 'file'}
+              onOpenChange={(next) => setActivePicker(next ? 'file' : null)}
             />
-            <div className="flex min-w-0 flex-1 items-end gap-1 sm:gap-2">
-              <FilePickerMenu
-                onPick={handleFilePick}
-                onPoll={() => setShowPollModal(true)}
-                onCode={() => {
-                  setCodeModalInitial({ body: '', language: 'plaintext' });
-                  setShowCodeModal(true);
-                }}
+
+            <DynamicMessageInput
+              ref={inputRef}
+              placeholder={isDirect
+                ? t('chat.writeMessage') + ` @${convName}`
+                : t('chat.writeMessage') + ` #${convName}`}
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                emitTyping(conversationId, true);
+                if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                typingTimeoutRef.current = setTimeout(() => {
+                  emitTyping(conversationId, false);
+                }, 2000);
+              }}
+              onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
+            />
+
+            {isDirect && (
+              <GamePickerMenu
+                conversationId={conversationId}
                 disabled={!!previewFile || sendingFile}
-                uploading={sendingFile}
+                open={activePicker === 'game'}
+                onOpenChange={(next) => setActivePicker(next ? 'game' : null)}
               />
+            )}
 
-              <DynamicMessageInput
-                ref={inputRef}
-                placeholder={isDirect
-                  ? t('chat.writeMessage') + ` @${convName}`
-                  : t('chat.writeMessage') + ` #${convName}`}
-                value={input}
-                onChange={(e) => {
-                  setInput(e.target.value);
-                  emitTyping(conversationId, true);
-                  if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-                  typingTimeoutRef.current = setTimeout(() => {
-                    emitTyping(conversationId, false);
-                  }, 2000);
-                }}
-                onKeyDown={handleKeyDown}
-                onPaste={handlePaste}
-              />
+            <StickerGifPicker
+              onPick={handleStickerSend}
+              disabled={!!previewFile || sendingFile}
+              open={activePicker === 'sticker'}
+              onOpenChange={(next) => setActivePicker(next ? 'sticker' : null)}
+            />
 
-              <StickerGifPicker
-                onPick={handleStickerSend}
-                disabled={!!previewFile || sendingFile}
-              />
+            <EmojiPicker
+              onPick={(emoji) => {
+                setInput((v) => v + emoji);
+                inputRef.current?.focus();
+              }}
+              open={activePicker === 'emoji'}
+              onOpenChange={(next) => setActivePicker(next ? 'emoji' : null)}
+            />
 
-              <EmojiPicker
-                onPick={(emoji) => {
-                  setInput((v) => v + emoji);
-                  inputRef.current?.focus();
-                }}
-              />
-
-              <SendButton
-                onPress={handleSend}
-                isDisabled={!(input ?? '').trim()}
-                label={t('chat.send')}
-                pulse={sendPulse}
-                className="shrink-0"
-              />
-            </div>
+            <SendButton
+              onPress={handleSend}
+              isDisabled={!(input ?? '').trim()}
+              label={t('chat.send')}
+              pulse={sendPulse}
+              className="shrink-0"
+            />
           </div>
         </FloatingComposer>
         </div>
 
         <PresenceAvatarStack
-          members={members}
+          members={membersWithPresence}
           loading={loadingMembers}
           className="mr-1"
         />

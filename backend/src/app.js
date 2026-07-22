@@ -28,12 +28,22 @@ app.use(rateLimit({
   max: config.rateLimit.max,
   standardHeaders: true,
   legacyHeaders: false,
+  // SCIM tiene su propio límite (holgado) en su router: los IdPs hacen ráfagas.
+  skip: (req) => req.path.startsWith('/scim'),
   message: { status: 'error', message: 'Too many requests, please try again later' },
 }));
 
 // ── Body parsing ────────────────────────────────────────────────────────
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// ── SCIM 2.0 ──────────────────────────────────────────────────────────────
+// Fuera de /api: tiene su propia auth (bearer), content-type (application/scim+json)
+// y formato de error. Los clientes SCIM mandan application/scim+json, que el parser
+// global de JSON no reconoce, así que le damos su propio express.json.
+app.use('/scim/v2',
+  express.json({ type: ['application/json', 'application/scim+json'], limit: '1mb' }),
+  require('./routes/scim.routes'));
 
 // ── Request logging ─────────────────────────────────────────────────────
 app.use(pinoHttp({

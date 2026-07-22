@@ -46,8 +46,9 @@ services:
       POSTGRES_USER: ${DB_USER:-echochat}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD es requerido}
     volumes:
+      # El schema y las migraciones los aplica el backend al arrancar
+      # (src/config/migrate.js), no un init-script de Postgres.
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/docs/messaging_intranet_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     expose:
       - "5432"
     networks:

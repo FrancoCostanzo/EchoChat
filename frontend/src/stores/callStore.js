@@ -25,7 +25,8 @@ let attached = false;
 const peers = new Map();            // userId -> RTCPeerConnection
 const pendingIce = new Map();       // userId -> RTCIceCandidateInit[] (llegados antes del answer)
 let localStream = null;
-let cameraTrack = null;             // pista de cámara guardada al compartir pantalla
+let screenStream = null;            // stream de pantalla compartida (independiente de la cámara)
+const camStreamIds = new Map();     // userId -> id del MediaStream de cámara (para distinguirlo del de pantalla en ontrack)
 let ringTimer = null;
 let durationTimer = null;
 
@@ -47,6 +48,7 @@ export const useCallStore = create((set, get) => ({
   participants: {},         // userId -> { id, displayName, avatar_url, stream, micOff, camOff }
   directory: {},            // userId -> { display_name, avatar_url } (nombres conocidos)
   localStream: null,        // MediaStream local (para el tile propio)
+  screenStream: null,       // MediaStream de pantalla compartida propia
   micOff: false,
   camOff: false,
   sharingScreen: false,
@@ -248,6 +250,7 @@ export const useCallStore = create((set, get) => ({
     const pc = peers.get(uid);
     if (pc) { try { pc.close(); } catch { /* noop */ } peers.delete(uid); }
     pendingIce.delete(uid);
+    camStreamIds.delete(uid);
     set((s) => {
       const next = { ...s.participants };
       delete next[uid];
@@ -274,6 +277,10 @@ export const useCallStore = create((set, get) => ({
 
     if (localStream) {
       for (const track of localStream.getTracks()) pc.addTrack(track, localStream);
+    }
+    // Si ya estábamos compartiendo pantalla cuando este peer se une, sumarle esa pista también.
+    if (screenStream) {
+      for (const track of screenStream.getTracks()) pc.addTrack(track, screenStream);
     }
 
     pc.onnegotiationneeded = async () => {
@@ -302,7 +309,19 @@ export const useCallStore = create((set, get) => ({
 
     pc.ontrack = (e) => {
       const [stream] = e.streams;
-      get()._upsertParticipant(uid, { stream });
+      if (!stream) return;
+      // La cámara/mic viajan en el primer MediaStream que vemos de este uid; cualquier
+      // stream posterior con otro id es la pantalla compartida (no hay orden garantizado
+      // entre la señal call:media y el evento ontrack, así que no se puede usar eso).
+      const knownCamId = camStreamIds.get(uid);
+      if (!knownCamId) {
+        camStreamIds.set(uid, stream.id);
+        get()._upsertParticipant(uid, { stream });
+      } else if (stream.id === knownCamId) {
+        get()._upsertParticipant(uid, { stream });
+      } else {
+        get()._upsertParticipant(uid, { screenStream: stream });
+      }
     };
 
     // Registrar el tile del participante aunque el stream aún no llegue.
@@ -380,6 +399,11 @@ export const useCallStore = create((set, get) => ({
   },
 
   _onRemoteMedia: (uid, kind, enabled) => {
+    if (kind === 'screen') {
+      // El stream real llega por ontrack; acá sólo nos importa limpiarlo cuando para.
+      if (!enabled) get()._upsertParticipant(uid, { screenStream: null });
+      return;
+    }
     get()._upsertParticipant(uid, kind === 'audio' ? { micOff: !enabled } : { camOff: !enabled });
   },
 
@@ -413,38 +437,37 @@ export const useCallStore = create((set, get) => ({
     socket()?.emit('call:media', { callId: get().call?.id, kind: 'video', enabled: !next });
   },
 
+  // Cámara y pantalla son pistas/streams independientes: compartir pantalla
+  // agrega un sender de video nuevo por peer en vez de reemplazar el de la cámara,
+  // así se pueden transmitir ambas a la vez.
   toggleScreenShare: async () => {
     if (get().sharingScreen) {
-      // Volver a la cámara.
-      await get()._replaceVideoTrack(cameraTrack, false);
-      cameraTrack = null;
-      set({ sharingScreen: false });
+      get()._stopScreenShare();
       return;
     }
     try {
       const display = await navigator.mediaDevices.getDisplayMedia({ video: true });
       const screenTrack = display.getVideoTracks()[0];
-      cameraTrack = localStream?.getVideoTracks()[0] || null;
-      // El usuario detiene desde la barra nativa del navegador.
-      screenTrack.onended = () => { get().toggleScreenShare(); };
-      await get()._replaceVideoTrack(screenTrack, true);
-      set({ sharingScreen: true, camOff: false });
+      screenStream = display;
+      // El usuario corta desde la barra nativa del navegador.
+      screenTrack.onended = () => { get()._stopScreenShare(); };
+      for (const pc of peers.values()) pc.addTrack(screenTrack, screenStream);
+      socket()?.emit('call:media', { callId: get().call?.id, kind: 'screen', enabled: true });
+      set({ sharingScreen: true, screenStream: display });
     } catch { /* cancelado */ }
   },
 
-  _replaceVideoTrack: async (track, keepScreen) => {
-    if (!localStream) return;
-    const old = localStream.getVideoTracks()[0];
-    if (track) {
-      for (const pc of peers.values()) {
-        const sender = pc.getSenders().find((s) => s.track && s.track.kind === 'video');
-        if (sender) { try { await sender.replaceTrack(track); } catch { /* noop */ } }
-      }
-      if (old) localStream.removeTrack(old);
-      localStream.addTrack(track);
-      if (old && !keepScreen) { try { old.stop(); } catch { /* noop */ } }
-      set({ localStream });
+  _stopScreenShare: () => {
+    if (!screenStream) { set({ sharingScreen: false, screenStream: null }); return; }
+    const track = screenStream.getVideoTracks()[0];
+    for (const pc of peers.values()) {
+      const sender = pc.getSenders().find((s) => s.track === track);
+      if (sender) { try { pc.removeTrack(sender); } catch { /* noop */ } }
     }
+    try { track?.stop(); } catch { /* noop */ }
+    socket()?.emit('call:media', { callId: get().call?.id, kind: 'screen', enabled: false });
+    screenStream = null;
+    set({ sharingScreen: false, screenStream: null });
   },
 
   // ── Helpers de estado ────────────────────────────────────────────────
@@ -473,14 +496,19 @@ export const useCallStore = create((set, get) => ({
     for (const pc of peers.values()) { try { pc.close(); } catch { /* noop */ } }
     peers.clear();
     pendingIce.clear();
+    camStreamIds.clear();
     if (localStream) {
       localStream.getTracks().forEach((t) => { try { t.stop(); } catch { /* noop */ } });
     }
+    if (screenStream) {
+      screenStream.getTracks().forEach((t) => { try { t.stop(); } catch { /* noop */ } });
+    }
     localStream = null;
-    cameraTrack = null;
+    screenStream = null;
     set({
       participants: {},
       localStream: null,
+      screenStream: null,
       micOff: false,
       camOff: false,
       sharingScreen: false,

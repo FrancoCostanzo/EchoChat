@@ -28,7 +28,9 @@ function buildMarkdownComponents(variant) {
     code: ({ className, children }) => {
       const isBlock = className?.includes('language-');
       if (isBlock) {
-        return <code className={codeClass}>{children}</code>;
+        // Block code already sits inside <pre> (background/padding come from
+        // preClass below) — no need for the inline pill styling here too.
+        return <code className="font-mono text-[13px]">{children}</code>;
       }
       return <code className={codeClass}>{children}</code>;
     },

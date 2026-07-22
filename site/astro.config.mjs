@@ -30,6 +30,12 @@ export default defineConfig({
 				pt: { label: 'Português', lang: 'pt' },
 			},
 			customCss: ['./src/styles/starlight.css'],
+			components: {
+				Header: './src/components/starlight/Header.astro',
+				MobileMenuFooter: './src/components/starlight/MobileMenuFooter.astro',
+				ThemeSelect: './src/components/starlight/ThemeSelect.astro',
+				LanguageSelect: './src/components/starlight/LanguageSelect.astro',
+			},
 			// Tipografías del design system (Clash Display + Satoshi + JetBrains Mono)
 			head: [
 				{
@@ -125,6 +131,7 @@ export default defineConfig({
 					items: [
 						{ label: 'Panel de administración', slug: 'docs/admin/panel' },
 						{ label: 'Usuarios', slug: 'docs/admin/usuarios' },
+						{ label: 'Integraciones', slug: 'docs/admin/integraciones' },
 						{ label: 'RBAC', slug: 'docs/admin/rbac' },
 						{ label: 'Configuración del sistema', slug: 'docs/admin/sistema' },
 						{ label: 'Auditoría', slug: 'docs/admin/auditoria' },

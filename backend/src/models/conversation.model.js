@@ -22,6 +22,7 @@ function toConversationResponse(row) {
     is_pinned: row.is_pinned ?? false,
     member_role: row.member_role ?? row.role ?? null,
     // Direct conversation: other member info
+    other_user_id: row.other_user_id ?? null,
     display_name: row.other_display_name ?? null,
     other_username: row.other_username ?? null,
     member_presence: row.member_presence ?? null,

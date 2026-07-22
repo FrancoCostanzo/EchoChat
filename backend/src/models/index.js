@@ -4,7 +4,9 @@ module.exports = {
   ...require('./channel.model'),
   ...require('./message.model'),
   ...require('./poll.model'),
+  ...require('./game.model'),
   ...require('./call.model'),
   ...require('./storage.model'),
+  ...require('./sticker.model'),
   ...require('./admin.model'),
 };

@@ -43,7 +43,10 @@ en tus mensajes guardados — lo que ves al escribir es lo que van a ver los dem
 ## Edición de mensajes formateados
 
 Al editar un mensaje se conserva su `body_format` original (plano o markdown), así que
-podés seguir usando la barra de formato normalmente sobre un mensaje ya enviado.
+podés seguir usando la barra de formato normalmente sobre un mensaje ya enviado. La
+edición solo está disponible dentro de la
+[ventana de tiempo](/docs/uso/mensajeria#edición-e-historial) configurada (15 minutos por
+defecto).
 
 ## Limitaciones de seguridad
 

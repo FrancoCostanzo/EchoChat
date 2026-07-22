@@ -12,23 +12,33 @@ description: Procedimiento para actualizar EchoChat y aplicar migraciones.
    git pull origin main
    ```
 
-3. Revisá si hay migraciones nuevas en `backend/docs/migrations/` desde tu última
-   actualización (ver siguiente sección).
-4. Reconstruí y reiniciá (ver [Reconstrucción de contenedores](#reconstrucción-de-contenedores)).
-5. Verificá `GET /api/health/ready` antes de considerar la actualización completa.
+3. Reconstruí y reiniciá (ver [Reconstrucción de contenedores](#reconstrucción-de-contenedores)).
+   Al arrancar, el backend **aplica solo** las migraciones y el seed pendientes.
+4. Verificá `GET /api/health/ready` antes de considerar la actualización completa.
 
 ## Migraciones de base de datos
 
-EchoChat no tiene un runner de migraciones automático: **aplicá manualmente** cualquier
-archivo nuevo en `backend/docs/migrations/` que no hayas corrido todavía, en orden
-numérico:
+Desde `v1.0.0-alpha.5` el backend **aplica las migraciones automáticamente** al arrancar:
+compara los archivos de `backend/docs/migrations/` con la tabla `schema_migrations` y
+corre solo los que faltan, en orden. **No hay que ejecutar ningún `psql`.**
 
-```bash
-psql -U echochat -d echochat -f backend/docs/migrations/00X_nombre.sql
+```text
+git pull  →  docker compose up -d --build  →  el backend aplica lo pendiente
 ```
 
-Todas las migraciones son idempotentes, así que no hay riesgo grave en volver a correr
-una que ya se aplicó. Ver el detalle de cada una en [Base de datos](/docs/despliegue/base-de-datos#migraciones).
+Cada migración corre en su propia transacción. Si una falla, hace *rollback* y el backend
+aborta el arranque (visible en los logs) en vez de quedar a medias — así el error se nota
+y el orquestador reintenta. El seed (`seed.sql`) se aplica en cada arranque de forma
+idempotente, con lo que los permisos/settings nuevos llegan solos.
+
+:::note
+Si preferís aplicar las migraciones **antes** de levantar la app (o contra una BD
+externa), corré `cd backend && npm run migrate`. Se controla con
+`RUN_MIGRATIONS_ON_BOOT=false` para desacoplarlo del arranque.
+:::
+
+Ver el modelo completo (esquema / migraciones / seed) y cómo autorar una migración nueva
+en [Base de datos](/docs/despliegue/base-de-datos).
 
 ## Reconstrucción de contenedores
 
@@ -46,11 +56,30 @@ cd backend && npm install && npm run dev   # o npm start en producción
 cd ../frontend && npm install && npm run build
 ```
 
-## Compatibilidad de versiones
+## Versionado y compatibilidad
 
-El proyecto está en fase **alpha** (`v1.0.0-alpha.x`): puede haber cambios de esquema de
-base de datos entre versiones que requieran una migración específica. Revisá siempre el
-changelog/commits entre tu versión actual y la nueva antes de actualizar en producción.
+El proyecto está en fase **alpha** (`v1.0.0-alpha.x`, semver). La versión humana vive en
+`backend/package.json` y en los tags de git; la versión **real de la base** es la tabla
+`schema_migrations`. Cada release que cambia el esquema incluye su(s) migración(es)
+nueva(s), que se aplican solas al actualizar.
+
+Buenas prácticas al mantener versiones:
+
+- Etiquetá cada release (`git tag v1.0.0-alpha.5`) y anotá en el changelog qué migración
+  entró en cada versión, por ejemplo:
+
+  ```text
+  ## v1.0.0-alpha.5
+  - DB: 015_pin_conversations (agrega conversation_members.pinned_at)
+  - Feat: fijar conversaciones
+  ```
+
+- Como las migraciones son **aditivas** e idempotentes, podés bajar la versión de la *app*
+  sin bajar la base: el código viejo tolera columnas nuevas que no usa. Los cambios
+  destructivos se hacen en dos pasos (*expand-contract*, ver
+  [Base de datos](/docs/despliegue/base-de-datos#agregar-un-cambio-de-esquema-nueva-versión)).
+- Revisá siempre los commits/changelog entre tu versión y la nueva antes de actualizar en
+  producción, y tené el [backup](/docs/despliegue/backups) hecho.
 
 ## Rollback
 

@@ -1,152 +1,63 @@
 ---
 title: API REST
-description: Referencia de endpoints HTTP por módulo bajo /api.
+description: Vista general de la API HTTP — convenciones, módulos y autenticación.
 ---
+
+Esta página describe la API a grandes rasgos. Para la **referencia exhaustiva** de cada
+endpoint (rutas, parámetros, cuerpos y ejemplos), usá la colección Bruno del repositorio
+(ver el final de la página): es la fuente de verdad y acompaña al código.
 
 ## Convenciones generales
 
-- Todas las rutas viven bajo el prefijo `/api`.
-- Autenticación: header `Authorization: Bearer <jwt>`, validado por el middleware
-  `authenticate`. Las rutas públicas se indican explícitamente abajo.
-- Autorización: algunos endpoints requieren un permiso RBAC específico
+- Todas las rutas de la aplicación viven bajo el prefijo `/api`.
+- **Autenticación**: header `Authorization: Bearer <jwt>`, validado por el middleware
+  `authenticate`. Las rutas públicas (registro, login) se indican como tales.
+- **Autorización**: algunos endpoints requieren un permiso RBAC específico
   (`requirePermission`); ver [RBAC](/docs/admin/rbac).
-- Formato de respuesta: `{ "status": "success", "data": ... }` o
+- **Respuesta**: `{ "status": "success", "data": ... }` o
   `{ "status": "error", "message": "...", "details": [...] }`.
-- Validación de entrada con esquemas Joi (DTOs) antes del controller.
+- **Validación** de entrada con esquemas Joi (DTOs) antes de llegar al controller.
+- **Rate limiting** por IP sobre `/api`; ver
+  [Variables de entorno](/docs/despliegue/variables-entorno).
 
-## Auth — `/api/auth`
+## Módulos
 
-| Método | Ruta | Acceso |
-|--------|------|--------|
-| `GET` | `/registration-status` | Público |
-| `POST` | `/register` | Público |
-| `POST` | `/login` | Público |
-| `POST` | `/2fa/challenge` | Público (segundo paso del login) |
-| `POST` | `/logout`, `/logout-all` | Autenticado |
-| `GET` | `/me` | Autenticado |
-| `PUT` | `/password` | Autenticado |
-| `GET` | `/sessions`, `DELETE /sessions/:sessionId` | Autenticado |
-| `POST` | `/2fa/setup`, `/2fa/enable`, `/2fa/disable`, `/2fa/backup-codes/regenerate` | Autenticado |
+Cada módulo agrupa un recurso bajo su propio prefijo, con rutas REST estándar
+(`GET`/`POST`/`PUT`/`PATCH`/`DELETE`) sobre el recurso y sus subrecursos.
 
-## Users — `/api/users`
+| Módulo | Prefijo | Qué gestiona | Permiso |
+|--------|---------|--------------|---------|
+| Auth | `/api/auth` | Registro, login, 2FA, sesiones y SSO | Público / Autenticado |
+| Users | `/api/users` | Perfil propio, avatar, presencia y búsqueda | Autenticado |
+| Conversations | `/api/conversations` | DMs y grupos, miembros, marcado de lectura | Autenticado |
+| Messages | `/api/messages` | Mensajes, hilos, reacciones, recibos, guardados, borradores, fijados y reenvío | Autenticado |
+| Channels | `/api/channels` | Canales públicos, descubrimiento y solicitudes de ingreso | `groups.create` / gestores |
+| Polls | `/api/polls` | Encuestas y votos | Autenticado |
+| Calls | `/api/calls` | Registro e historial de llamadas (la señalización va por [Socket.IO](/docs/desarrollo/tiempo-real)) | Autenticado |
+| Storage | `/api/storage` | Subida y descarga de archivos en MinIO (URLs prefirmadas) | `media.upload` |
+| Broadcasts | `/api/broadcasts` | Listas de difusión y envíos | `broadcast.create` / `broadcast.send` |
+| Notifications | `/api/notifications` | Notificaciones in-app y preferencias | Autenticado |
+| Relationships | `/api/relationships` | Contactos, bloqueados y favoritos | Autenticado |
+| Admin | `/api/admin` | Usuarios, roles, settings, auditoría, almacenamiento e integraciones | `admin.*` |
+| Monitoring | `/api/monitoring` | Estado del servidor y la base de datos | Cualquier `admin.*` |
 
-| Método | Ruta |
-|--------|------|
-| `GET` / `PUT` | `/me` |
-| `POST` | `/me/avatar` |
-| `PUT` | `/me/presence` |
-| `GET` | `/search`, `/:userId` |
+## Identidad federada
 
-## Conversations — `/api/conversations`
+Además de la API bajo `/api`, la plataforma expone dos superficies de integración
+empresarial (ver [Integraciones](/docs/admin/integraciones)):
 
-| Método | Ruta |
-|--------|------|
-| `POST` / `GET` | `/` |
-| `GET` / `PUT` | `/:conversationId` |
-| `GET` / `POST` | `/:conversationId/members` |
-| `PUT` / `DELETE` | `/:conversationId/members/:userId` |
-| `POST` | `/:conversationId/read` |
-
-## Messages — `/api/messages`
-
-| Método | Ruta |
-|--------|------|
-| `POST` | `/` |
-| `GET` | `/saved`, `/drafts`, `/:messageId`, `/:messageId/thread`, `/:messageId/info` |
-| `PUT` / `DELETE` | `/:messageId` |
-| `POST` / `DELETE` | `/:messageId/reactions[/:emoji]` |
-| `POST` | `/:messageId/receipts`, `/:messageId/save`, `/:messageId/forward` |
-| `GET` | `/conversation/:id`, `/conversation/:id/search`, `/conversation/:id/pinned` |
-| `POST` / `DELETE` | `/conversation/:id/pin/:messageId` |
-| `GET` / `PUT` / `DELETE` | `/conversation/:id/draft` |
-
-## Channels — `/api/channels`
-
-| Método | Ruta | Permiso |
-|--------|------|---------|
-| `GET` | `/discover` | Autenticado |
-| `POST` | `/` | `groups.create` |
-| `GET` | `/:conversationId` | Autenticado |
-| `PUT` | `/:conversationId/settings` | Owner/admin del canal |
-| `POST` | `/:conversationId/join` | Autenticado |
-| `GET` / `PUT` | `/:conversationId/requests[/:requestId]` | Gestores del canal |
-
-## Polls — `/api/polls`
-
-| Método | Ruta |
-|--------|------|
-| `POST` | `/` |
-| `POST` / `DELETE` | `/:pollId/vote` |
-| `POST` | `/:pollId/close` |
-
-## Calls — `/api/calls`
-
-| Método | Ruta |
-|--------|------|
-| `POST` | `/` |
-| `GET` | `/active`, `/history`, `/conversation/:id`, `/:callId` |
-| `PUT` | `/:callId/status`, `/:callId/participants/:userId` |
-
-## Storage — `/api/storage`
-
-| Método | Ruta | Permiso |
-|--------|------|---------|
-| `POST` | `/upload`, `/upload-url` | `media.upload` |
-| `GET` | `/stickers` | Autenticado (colección propia) |
-| `DELETE` | `/stickers/:objectId` | Autenticado (solo dueño) |
-| `GET` | `/:objectId`, `/:objectId/url` | Autenticado |
-| `DELETE` | `/:objectId` | Autenticado |
-
-## Broadcasts — `/api/broadcasts`
-
-| Método | Ruta | Permiso |
-|--------|------|---------|
-| `POST` / `GET` | `/` | `broadcast.create` (POST) |
-| `GET` | `/:listId`, `/:listId/messages` | Autenticado |
-| `POST` / `DELETE` | `/:listId/recipients[/:userId]` | `broadcast.create` |
-| `POST` | `/:listId/messages` | `broadcast.send` |
-
-## Notifications — `/api/notifications`
-
-| Método | Ruta |
-|--------|------|
-| `GET` | `/`, `/count`, `/preferences` |
-| `POST` | `/read-all` |
-| `PUT` | `/:notificationId/read`, `/preferences` |
-
-## Relationships — `/api/relationships`
-
-| Método | Ruta |
-|--------|------|
-| `POST` | `/` |
-| `DELETE` | `/:targetId/:type` |
-| `GET` | `/contacts`, `/blocked`, `/favorites` |
-
-## Admin — `/api/admin`
-
-| Método | Ruta | Permiso |
-|--------|------|---------|
-| `GET` / `POST` / `PATCH` / `DELETE` | `/users[/:userId]`, `/users/:userId/password` | `admin.users` |
-| `GET` | `/roles`, `/ldap/status` | `admin.users` |
-| `POST` | `/ldap/sync` | `admin.users` |
-| `GET` / `PUT` | `/settings[/:key]` | `admin.settings` |
-| `GET` | `/audit` | `admin.view_audit` |
-| `GET` | `/storage/stats`, `/storage/objects` | `admin.storage` |
-
-## Monitoring — `/api/monitoring` y `/api/health`
-
-| Método | Ruta | Acceso |
-|--------|------|--------|
-| `GET` | `/api/health/live`, `/api/health/ready` | Público |
-| `GET` | `/api/monitoring/dashboard`, `/health`, `/database`, `/system` | Cualquier permiso `admin.*` |
-| `GET` | `/api/monitoring/history?range=1h\|6h\|24h\|7d` | Cualquier permiso `admin.*` |
-
-Rate limit propio de 30 peticiones/minuto sobre `/api/monitoring/*`.
+- **SSO / OIDC** — `GET /api/auth/sso/:provider/login` y `/callback`. Son navegaciones del
+  navegador (no llamadas autenticadas): redirigen al proveedor de identidad y vuelven con
+  el token en el fragmento de la URL.
+- **SCIM 2.0** — endpoint aparte en `/scim/v2` (fuera de `/api`), con su propia
+  autenticación por bearer token estático y formato `application/scim+json`. Lo consumen
+  Okta / Azure para aprovisionar y dar de baja usuarios.
 
 ## Health check
 
-`GET /api/health` — chequeo simple (no requiere auth): estado del servidor y de la
-conexión a PostgreSQL.
+`GET /api/health` — chequeo simple sin autenticación: estado del servidor y de la conexión
+a PostgreSQL. Las variantes `/api/health/live` y `/api/health/ready` sirven para probes de
+Kubernetes/Docker.
 
 ## Colección Bruno
 

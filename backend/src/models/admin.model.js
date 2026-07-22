@@ -1,10 +1,11 @@
 const { toUserResponse } = require('./user.model');
 
-function toAdminUserResponse(user, roles = []) {
+function toAdminUserResponse(user, roles = [], extras = {}) {
   if (!user) return null;
   return {
     ...toUserResponse(user),
     roles: roles.map((r) => (typeof r === 'string' ? r : r.name)),
+    totp_enabled: extras.totp_enabled === true,
   };
 }
 

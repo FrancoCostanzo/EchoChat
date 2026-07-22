@@ -12,9 +12,25 @@ un ícono de error y podés reintentarlo desde el mismo mensaje.
 
 ## Edición e historial
 
-Solo podés editar tus propios mensajes (desde el menú contextual → **Editar**). Cada
-edición queda registrada; el mensaje muestra una marca "editado" y conserva su formato
-(`body_format`).
+Solo podés editar tus **propios** mensajes (menú contextual → **Editar**), y solo durante
+una **ventana de tiempo** configurada en el sistema (por defecto **15 minutos** desde el
+envío). Pasado ese plazo, la opción desaparece del menú y el backend rechaza la edición.
+
+Cada edición queda registrada; el mensaje muestra una marca "editado" y conserva su
+formato (`body_format`). Ver
+[`message_edit_window_minutes`](/docs/admin/sistema#ventana-de-edición-y-eliminación).
+
+## Eliminar mensajes
+
+Eliminar un mensaje también está limitado a tus propios mensajes y a la misma ventana de
+tiempo por defecto (**15 minutos**, configurable con `message_delete_window_minutes`).
+
+La eliminación es un **soft delete**: el mensaje **no desaparece** del chat. Queda en el
+timeline como placeholder (“Mensaje eliminado”), se vacía el cuerpo y los adjuntos, y se
+emite `message:deleted` en tiempo real. Después de un refresh, el estado es el mismo.
+
+Quien tiene el permiso `messages.delete_any` (moderadores/admins) puede eliminar mensajes
+**fuera** de esa ventana (acción de moderación). Ver [RBAC](/docs/admin/rbac).
 
 ## Reacciones
 

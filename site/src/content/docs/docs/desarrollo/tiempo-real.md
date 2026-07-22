@@ -33,39 +33,56 @@ Al conectar, cada socket se une automáticamente a:
 
 ## Eventos server → client
 
-| Evento | Room / alcance | Descripción |
-|--------|-----------------|--------------|
-| `message:new` | `conv:{id}` | Nuevo mensaje (incluye difusiones y encuestas) |
-| `message:edited` | `conv:{id}` | Mensaje editado |
-| `message:deleted` | `conv:{id}` | Mensaje eliminado |
-| `message:reaction` | `conv:{id}` | Reacción agregada/quitada |
-| `message:receipt` | `conv:{id}` | Recibo de entrega/lectura |
-| `message:thread_count` | `conv:{id}` | Contador de respuestas de un hilo actualizado |
-| `typing:start` / `typing:stop` | `conv:{id}` | Indicador de escritura |
-| `messages:read` | `conv:{id}` | Mensajes marcados como leídos |
-| `presence:changed` | Global | Cambio de presencia de un usuario |
-| `poll:update` | `conv:{id}` | Voto nuevo o cierre de encuesta |
-| `notification:new` | `user:{id}` | Notificación nueva (p. ej. difusión) |
-| `channel:joined` | `user:{id}` | Se aprobó tu solicitud de ingreso a un canal |
-| `channel:join_request` | `user:{managerId}` | Nueva solicitud pendiente para un gestor |
-| `call:incoming` | `user:{calleeId}` | Llamada entrante |
-| `call:peers` / `call:peer-joined` / `call:peer-left` | `call:{id}` | Gestión de participantes |
-| `call:rejected` / `call:cancelled` | `call:{id}` / `user:{id}` | Llamada rechazada o cancelada |
-| `call:signal` | `user:{to}` | Relé de señalización SDP/ICE |
-| `call:media` | `call:{id}` | Cambio de estado de micrófono/cámara |
+**Mensajería** (room `conv:{id}`):
+
+| Evento | Payload | Descripción |
+|--------|---------|--------------|
+| `message:new` | objeto mensaje | Nuevo mensaje (incluye difusiones, encuestas y avisos de llamada) |
+| `message:edited` | objeto mensaje | Mensaje editado |
+| `message:deleted` | objeto mensaje | Soft delete: el mensaje queda como placeholder (`is_deleted`) |
+| `message:reaction` | `{ messageId, reactions[] }` | Reacción agregada/quitada |
+| `message:receipt` | `{ messageId, conversationId, delivered_count, read_count }` | Recibo de entrega/lectura |
+| `message:thread_count` | `{ messageId, thread_count }` | Contador de respuestas de un hilo |
+| `typing:start` | `{ conversationId, userId, displayName }` | Empezó a escribir |
+| `typing:stop` | `{ conversationId, userId }` | Dejó de escribir |
+| `messages:read` | `{ conversationId, userId, countsMap }` | Mensajes marcados como leídos |
+| `poll:update` | `{ conversationId, messageId, poll }` | Voto nuevo o cierre de encuesta |
+
+**Dirigidos al usuario** (room `user:{id}`):
+
+| Evento | Payload | Descripción |
+|--------|---------|--------------|
+| `presence:changed` | `{ userId, presence }` | Cambio de presencia — se emite **global** (`io.emit`), lo recibe todo socket conectado |
+| `notification:new` | objeto notificación (`{ type, ... }`) | Notificación nueva (p. ej. difusión) |
+| `channel:joined` | `{ conversationId }` | Se aprobó tu solicitud de ingreso a un canal |
+| `channel:join_request` | `{ conversationId }` | Nueva solicitud pendiente (para el gestor del canal) |
+
+**Llamadas** (señalización WebRTC):
+
+| Evento | Room | Payload | Descripción |
+|--------|------|---------|--------------|
+| `call:incoming` | `user:{calleeId}` | `{ callId, conversationId, type, from, participantIds[] }` | Llamada entrante |
+| `call:peers` | socket que acepta | `{ callId, userIds[] }` | Quiénes ya están en la llamada (para armar la malla) |
+| `call:peer-joined` | `call:{id}` | `{ callId, userId }` | Un par se unió |
+| `call:peer-left` | `call:{id}` | `{ callId, userId }` | Un par se fue (o se desconectó) |
+| `call:rejected` | `call:{id}` | `{ callId, userId, reason }` | Un invitado rechazó |
+| `call:cancelled` | `call:{id}` y `user:{id}` | `{ callId }` | El que llamaba canceló antes de contestar |
+| `call:signal` | `user:{to}` | `{ callId, from, data }` | Relé de señalización SDP/ICE |
+| `call:media` | `call:{id}` | `{ callId, userId, kind, enabled }` | Cambio de micrófono/cámara |
 
 ## Eventos client → server
 
-| Evento | Payload |
-|--------|---------|
-| `join:conversation` | `conversationId` |
-| `typing:start` / `typing:stop` | `{ conversationId }` |
-| `messages:read` | `{ conversationId, messageIds[] }` |
-| `messages:delivered` | `{ conversationId, messageIds[] }` |
-| `call:start` | `{ callId, conversationId, type, calleeIds[], from }` |
-| `call:accept` / `call:reject` / `call:cancel` / `call:leave` | `{ callId, ... }` |
-| `call:signal` | `{ callId, to, data }` |
-| `call:media` | `{ callId, kind, enabled }` |
+| Evento | Payload | Descripción |
+|--------|---------|--------------|
+| `join:conversation` | `conversationId` | Unirse a la room de una conversación recién creada/abierta |
+| `presence:active` | *(sin payload)* | Heartbeat de actividad (throttled): refresca `last_seen_at` y restaura `online` si el job lo había pasado a `away` |
+| `typing:start` / `typing:stop` | `{ conversationId }` | Indicador de escritura |
+| `messages:read` | `{ conversationId, messageIds[] }` | Marcar mensajes como leídos |
+| `messages:delivered` | `{ conversationId, messageIds[] }` | Marcar mensajes como entregados |
+| `call:start` | `{ callId, conversationId, type, calleeIds[], from }` | Iniciar una llamada (timbra a los invitados) |
+| `call:accept` / `call:reject` / `call:cancel` / `call:leave` | `{ callId, ... }` | Ciclo de vida de la llamada |
+| `call:signal` | `{ callId, to, data }` | Señalización dirigida a un par |
+| `call:media` | `{ callId, kind, enabled }` | Silenciar micro / apagar cámara / compartir |
 
 ## Presencia y typing
 

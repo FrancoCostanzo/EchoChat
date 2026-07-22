@@ -256,12 +256,12 @@ function ProfileTab() {
           aria-hidden
         />
         <div className="relative flex items-center gap-4 px-5 py-5">
-          <div className="relative size-12 shrink-0">
+          <div className="relative size-12 shrink-0 overflow-hidden rounded-full">
             <UserAvatar
               user={user}
               size="lg"
               showStatus
-              className="rounded-full ring-4 ring-background"
+              className="ring-4 ring-background"
             />
             <label
               htmlFor={avatarInputId}

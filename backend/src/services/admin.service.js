@@ -1,8 +1,10 @@
 const bcrypt = require('bcrypt');
+const config = require('../config');
 const logger = require('../config/logger');
 const { minioClient } = require('../config/minio');
 // Require directo (no vía ../services) para evitar dependencia circular.
 const ldapService = require('./ldap.service');
+const oidcService = require('./oidc.service');
 const {
   userRepository,
   credentialRepository,
@@ -52,8 +54,13 @@ class AdminService {
     const users = await userRepository.listUsers(filters);
     const enriched = await Promise.all(
       users.map(async (u) => {
-        const roles = await userRepository.getUserRoles(u.id);
-        return withAvatarUrl(toAdminUserResponse(u, roles));
+        const [roles, creds] = await Promise.all([
+          userRepository.getUserRoles(u.id),
+          credentialRepository.findByUserId(u.id),
+        ]);
+        return withAvatarUrl(toAdminUserResponse(u, roles, {
+          totp_enabled: !!creds?.totp_enabled,
+        }));
       }),
     );
     return enriched;
@@ -136,7 +143,100 @@ class AdminService {
     });
 
     const roles = await userRepository.getUserRoles(userId);
-    return toAdminUserResponse(user, roles);
+    const creds = await credentialRepository.findByUserId(userId);
+    return withAvatarUrl(toAdminUserResponse(user, roles, {
+      totp_enabled: !!creds?.totp_enabled,
+    }));
+  }
+
+  async uploadUserAvatar(actorId, userId, file, ip, userAgent) {
+    if (!file) throw new BadRequestError('No file provided');
+
+    // Require directo para no importar vía ../services (ciclo).
+    const userService = require('./user.service');
+    await userService.uploadAvatar(
+      userId,
+      file.buffer,
+      file.mimetype,
+      file.size,
+      file.originalname,
+      {
+        actorId,
+        action: 'admin.user_avatar_update',
+        severity: 'warning',
+        category: 'admin',
+        ip,
+        userAgent,
+      },
+    );
+
+    const user = await userRepository.findById(userId);
+    if (!user || user.status === 'deleted') throw new NotFoundError('User');
+    const roles = await userRepository.getUserRoles(userId);
+    const creds = await credentialRepository.findByUserId(userId);
+    logger.info({ userId, actorId }, 'Admin uploaded user avatar');
+    return withAvatarUrl(toAdminUserResponse(user, roles, {
+      totp_enabled: !!creds?.totp_enabled,
+    }));
+  }
+
+  async removeUserAvatar(actorId, userId, ip, userAgent) {
+    const userService = require('./user.service');
+    await userService.removeAvatar(userId, {
+      actorId,
+      action: 'admin.user_avatar_remove',
+      severity: 'warning',
+      category: 'admin',
+      ip,
+      userAgent,
+    });
+
+    const user = await userRepository.findById(userId);
+    if (!user || user.status === 'deleted') throw new NotFoundError('User');
+    const roles = await userRepository.getUserRoles(userId);
+    const creds = await credentialRepository.findByUserId(userId);
+    logger.info({ userId, actorId }, 'Admin removed user avatar');
+    return withAvatarUrl(toAdminUserResponse(user, roles, {
+      totp_enabled: !!creds?.totp_enabled,
+    }));
+  }
+
+  /**
+   * Admin force-disable of TOTP 2FA (no password/code required).
+   * Clears secret + backup codes, audits under security, and revokes sessions
+   * so a stolen cookie cannot keep the account open without re-login.
+   */
+  async disableUser2fa(actorId, userId, ip, userAgent) {
+    const user = await userRepository.findById(userId);
+    if (!user || user.status === 'deleted') throw new NotFoundError('User');
+
+    const creds = await credentialRepository.findByUserId(userId);
+    if (!creds) throw new BadRequestError('User has no local credentials (external auth)');
+    if (!creds.totp_enabled) throw new BadRequestError('2FA is not enabled for this user');
+
+    await credentialRepository.disableTotp(userId);
+    await sessionRepository.deactivateAllForUser(userId);
+
+    await auditRepository.log({
+      actor_id: actorId,
+      action: 'admin.user_2fa_disabled',
+      resource_type: 'user',
+      resource_id: userId,
+      ip_address: ip,
+      user_agent: userAgent,
+      severity: 'critical',
+      category: 'security',
+      data_before: { totp_enabled: true },
+      data_after: { totp_enabled: false },
+      metadata: {
+        target_username: user.username,
+        sessions_revoked: true,
+      },
+    });
+
+    logger.warn({ userId, actorId }, 'Admin disabled user 2FA');
+    const roles = await userRepository.getUserRoles(userId);
+    return withAvatarUrl(toAdminUserResponse(user, roles, { totp_enabled: false }));
   }
 
   async deleteUser(actorId, userId, ip, userAgent) {
@@ -213,30 +313,64 @@ class AdminService {
     return ldapService.status();
   }
 
+  // Estado agregado de las integraciones de identidad para el panel de admin.
+  getIntegrations() {
+    return {
+      ldap: ldapService.status(),
+      sso: {
+        enabled: oidcService.isEnabled(),
+        providers: oidcService.listProviders(),
+      },
+      scim: {
+        enabled: Boolean(config.scim.enabled && config.scim.token),
+      },
+    };
+  }
+
+  // Compat: la importación manual desde el panel admin delega en el sync unificado.
   async importLdapUsers(actorId, ip, userAgent) {
+    return this.syncLdapUsers({ actorId, ip, userAgent, origin: 'manual' });
+  }
+
+  // Sincronización LDAP compartida por la importación manual (con actor) y el job
+  // cron (actorId null, origin 'automatic'). Crea/actualiza usuarios, opcionalmente
+  // mapea grupos→roles y deshabilita a los que ya no están en el directorio.
+  async syncLdapUsers({ actorId = null, ip = null, userAgent = null, origin = 'manual' } = {}) {
     const entries = await ldapService.fetchAllUsers();
+    const seenExternalIds = [];
     let created = 0;
     let updated = 0;
+    let reactivated = 0;
     let failed = 0;
 
     for (const entry of entries) {
       try {
-        const { created: wasCreated } = await userRepository.upsertLdapUser(entry);
-        if (wasCreated) {
-          created += 1;
-          // Rol estándar para los recién importados; en updates no tocamos roles.
-          const fresh = await userRepository.findByExternalId(entry.external_id);
-          await userRepository.setUserRoles(fresh.id, ['user'], actorId);
-        } else {
-          updated += 1;
-        }
+        const { user, created: wasCreated, reactivated: wasReactivated } =
+          await userRepository.upsertLdapUser(entry);
+        seenExternalIds.push(entry.external_id);
+        if (wasCreated) created += 1;
+        else updated += 1;
+        if (wasReactivated) reactivated += 1;
+
+        await this._applyLdapRoles(user.id, entry, wasCreated, actorId);
       } catch (err) {
         failed += 1;
-        logger.warn({ err, username: entry.username }, 'LDAP user import failed');
+        logger.warn({ err, username: entry.username }, 'LDAP user sync failed');
       }
     }
 
-    const summary = { total: entries.length, created, updated, failed };
+    // Deprovisioning: sólo si está activado y el fetch trajo usuarios (guarda anti-apagón).
+    let disabled = 0;
+    if (config.ldap.deprovision && seenExternalIds.length > 0) {
+      const disabledIds = await userRepository.disableLdapUsersNotIn(seenExternalIds);
+      disabled = disabledIds.length;
+      for (const uid of disabledIds) {
+        await sessionRepository.deactivateAllForUser(uid).catch(() => {});
+        await userRepository.updatePresence(uid, 'offline').catch(() => {});
+      }
+    }
+
+    const summary = { total: entries.length, created, updated, reactivated, disabled, failed };
 
     await auditRepository.log({
       actor_id: actorId,
@@ -245,13 +379,29 @@ class AdminService {
       resource_id: null,
       ip_address: ip,
       user_agent: userAgent,
-      severity: failed > 0 ? 'warning' : 'info',
+      severity: failed > 0 || disabled > 0 ? 'warning' : 'info',
       category: 'admin',
+      metadata: { origin },
       data_after: summary,
     });
 
-    logger.info({ actorId, ...summary }, 'LDAP import completed');
+    logger.info({ actorId, origin, ...summary }, 'LDAP sync completed');
     return summary;
+  }
+
+  // Asigna roles a un usuario LDAP. Con syncRoles activo, los roles son 100%
+  // dirigidos por los grupos del directorio (reemplaza los actuales); sin mapeo
+  // aplicable cae al rol por defecto para no dejar al usuario sin acceso. Sin
+  // syncRoles, sólo asigna el rol por defecto a los recién creados (no toca updates).
+  async _applyLdapRoles(userId, entry, wasCreated, actorId) {
+    const { syncRoles, defaultRole } = config.ldap;
+    if (syncRoles) {
+      const mapped = ldapService.mapGroupsToRoles(entry.groups);
+      const roles = mapped.length ? mapped : (defaultRole ? [defaultRole] : []);
+      if (roles.length) await userRepository.setUserRoles(userId, roles, actorId);
+    } else if (wasCreated && defaultRole) {
+      await userRepository.setUserRoles(userId, [defaultRole], actorId);
+    }
   }
 
   async _guardLastSuperAdmin(userId, newRoleNames) {

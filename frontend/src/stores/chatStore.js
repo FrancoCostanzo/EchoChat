@@ -9,6 +9,33 @@ import { useCallStore } from '@/stores/callStore';
 // of firing duplicate HTTP requests.
 const _inFlightFetch = new Map();
 
+// Activity heartbeat: tells the backend the user is interacting so the
+// presence timeout job doesn't mark them away (and restores online if it
+// already did). Throttled — with a 5 min server timeout, one ping per minute
+// of activity is plenty.
+const ACTIVITY_THROTTLE_MS = 60_000;
+let _activityCleanup = null;
+
+function startActivityHeartbeat(socket) {
+  _activityCleanup?.();
+  let lastPing = 0;
+  const ping = () => {
+    const now = Date.now();
+    if (now - lastPing < ACTIVITY_THROTTLE_MS) return;
+    lastPing = now;
+    if (socket.connected) socket.emit('presence:active');
+  };
+  const onVisible = () => { if (!document.hidden) ping(); };
+  const events = ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart'];
+  for (const ev of events) window.addEventListener(ev, ping, { passive: true });
+  document.addEventListener('visibilitychange', onVisible);
+  _activityCleanup = () => {
+    for (const ev of events) window.removeEventListener(ev, ping);
+    document.removeEventListener('visibilitychange', onVisible);
+    _activityCleanup = null;
+  };
+}
+
 // Last rendered timeline per conversation. Switching back to a recently
 // visited chat paints the cached messages instantly (no blank/skeleton flash)
 // while a background fetch reconciles anything received meanwhile.
@@ -48,11 +75,22 @@ export const useChatStore = create((set, get) => ({
     socket.on('connect', attachCalls);
     if (socket.connected) attachCalls();
 
+    startActivityHeartbeat(socket);
+
     socket.on('message:new', (message) => {
       const state = get();
       // Thread replies don't enter the main timeline — the ThreadPanel has its
       // own listener and the root's counter updates via message:thread_count.
       if (message.thread_id) return;
+
+      const knownConversation = state.conversations.some((c) => c.id === message.conversation_id);
+      // Broadcast (and any new DM) may create a conversation the client hasn't
+      // joined or listed yet — pull it in so the message isn't invisible.
+      if (!knownConversation && message.conversation_id) {
+        get().joinConversation(message.conversation_id);
+        get().fetchConversations();
+      }
+
       // Add message if we're in the same conversation
       if (message.conversation_id === state.activeConversationId) {
         const exists = state.messages.some((m) => m.id === message.id);
@@ -182,6 +220,10 @@ export const useChatStore = create((set, get) => ({
       get().applyPollUpdate(messageId, poll, { preserveVotes: true });
     });
 
+    socket.on('game:update', ({ messageId, game }) => {
+      get().applyGameUpdate(messageId, game);
+    });
+
     socket.off('presence:changed');
     socket.on('presence:changed', ({ userId, presence }) => {
       set((state) => ({
@@ -199,6 +241,7 @@ export const useChatStore = create((set, get) => ({
   },
 
   destroySocket: () => {
+    _activityCleanup?.();
     useCallStore.getState().detach();
     disconnectSocket();
     set({ typingUsers: {}, onlineUsers: {}, activeUserId: null });
@@ -427,9 +470,24 @@ export const useChatStore = create((set, get) => ({
   },
 
   deleteMessage: async (messageId) => {
-    await messagesApi.delete(messageId);
+    const res = await messagesApi.delete(messageId);
+    const deleted = res?.data;
+    // Soft-delete: keep the row and show the "deleted" placeholder (same as
+    // after refresh / message:deleted). Never remove it from the timeline.
     set((state) => ({
-      messages: state.messages.filter((m) => m.id !== messageId),
+      messages: state.messages.map((m) =>
+        m.id === messageId
+          ? {
+              ...m,
+              ...(deleted || {}),
+              is_deleted: true,
+              body: null,
+              type: 'deleted_placeholder',
+              attachments: [],
+              reactions: [],
+            }
+          : m,
+      ),
     }));
   },
 
@@ -459,6 +517,14 @@ export const useChatStore = create((set, get) => ({
           },
         };
       }),
+    }));
+  },
+
+  // Each `game:update` arrives already redacted for this viewer (server-side),
+  // so unlike polls there's nothing to merge locally — just replace it.
+  applyGameUpdate: (messageId, game) => {
+    set((state) => ({
+      messages: state.messages.map((m) => (m.id === messageId ? { ...m, game } : m)),
     }));
   },
 
