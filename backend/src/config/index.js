@@ -45,6 +45,15 @@ const config = {
   env: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT, 10) || 3000,
 
+  // Identifica a esta instancia en los logs y en el estado de los cron jobs.
+  instanceId: `${require('os').hostname()}:${process.pid}`,
+
+  jobs: {
+    // Poner RUN_JOBS=false en instancias que sólo deban atender tráfico. Con
+    // varias instancias, además, sólo una ejecuta cada corrida (lock en Redis).
+    enabled: process.env.RUN_JOBS !== 'false',
+  },
+
   db: {
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT, 10) || 5432,
@@ -53,6 +62,12 @@ const config = {
     password: process.env.DB_PASSWORD || '',
     min: parseInt(process.env.DB_POOL_MIN, 10) || 2,
     max: parseInt(process.env.DB_POOL_MAX, 10) || 20,
+  },
+
+  // Estado compartido entre instancias (adapter de Socket.IO, presencia, rate
+  // limit). Sin REDIS_URL el backend funciona, pero sólo en una instancia.
+  redis: {
+    url: process.env.REDIS_URL || '',
   },
 
   jwt: {

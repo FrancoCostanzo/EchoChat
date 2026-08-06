@@ -1,5 +1,7 @@
 /** In-memory tracker of background cron job execution results. */
 
+const config = require('../config');
+
 const jobRuns = new Map();
 
 function recordJobRun(name, { descripcion, resultado = 'success', origen = 'automatica' } = {}) {
@@ -8,6 +10,9 @@ function recordJobRun(name, { descripcion, resultado = 'success', origen = 'auto
     ultimaEjecucion: new Date().toISOString(),
     resultado,
     origen,
+    // Con varias instancias cada corrida la ejecuta una sola: saber cuál ayuda
+    // a leer el panel, porque este Map sigue siendo local a cada proceso.
+    instancia: config.instanceId,
   });
 }
 
@@ -16,15 +21,15 @@ function getJobRuns() {
 }
 
 function getCronWorkerStatus() {
-  const config = require('../config');
   const enabled = config.env === 'production';
   return {
     enabled,
-    running: true,
+    running: config.jobs.enabled,
     ready: true,
-    note: enabled
-      ? 'Los jobs cron corren en el hilo principal del proceso Node.js.'
-      : 'Jobs cron activos en todos los entornos; el flag "enabled" indica producción.',
+    instancia: config.instanceId,
+    note: config.jobs.enabled
+      ? 'Los jobs cron corren en el hilo principal del proceso Node.js. Con varias instancias, cada corrida la toma una sola (lock en Redis).'
+      : 'RUN_JOBS=false: esta instancia no ejecuta jobs, sólo atiende tráfico.',
   };
 }
 

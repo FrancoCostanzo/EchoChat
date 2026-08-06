@@ -64,7 +64,7 @@ class MonitoringService {
       cronJobs: getJobRuns(),
       cronWorker: getCronWorkerStatus(),
       http: metricsRegistry.getHttpMetrics(),
-      socket: this._getSocketMetrics(),
+      socket: await this._getSocketMetrics(),
       build: this._getBuildInfo(),
       performance: {
         queriesPerSecond: metricsRegistry.getQueriesPerSecond(),
@@ -116,7 +116,7 @@ class MonitoringService {
       system: this._getSystemMetrics(),
       database: this._getPoolStatus(),
       http: metricsRegistry.getHttpMetrics(),
-      socket: this._getSocketMetrics(),
+      socket: await this._getSocketMetrics(),
       performance: {
         queriesPerSecond: metricsRegistry.getQueriesPerSecond(),
         dbQueryTotal: metricsRegistry.getDbQueryTotal(),
@@ -451,7 +451,8 @@ class MonitoringService {
     };
   }
 
-  _getSocketMetrics() {
+  // Async: consulta a todas las instancias del cluster vía el adapter.
+  async _getSocketMetrics() {
     return getSocketMetrics();
   }
 

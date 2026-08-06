@@ -25,6 +25,7 @@
   },
   "homepage": "https://github.com/FrancoCostanzo/EchoChat-Backend#readme",
   "dependencies": {
+    "@socket.io/redis-adapter": "^8.3.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
@@ -45,6 +46,8 @@
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
     "qrcode": "^1.5.4",
+    "rate-limit-redis": "^6.0.0",
+    "redis": "^6.1.0",
     "socket.io": "^4.8.3",
     "uuid": "^14.0.0"
   },

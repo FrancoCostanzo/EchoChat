@@ -1,8 +1,10 @@
 const { Server } = require('socket.io');
+const { createAdapter } = require('@socket.io/redis-adapter');
 const config = require('./config');
 const logger = require('./config/logger');
+const { isRedisEnabled, createRedisClient } = require('./config/redis');
 const { registerSocket, unregisterSocket } = require('./config/socketStore');
-const { autoAwayUsers } = require('./config/presenceStore');
+const { isAutoAway, clearAutoAway } = require('./config/presenceStore');
 
 // NOTE: services & repositories are lazy-loaded inside functions to avoid
 // a circular dependency (message.service → socket → services → message.service).
@@ -34,7 +36,7 @@ function scheduleOffline(userId) {
   offlineTimers.set(userId, timer);
 }
 
-function initSocket(httpServer) {
+async function initSocket(httpServer) {
   const { authService } = require('./services');
   const { conversationRepository, userRepository } = require('./repositories');
 
@@ -45,6 +47,20 @@ function initSocket(httpServer) {
     },
   });
 
+  // ── Adapter Redis (multi-instancia) ──────────────────────────────────
+  // Sin adapter, las salas (`user:*`, `conv:*`, `call:*`) sólo existen dentro de
+  // este proceso: dos usuarios atendidos por instancias distintas no se verían
+  // los mensajes. Con Redis, cada emisión se replica al resto de instancias.
+  // Se monta antes de escuchar conexiones para que ningún socket quede aislado.
+  if (isRedisEnabled()) {
+    const pubClient = await createRedisClient('socket-pub');
+    const subClient = await createRedisClient('socket-sub');
+    io.adapter(createAdapter(pubClient, subClient));
+    logger.info('Socket.IO usando adapter Redis (modo multi-instancia)');
+  } else {
+    logger.warn('REDIS_URL no configurado: Socket.IO en memoria, sólo una instancia (ver docs/SCALING.md)');
+  }
+
   // ── Auth middleware ──────────────────────────────────────────────────
   io.use(async (socket, next) => {
     try {
@@ -54,6 +70,9 @@ function initSocket(httpServer) {
       const { user } = await authService.validateToken(token);
       socket.userId = user.id;
       socket.user = user;
+      // `data` es lo único que Socket.IO serializa al consultar sockets de otras
+      // instancias con fetchSockets(): las props sueltas del socket no viajan.
+      socket.data.userId = user.id;
       next();
     } catch {
       next(new Error('Invalid token'));
@@ -107,8 +126,8 @@ function initSocket(httpServer) {
     // A manual away/busy/dnd from Settings is never overridden here.
     socket.on('presence:active', async () => {
       try {
-        if (autoAwayUsers.has(userId)) {
-          autoAwayUsers.delete(userId);
+        if (await isAutoAway(userId)) {
+          // updatePresence ya borra la marca de auto-away.
           await updatePresence(userId, 'online');
         } else {
           await userRepository.touchLastSeen(userId);
@@ -165,13 +184,6 @@ function initSocket(httpServer) {
 
     // ── Mark delivered (cuando un mensaje llega al cliente pero no se lee) ──
     socket.on('messages:delivered', async ({ conversationId, messageIds }) => {
-      try {
-        require('fs').appendFileSync(
-          require('path').join(__dirname, '../delivery-debug.log'),
-          `${new Date().toISOString()} DELIVERED-RECV user=${userId} conv=${conversationId} msgs=${JSON.stringify(messageIds)}\n`,
-        );
-      } catch {}
-      logger.info({ userId, conversationId, messageIds }, '[DELIVERY] messages:delivered recibido');
       if (!Array.isArray(messageIds) || messageIds.length === 0) return;
       const { messageRepository } = require('./repositories');
       try {
@@ -196,13 +208,6 @@ function initSocket(httpServer) {
             if (!message) continue;
             room = `conv:${message.conversation_id}`;
           }
-          const sockets = await io.in(room).fetchSockets();
-          try {
-            require('fs').appendFileSync(
-              require('path').join(__dirname, '../delivery-debug.log'),
-              `${new Date().toISOString()} EMIT-RECEIPT room=${room} msg=${msgId} delivered=${Number(counts.delivered_count)} socketsEnRoom=${sockets.length} userIds=${JSON.stringify(sockets.map((s) => s.userId))}\n`,
-            );
-          } catch {}
           io.to(room).emit('message:receipt', {
             messageId: msgId,
             delivered_count: Number(counts.delivered_count) || 0,
@@ -271,15 +276,19 @@ function registerCallHandlers(io, socket, userId) {
 
   // El invitado acepta: calcula quiénes ya están dentro (para armar la malla),
   // se une a la sala y avisa a los presentes que llegó un nuevo par.
-  socket.on('call:accept', ({ callId }) => {
+  socket.on('call:accept', async ({ callId }) => {
     if (!callId) return;
+    // fetchSockets() consulta también las otras instancias; `io.sockets.adapter.rooms`
+    // y `io.sockets.sockets` sólo verían a los participantes de este proceso.
     const existing = new Set();
-    const members = io.sockets.adapter.rooms.get(room(callId));
-    if (members) {
-      for (const sid of members) {
-        const s = io.sockets.sockets.get(sid);
-        if (s && s.userId !== userId) existing.add(s.userId);
+    try {
+      const members = await io.in(room(callId)).fetchSockets();
+      for (const s of members) {
+        const memberId = s.data?.userId;
+        if (memberId && memberId !== userId) existing.add(memberId);
       }
+    } catch (err) {
+      logger.warn({ err: err.message, callId }, 'Failed to list call participants');
     }
     socket.join(room(callId));
     socket.emit('call:peers', { callId, userIds: [...existing] });
@@ -340,7 +349,7 @@ async function updatePresence(userId, presence) {
   const { userRepository } = require('./repositories');
   try {
     // Any explicit presence write supersedes a job-set away.
-    autoAwayUsers.delete(userId);
+    await clearAutoAway(userId);
     await userRepository.updatePresence(userId, presence);
     // Broadcast presence change to all users who share a conversation
     io.emit('presence:changed', { userId, presence });
@@ -354,4 +363,18 @@ function getIO() {
   return io;
 }
 
-module.exports = { initSocket, getIO };
+/**
+ * Cierra Socket.IO (y con él el servidor HTTP que tiene adosado), desconectando
+ * a los clientes para que se reconecten contra otra instancia. Se llama antes
+ * de cerrar Redis, porque el adapter usa esos clientes.
+ */
+async function closeSocket() {
+  if (!io) return;
+  for (const timer of offlineTimers.values()) clearTimeout(timer);
+  offlineTimers.clear();
+  const instance = io;
+  io = null;
+  await new Promise((resolve) => instance.close(() => resolve()));
+}
+
+module.exports = { initSocket, getIO, closeSocket };

@@ -5,8 +5,13 @@ const logger = require('./config/logger');
 const { pool } = require('./config/database');
 const { setup } = require('./config/migrate');
 const { ensureBuckets } = require('./config/minio');
-const { initSocket } = require('./socket');
+const { closeRedis } = require('./config/redis');
+const { initSocket, closeSocket } = require('./socket');
 const { startJobs, stopJobs } = require('./jobs');
+
+// Tope para el apagado: si algo no cierra, salimos igual en vez de quedar
+// colgados y que el orquestador tenga que matar el contenedor a la fuerza.
+const SHUTDOWN_TIMEOUT_MS = 10_000;
 
 async function start() {
   try {
@@ -29,7 +34,7 @@ async function start() {
 
     // Create HTTP server and attach Socket.IO
     const server = http.createServer(app);
-    initSocket(server);
+    await initSocket(server);
 
     // Start background jobs (presence timeout, presigned URL cleanup, …)
     startJobs();
@@ -44,14 +49,35 @@ async function start() {
   }
 }
 
-// Graceful shutdown
-for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, async () => {
-    logger.info({ signal }, 'Shutting down gracefully...');
-    stopJobs();
-    await pool.end();
+// Graceful shutdown. El orden importa: primero dejamos de aceptar trabajo y
+// desconectamos a los clientes (que se reconectan contra otra instancia), y
+// recién después soltamos Redis —que usa el adapter— y el pool de Postgres.
+let shuttingDown = false;
+
+async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  logger.info({ signal }, 'Shutting down gracefully...');
+
+  const timer = setTimeout(() => {
+    logger.warn({ timeoutMs: SHUTDOWN_TIMEOUT_MS }, 'Apagado forzado: algo no cerró a tiempo');
     process.exit(0);
-  });
+  }, SHUTDOWN_TIMEOUT_MS);
+  timer.unref();
+
+  try {
+    stopJobs();
+    await closeSocket();
+    await closeRedis();
+    await pool.end();
+  } catch (err) {
+    logger.warn({ err: err.message }, 'Error durante el apagado');
+  }
+  process.exit(0);
+}
+
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.on(signal, () => shutdown(signal));
 }
 
 process.on('unhandledRejection', (err) => {

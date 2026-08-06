@@ -8,6 +8,8 @@ const rateLimit = require('express-rate-limit');
 const config = require('./config');
 const logger = require('./config/logger');
 const { pool } = require('./config/database');
+const { createRateLimitStore } = require('./config/rateLimitStore');
+const { isRedisEnabled, getRedisClient } = require('./config/redis');
 const routes = require('./routes');
 const { errorHandler } = require('./middlewares');
 const httpMetrics = require('./middlewares/httpMetrics');
@@ -26,6 +28,7 @@ app.use(cors({
 app.use(rateLimit({
   windowMs: config.rateLimit.windowMs,
   max: config.rateLimit.max,
+  store: createRateLimitStore('rl:global:'),
   standardHeaders: true,
   legacyHeaders: false,
   // SCIM tiene su propio límite (holgado) en su router: los IdPs hacen ráfagas.
@@ -64,9 +67,36 @@ app.get('/api/health', async (req, res) => {
   } catch {
     db = 'unavailable';
   }
+
+  const redis = await checkRedis();
+
+  // Sólo la BD decide el código de estado. Si un parpadeo de Redis marcara
+  // "unhealthy", TODAS las instancias caerían a la vez y el orquestador las
+  // reiniciaría en cascada; el estado de Redis se informa en el cuerpo.
   const status = db === 'ok' ? 'ok' : 'degraded';
-  res.status(db === 'ok' ? 200 : 503).json({ status, db, timestamp: new Date().toISOString() });
+  res.status(db === 'ok' ? 200 : 503).json({
+    status,
+    db,
+    redis,
+    timestamp: new Date().toISOString(),
+  });
 });
+
+// 'disabled' = una sola instancia (sin REDIS_URL), que es una configuración
+// válida y no un problema.
+async function checkRedis() {
+  if (!isRedisEnabled()) return 'disabled';
+  try {
+    const client = await getRedisClient();
+    await Promise.race([
+      client.ping(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1000)),
+    ]);
+    return 'ok';
+  } catch {
+    return 'unavailable';
+  }
+}
 
 // ── HTTP metrics (in-memory) ────────────────────────────────────────────
 app.use(httpMetrics);

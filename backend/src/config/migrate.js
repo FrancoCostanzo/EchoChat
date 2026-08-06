@@ -30,6 +30,10 @@ const MIGRATIONS_DIR = path.resolve(__dirname, '../../docs/migrations');
 const BASE_MIGRATION = '000_base_schema';
 const SALT_ROUNDS = 12;
 
+// Clave del advisory lock que serializa setup() entre instancias. Es un número
+// arbitrario pero estable: todas las instancias deben usar el mismo.
+const SETUP_LOCK_ID = 918273645;
+
 // Códigos de error de PostgreSQL que significan "el objeto que crea esta
 // migración ya existe" → la migración ya estaba aplicada de facto: la marcamos
 // como aplicada y seguimos, en vez de abortar. Conservador a propósito: sólo
@@ -255,10 +259,25 @@ async function setup() {
   if (!ready) {
     throw new Error('Base de datos inalcanzable tras varios reintentos');
   }
-  const applied = await runMigrations();
-  logger.info({ applied }, 'Base de datos al día');
-  await applySeed();
-  await bootstrapAdmin();
+
+  // Advisory lock de sesión: si arrancan N instancias a la vez, una aplica el
+  // schema y el resto espera acá en lugar de competir por el mismo DDL. El que
+  // espera no repite trabajo: al entrar, las migraciones ya figuran aplicadas.
+  const client = await pool.connect();
+  try {
+    await client.query('SELECT pg_advisory_lock($1)', [SETUP_LOCK_ID]);
+    const applied = await runMigrations();
+    logger.info({ applied }, 'Base de datos al día');
+    await applySeed();
+    await bootstrapAdmin();
+  } finally {
+    try {
+      await client.query('SELECT pg_advisory_unlock($1)', [SETUP_LOCK_ID]);
+    } catch (err) {
+      logger.warn({ err: err.message }, 'No se pudo liberar el advisory lock de setup');
+    }
+    client.release();
+  }
 }
 
 module.exports = { setup, runMigrations, applySeed, bootstrapAdmin, waitForDb };

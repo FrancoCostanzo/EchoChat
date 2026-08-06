@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const rateLimit = require('express-rate-limit');
 const scimAuth = require('../middlewares/scimAuth');
+const { createRateLimitStore } = require('../config/rateLimitStore');
 const { scimController, scimErrorHandler } = require('../controllers/scim.controller');
 
 const router = Router();
@@ -10,6 +11,7 @@ const router = Router();
 router.use(rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 1000,
+  store: createRateLimitStore('rl:scim:'),
   standardHeaders: true,
   legacyHeaders: false,
 }));

@@ -2,7 +2,7 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const logger = require('../config/logger');
 const { userRepository, credentialRepository, auditRepository } = require('../repositories');
-const { autoAwayUsers } = require('../config/presenceStore');
+const { clearAutoAway } = require('../config/presenceStore');
 const { minioClient } = require('../config/minio');
 const { NotFoundError, BadRequestError } = require('../errors');
 const { toUserResponse } = require('../models');
@@ -143,7 +143,7 @@ class UserService {
 
   async updatePresence(userId, presence) {
     // A manual choice supersedes a job-set away.
-    autoAwayUsers.delete(userId);
+    await clearAutoAway(userId);
     const user = await userRepository.updatePresence(userId, presence);
     if (!user) throw new NotFoundError('User');
     try {
