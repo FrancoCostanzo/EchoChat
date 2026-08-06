@@ -1,5 +1,6 @@
 import { useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Spinner, Toast } from '@heroui/react';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
@@ -7,7 +8,8 @@ import { useThemeStore } from '@/stores/themeStore';
 import { useWallpaperStore } from '@/stores/wallpaperStore';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { ConfirmProvider } from '@/components/ConfirmProvider';
-import AppLogo from '@/components/AppLogo';
+import { AnimatedLogoMark } from '@/components/AppLogo';
+import { SPRING_SOFT } from '@/lib/motion';
 
 const ChatLayout = lazy(() => import('@/layouts/ChatLayout'));
 const LoginPage = lazy(() => import('@/pages/LoginPage'));
@@ -28,9 +30,26 @@ const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
 function PageLoader() {
   return (
     <div className="flex h-screen flex-col items-center justify-center gap-4">
-      <AppLogo size="sm" withGlow />
+      <div className="echo-glow-md flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl">
+        <AnimatedLogoMark loop className="h-12" />
+      </div>
       <Spinner size="lg" />
     </div>
+  );
+}
+
+/** Fades resolved route content in after a Suspense fallback (PageLoader) hands off — Suspense itself swaps DOM instantly, so this softens the cut. */
+function RouteFade({ children }) {
+  const reducedMotion = useReducedMotion();
+
+  return (
+    <motion.div
+      initial={reducedMotion ? false : { opacity: 0, y: 10, scale: 0.985 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={SPRING_SOFT}
+    >
+      {children}
+    </motion.div>
   );
 }
 
@@ -64,6 +83,7 @@ export default function App() {
     <ConfirmProvider>
       <Toast.Provider placement="bottom end" maxVisibleToasts={4} width={360} />
       <Suspense fallback={<PageLoader />}>
+      <RouteFade>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/auth/callback" element={<AuthCallbackPage />} />
@@ -95,6 +115,7 @@ export default function App() {
 
         <Route path="*" element={<Navigate to="/chat" replace />} />
       </Routes>
+      </RouteFade>
       </Suspense>
     </ConfirmProvider>
   );
