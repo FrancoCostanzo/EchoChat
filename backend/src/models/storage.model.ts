@@ -1,4 +1,6 @@
-function toStorageObjectResponse(row) {
+import type { Row } from '../types/rows';
+
+export function toStorageObjectResponse(row: Row<'storage_objects'> | null | undefined) {
   if (!row) return null;
   return {
     id: row.id,
@@ -19,4 +21,4 @@ function toStorageObjectResponse(row) {
   };
 }
 
-module.exports = { toStorageObjectResponse };
+export type StorageObjectResponse = NonNullable<ReturnType<typeof toStorageObjectResponse>>;

@@ -1,4 +1,16 @@
-function toCallResponse(row) {
+import type { Row } from '../types/rows';
+
+export type CallRow = Row<'calls'> & { participants?: unknown[] | null };
+
+/** Fila del historial global: trae datos de la conversación y del otro usuario. */
+export type CallHistoryRow = Row<'calls'> & {
+  conversation_type?: string | null;
+  conversation_name?: string | null;
+  other_display_name?: string | null;
+  other_avatar_key?: string | null;
+};
+
+export function toCallResponse(row: CallRow | null | undefined) {
   if (!row) return null;
   return {
     id: row.id,
@@ -17,7 +29,7 @@ function toCallResponse(row) {
   };
 }
 
-function toCallParticipantResponse(row) {
+export function toCallParticipantResponse(row: Row<'call_participants'> | null | undefined) {
   if (!row) return null;
   return {
     id: row.id,
@@ -35,7 +47,7 @@ function toCallParticipantResponse(row) {
 
 // Fila del historial global: aplana el nombre a mostrar (el otro usuario en
 // directos, el nombre del grupo/canal en el resto).
-function toCallHistoryItem(row) {
+export function toCallHistoryItem(row: CallHistoryRow | null | undefined) {
   if (!row) return null;
   const isDirect = row.conversation_type === 'direct';
   return {
@@ -55,4 +67,6 @@ function toCallHistoryItem(row) {
   };
 }
 
-module.exports = { toCallResponse, toCallParticipantResponse, toCallHistoryItem };
+export type CallResponse = NonNullable<ReturnType<typeof toCallResponse>>;
+export type CallParticipantResponse = NonNullable<ReturnType<typeof toCallParticipantResponse>>;
+export type CallHistoryItem = NonNullable<ReturnType<typeof toCallHistoryItem>>;

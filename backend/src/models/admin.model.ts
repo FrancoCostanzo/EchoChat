@@ -1,15 +1,23 @@
-const { toUserResponse } = require('./user.model');
+import type { Row } from '../types/rows';
+import { toUserResponse } from './user.model';
 
-function toAdminUserResponse(user, roles = [], extras = {}) {
+/** Los roles llegan como nombres sueltos o como filas de `roles`. */
+type RoleLike = string | { name: string };
+
+export function toAdminUserResponse(
+  user: Row<'users'> | null | undefined,
+  roles: RoleLike[] = [],
+  extras: { totp_enabled?: boolean } = {},
+) {
   if (!user) return null;
   return {
-    ...toUserResponse(user),
+    ...toUserResponse(user)!,
     roles: roles.map((r) => (typeof r === 'string' ? r : r.name)),
     totp_enabled: extras.totp_enabled === true,
   };
 }
 
-function toSettingResponse(row) {
+export function toSettingResponse(row: Row<'system_settings'> | null | undefined) {
   if (!row) return null;
   return {
     key: row.key,
@@ -21,7 +29,13 @@ function toSettingResponse(row) {
   };
 }
 
-function toAuditEntryResponse(row) {
+/** Entrada de auditoría con los datos del actor traídos por el JOIN. */
+export type AuditEntryRow = Row<'audit_log'> & {
+  actor_display_name?: string | null;
+  actor_username?: string | null;
+};
+
+export function toAuditEntryResponse(row: AuditEntryRow | null | undefined) {
   if (!row) return null;
   return {
     id: row.id,
@@ -45,7 +59,12 @@ function toAuditEntryResponse(row) {
   };
 }
 
-function toStorageObjectAdminResponse(row) {
+/** Objeto de storage con el nombre del subidor traído por el JOIN. */
+export type StorageObjectAdminRow = Row<'storage_objects'> & {
+  uploader_display_name?: string | null;
+};
+
+export function toStorageObjectAdminResponse(row: StorageObjectAdminRow | null | undefined) {
   if (!row) return null;
   return {
     id: row.id,
@@ -53,7 +72,7 @@ function toStorageObjectAdminResponse(row) {
     object_key: row.object_key,
     original_filename: row.original_filename,
     mime_type: row.mime_type,
-    file_size_bytes: parseInt(row.file_size_bytes, 10) || 0,
+    file_size_bytes: parseInt(String(row.file_size_bytes ?? ''), 10) || 0,
     object_type: row.object_type,
     processing_status: row.processing_status,
     virus_scan_status: row.virus_scan_status,
@@ -63,9 +82,7 @@ function toStorageObjectAdminResponse(row) {
   };
 }
 
-module.exports = {
-  toAdminUserResponse,
-  toSettingResponse,
-  toAuditEntryResponse,
-  toStorageObjectAdminResponse,
-};
+export type AdminUserResponse = NonNullable<ReturnType<typeof toAdminUserResponse>>;
+export type SettingResponse = NonNullable<ReturnType<typeof toSettingResponse>>;
+export type AuditEntryResponse = NonNullable<ReturnType<typeof toAuditEntryResponse>>;
+export type StorageObjectAdminResponse = NonNullable<ReturnType<typeof toStorageObjectAdminResponse>>;

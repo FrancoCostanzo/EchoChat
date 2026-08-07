@@ -1,6 +1,25 @@
+import type { Row } from '../types/rows';
+
 // Channel = conversation (type 'channel') + channel_settings. This response
 // merges both for the discovery/detail views.
-function toChannelResponse(row) {
+
+/** La consulta puede venir desde `conversations` o desde `channel_settings`. */
+export type ChannelRow = Partial<Row<'conversations'>> & Partial<Row<'channel_settings'>> & {
+  /** COUNT(): pg devuelve los bigint como string. */
+  member_count?: string | number | null;
+  is_member?: boolean | null;
+  member_role?: string | null;
+  has_pending_request?: boolean | null;
+};
+
+export type JoinRequestRow = Row<'channel_join_requests'> & {
+  username?: string | null;
+  display_name?: string | null;
+  avatar_object_key?: string | null;
+  department?: string | null;
+};
+
+export function toChannelResponse(row: ChannelRow | null | undefined) {
   if (!row) return null;
   return {
     id: row.id ?? row.conversation_id,
@@ -11,7 +30,7 @@ function toChannelResponse(row) {
     max_members: row.max_members ?? null,
     category: row.category ?? null,
     is_official: row.is_official ?? false,
-    member_count: row.member_count != null ? parseInt(row.member_count, 10) : 0,
+    member_count: row.member_count != null ? parseInt(String(row.member_count), 10) : 0,
     post_restriction: row.post_restriction ?? 'members',
     join_mode: row.join_mode ?? 'open',
     is_member: row.is_member ?? undefined,
@@ -21,7 +40,7 @@ function toChannelResponse(row) {
   };
 }
 
-function toJoinRequestResponse(row) {
+export function toJoinRequestResponse(row: JoinRequestRow | null | undefined) {
   if (!row) return null;
   return {
     id: row.id,
@@ -40,4 +59,5 @@ function toJoinRequestResponse(row) {
   };
 }
 
-module.exports = { toChannelResponse, toJoinRequestResponse };
+export type ChannelResponse = NonNullable<ReturnType<typeof toChannelResponse>>;
+export type JoinRequestResponse = NonNullable<ReturnType<typeof toJoinRequestResponse>>;

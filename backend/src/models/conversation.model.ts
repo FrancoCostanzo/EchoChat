@@ -1,4 +1,36 @@
-function toConversationResponse(row) {
+import type { Row } from '../types/rows';
+
+/**
+ * Fila de conversación con las columnas que agregan los JOINs de
+ * `conversationRepository`. Declararlas acá documenta qué tiene que traer la
+ * consulta: hasta ahora eso sólo se sabía leyendo el SQL.
+ */
+export type ConversationRow = Row<'conversations'> & {
+  /** COUNT(): pg devuelve los bigint como string. */
+  unread_count?: string | null;
+  is_muted?: boolean | null;
+  is_pinned?: boolean | null;
+  member_role?: string | null;
+  role?: string | null;
+  other_user_id?: string | null;
+  other_display_name?: string | null;
+  other_username?: string | null;
+  member_presence?: string | null;
+  other_avatar_object_key?: string | null;
+  other_avatar_url?: string | null;
+  last_message_body?: string | null;
+  last_message_type?: string | null;
+  last_message_metadata?: unknown;
+};
+
+export type MemberRow = Row<'conversation_members'> & {
+  username?: string | null;
+  display_name?: string | null;
+  avatar_object_key?: string | null;
+  presence?: string | null;
+};
+
+export function toConversationResponse(row: ConversationRow | null | undefined) {
   if (!row) return null;
   return {
     id: row.id,
@@ -35,7 +67,7 @@ function toConversationResponse(row) {
   };
 }
 
-function toMemberResponse(row) {
+export function toMemberResponse(row: MemberRow | null | undefined) {
   if (!row) return null;
   return {
     id: row.id,
@@ -52,4 +84,5 @@ function toMemberResponse(row) {
   };
 }
 
-module.exports = { toConversationResponse, toMemberResponse };
+export type ConversationResponse = NonNullable<ReturnType<typeof toConversationResponse>>;
+export type MemberResponse = NonNullable<ReturnType<typeof toMemberResponse>>;
