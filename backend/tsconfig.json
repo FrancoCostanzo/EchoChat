@@ -1,0 +1,31 @@
+{
+  // Etapa 1 de la migración (ver docs/TYPESCRIPT_MIGRATION.md): sólo chequea,
+  // no compila. El backend sigue corriendo el JavaScript de siempre.
+  //
+  // `checkJs` está apagado a propósito: cada archivo .js se suma al chequeo
+  // poniéndole `// @ts-check` arriba, para ir migrando de a poco en vez de
+  // enfrentar miles de errores de golpe.
+  "compilerOptions": {
+    "target": "ES2022",
+    // nodenext + package.json sin "type": "module" = CommonJS, que es lo que
+    // usa todo el proyecto. TypeScript 7 quitó el viejo moduleResolution "node".
+    "module": "nodenext",
+    "lib": ["ES2022"],
+
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // Se endurece de a un flag por vez en la fase 8.
+    "strict": false,
+
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src/**/*"]
+}

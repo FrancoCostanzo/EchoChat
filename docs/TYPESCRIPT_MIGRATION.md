@@ -38,6 +38,43 @@ Otros datos que condicionan el plan:
 - **39 tablas** en el schema base + 13 migraciones.
 - Node 22, Express 4, `pg` 8, Joi 18, CommonJS en todo el proyecto.
 
+### Línea base medida (fase 0, hecha)
+
+Con `tsc --noEmit --checkJs` sobre el JavaScript tal cual está:
+
+| Momento | Errores | services | repositories | resto |
+|---|---:|---:|---:|---:|
+| Sin ninguna anotación | **351** | 287 | 44 | 20 |
+| Tras tipar **sólo** `base.repository.query()` | **68** | 42 | 16 | 10 |
+
+**Un único método anotado con JSDoc elimina el 81% de los errores.** Los 22
+repositorios heredan de `BaseRepository`, así que mientras `query()` devuelve un
+tipo sin declarar, `pg` propaga `any` hacia arriba y TypeScript termina
+infiriendo arrays donde hay objetos por toda la capa de servicios. No eran 287
+problemas en `services/`: era uno solo, repetido en cascada.
+
+De los 68 restantes, la enorme mayoría (39 `TS2739`/`TS2740` + 16 `TS2339`) son
+el mismo patrón: **objetos de opciones desestructurados con valores por
+defecto**, donde TypeScript infiere la forma a partir de los defaults y después
+protesta por las demás propiedades. No son bugs, pero son exactamente los
+lugares donde equivocarse el nombre de una opción no falla: simplemente no hace
+nada.
+
+Dos agujeros reales encontrados de paso, ninguno activo hoy:
+
+- `services/auth.service.js:252` — `jwt.verify()` devuelve `string | JwtPayload`.
+  En la rama `string`, `payload.sub` no es el subject sino `String.prototype.sub`
+  (el método deprecado), con lo que a `findById()` le llegaría **una función**.
+  Con los tokens que emite la app nunca ocurre, pero el tipo lo permite.
+- `services/auth.service.js:301` — `expiresIn` espera `number` o un literal de
+  duración (`"7d"`); `config.jwt.expiresIn` es un `string` cualquiera leído del
+  entorno. Un `JWT_EXPIRES_IN=abc` revienta al firmar, en runtime.
+
+> **Consecuencia para el plan:** tipar `base.repository` deja de ser parte de la
+> fase 4 y pasa a ser lo primero que se hace, junto con las herramientas. Es
+> media hora de trabajo y decide si el resto del esfuerzo se mide contra 351
+> errores o contra 68.
+
 ---
 
 ## La restricción que manda: no hay tests
@@ -62,12 +99,17 @@ Si en algún momento hay que abandonar, la etapa 1 se sostiene sola.
 
 ## FASE 0 — Herramientas y red de seguridad (1 día)
 
-| # | Tarea |
-|---|-------|
-| 0.1 | `npm i -D typescript @types/node @types/express@4 @types/pg @types/jsonwebtoken @types/bcrypt @types/cors @types/qrcode tsx` |
-| 0.2 | `tsconfig.json` con `allowJs`, `checkJs: false`, `noEmit: true` (ver abajo) |
-| 0.3 | Script `"typecheck": "tsc --noEmit"` en `package.json` |
-| 0.4 | Correr `npm run typecheck` y **anotar el número de errores como línea base** |
+| # | Tarea | Estado |
+|---|-------|--------|
+| 0.1 | `npm i -D typescript tsx @types/node @types/express@^4 @types/pg @types/jsonwebtoken @types/bcrypt @types/cors @types/qrcode @types/multer` | ✅ |
+| 0.2 | `tsconfig.json` con `allowJs`, `checkJs: false`, `noEmit: true` (ver abajo) | ✅ |
+| 0.3 | Scripts `typecheck` (opt-in) y `typecheck:all` (barrido completo) | ✅ |
+| 0.4 | Medir la línea base con `typecheck:all` | ✅ 351 |
+| 0.5 | Tipar `base.repository.query()` con JSDoc y volver a medir | ✅ 351 → 68 |
+
+> **TypeScript 7** (el compilador nativo) eliminó `moduleResolution: "node"`.
+> Hay que usar `"module": "nodenext"`; con un `package.json` sin
+> `"type": "module"` sigue emitiendo CommonJS, que es lo que usa el proyecto.
 
 ```jsonc
 // backend/tsconfig.json — punto de partida deliberadamente flojo
