@@ -216,21 +216,57 @@ y sockets reales:
 
 ---
 
-## FASE 2 — Tipos del dominio generados desde el schema (1-2 días)
+## FASE 2 — Tipos del dominio generados desde el schema ✅ (hecha)
 
-39 tablas escritas a mano son 39 oportunidades de que el tipo y la columna se
-desincronicen. Se generan desde la base real:
+Escribir a mano los tipos de las tablas son otras tantas oportunidades de que el
+tipo y la columna se desincronicen. Se generan con `kysely-codegen`:
 
 ```bash
-npm i -D kysely kysely-codegen
-npx kysely-codegen --dialect postgres --url "$DATABASE_URL" --out-file src/types/db.d.ts
+npm run db:types
 ```
 
-Sale un `db.d.ts` con las columnas **en `snake_case`, que es como vienen las
-filas de `pg`** — sin inventar un mapeo a `camelCase` que hoy no existe.
+Salen **45 tablas** (39 del schema base + las que agregaron las migraciones) con
+las columnas en `snake_case`, que es como vienen las filas de `pg` — sin
+inventar un mapeo a `camelCase` que hoy no existe.
 
-Se regenera como parte del flujo de migraciones: cambiar una columna y no
-regenerar rompe el `typecheck`, que es justo lo que se quiere.
+### Contra una base efímera, no contra la de desarrollo
+
+`scripts/generate-db-types.js` levanta una PostgreSQL descartable en Docker, le
+aplica el schema y las migraciones **con el propio migrador del proyecto**
+(`src/cli/setup.js`), la introspecciona y borra el contenedor.
+
+Se hace así porque los tipos tienen que reflejar el **schema commiteado**: una
+base de desarrollo puede haber quedado con columnas de una rama vieja o con
+migraciones a medias, y esos tipos se propagarían a todo el backend. Si igual
+prefiere apuntar a una base existente: `DATABASE_URL=... npm run db:types`.
+
+### `Row<'tabla'>`: la fila como la devuelve `SELECT *`
+
+kysely-codegen envuelve las columnas con default en `Generated<T>`, un tipo que
+describe a la vez leer, insertar y actualizar. Como acá se usa `pg` crudo y sólo
+se leen filas, `src/types/rows.d.ts` las desenvuelve de una vez:
+
+```ts
+export type Row<T extends keyof DB> = Selectable<DB[T]>;
+```
+
+Desde un repositorio, en JSDoc:
+
+```js
+/** @returns {Promise<import('../types/rows').Row<'users'> | null>} */
+```
+
+Es una línea que no hay que regenerar: al agregar tablas basta con volver a
+correr `npm run db:types`.
+
+**Verificación:** un archivo de prueba compilado y descartado confirmó que
+`u.auth_provider` tipa como `string` (desenvuelto de `Generated<string>`),
+`u.last_seen_at` como `Date | null`, y que una columna inexistente **da error**
+(comprobado con `@ts-expect-error`, que falla si el error no aparece).
+
+> `kysely` queda como dependencia **de desarrollo** y sólo aporta tipos: los
+> `.d.ts` nunca se ejecutan. Ojo en la fase 7: la etapa de build del Dockerfile
+> necesita las devDependencies instaladas para compilar.
 
 > **Corrección a lo que decía `docs/SCALING.md`:** ahí sugerí dejar
 > `repositories/` para el final "porque hay mucho SQL y poco tipo que ganar".
@@ -405,7 +441,7 @@ migraciones y `/api/health` responde `200`.
 |------|------|----------|
 | 0 | Herramientas y línea base | 1 d ✅ |
 | 1 | Romper ciclos ⚠️ | 2-3 d ✅ |
-| 2 | Tipos generados del schema | 1-2 d |
+| 2 | Tipos generados del schema | 1-2 d ✅ |
 | 3 | errors + config + utils + models | 2-3 d |
 | 4 | dtos + repositories | 4-5 d |
 | 5 | services | 5-7 d |
