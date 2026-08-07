@@ -105,7 +105,7 @@ mismo Redis —
 | 2.1 | `autoAwayUsers` → claves en Redis con TTL (fallback en memoria si no hay Redis). | `src/config/presenceStore.js` | ✅ |
 | 2.2 | Rate limit con `rate-limit-redis`. | `src/config/rateLimitStore.js` (nuevo), `src/app.js`, `src/routes/scim.routes.js` | ✅ |
 | 2.3 | Métricas de sockets vía `fetchSockets()` del adapter en vez del `Map` local. | `src/config/socketStore.js`, `src/services/monitoring.service.js` | ✅ |
-| 2.4 | Métricas HTTP/cron: siguen siendo por proceso. | `src/utils/metricsRegistry.js`, `src/utils/cronJobStatus.js` | ⬜ Pendiente |
+| 2.4 | Métricas HTTP y historial de cron agregados entre instancias. | `src/utils/clusterMetrics.js` (nuevo), `src/utils/metricsRegistry.js`, `src/services/monitoring.service.js`, `src/socket.js` | ✅ |
 | 2.5 | ~~Quitar el logging de debug a `delivery-debug.log`.~~ Adelantado a la Fase 1. | `src/socket.js` | ✅ |
 
 **Cliente de comandos aparte:** los clientes de pub/sub quedan en modo suscriptor
@@ -116,10 +116,32 @@ tercer cliente (perezoso y cacheado) para presencia y rate limit.
 un reinicio la olvidaba (el usuario quedaba como si hubiera elegido *away* a
 mano). El TTL de 24 h evita que las claves se acumulen.
 
-**Pendiente 2.4:** `metricsRegistry` (latencias HTTP, queries/s) y `cronJobStatus`
-siguen siendo por proceso: con N instancias el panel muestra las de la que
-atendió el request. No rompe nada, pero los números son parciales — conviene
-resolverlo junto con la Fase 3, cuando los jobs pasen a tener una instancia líder.
+**Métricas del cluster (2.4).** `metricsRegistry` y `cronJobStatus` viven en
+memoria de cada proceso. Con la Fase 3 eso pasó de impreciso a **incorrecto**:
+como cada corrida de cron la ejecuta una sola instancia, consultar el panel
+contra cualquier otra mostraba el historial de jobs **vacío**.
+
+`utils/clusterMetrics.js` lo resuelve con `serverSideEmitWithAck` del adapter:
+al pedir el panel, la instancia consultada les pregunta a las demás y combina
+las respuestas. No hace falta ni claves extra en Redis ni un job que publique
+snapshots, y los datos son del momento de la consulta.
+
+- **Contadores** (requests, 4xx/5xx, queries) → se suman.
+- **Percentiles** → se recalculan sobre la **unión de las muestras**; promediar
+  el p95 de cada instancia daría un número que no corresponde a ninguna petición
+  real.
+- **Historial de cron** → unión, y ante el mismo job gana la corrida más reciente.
+- **`server`/`process`/`system`** (memoria, CPU, uptime) siguen siendo de la
+  instancia consultada, que es lo correcto: son datos de ese proceso.
+
+`serverSideEmitWithAck` está en el `Server`, no en el `BroadcastOperator` que
+devuelve `io.timeout()`, y no acepta timeout propio: lleva una guarda de 1,5 s
+para que una instancia que no contesta no cuelgue el panel. Si no hay otras
+instancias (o no responden), devuelve las métricas locales — el comportamiento
+de siempre.
+
+La respuesta suma el campo `instancias`. Es aditivo: el frontend actual sigue
+funcionando igual, aunque todavía no lo muestra en pantalla.
 
 **Verificación (hecha):**
 
@@ -219,9 +241,27 @@ instancias caerían a la vez y el orquestador las reiniciaría en cascada.
 - **Health:** con Redis → `{"status":"ok","db":"ok","redis":"ok"}`; sin
   `REDIS_URL` → `redis: "disabled"` y sigue respondiendo 200.
 
-⬜ **Falta la prueba de humo completa:** levantar las 3 réplicas de verdad
-(`docker compose up -d --build`) y comprobar mensajes, presencia y llamadas entre
-clientes de réplicas distintas. Requiere construir las imágenes y una BD limpia.
+### Prueba de humo con 3 réplicas (hecha)
+
+Stack completo levantado con `BACKEND_REPLICAS=3` (`docker compose up -d --build`),
+entrando por nginx como lo haría un navegador:
+
+- **Migraciones:** `backend-2` aplicó el schema base y creó el admin; `backend-1`
+  y `backend-3` esperaron el advisory lock y encontraron todo hecho. Sin errores
+  de objetos duplicados ni admin doble.
+- **Reparto de nginx:** 21 requests → 11 / 5 / 6 entre las tres réplicas.
+- **Mensaje entre instancias:** ana conectada a `backend-1`, beto a `backend-3`,
+  y el `POST /api/messages` hecho contra `backend-2` → beto lo recibió.
+- **Presencia entre instancias:** ana cambia a `busy` en `backend-1` → beto lo ve
+  desde `backend-3`.
+- **Cron:** los locks de `presence-timeout` y `scheduled-broadcasts` quedaron los
+  dos en `backend-2`; las otras dos réplicas no ejecutaron nada.
+- **Panel agregado:** `instancias: 3`, `http.totalRequests: 40` sumando las tres,
+  y el historial de cron mostrando corridas de **dos** instancias distintas
+  (justo el caso que antes de la tarea 2.4 aparecía vacío).
+
+> El fallback a long-polling sigue sin probarse: haría falta un balanceador con
+> sticky sessions, que es la limitación ya documentada más arriba.
 
 ---
 

@@ -8,7 +8,8 @@ const { getSocketMetrics } = require('../config/socketStore');
 const monitoringRepository = require('../repositories/monitoring.repository');
 const metricsRegistry = require('../utils/metricsRegistry');
 const { monitoringThresholds } = require('../utils/monitoringThresholds');
-const { getJobRuns, getCronWorkerStatus } = require('../utils/cronJobStatus');
+const { getCronWorkerStatus } = require('../utils/cronJobStatus');
+const clusterMetrics = require('../utils/clusterMetrics');
 
 let packageVersion = 'unknown';
 try {
@@ -52,23 +53,27 @@ class MonitoringService {
   }
 
   async getDashboard() {
-    const [health, databaseDetails, history] = await Promise.all([
+    const [health, databaseDetails, history, cluster] = await Promise.all([
       this.getCompleteSystemStatus(),
       this.getDetailedPoolStats(),
       monitoringRepository.getSnapshotHistory('1h').catch(() => []),
+      clusterMetrics.gather(),
     ]);
 
     return {
       ...health,
       databaseDetails,
-      cronJobs: getJobRuns(),
+      // Agregado de todas las instancias: con los jobs corriendo en una sola,
+      // consultar el panel contra otra mostraría el historial vacío.
+      cronJobs: cluster.cronJobs,
       cronWorker: getCronWorkerStatus(),
-      http: metricsRegistry.getHttpMetrics(),
+      instancias: cluster.instancias,
+      http: cluster.http,
       socket: await this._getSocketMetrics(),
       build: this._getBuildInfo(),
       performance: {
-        queriesPerSecond: metricsRegistry.getQueriesPerSecond(),
-        dbQueryTotal: metricsRegistry.getDbQueryTotal(),
+        queriesPerSecond: cluster.http.queriesPerSecond,
+        dbQueryTotal: cluster.http.dbQueryTotal,
       },
       recentHistory: Array.isArray(history) ? history.slice(-12) : [],
     };
@@ -110,16 +115,20 @@ class MonitoringService {
   }
 
   async getSystemMetrics() {
+    // `server`, `process` y `system` son de ESTA instancia (memoria, CPU, uptime
+    // del proceso); `http` y `socket` son de todo el cluster.
+    const cluster = await clusterMetrics.gather();
     return {
       server: this._getServerInfo(),
       process: this._getProcessInfo(),
       system: this._getSystemMetrics(),
       database: this._getPoolStatus(),
-      http: metricsRegistry.getHttpMetrics(),
+      instancias: cluster.instancias,
+      http: cluster.http,
       socket: await this._getSocketMetrics(),
       performance: {
-        queriesPerSecond: metricsRegistry.getQueriesPerSecond(),
-        dbQueryTotal: metricsRegistry.getDbQueryTotal(),
+        queriesPerSecond: cluster.http.queriesPerSecond,
+        dbQueryTotal: cluster.http.dbQueryTotal,
       },
       build: this._getBuildInfo(),
     };

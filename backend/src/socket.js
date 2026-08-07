@@ -61,6 +61,9 @@ async function initSocket(httpServer) {
     logger.warn('REDIS_URL no configurado: Socket.IO en memoria, sólo una instancia (ver docs/SCALING.md)');
   }
 
+  // Atiende las consultas de métricas que hacen las otras instancias.
+  require('./utils/clusterMetrics').registerCollector(io);
+
   // ── Auth middleware ──────────────────────────────────────────────────
   io.use(async (socket, next) => {
     try {

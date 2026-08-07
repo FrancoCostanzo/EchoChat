@@ -128,10 +128,37 @@ function getHttpMetrics() {
   };
 }
 
+/**
+ * Estado crudo de esta instancia, pensado para combinarlo con el de las demás
+ * (ver utils/clusterMetrics.js). Devuelve las muestras de latencia sin procesar
+ * a propósito: los percentiles no se pueden promediar entre instancias, hay que
+ * calcularlos sobre la unión de las muestras.
+ */
+function getSnapshot() {
+  pruneWindow(requestTimestamps);
+  return {
+    totalRequests,
+    requestsPerMinute: requestTimestamps.length,
+    error4xx,
+    error5xx,
+    dbQueryTotal,
+    queriesPerSecond: getQueriesPerSecond(),
+    routes: [...routeStats.entries()].map(([route, stat]) => ({
+      route,
+      count: stat.count,
+      samples: [...stat.samples],
+    })),
+    recentErrors5xx: [...recentErrors5xx],
+  };
+}
+
 module.exports = {
   recordRequest,
   recordDbQuery,
   getHttpMetrics,
   getQueriesPerSecond,
   getDbQueryTotal,
+  getSnapshot,
+  percentile,
+  MAX_RECENT_5XX,
 };
