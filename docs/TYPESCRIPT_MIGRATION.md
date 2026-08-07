@@ -32,8 +32,10 @@ Otros datos que condicionan el plan:
 - **0 tests.** `npm test` es `exit 1`.
 - **0 anotaciones de tipo.** Ni un `@param {}` de JSDoc en todo el backend.
 - **0 herramientas.** No hay ESLint, Prettier, `tsconfig` ni `jsconfig`.
-- **110 `require()` perezosos dentro de funciones**, repartidos en 11 archivos:
-  son dependencias circulares disfrazadas.
+- **29 `require()` perezosos dentro de funciones**, repartidos en 11 archivos:
+  son dependencias circulares disfrazadas. (Un conteo anterior daba 110; incluía
+  por error los `index.js` *barrel*, donde los `require` están indentados dentro
+  de un objeto pero son de nivel superior.)
 - **55 singletons** del tipo `module.exports = new XService()`.
 - **39 tablas** en el schema base + 13 migraciones.
 - Node 22, Express 4, `pg` 8, Joi 18, CommonJS en todo el proyecto.
@@ -116,8 +118,7 @@ Si en algún momento hay que abandonar, la etapa 1 se sostiene sola.
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "commonjs",        // el proyecto entero es CommonJS
-    "moduleResolution": "node",
+    "module": "nodenext",        // sin "type": "module" emite CommonJS
     "lib": ["ES2022"],
     "allowJs": true,             // deja convivir .js y .ts
     "checkJs": false,            // se activa archivo por archivo con // @ts-check
@@ -139,12 +140,12 @@ Si en algún momento hay que abandonar, la etapa 1 se sostiene sola.
 
 ---
 
-## FASE 1 — Romper los `require()` circulares (2-3 días) ⚠️
+## FASE 1 — Romper los `require()` circulares ✅ (hecha)
 
 **Esta fase es la más riesgosa y la única verdaderamente bloqueante.**
 
-Hoy hay 110 `require()` dentro de funciones. No son un capricho de estilo: son
-la forma de esquivar un ciclo. El propio `socket.js` lo documenta:
+Había 29 `require()` dentro de funciones. No son un capricho de estilo: son
+la forma de esquivar un ciclo. El propio `socket.js` lo documentaba:
 
 ```js
 // NOTE: services & repositories are lazy-loaded inside functions to avoid
@@ -170,18 +171,48 @@ Socket.IO, y Socket.IO necesita a los servicios**. Dos salidas:
 | **A. Inyectar el emisor** | Los servicios reciben un `emitter` con la interfaz mínima (`toRoom`, `toUser`) en vez de importar `socket.js`. | Alto | Toca los 20 servicios |
 | **B. Bus de eventos** | Los servicios publican en un `EventEmitter` de `config/`; `socket.js` se suscribe. Nadie importa a nadie. | Medio | Contenido en un módulo nuevo |
 
-**Recomiendo B.** Invierte la dependencia sin reescribir los servicios: donde
-hoy dice `getIO().to(...).emit(...)` pasa a decir `bus.emit(...)`, que es un
-cambio mecánico y revisable línea por línea. Y `socket.js` queda como el único
-lugar que conoce Socket.IO, que es lo que siempre debió ser.
+**Se hizo la B.** Invierte la dependencia sin reescribir los servicios: donde
+decía `getIO().to(...).emit(...)` ahora dice `toConversation(...)`, un cambio
+mecánico y revisable línea por línea. Y `socket.js` queda como el único lugar
+que conoce Socket.IO, que es lo que siempre debió ser.
 
-> Esta fase **conviene hacerla aunque nunca se migre a TypeScript**. Los ciclos
-> son una fuente latente de bugs de orden de carga, y ya obligaron a poner
-> `require()` perezosos en 11 archivos.
+> Esta fase **convenía hacerla aunque nunca se migrara a TypeScript**. Los ciclos
+> son una fuente latente de bugs de orden de carga.
 
-Verificación: como no hay tests, la red es la prueba de humo de
-`docs/SCALING.md` (login, mensaje entre instancias, presencia, jobs) más un
-arranque limpio del backend.
+### Lo que se hizo
+
+`config/eventBus.js` expone tres operaciones —`toConversation`, `toUser`,
+`toAll`— sobre un `EventEmitter`. `socket.js` se suscribe **una vez a nivel de
+módulo** (no dentro de `initSocket`), para que reinicializar el socket no
+acumule listeners.
+
+| Antes | Después |
+|---|---|
+| 20 llamadas a `getIO().to(...).emit(...)` en 7 servicios + 1 job | 20 llamadas al bus |
+| 7 helpers `getIO()` con `require('../socket')` adentro | eliminados |
+| `socketStore` y `clusterMetrics` buscaban el `io` con un require perezoso | `socket.js` se los **inyecta** con `setSocketServer(io)` / `registerCollector(io)` |
+| `socket.js` cargaba servicios y repositorios dentro de las funciones | los importa arriba, como cualquier módulo |
+| 29 `require()` perezosos | 8, y ninguno es un ciclo (`crypto`, `path` y un router) |
+
+**Nada fuera de `server.js` importa `socket.js`.** Ese era el objetivo.
+
+Tres de los perezosos que quedaban (`admin → user.service`,
+`message → broadcast.service`, `scim → repositories`) resultaron **no ser
+ciclos**: se comprobó que la dependencia no era mutua y se subieron al
+encabezado.
+
+### Verificación
+
+Sin tests, la red fue ejercitar de verdad los tres caminos del bus contra la API
+y sockets reales:
+
+- `toConversation` → `message:new` le llega al otro usuario ✅
+- `toConversation` → `message:reaction` llega ✅
+- `toAll` → `presence:changed` llega ✅
+- El `io` inyectado se usa: con un socket conectado, `getSocketMetrics()` lo
+  cuenta en vez de caer al respaldo local ✅
+- Arranque limpio del backend (el grafo de módulos es justo lo que se tocó) ✅
+- `typecheck:all` sigue en 68 errores: la fase no introdujo ninguno ✅
 
 ---
 
@@ -359,7 +390,7 @@ migraciones y `/api/health` responde `200`.
 
 | # | Qué | Dónde |
 |---|---|---|
-| 1 | **`require()` en funciones → `any`.** El motivo de que la Fase 1 sea bloqueante. | 110 casos, 11 archivos |
+| 1 | **`require()` en funciones → `any`.** El motivo de que la Fase 1 sea bloqueante. | 29 casos, 11 archivos |
 | 2 | **Filas `snake_case`.** Los tipos generados deben respetarlo; no "arreglar" a `camelCase` en la migración: sería un cambio de comportamiento encubierto. | `repositories/` |
 | 3 | **`config` leído de `process.env`.** Todo llega como `string \| undefined`; los parseos a número/booleano hay que declararlos. | `config/index.js` |
 | 4 | **Joi no infiere.** Sin el genérico, `req.body` queda `any` y se pierde el chequeo justo en el borde. | `dtos/` |
@@ -372,8 +403,8 @@ migraciones y `/api/health` responde `200`.
 
 | Fase | Tema | Esfuerzo |
 |------|------|----------|
-| 0 | Herramientas y línea base | 1 d |
-| 1 | Romper ciclos ⚠️ | 2-3 d |
+| 0 | Herramientas y línea base | 1 d ✅ |
+| 1 | Romper ciclos ⚠️ | 2-3 d ✅ |
 | 2 | Tipos generados del schema | 1-2 d |
 | 3 | errors + config + utils + models | 2-3 d |
 | 4 | dtos + repositories | 4-5 d |

@@ -1,6 +1,7 @@
 const bcrypt = require('bcrypt');
 const config = require('../config');
 const logger = require('../config/logger');
+const userService = require('./user.service');
 const { minioClient } = require('../config/minio');
 // Require directo (no vía ../services) para evitar dependencia circular.
 const ldapService = require('./ldap.service');
@@ -153,7 +154,6 @@ class AdminService {
     if (!file) throw new BadRequestError('No file provided');
 
     // Require directo para no importar vía ../services (ciclo).
-    const userService = require('./user.service');
     await userService.uploadAvatar(
       userId,
       file.buffer,
@@ -181,7 +181,6 @@ class AdminService {
   }
 
   async removeUserAvatar(actorId, userId, ip, userAgent) {
-    const userService = require('./user.service');
     await userService.removeAvatar(userId, {
       actorId,
       action: 'admin.user_avatar_remove',

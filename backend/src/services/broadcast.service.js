@@ -8,12 +8,10 @@ const {
 const { minioClient } = require('../config/minio');
 const { NotFoundError, ForbiddenError } = require('../errors');
 const { toMessageResponse } = require('../models');
+const { toConversation, toUser } = require('../config/eventBus');
 
 const AVATAR_BUCKET = 'messaging-avatars';
 
-function getIO() {
-  return require('../socket').getIO();
-}
 
 async function withRecipientAvatar(recipient) {
   if (!recipient?.avatar_object_key) return recipient;
@@ -231,10 +229,10 @@ class BroadcastService {
           // Emit to the DM room *and* personal rooms: a newly created direct
           // conversation isn't joined until reconnect, so recipients would
           // otherwise miss the realtime event entirely.
-          getIO().to(`conv:${conv.id}`).emit('message:new', response);
-          getIO().to(`user:${recipient.user_id}`).emit('message:new', response);
-          getIO().to(`user:${message.sender_id}`).emit('message:new', response);
-          getIO().to(`user:${recipient.user_id}`).emit('notification:new', { type: 'broadcast' });
+          toConversation(conv.id, 'message:new', response);
+          toUser(recipient.user_id, 'message:new', response);
+          toUser(message.sender_id, 'message:new', response);
+          toUser(recipient.user_id, 'notification:new', { type: 'broadcast' });
         } catch {
           // Socket not initialised — skip realtime.
         }

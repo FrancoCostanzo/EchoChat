@@ -9,14 +9,8 @@ const { toMessageResponse, toGameResponse } = require('../models');
 const tictactoe = require('../games/tictactoe');
 const rps = require('../games/rps');
 const hangman = require('../games/hangman');
+const { toConversation, toUser } = require('../config/eventBus');
 
-function getIO() {
-  try {
-    return require('../socket').getIO();
-  } catch {
-    return null;
-  }
-}
 
 const KIND_LABELS = { tictactoe: 'Tatetí', rps: 'Piedra, papel o tijera', hangman: 'Ahorcado' };
 
@@ -66,7 +60,7 @@ class GameService {
 
     const response = await this._buildMessageWithGame(message.id, userId);
     try {
-      getIO().to(`conv:${conversation_id}`).emit('message:new', response);
+      toConversation(conversation_id, 'message:new', response);
     } catch (err) {
       logger.warn({ err: err.message }, 'Failed to emit message:new (game)');
     }
@@ -119,7 +113,7 @@ class GameService {
     // until both have picked.
     for (const uid of [game.player1_id, game.player2_id]) {
       try {
-        getIO().to(`user:${uid}`).emit('game:update', {
+        toUser(uid, 'game:update', {
           conversationId: game.conversation_id,
           messageId: game.message_id,
           game: toGameResponse(updated, uid),

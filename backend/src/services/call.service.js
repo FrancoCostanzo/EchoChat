@@ -3,6 +3,7 @@ const { callRepository, messageRepository } = require('../repositories');
 const { NotFoundError, ForbiddenError } = require('../errors');
 const { toCallResponse, toMessageResponse, toCallHistoryItem } = require('../models');
 const { minioClient } = require('../config/minio');
+const { toConversation } = require('../config/eventBus');
 
 const AVATAR_BUCKET = 'messaging-avatars';
 
@@ -17,10 +18,6 @@ async function withAvatarUrl(item) {
   }
 }
 
-// Lazy-load para evitar dependencia circular (socket → services → call.service → socket)
-function getIO() {
-  return require('../socket').getIO();
-}
 
 const TERMINAL_STATUSES = ['ended', 'missed', 'rejected', 'failed'];
 
@@ -100,7 +97,7 @@ class CallService {
     const full = await messageRepository.findWithAttachments(message.id);
     const response = toMessageResponse(full);
     try {
-      getIO().to(`conv:${call.conversation_id}`).emit('message:new', response);
+      toConversation(call.conversation_id, 'message:new', response);
     } catch (err) {
       logger.warn({ err: err.message }, 'Failed to emit call event message:new');
     }

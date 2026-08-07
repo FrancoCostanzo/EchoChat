@@ -10,6 +10,16 @@
 const connectedSockets = new Map(); // socketId → userId
 const connectedUsers = new Map(); // userId → Set<socketId>
 
+// socket.js nos pasa el servidor al inicializar. Antes lo buscábamos con un
+// require perezoso de '../socket', que cerraba un ciclo (socket → socketStore
+// → socket).
+let servidor = null;
+
+/** @param {import('socket.io').Server | null} io */
+function setSocketServer(io) {
+  servidor = io;
+}
+
 function registerSocket(socketId, userId) {
   connectedSockets.set(socketId, userId);
   if (!connectedUsers.has(userId)) {
@@ -44,9 +54,9 @@ function getLocalMetrics() {
  * instancia: es aceptable en un endpoint de monitoreo, no en un hot path.
  */
 async function getSocketMetrics() {
+  if (!servidor) return getLocalMetrics();
   try {
-    const { getIO } = require('../socket');
-    const sockets = await getIO().fetchSockets();
+    const sockets = await servidor.fetchSockets();
     const users = new Set();
     for (const socket of sockets) {
       if (socket.data?.userId) users.add(socket.data.userId);
@@ -64,6 +74,7 @@ async function getSocketMetrics() {
 module.exports = {
   connectedSockets,
   connectedUsers,
+  setSocketServer,
   registerSocket,
   unregisterSocket,
   getSocketMetrics,

@@ -3,17 +3,11 @@ const { v4: uuidv4 } = require('uuid');
 const logger = require('../config/logger');
 const { userRepository, credentialRepository, auditRepository } = require('../repositories');
 const { clearAutoAway } = require('../config/presenceStore');
+const { toAll } = require('../config/eventBus');
 const { minioClient } = require('../config/minio');
 const { NotFoundError, BadRequestError } = require('../errors');
 const { toUserResponse } = require('../models');
 
-function getIO() {
-  try {
-    return require('../socket').getIO();
-  } catch {
-    return null;
-  }
-}
 
 const AVATAR_BUCKET = 'messaging-avatars';
 const AVATAR_ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -146,11 +140,7 @@ class UserService {
     await clearAutoAway(userId);
     const user = await userRepository.updatePresence(userId, presence);
     if (!user) throw new NotFoundError('User');
-    try {
-      getIO()?.emit('presence:changed', { userId, presence });
-    } catch (err) {
-      logger.warn({ err: err.message, userId }, 'Failed to emit presence:changed');
-    }
+    toAll('presence:changed', { userId, presence });
     return toUserResponse(user);
   }
 

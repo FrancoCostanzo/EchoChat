@@ -1,6 +1,6 @@
 const config = require('../config');
 const logger = require('../config/logger');
-const { userRepository, auditRepository } = require('../repositories');
+const { userRepository, auditRepository, sessionRepository } = require('../repositories');
 const { BadRequestError, NotFoundError, ConflictError } = require('../errors');
 
 function sanitizeUsername(raw) {
@@ -147,7 +147,6 @@ class ScimService {
     if (user.status === target) return;
     await userRepository.updateStatus(user.id, target);
     if (!active) {
-      const { sessionRepository } = require('../repositories');
       await sessionRepository.deactivateAllForUser(user.id).catch(() => {});
       await userRepository.updatePresence(user.id, 'offline').catch(() => {});
       await this._audit('user.scim_deprovision', user.id, ctx, { username: user.username, method: 'deactivate' });

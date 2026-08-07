@@ -6,14 +6,8 @@ const {
 } = require('../repositories');
 const { NotFoundError, ForbiddenError, BadRequestError } = require('../errors');
 const { toMessageResponse, toPollResponse } = require('../models');
+const { toConversation } = require('../config/eventBus');
 
-function getIO() {
-  try {
-    return require('../socket').getIO();
-  } catch {
-    return null;
-  }
-}
 
 class PollService {
   async createPoll(userId, data) {
@@ -36,7 +30,7 @@ class PollService {
 
     const response = await this._buildMessageWithPoll(message.id, userId);
     try {
-      getIO().to(`conv:${data.conversation_id}`).emit('message:new', response);
+      toConversation(data.conversation_id, 'message:new', response);
     } catch (err) {
       logger.warn({ err: err.message }, 'Failed to emit message:new (poll)');
     }
@@ -118,7 +112,7 @@ class PollService {
     const myVotes = await pollRepository.getUserVotes(poll.id, userId);
     const payload = toPollResponse(poll, options, myVotes);
     try {
-      getIO().to(`conv:${conversationId}`).emit('poll:update', {
+      toConversation(conversationId, 'poll:update', {
         conversationId,
         messageId: poll.message_id,
         poll: payload,

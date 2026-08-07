@@ -6,16 +6,10 @@ const {
 } = require('../repositories');
 const { NotFoundError, ForbiddenError, ConflictError, BadRequestError } = require('../errors');
 const { toChannelResponse, toJoinRequestResponse } = require('../models');
+const { toUser } = require('../config/eventBus');
 
 const MANAGE_ROLES = ['owner', 'admin', 'moderator'];
 
-function getIO() {
-  try {
-    return require('../socket').getIO();
-  } catch {
-    return null;
-  }
-}
 
 class ChannelService {
   async createChannel(userId, data) {
@@ -181,8 +175,7 @@ class ChannelService {
   }
 
   _emitToUser(userId, event, payload) {
-    const io = getIO();
-    if (io) io.to(`user:${userId}`).emit(event, payload);
+    toUser(userId, event, payload);
   }
 }
 

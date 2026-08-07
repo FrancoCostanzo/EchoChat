@@ -1,6 +1,7 @@
 const logger = require('../config/logger');
 const { pool } = require('../config/database');
 const { markAutoAway } = require('../config/presenceStore');
+const { toAll } = require('../config/eventBus');
 const { userRepository } = require('../repositories');
 
 const DEFAULT_TIMEOUT_MINUTES = 5;
@@ -30,14 +31,8 @@ async function run() {
   await Promise.all(affectedIds.map((userId) => markAutoAway(userId)));
 
   logger.debug({ count: affectedIds.length }, 'Presence timeout: users set to away');
-  try {
-    const { getIO } = require('../socket');
-    const io = getIO();
-    for (const userId of affectedIds) {
-      io.emit('presence:changed', { userId, presence: 'away' });
-    }
-  } catch {
-    // Socket not initialised (e.g. running outside the server) — skip broadcast.
+  for (const userId of affectedIds) {
+    toAll('presence:changed', { userId, presence: 'away' });
   }
 }
 

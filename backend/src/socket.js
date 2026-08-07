@@ -3,14 +3,33 @@ const { createAdapter } = require('@socket.io/redis-adapter');
 const config = require('./config');
 const logger = require('./config/logger');
 const { isRedisEnabled, createRedisClient } = require('./config/redis');
-const { registerSocket, unregisterSocket } = require('./config/socketStore');
+const { setSocketServer, registerSocket, unregisterSocket } = require('./config/socketStore');
 const { isAutoAway, clearAutoAway } = require('./config/presenceStore');
+const { onRealtime } = require('./config/eventBus');
+const { registerCollector } = require('./utils/clusterMetrics');
+const { authService } = require('./services');
+const broadcastService = require('./services/broadcast.service');
+const {
+  conversationRepository,
+  userRepository,
+  messageRepository,
+  callRepository,
+} = require('./repositories');
 
-// NOTE: services & repositories are lazy-loaded inside functions to avoid
-// a circular dependency (message.service → socket → services → message.service).
+// Los servicios y repositorios se importan arriba: el ciclo que obligaba a
+// cargarlos dentro de las funciones lo rompió el bus de eventos (config/eventBus.js).
 
 let io;
 const offlineTimers = new Map();
+
+// Único puente entre la capa de negocio y Socket.IO: los servicios publican en
+// el bus y esto los empuja a los clientes. Se registra a nivel de módulo (una
+// sola vez por proceso) para que reinicializar el socket no acumule listeners.
+onRealtime(({ room, event, payload }) => {
+  if (!io) return; // sin servidor de sockets todavía: se descarta, como antes
+  if (room) io.to(room).emit(event, payload);
+  else io.emit(event, payload);
+});
 
 function cancelOfflineTimer(userId) {
   const timer = offlineTimers.get(userId);
@@ -37,8 +56,6 @@ function scheduleOffline(userId) {
 }
 
 async function initSocket(httpServer) {
-  const { authService } = require('./services');
-  const { conversationRepository, userRepository } = require('./repositories');
 
   io = new Server(httpServer, {
     cors: {
@@ -61,8 +78,10 @@ async function initSocket(httpServer) {
     logger.warn('REDIS_URL no configurado: Socket.IO en memoria, sólo una instancia (ver docs/SCALING.md)');
   }
 
-  // Atiende las consultas de métricas que hacen las otras instancias.
-  require('./utils/clusterMetrics').registerCollector(io);
+  // Los módulos que necesitan el servidor de verdad (no sólo emitir) lo reciben
+  // acá, en vez de ir a buscarlo con un require perezoso.
+  setSocketServer(io);
+  registerCollector(io);
 
   // ── Auth middleware ──────────────────────────────────────────────────
   io.use(async (socket, next) => {
@@ -159,12 +178,10 @@ async function initSocket(httpServer) {
     // ── Read receipts ───────────────────────────────────────────────
     socket.on('messages:read', async ({ conversationId, messageIds }) => {
       if (!conversationId || !Array.isArray(messageIds) || messageIds.length === 0) return;
-      const { messageRepository, conversationRepository } = require('./repositories');
       try {
         for (const msgId of messageIds) {
           await messageRepository.addReceipt(msgId, userId, 'read');
           try {
-            const broadcastService = require('./services/broadcast.service');
             await broadcastService.syncFromMessageReceipt(msgId, userId, 'read');
           } catch (syncErr) {
             logger.warn({ err: syncErr.message, msgId }, 'Failed to sync broadcast read receipt');
@@ -188,12 +205,10 @@ async function initSocket(httpServer) {
     // ── Mark delivered (cuando un mensaje llega al cliente pero no se lee) ──
     socket.on('messages:delivered', async ({ conversationId, messageIds }) => {
       if (!Array.isArray(messageIds) || messageIds.length === 0) return;
-      const { messageRepository } = require('./repositories');
       try {
         for (const msgId of messageIds) {
           await messageRepository.addReceipt(msgId, userId, 'delivered');
           try {
-            const broadcastService = require('./services/broadcast.service');
             await broadcastService.syncFromMessageReceipt(msgId, userId, 'delivered');
           } catch (syncErr) {
             logger.warn({ err: syncErr.message, msgId }, 'Failed to sync broadcast delivery receipt');
@@ -301,7 +316,6 @@ function registerCallHandlers(io, socket, userId) {
     // answered_at) para que el trigger calcule la duración al finalizar.
     (async () => {
       try {
-        const { callRepository } = require('./repositories');
         const call = await callRepository.findById(callId);
         if (call && call.status !== 'active') {
           await callRepository.updateStatus(callId, 'active');
@@ -349,7 +363,6 @@ function registerCallHandlers(io, socket, userId) {
 }
 
 async function updatePresence(userId, presence) {
-  const { userRepository } = require('./repositories');
   try {
     // Any explicit presence write supersedes a job-set away.
     await clearAutoAway(userId);
@@ -377,6 +390,7 @@ async function closeSocket() {
   offlineTimers.clear();
   const instance = io;
   io = null;
+  setSocketServer(null);
   await new Promise((resolve) => instance.close(() => resolve()));
 }
 

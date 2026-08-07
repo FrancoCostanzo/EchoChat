@@ -1,4 +1,6 @@
 const logger = require('../config/logger');
+const { toConversation } = require('../config/eventBus');
+const broadcastService = require('./broadcast.service');
 const {
   messageRepository,
   conversationRepository,
@@ -59,10 +61,6 @@ async function withAvatarUrl(user) {
   }
 }
 
-// Lazy-load to avoid circular dependency (socket → services → message.service → socket)
-function getIO() {
-  return require('../socket').getIO();
-}
 
 class MessageService {
   async send(userId, data) {
@@ -104,11 +102,11 @@ class MessageService {
 
     const response = toMessageResponse(full);
     try {
-      getIO().to(`conv:${data.conversation_id}`).emit('message:new', response);
+      toConversation(data.conversation_id, 'message:new', response);
       // Let open timelines refresh the root's reply counter without refetching
       if (response.thread_id) {
         const threadCount = await messageRepository.countThreadReplies(response.thread_id);
-        getIO().to(`conv:${data.conversation_id}`).emit('message:thread_count', {
+        toConversation(data.conversation_id, 'message:thread_count', {
           messageId: response.thread_id,
           thread_count: threadCount,
         });
@@ -194,7 +192,7 @@ class MessageService {
 
     const response = toMessageResponse(updated);
     try {
-      getIO().to(`conv:${message.conversation_id}`).emit('message:edited', response);
+      toConversation(message.conversation_id, 'message:edited', response);
     } catch (err) {
       logger.warn({ err: err.message }, 'Failed to emit message:edited');
     }
@@ -260,7 +258,7 @@ class MessageService {
 
     const response = toMessageResponse(deleted);
     try {
-      getIO().to(`conv:${message.conversation_id}`).emit('message:deleted', response);
+      toConversation(message.conversation_id, 'message:deleted', response);
     } catch (err) {
       logger.warn({ err: err.message }, 'Failed to emit message:deleted');
     }
@@ -272,7 +270,7 @@ class MessageService {
     const reactions = await messageRepository.getReactions(messageId);
     try {
       const message = await messageRepository.findById(messageId);
-      getIO().to(`conv:${message.conversation_id}`).emit('message:reaction', {
+      toConversation(message.conversation_id, 'message:reaction', {
         messageId,
         reactions,
       });
@@ -287,7 +285,7 @@ class MessageService {
     const reactions = await messageRepository.getReactions(messageId);
     try {
       const message = await messageRepository.findById(messageId);
-      getIO().to(`conv:${message.conversation_id}`).emit('message:reaction', {
+      toConversation(message.conversation_id, 'message:reaction', {
         messageId,
         reactions,
       });
@@ -302,14 +300,13 @@ class MessageService {
     try {
       const message = await messageRepository.findById(messageId);
       const counts = await messageRepository.getReceiptCounts(messageId);
-      getIO().to(`conv:${message.conversation_id}`).emit('message:receipt', {
+      toConversation(message.conversation_id, 'message:receipt', {
         messageId,
         conversationId: message.conversation_id,
         delivered_count: parseInt(counts.delivered_count, 10) || 0,
         read_count: parseInt(counts.read_count, 10) || 0,
       });
 
-      const broadcastService = require('./broadcast.service');
       await broadcastService.syncFromMessageReceipt(messageId, userId, type);
     } catch (err) {
       logger.warn({ err: err.message }, 'Failed to emit message:receipt');
@@ -441,7 +438,7 @@ class MessageService {
       const full = await messageRepository.findWithAttachments(created.id);
       const response = toMessageResponse(full);
       try {
-        getIO().to(`conv:${convId}`).emit('message:new', response);
+        toConversation(convId, 'message:new', response);
       } catch (err) {
         logger.warn({ err: err.message }, 'Failed to emit message:new (forward)');
       }

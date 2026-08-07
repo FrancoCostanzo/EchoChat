@@ -29,8 +29,13 @@ function localSnapshot() {
   };
 }
 
+// socket.js nos pasa el servidor al inicializar; antes lo buscábamos con un
+// require perezoso de '../socket', que cerraba un ciclo.
+let servidor = null;
+
 /** Responde a las consultas de métricas que llegan de otras instancias. */
 function registerCollector(io) {
+  servidor = io;
   io.on(EVENT, (respond) => {
     if (typeof respond === 'function') respond(localSnapshot());
   });
@@ -136,14 +141,15 @@ async function gather() {
   const snapshots = [localSnapshot()];
   let instancias = 1;
 
+  if (!servidor) return { instancias, http: mergeHttp(snapshots), cronJobs: mergeCronJobs(snapshots) };
+
   try {
-    const { getIO } = require('../socket');
     // serverSideEmitWithAck vive en el Server (io.timeout() devuelve un
     // BroadcastOperator, que no lo tiene) y no acepta timeout, así que le
     // ponemos uno propio: el panel no debe quedar colgado por una instancia
     // que no contesta.
     const respuestas = await Promise.race([
-      getIO().serverSideEmitWithAck(EVENT),
+      servidor.serverSideEmitWithAck(EVENT),
       new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ACK_TIMEOUT_MS)),
     ]);
     for (const respuesta of respuestas) {
