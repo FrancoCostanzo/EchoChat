@@ -18,11 +18,12 @@
 // ALTERs contra datos en producción. En una BD nueva se ejecuta todo de cero.
 // =============================================================================
 
-const fs = require('fs');
-const path = require('path');
-const bcrypt = require('bcrypt');
-const { pool, withTransaction } = require('./database');
-const logger = require('./logger');
+import fs from 'fs';
+import path from 'path';
+import bcrypt from 'bcrypt';
+import type { PoolClient } from 'pg';
+import { pool, withTransaction } from './database';
+import logger from './logger';
 
 const SCHEMA_FILE = path.resolve(__dirname, '../../docs/messaging_intranet_schema.sql');
 const SEED_FILE = path.resolve(__dirname, '../../docs/seed.sql');
@@ -46,20 +47,23 @@ const ALREADY_APPLIED_CODES = new Set([
   '42723', // duplicate_function
 ]);
 
+/** Los errores de `pg` traen `code`; el tipo de un `catch` es `unknown`. */
+const pgCode = (err: unknown): string | undefined => (err as { code?: string })?.code;
+
 /**
  * Espera a que la base de datos esté disponible (reintenta ante arranques en
  * los que Postgres todavía no aceptó conexiones). Devuelve true si conectó.
  */
-async function waitForDb({ retries = 30, delayMs = 2000 } = {}) {
+export async function waitForDb({ retries = 30, delayMs = 2000 } = {}): Promise<boolean> {
   for (let attempt = 1; attempt <= retries; attempt++) {
-    let client;
+    let client: PoolClient | undefined;
     try {
       client = await pool.connect();
       await client.query('SELECT 1');
       return true;
     } catch (err) {
       logger.warn(
-        { attempt, retries, code: err.code },
+        { attempt, retries, code: pgCode(err) },
         `Base de datos no disponible todavía, reintentando en ${delayMs}ms...`
       );
       await new Promise((r) => setTimeout(r, delayMs));
@@ -70,7 +74,7 @@ async function waitForDb({ retries = 30, delayMs = 2000 } = {}) {
   return false;
 }
 
-async function ensureMigrationsTable() {
+async function ensureMigrationsTable(): Promise<void> {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       name       TEXT PRIMARY KEY,
@@ -79,12 +83,12 @@ async function ensureMigrationsTable() {
   `);
 }
 
-async function getAppliedMigrations() {
-  const { rows } = await pool.query('SELECT name FROM schema_migrations');
+async function getAppliedMigrations(): Promise<Set<string>> {
+  const { rows } = await pool.query<{ name: string }>('SELECT name FROM schema_migrations');
   return new Set(rows.map((r) => r.name));
 }
 
-function listMigrationFiles() {
+function listMigrationFiles(): string[] {
   if (!fs.existsSync(MIGRATIONS_DIR)) return [];
   return fs
     .readdirSync(MIGRATIONS_DIR)
@@ -94,13 +98,13 @@ function listMigrationFiles() {
 
 /**
  * Aplica el schema base y todas las migraciones pendientes.
- * @returns {Promise<number>} cantidad de migraciones ejecutadas.
+ * @returns cantidad de migraciones ejecutadas.
  */
-async function runMigrations() {
+export async function runMigrations(): Promise<number> {
   await ensureMigrationsTable();
   const applied = await getAppliedMigrations();
 
-  const { rows } = await pool.query(`SELECT to_regclass('public.users') AS t`);
+  const { rows } = await pool.query<{ t: string | null }>(`SELECT to_regclass('public.users') AS t`);
   const dbHasSchema = rows[0].t !== null;
 
   // ── Caso A: BD que ya tenía tablas ANTES de este runner ──────────────────
@@ -154,13 +158,14 @@ async function runMigrations() {
       logger.info({ file }, 'Migración aplicada');
       count++;
     } catch (err) {
-      if (ALREADY_APPLIED_CODES.has(err.code)) {
+      const code = pgCode(err);
+      if (code && ALREADY_APPLIED_CODES.has(code)) {
         await pool.query(
           'INSERT INTO schema_migrations(name) VALUES ($1) ON CONFLICT DO NOTHING',
           [file]
         );
         logger.warn(
-          { file, code: err.code },
+          { file, code },
           'Los objetos de la migración ya existían — marcada como aplicada'
         );
       } else {
@@ -178,7 +183,7 @@ async function runMigrations() {
  * permisos/settings nuevos que se agreguen al seed llegan solos a instancias
  * existentes.
  */
-async function applySeed() {
+export async function applySeed(): Promise<void> {
   const sql = fs.readFileSync(SEED_FILE, 'utf8');
   await withTransaction((c) => c.query(sql));
   logger.info('Datos de referencia (seed) aplicados');
@@ -188,11 +193,11 @@ async function applySeed() {
  * Crea el primer super_admin a partir de ADMIN_USERNAME / ADMIN_PASSWORD.
  * No hace nada si ya existe algún super_admin. Idempotente.
  */
-async function bootstrapAdmin() {
+export async function bootstrapAdmin(): Promise<void> {
   const username = process.env.ADMIN_USERNAME;
   const password = process.env.ADMIN_PASSWORD;
 
-  const { rows } = await pool.query(`
+  const { rows } = await pool.query<{ n: number }>(`
     SELECT COUNT(*)::int AS n
     FROM user_roles ur
     JOIN roles r ON r.id = ur.role_id
@@ -217,13 +222,13 @@ async function bootstrapAdmin() {
   const email = process.env.ADMIN_EMAIL || null;
 
   await withTransaction(async (c) => {
-    const existing = await c.query('SELECT id FROM users WHERE username = $1', [username]);
-    let userId;
+    const existing = await c.query<{ id: string }>('SELECT id FROM users WHERE username = $1', [username]);
+    let userId: string;
     if (existing.rows.length > 0) {
       userId = existing.rows[0].id;
       logger.info({ username }, 'El usuario admin ya existe — se le otorga super_admin');
     } else {
-      const created = await c.query(
+      const created = await c.query<{ id: string }>(
         `INSERT INTO users (username, display_name, email, auth_provider)
          VALUES ($1, $2, $3, 'local') RETURNING id`,
         [username, displayName, email]
@@ -254,7 +259,7 @@ async function bootstrapAdmin() {
  * Lanza error si la BD es inalcanzable o si una migración falla, para que el
  * proceso que lo invoca decida (el server aborta y deja que se reinicie).
  */
-async function setup() {
+export async function setup(): Promise<void> {
   const ready = await waitForDb();
   if (!ready) {
     throw new Error('Base de datos inalcanzable tras varios reintentos');
@@ -274,10 +279,8 @@ async function setup() {
     try {
       await client.query('SELECT pg_advisory_unlock($1)', [SETUP_LOCK_ID]);
     } catch (err) {
-      logger.warn({ err: err.message }, 'No se pudo liberar el advisory lock de setup');
+      logger.warn({ err: (err as Error).message }, 'No se pudo liberar el advisory lock de setup');
     }
     client.release();
   }
 }
-
-module.exports = { setup, runMigrations, applySeed, bootstrapAdmin, waitForDb };

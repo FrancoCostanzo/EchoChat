@@ -1,9 +1,9 @@
-const Minio = require('minio');
-const config = require('../config');
-const logger = require('./logger');
+import * as Minio from 'minio';
+import config from '../config';
+import logger from './logger';
 
 // Cliente interno: para operaciones de upload/delete (conecta al host interno)
-const minioClient = new Minio.Client({
+export const minioClient = new Minio.Client({
   endPoint: config.minio.endPoint,
   port: config.minio.port,
   useSSL: config.minio.useSSL,
@@ -12,7 +12,7 @@ const minioClient = new Minio.Client({
 });
 
 // Cliente público: para generar presigned URLs accesibles desde el navegador
-const publicMinioClient = new Minio.Client({
+export const publicMinioClient = new Minio.Client({
   endPoint: config.minio.publicEndPoint,
   port: config.minio.publicPort,
   useSSL: config.minio.publicUseSSL,
@@ -20,7 +20,7 @@ const publicMinioClient = new Minio.Client({
   secretKey: config.minio.secretKey,
 });
 
-const BUCKETS = [
+export const BUCKETS = [
   'messaging-avatars',
   'messaging-images',
   'messaging-videos',
@@ -32,7 +32,7 @@ const BUCKETS = [
   'messaging-wallpapers',
 ];
 
-async function ensureBuckets() {
+export async function ensureBuckets(): Promise<void> {
   for (const bucket of BUCKETS) {
     const exists = await minioClient.bucketExists(bucket);
     if (!exists) {
@@ -42,5 +42,3 @@ async function ensureBuckets() {
   }
   logger.info('All MinIO buckets verified');
 }
-
-module.exports = { minioClient, publicMinioClient, ensureBuckets, BUCKETS };

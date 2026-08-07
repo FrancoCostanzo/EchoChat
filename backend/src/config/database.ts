@@ -1,9 +1,9 @@
-const { Pool } = require('pg');
-const config = require('../config');
-const logger = require('./logger');
-const metricsRegistry = require('../utils/metricsRegistry');
+import { Pool, type PoolClient } from 'pg';
+import config from '../config';
+import logger from './logger';
+import metricsRegistry from '../utils/metricsRegistry';
 
-const pool = new Pool({
+export const pool = new Pool({
   host: config.db.host,
   port: config.db.port,
   database: config.db.database,
@@ -22,16 +22,21 @@ pool.on('error', (err) => {
 });
 
 const originalQuery = pool.query.bind(pool);
-pool.query = (...args) => {
+// Envuelve query() para contar las consultas en las métricas. El cast hace
+// falta porque pool.query tiene varias sobrecargas y TypeScript no permite
+// reasignarlas con una sola firma variádica.
+(pool as any).query = (...args: any[]) => {
   metricsRegistry.recordDbQuery();
-  return originalQuery(...args);
+  return (originalQuery as any)(...args);
 };
 
 /**
  * Execute a callback inside a transaction.
  * Automatically commits on success and rolls back on error.
  */
-async function withTransaction(callback) {
+export async function withTransaction<T>(
+  callback: (client: PoolClient) => Promise<T>,
+): Promise<T> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -45,5 +50,3 @@ async function withTransaction(callback) {
     client.release();
   }
 }
-
-module.exports = { pool, withTransaction };

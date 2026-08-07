@@ -1,3 +1,5 @@
+import type { Server } from 'socket.io';
+
 /**
  * Registro de conexiones Socket.IO para las métricas de monitoreo.
  *
@@ -7,28 +9,27 @@
  * todavía no está inicializado — por ejemplo al correr los jobs desde la CLI.
  */
 
-const connectedSockets = new Map(); // socketId → userId
-const connectedUsers = new Map(); // userId → Set<socketId>
+export const connectedSockets = new Map<string, string>(); // socketId → userId
+export const connectedUsers = new Map<string, Set<string>>(); // userId → Set<socketId>
 
 // socket.js nos pasa el servidor al inicializar. Antes lo buscábamos con un
 // require perezoso de '../socket', que cerraba un ciclo (socket → socketStore
 // → socket).
-let servidor = null;
+let servidor: Server | null = null;
 
-/** @param {import('socket.io').Server | null} io */
-function setSocketServer(io) {
+export function setSocketServer(io: Server | null): void {
   servidor = io;
 }
 
-function registerSocket(socketId, userId) {
+export function registerSocket(socketId: string, userId: string): void {
   connectedSockets.set(socketId, userId);
   if (!connectedUsers.has(userId)) {
     connectedUsers.set(userId, new Set());
   }
-  connectedUsers.get(userId).add(socketId);
+  connectedUsers.get(userId)!.add(socketId);
 }
 
-function unregisterSocket(socketId) {
+export function unregisterSocket(socketId: string): void {
   const userId = connectedSockets.get(socketId);
   if (userId == null) return;
 
@@ -42,7 +43,12 @@ function unregisterSocket(socketId) {
   }
 }
 
-function getLocalMetrics() {
+export interface SocketMetrics {
+  activeSockets: number;
+  uniqueUsers: number;
+}
+
+function getLocalMetrics(): SocketMetrics {
   return {
     activeSockets: connectedSockets.size,
     uniqueUsers: connectedUsers.size,
@@ -53,11 +59,11 @@ function getLocalMetrics() {
  * Métricas de todo el cluster. fetchSockets() serializa cada socket de cada
  * instancia: es aceptable en un endpoint de monitoreo, no en un hot path.
  */
-async function getSocketMetrics() {
+export async function getSocketMetrics(): Promise<SocketMetrics> {
   if (!servidor) return getLocalMetrics();
   try {
     const sockets = await servidor.fetchSockets();
-    const users = new Set();
+    const users = new Set<string>();
     for (const socket of sockets) {
       if (socket.data?.userId) users.add(socket.data.userId);
     }
@@ -70,12 +76,3 @@ async function getSocketMetrics() {
     return getLocalMetrics();
   }
 }
-
-module.exports = {
-  connectedSockets,
-  connectedUsers,
-  setSocketServer,
-  registerSocket,
-  unregisterSocket,
-  getSocketMetrics,
-};

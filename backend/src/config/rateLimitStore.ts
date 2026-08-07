@@ -1,5 +1,5 @@
-const { RedisStore } = require('rate-limit-redis');
-const { isRedisEnabled, getRedisClient } = require('./redis');
+import { RedisStore } from 'rate-limit-redis';
+import { isRedisEnabled, getRedisClient } from './redis';
 
 /**
  * Store compartido para express-rate-limit. Con el MemoryStore por defecto cada
@@ -9,18 +9,16 @@ const { isRedisEnabled, getRedisClient } = require('./redis');
  *
  * `prefix` separa los contadores de cada limitador dentro del mismo Redis.
  */
-function createRateLimitStore(prefix) {
+export function createRateLimitStore(prefix: string): RedisStore | undefined {
   if (!isRedisEnabled()) return undefined;
 
   return new RedisStore({
     prefix,
     // El store se construye al cargar el módulo, antes de que Redis esté
     // conectado: resolvemos el cliente en cada comando (ya viene cacheado).
-    sendCommand: async (...args) => {
+    sendCommand: async (...args: string[]) => {
       const client = await getRedisClient();
-      return client.sendCommand(args);
+      return client!.sendCommand(args);
     },
   });
 }
-
-module.exports = { createRateLimitStore };

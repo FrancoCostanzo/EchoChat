@@ -1,11 +1,109 @@
-const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
+import os from 'os';
+import path from 'path';
+import dotenv from 'dotenv';
+
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+
+interface OidcProvider {
+  name: string;
+  label: string;
+  issuer: string;
+  clientId: string;
+  clientSecret: string;
+  scopes: string;
+}
+
+/**
+ * Forma completa de la configuración del backend. Todo sale de `process.env`,
+ * o sea que todo llega como `string | undefined` y acá se convierte: los
+ * `parseInt` y las comparaciones contra `'true'` son la frontera entre el
+ * entorno y el resto del código.
+ *
+ * Los campos sin valor por defecto (`jwt.secret`, `messageEnc.key`) quedan
+ * `string | undefined` a propósito: son obligatorios en producción y el tipo
+ * refleja que pueden faltar.
+ */
+interface AppConfig {
+  env: string;
+  port: number;
+  /** Identifica a esta instancia en los logs y en el estado de los cron jobs. */
+  instanceId: string;
+  jobs: { enabled: boolean };
+  db: {
+    host: string;
+    port: number;
+    database: string;
+    user: string;
+    password: string;
+    min: number;
+    max: number;
+  };
+  redis: { url: string };
+  jwt: {
+    secret: string | undefined;
+    expiresIn: string;
+    refreshExpiresIn: string;
+  };
+  minio: {
+    endPoint: string;
+    port: number;
+    accessKey: string;
+    secretKey: string;
+    useSSL: boolean;
+    publicEndPoint: string;
+    publicPort: number;
+    publicUseSSL: boolean;
+  };
+  ldap: {
+    enabled: boolean;
+    url: string;
+    bindDn: string;
+    bindPassword: string;
+    baseDn: string;
+    userFilter: string;
+    timeoutMs: number;
+    tlsRejectUnauthorized: boolean;
+    syncEnabled: boolean;
+    syncCron: string;
+    deprovision: boolean;
+    syncRoles: boolean;
+    groupRoleMap: Record<string, string>;
+    defaultRole: string;
+    attr: {
+      username: string;
+      displayName: string;
+      email: string;
+      department: string;
+      jobTitle: string;
+      memberOf: string;
+      accountControl: string;
+      externalId: string;
+    };
+  };
+  oidc: {
+    enabled: boolean;
+    redirectBase: string;
+    frontendUrl: string;
+    defaultRole: string;
+    providers: Record<string, OidcProvider>;
+  };
+  scim: { enabled: boolean; token: string; defaultRole: string };
+  messageEnc: { key: string | undefined; keyId: string };
+  cors: { origin: string };
+  rateLimit: { windowMs: number; max: number };
+  log: { level: string };
+}
+
+/** Convierte una variable de entorno numérica, cayendo al default si no es válida. */
+function num(raw: string | undefined, fallback: number): number {
+  return parseInt(raw ?? '', 10) || fallback;
+}
 
 // Parsea "CN=Admins,OU=x=admin; CN=Staff,OU=y=user" → { 'cn=admins,ou=x': 'admin', ... }.
 // La clave (DN del grupo) se normaliza a minúsculas para comparar sin depender del casing del directorio.
-function parseGroupRoleMap(raw) {
+function parseGroupRoleMap(raw: string | undefined): Record<string, string> {
   if (!raw) return {};
-  const map = {};
+  const map: Record<string, string> = {};
   for (const pair of String(raw).split(';')) {
     const idx = pair.lastIndexOf('=');
     if (idx <= 0) continue;
@@ -19,12 +117,12 @@ function parseGroupRoleMap(raw) {
 // Construye el registro de proveedores OIDC a partir de OIDC_PROVIDERS=azure,google,...
 // Para cada nombre P lee OIDC_<P>_ISSUER / _CLIENT_ID / _CLIENT_SECRET / _SCOPES / _LABEL.
 // Sólo se registran los que tengan issuer + client_id + client_secret completos.
-function parseOidcProviders(rawList) {
-  const providers = {};
+function parseOidcProviders(rawList: string | undefined): Record<string, OidcProvider> {
+  const providers: Record<string, OidcProvider> = {};
   if (!rawList) return providers;
   for (const name of String(rawList).split(',').map((s) => s.trim()).filter(Boolean)) {
     const key = name.toLowerCase();
-    const env = (suffix) => process.env[`OIDC_${name.toUpperCase()}_${suffix}`];
+    const env = (suffix: string) => process.env[`OIDC_${name.toUpperCase()}_${suffix}`];
     const issuer = env('ISSUER');
     const clientId = env('CLIENT_ID');
     const clientSecret = env('CLIENT_SECRET');
@@ -41,12 +139,11 @@ function parseOidcProviders(rawList) {
   return providers;
 }
 
-const config = {
+const config: AppConfig = {
   env: process.env.NODE_ENV || 'development',
-  port: parseInt(process.env.PORT, 10) || 3000,
+  port: num(process.env.PORT, 3000),
 
-  // Identifica a esta instancia en los logs y en el estado de los cron jobs.
-  instanceId: `${require('os').hostname()}:${process.pid}`,
+  instanceId: `${os.hostname()}:${process.pid}`,
 
   jobs: {
     // Poner RUN_JOBS=false en instancias que sólo deban atender tráfico. Con
@@ -56,12 +153,12 @@ const config = {
 
   db: {
     host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT, 10) || 5432,
+    port: num(process.env.DB_PORT, 5432),
     database: process.env.DB_NAME || 'echochat',
     user: process.env.DB_USER || 'echochat',
     password: process.env.DB_PASSWORD || '',
-    min: parseInt(process.env.DB_POOL_MIN, 10) || 2,
-    max: parseInt(process.env.DB_POOL_MAX, 10) || 20,
+    min: num(process.env.DB_POOL_MIN, 2),
+    max: num(process.env.DB_POOL_MAX, 20),
   },
 
   // Estado compartido entre instancias (adapter de Socket.IO, presencia, rate
@@ -78,12 +175,12 @@ const config = {
 
   minio: {
     endPoint: process.env.MINIO_ENDPOINT || 'localhost',
-    port: parseInt(process.env.MINIO_PORT, 10) || 9000,
+    port: num(process.env.MINIO_PORT, 9000),
     accessKey: process.env.MINIO_ACCESS_KEY || 'minioadmin',
     secretKey: process.env.MINIO_SECRET_KEY || 'minioadmin',
     useSSL: process.env.MINIO_USE_SSL === 'true',
     publicEndPoint: process.env.MINIO_PUBLIC_ENDPOINT || process.env.MINIO_ENDPOINT || 'localhost',
-    publicPort: parseInt(process.env.MINIO_PUBLIC_PORT || process.env.MINIO_PORT, 10) || 9000,
+    publicPort: num(process.env.MINIO_PUBLIC_PORT || process.env.MINIO_PORT, 9000),
     publicUseSSL: (process.env.MINIO_PUBLIC_USE_SSL || process.env.MINIO_USE_SSL) === 'true',
   },
 
@@ -95,7 +192,7 @@ const config = {
     baseDn: process.env.LDAP_BASE_DN || '',                // base de búsqueda de usuarios
     // {{username}} se reemplaza por el usuario en authenticate(); en fetchAllUsers se usa tal cual.
     userFilter: process.env.LDAP_USER_FILTER || '(objectClass=person)',
-    timeoutMs: parseInt(process.env.LDAP_TIMEOUT_MS, 10) || 10000,
+    timeoutMs: num(process.env.LDAP_TIMEOUT_MS, 10000),
     tlsRejectUnauthorized: process.env.LDAP_TLS_REJECT_UNAUTHORIZED !== 'false',
 
     // Sincronización automática (job cron). Independiente de la importación manual.
@@ -158,8 +255,8 @@ const config = {
   },
 
   rateLimit: {
-    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) || 15 * 60 * 1000,
-    max: parseInt(process.env.RATE_LIMIT_MAX, 10) || 100,
+    windowMs: num(process.env.RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000),
+    max: num(process.env.RATE_LIMIT_MAX, 100),
   },
 
   log: {
@@ -167,4 +264,8 @@ const config = {
   },
 };
 
-module.exports = config;
+// `export =` y no `export default`: todo el backend hace
+// `const config = require('../config')` y espera el objeto directo. Con
+// `export default` recibiría `{ default: config }` y `config.port` sería
+// undefined en runtime, sin que el compilador diga nada.
+export = config;

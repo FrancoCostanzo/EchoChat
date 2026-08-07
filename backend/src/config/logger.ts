@@ -1,5 +1,5 @@
-const pino = require('pino');
-const config = require('../config');
+import pino from 'pino';
+import config from '../config';
 
 const logger = pino({
   level: config.log.level,
@@ -20,4 +20,6 @@ const logger = pino({
   },
 });
 
-module.exports = logger;
+// `export =` por lo mismo que en config/index.ts: el resto del backend hace
+// `const logger = require('../config/logger')` y espera la instancia directa.
+export = logger;

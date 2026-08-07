@@ -1,5 +1,4 @@
-// @ts-check
-const { EventEmitter } = require('events');
+import { EventEmitter } from 'events';
 
 /**
  * Canal interno para que la capa de negocio avise de cosas que hay que empujar
@@ -25,31 +24,30 @@ const bus = new EventEmitter();
 // fuga si alguien registrara de más.
 bus.setMaxListeners(20);
 
-/**
- * @typedef {Object} EventoTiempoReal
- * @property {string | null} room  Sala destino, o null para emitir a todos.
- * @property {string} event        Nombre del evento que recibe el cliente.
- * @property {any} payload
- */
+export interface EventoTiempoReal {
+  /** Sala destino, o null para emitir a todos. */
+  room: string | null;
+  /** Nombre del evento que recibe el cliente. */
+  event: string;
+  payload: unknown;
+}
 
 /** Emite a todos los miembros de una conversación. */
-function toConversation(conversationId, event, payload) {
+export function toConversation(conversationId: string, event: string, payload: unknown): void {
   bus.emit(CANAL, { room: `conv:${conversationId}`, event, payload });
 }
 
 /** Emite a todas las sesiones abiertas de un usuario. */
-function toUser(userId, event, payload) {
+export function toUser(userId: string, event: string, payload: unknown): void {
   bus.emit(CANAL, { room: `user:${userId}`, event, payload });
 }
 
 /** Emite a todos los clientes conectados (de todas las instancias). */
-function toAll(event, payload) {
+export function toAll(event: string, payload: unknown): void {
   bus.emit(CANAL, { room: null, event, payload });
 }
 
-/** Lo usa socket.js para engancharse. @param {(e: EventoTiempoReal) => void} handler */
-function onRealtime(handler) {
+/** Lo usa socket.js para engancharse. */
+export function onRealtime(handler: (e: EventoTiempoReal) => void): void {
   bus.on(CANAL, handler);
 }
-
-module.exports = { toConversation, toUser, toAll, onRealtime };
