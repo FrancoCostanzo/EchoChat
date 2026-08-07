@@ -267,14 +267,18 @@ entrando por nginx como lo haría un navegador:
 
 ## FASE 5 — TypeScript incremental (opcional)
 
-No aporta capacidad de escala: aporta mantenibilidad en un backend de ~11.500
+No aporta capacidad de escala: aporta mantenibilidad en un backend de 12.131
 líneas. Se puede hacer en cualquier momento, después de las fases 1-4.
 
-Estrategia sugerida (sin big-bang): `allowJs: true` + `checkJs` progresivo.
+**Plan detallado: [docs/TYPESCRIPT_MIGRATION.md](TYPESCRIPT_MIGRATION.md)**
+(9 fases, 22-31 días-dev, con las trampas propias de este código).
 
-1. `dtos/` + `models/` + `config/` — superficie chica, tipos que se reutilizan.
-2. `services/` — donde los tipos más rinden.
-3. `repositories/` — al final: mucho SQL, poco tipo real que ganar.
+> El orden que se sugería acá quedó corregido en ese documento. Decía dejar
+> `repositories/` para el final "porque hay poco tipo que ganar"; con los tipos
+> de fila generados desde el schema es al revés, son el cimiento del que
+> dependen las demás capas. Y falta un paso previo que resultó ser bloqueante:
+> romper los 110 `require()` circulares, porque en TypeScript cada uno degrada
+> a `any` justo en la capa de servicios.
 
 ---
 
