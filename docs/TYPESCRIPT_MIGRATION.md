@@ -280,7 +280,40 @@ correr `npm run db:types`.
 Orden de abajo hacia arriba: cada capa se migra cuando sus dependencias ya
 están tipadas, para no tener que inventar tipos provisorios.
 
+### Fase 2.5 — El build, antes del primer `.ts` ✅ (hecha)
+
+**Corrección de orden al plan original.** Este paso figuraba en la fase 7
+("build de producción"), pero hace falta desde el **primer** archivo renombrado:
+en cuanto `errors/index.js` pasa a `.ts`, Node ya no lo puede cargar y la app no
+arranca. El build no es el final de la migración, es su requisito.
+
+| Antes | Después |
+|---|---|
+| `dev`: `nodemon src/server.js` | `tsx watch src/server.js` (carga `.ts` y `.js` mezclados) |
+| `start`: `node src/server.js` | `build`: `tsc` → `start`: `node dist/server.js` |
+| Dockerfile de una etapa, copia `src/` | dos etapas: compila con devDependencies, corre `dist/` con `--omit=dev` |
+
+**Verificado de punta a punta**, que era el objetivo de hacerlo con la capa más
+chica (`errors/`, 2 archivos):
+
+- `dist/` replica la estructura de `src/` y **las rutas `__dirname` resuelven**:
+  arrancando desde `dist/` contra una base vacía, creó las 45 tablas, registró
+  las 14 migraciones y aplicó el seed. Era el riesgo señalado más abajo.
+- `tsx` carga el grafo mixto `.ts`/`.js` en desarrollo.
+- La imagen Docker construye, corre desde `dist/` (no hay `src/` dentro) y
+  responde `/api/health` con base y Redis conectados.
+
+> **Fragilidad pre-existente encontrada al probarlo:** la imagen no trae
+> devDependencies y el logger carga `pino-pretty` cuando el entorno es
+> `development`, que es el valor por defecto si `NODE_ENV` no está definido. Un
+> contenedor lanzado sin `NODE_ENV` crasheaba al arrancar; funcionaba sólo
+> porque compose se lo pasa desde el `.env`. Se agregó `ENV NODE_ENV=production`
+> al Dockerfile como default sobreescribible.
+
 ### Fase 3 — Base: `errors` + `config` + `utils` + `models` (2-3 días · ~2.000 líneas)
+
+`errors/` ✅ — migrada como piloto del pipeline (arriba). Las clases de error
+aparecen en todas las capas, así que era la primera de todos modos.
 
 - `errors/` (60 líneas) primero: las clases de error aparecen en todas las capas.
 - `config/index.js` → `config.ts` con una `interface AppConfig` explícita. Es un

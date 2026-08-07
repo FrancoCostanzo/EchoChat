@@ -1,10 +1,15 @@
 {
-  // Etapa 1 de la migración (ver docs/TYPESCRIPT_MIGRATION.md): sólo chequea,
-  // no compila. El backend sigue corriendo el JavaScript de siempre.
+  // Config de build (ver docs/TYPESCRIPT_MIGRATION.md). Compila src/ a dist/
+  // mezclando .ts y .js: la migración avanza capa por capa y las dos conviven.
   //
   // `checkJs` está apagado a propósito: cada archivo .js se suma al chequeo
   // poniéndole `// @ts-check` arriba, para ir migrando de a poco en vez de
-  // enfrentar miles de errores de golpe.
+  // enfrentar miles de errores de golpe. Para chequear todo: npm run typecheck:all
+  //
+  // IMPORTANTE: rootDir/outDir hacen que dist/ replique la estructura de src/.
+  // Cinco rutas se resuelven con __dirname relativo ('../../docs', '../../.env',
+  // '../../package.json'); si dist/ aplanara la estructura, se romperían en
+  // runtime y no al compilar.
   "compilerOptions": {
     "target": "ES2022",
     // nodenext + package.json sin "type": "module" = CommonJS, que es lo que
@@ -14,7 +19,6 @@
 
     "allowJs": true,
     "checkJs": false,
-    "noEmit": true,
 
     "esModuleInterop": true,
     "resolveJsonModule": true,

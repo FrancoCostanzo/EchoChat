@@ -7,13 +7,14 @@
     "doc": "docs"
   },
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js | pino-pretty",
+    "start": "node dist/server.js",
+    "build": "tsc",
+    "dev": "tsx watch src/server.js | pino-pretty",
     "db:types": "node scripts/generate-db-types.js",
     "typecheck": "tsc --noEmit",
     "typecheck:all": "tsc --noEmit --checkJs",
-    "migrate": "node src/cli/setup.js",
-    "setup": "node src/cli/setup.js",
+    "migrate": "tsx src/cli/setup.js",
+    "setup": "tsx src/cli/setup.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
