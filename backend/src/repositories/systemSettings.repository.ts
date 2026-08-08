@@ -1,18 +1,21 @@
-const BaseRepository = require('./base.repository');
+import BaseRepository from './base.repository';
+import type { Row } from '../types/rows';
 
-class SystemSettingsRepository extends BaseRepository {
+type SettingRow = Row<'system_settings'>;
+
+class SystemSettingsRepository extends BaseRepository<SettingRow> {
   constructor() {
     super('system_settings');
   }
 
-  async findAll() {
+  async findAll(): Promise<SettingRow[]> {
     const { rows } = await this.query(
       `SELECT * FROM system_settings ORDER BY category, key`
     );
     return rows;
   }
 
-  async findByKey(key) {
+  async findByKey(key: string): Promise<SettingRow | null> {
     const { rows } = await this.query(
       `SELECT * FROM system_settings WHERE key = $1`,
       [key]
@@ -20,7 +23,7 @@ class SystemSettingsRepository extends BaseRepository {
     return rows[0] || null;
   }
 
-  async update(key, value, updatedBy) {
+  async update(key: string, value: unknown, updatedBy: string | null): Promise<SettingRow> {
     const { rows } = await this.query(
       `UPDATE system_settings
        SET value = $2::jsonb, updated_by = $3, updated_at = NOW()
@@ -31,4 +34,4 @@ class SystemSettingsRepository extends BaseRepository {
   }
 }
 
-module.exports = new SystemSettingsRepository();
+export = new SystemSettingsRepository();

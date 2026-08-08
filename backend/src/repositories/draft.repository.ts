@@ -1,13 +1,21 @@
-const BaseRepository = require('./base.repository');
-const { encrypt, decrypt } = require('../utils/crypto.util');
+import BaseRepository from './base.repository';
+import { encrypt, decrypt } from '../utils/crypto.util';
+import type { Row } from '../types/rows';
+import type { DraftRequest } from '../dtos/message.dto';
+
+type DraftRow = Row<'drafts'>;
 
 // Per-user, per-conversation message drafts (table: drafts).
-class DraftRepository extends BaseRepository {
+class DraftRepository extends BaseRepository<DraftRow> {
   constructor() {
     super('drafts');
   }
 
-  async upsert(userId, conversationId, { body, reply_to_id, pending_attachments }) {
+  async upsert(
+    userId: string,
+    conversationId: string,
+    { body, reply_to_id, pending_attachments }: DraftRequest,
+  ): Promise<DraftRow> {
     const { rows } = await this.query(
       `INSERT INTO drafts (user_id, conversation_id, body, reply_to_id, pending_attachments, updated_at)
        VALUES ($1, $2, $3, $4, $5, NOW())
@@ -17,15 +25,16 @@ class DraftRepository extends BaseRepository {
       [userId, conversationId, encrypt(body || null), reply_to_id || null,
        JSON.stringify(pending_attachments || [])]
     );
-    return this._decrypt(rows[0]);
+    return this._decrypt(rows[0])!;
   }
 
-  _decrypt(row) {
+  /** El cuerpo se guarda cifrado; se descifra al leer (ver utils/crypto.util). */
+  _decrypt(row: DraftRow | undefined): DraftRow | undefined {
     if (row) row.body = decrypt(row.body);
     return row;
   }
 
-  async get(userId, conversationId) {
+  async get(userId: string, conversationId: string): Promise<DraftRow | null> {
     const { rows } = await this.query(
       `SELECT * FROM drafts WHERE user_id = $1 AND conversation_id = $2`,
       [userId, conversationId]
@@ -33,15 +42,15 @@ class DraftRepository extends BaseRepository {
     return this._decrypt(rows[0]) || null;
   }
 
-  async remove(userId, conversationId) {
+  async remove(userId: string, conversationId: string): Promise<boolean> {
     const { rowCount } = await this.query(
       `DELETE FROM drafts WHERE user_id = $1 AND conversation_id = $2`,
       [userId, conversationId]
     );
-    return rowCount > 0;
+    return (rowCount ?? 0) > 0;
   }
 
-  async listByUser(userId) {
+  async listByUser(userId: string): Promise<DraftRow[]> {
     const { rows } = await this.query(
       `SELECT * FROM drafts WHERE user_id = $1 ORDER BY updated_at DESC`,
       [userId]
@@ -51,4 +60,4 @@ class DraftRepository extends BaseRepository {
   }
 }
 
-module.exports = new DraftRepository();
+export = new DraftRepository();

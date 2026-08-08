@@ -1,11 +1,30 @@
-const BaseRepository = require('./base.repository');
+import BaseRepository from './base.repository';
+import type { Row } from '../types/rows';
+import type { CallHistoryRow } from '../models/call.model';
+import type { UpdateParticipantRequest } from '../dtos/call.dto';
 
-class CallRepository extends BaseRepository {
+type CallRow = Row<'calls'>;
+type ParticipantRow = Row<'call_participants'>;
+
+/** Participante con los datos del usuario que trae el JOIN. */
+export type ParticipantWithUser = ParticipantRow & {
+  username: string;
+  display_name: string;
+  avatar_object_key: string | null;
+};
+
+class CallRepository extends BaseRepository<CallRow> {
   constructor() {
     super('calls');
   }
 
-  async create({ conversation_id, type, initiated_by }) {
+  async create(
+    { conversation_id, type, initiated_by }: {
+      conversation_id?: string | null;
+      type: string;
+      initiated_by: string;
+    },
+  ): Promise<CallRow> {
     const { rows } = await this.query(
       `INSERT INTO calls (conversation_id, type, initiated_by)
        VALUES ($1, $2, $3) RETURNING *`,
@@ -14,9 +33,9 @@ class CallRepository extends BaseRepository {
     return rows[0];
   }
 
-  async updateStatus(id, status, endReason = null) {
-    const extras = [];
-    const params = [status, id];
+  async updateStatus(id: string, status: string, endReason: string | null = null): Promise<CallRow> {
+    const extras: string[] = [];
+    const params: any[] = [status, id];
 
     if (status === 'active') {
       extras.push('answered_at = NOW()');
@@ -35,8 +54,8 @@ class CallRepository extends BaseRepository {
     return rows[0];
   }
 
-  async addParticipant(callId, userId) {
-    const { rows } = await this.query(
+  async addParticipant(callId: string, userId: string): Promise<ParticipantRow | undefined> {
+    const { rows } = await this.query<ParticipantRow>(
       `INSERT INTO call_participants (call_id, user_id)
        VALUES ($1, $2)
        ON CONFLICT (call_id, user_id) DO NOTHING
@@ -46,10 +65,14 @@ class CallRepository extends BaseRepository {
     return rows[0];
   }
 
-  async updateParticipant(callId, userId, fields) {
-    const allowed = ['status', 'can_speak', 'can_video', 'can_share_screen', 'is_muted_by_host'];
-    const sets = [];
-    const values = [];
+  async updateParticipant(
+    callId: string,
+    userId: string,
+    fields: UpdateParticipantRequest,
+  ): Promise<ParticipantRow | null | undefined> {
+    const allowed = ['status', 'can_speak', 'can_video', 'can_share_screen', 'is_muted_by_host'] as const;
+    const sets: string[] = [];
+    const values: any[] = [];
     let idx = 1;
 
     for (const key of allowed) {
@@ -62,12 +85,12 @@ class CallRepository extends BaseRepository {
 
     // Update timestamp columns based on status
     if (fields.status === 'joined') sets.push('joined_at = NOW()');
-    if (['left', 'rejected', 'no_answer', 'busy'].includes(fields.status)) sets.push('left_at = NOW()');
+    if (['left', 'rejected', 'no_answer', 'busy'].includes(fields.status as string)) sets.push('left_at = NOW()');
 
     if (sets.length === 0) return null;
 
     values.push(callId, userId);
-    const { rows } = await this.query(
+    const { rows } = await this.query<ParticipantRow>(
       `UPDATE call_participants SET ${sets.join(', ')}
        WHERE call_id = $${idx} AND user_id = $${idx + 1}
        RETURNING *`,
@@ -76,8 +99,8 @@ class CallRepository extends BaseRepository {
     return rows[0];
   }
 
-  async getParticipants(callId) {
-    const { rows } = await this.query(
+  async getParticipants(callId: string): Promise<ParticipantWithUser[]> {
+    const { rows } = await this.query<ParticipantWithUser>(
       `SELECT cp.*, u.username, u.display_name, u.avatar_object_key
        FROM call_participants cp
        JOIN users u ON u.id = cp.user_id
@@ -88,7 +111,10 @@ class CallRepository extends BaseRepository {
     return rows;
   }
 
-  async findByConversation(conversationId, { limit = 20, offset = 0 } = {}) {
+  async findByConversation(
+    conversationId: string,
+    { limit = 20, offset = 0 }: { limit?: number; offset?: number } = {},
+  ): Promise<CallRow[]> {
     const { rows } = await this.query(
       `SELECT * FROM calls
        WHERE conversation_id = $1
@@ -101,11 +127,14 @@ class CallRepository extends BaseRepository {
 
   // Historial global de un usuario: todas las llamadas en las que participó,
   // a través de cualquier conversación, con el nombre a mostrar resuelto.
-  async findByUser(userId, { limit = 50, offset = 0, filter } = {}) {
+  async findByUser(
+    userId: string,
+    { limit = 50, offset = 0, filter }: { limit?: number; offset?: number; filter?: string } = {},
+  ): Promise<CallHistoryRow[]> {
     const statusFilter = filter === 'missed'
       ? `AND c.status IN ('missed','rejected','failed')`
       : '';
-    const { rows } = await this.query(
+    const { rows } = await this.query<CallHistoryRow>(
       `SELECT c.*,
               conv.type AS conversation_type,
               conv.name AS conversation_name,
@@ -129,7 +158,7 @@ class CallRepository extends BaseRepository {
     return rows;
   }
 
-  async findActiveByUser(userId) {
+  async findActiveByUser(userId: string): Promise<CallRow[]> {
     const { rows } = await this.query(
       `SELECT c.* FROM calls c
        JOIN call_participants cp ON cp.call_id = c.id
@@ -141,4 +170,4 @@ class CallRepository extends BaseRepository {
   }
 }
 
-module.exports = new CallRepository();
+export = new CallRepository();

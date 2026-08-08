@@ -1,11 +1,30 @@
-const BaseRepository = require('./base.repository');
+import BaseRepository from './base.repository';
+import type { Row } from '../types/rows';
 
-class SessionRepository extends BaseRepository {
+type SessionRow = Row<'user_sessions'>;
+
+/** Proyección que se le muestra al usuario: nunca incluye el token_hash. */
+export type SessionSummary = Pick<
+  SessionRow,
+  'id' | 'device_name' | 'device_type' | 'ip_address' | 'user_agent' | 'last_activity' | 'created_at'
+>;
+
+class SessionRepository extends BaseRepository<SessionRow> {
   constructor() {
     super('user_sessions');
   }
 
-  async create({ userId, tokenHash, deviceName, deviceType, ipAddress, userAgent, expiresAt }) {
+  async create(
+    { userId, tokenHash, deviceName, deviceType, ipAddress, userAgent, expiresAt }: {
+      userId: string;
+      tokenHash: string;
+      deviceName?: string | null;
+      deviceType?: string | null;
+      ipAddress?: string | null;
+      userAgent?: string | null;
+      expiresAt: Date;
+    },
+  ): Promise<SessionRow> {
     const { rows } = await this.query(
       `INSERT INTO user_sessions (user_id, token_hash, device_name, device_type, ip_address, user_agent, expires_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
@@ -14,7 +33,7 @@ class SessionRepository extends BaseRepository {
     return rows[0];
   }
 
-  async findActiveByTokenHash(tokenHash) {
+  async findActiveByTokenHash(tokenHash: string): Promise<SessionRow | null> {
     const { rows } = await this.query(
       `SELECT * FROM user_sessions
        WHERE token_hash = $1 AND is_active = TRUE AND expires_at > NOW()`,
@@ -23,8 +42,8 @@ class SessionRepository extends BaseRepository {
     return rows[0] || null;
   }
 
-  async findActiveByUser(userId) {
-    const { rows } = await this.query(
+  async findActiveByUser(userId: string): Promise<SessionSummary[]> {
+    const { rows } = await this.query<SessionSummary>(
       `SELECT id, device_name, device_type, ip_address, user_agent, last_activity, created_at
        FROM user_sessions
        WHERE user_id = $1 AND is_active = TRUE AND expires_at > NOW()
@@ -34,14 +53,14 @@ class SessionRepository extends BaseRepository {
     return rows;
   }
 
-  async deactivate(id) {
+  async deactivate(id: string): Promise<void> {
     await this.query(
       'UPDATE user_sessions SET is_active = FALSE WHERE id = $1',
       [id]
     );
   }
 
-  async deactivateAllForUser(userId, exceptId = null) {
+  async deactivateAllForUser(userId: string, exceptId: string | null = null): Promise<void> {
     if (exceptId) {
       await this.query(
         'UPDATE user_sessions SET is_active = FALSE WHERE user_id = $1 AND id != $2',
@@ -55,7 +74,7 @@ class SessionRepository extends BaseRepository {
     }
   }
 
-  async updateActivity(id) {
+  async updateActivity(id: string): Promise<void> {
     await this.query(
       'UPDATE user_sessions SET last_activity = NOW() WHERE id = $1',
       [id]
@@ -63,4 +82,4 @@ class SessionRepository extends BaseRepository {
   }
 }
 
-module.exports = new SessionRepository();
+export = new SessionRepository();

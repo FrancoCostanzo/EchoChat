@@ -1,11 +1,27 @@
-const BaseRepository = require('./base.repository');
+import BaseRepository from './base.repository';
+import type { Row } from '../types/rows';
+import type { NotificationPrefsRequest } from '../dtos/notification.dto';
 
-class NotificationRepository extends BaseRepository {
+type NotificationRow = Row<'notifications'>;
+type PreferenceRow = Row<'notification_preferences'>;
+
+class NotificationRepository extends BaseRepository<NotificationRow> {
   constructor() {
     super('notifications');
   }
 
-  async create({ recipient_id, type, title, body, reference_type, reference_id, reference_data, channel }) {
+  async create(
+    { recipient_id, type, title, body, reference_type, reference_id, reference_data, channel }: {
+      recipient_id: string;
+      type: string;
+      title?: string | null;
+      body?: string | null;
+      reference_type?: string | null;
+      reference_id?: string | null;
+      reference_data?: unknown;
+      channel?: string | null;
+    },
+  ): Promise<NotificationRow> {
     const { rows } = await this.query(
       `INSERT INTO notifications (recipient_id, type, title, body, reference_type, reference_id, reference_data, channel)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -16,7 +32,14 @@ class NotificationRepository extends BaseRepository {
     return rows[0];
   }
 
-  async findByUser(userId, { limit = 30, offset = 0, unreadOnly = false } = {}) {
+  async findByUser(
+    userId: string,
+    { limit = 30, offset = 0, unreadOnly = false }: {
+      limit?: number;
+      offset?: number;
+      unreadOnly?: boolean;
+    } = {},
+  ): Promise<NotificationRow[]> {
     const condition = unreadOnly ? 'AND is_read = FALSE' : '';
     const { rows } = await this.query(
       `SELECT * FROM notifications
@@ -28,7 +51,7 @@ class NotificationRepository extends BaseRepository {
     return rows;
   }
 
-  async markAsRead(id, userId) {
+  async markAsRead(id: string, userId: string): Promise<NotificationRow> {
     const { rows } = await this.query(
       `UPDATE notifications SET is_read = TRUE, read_at = NOW()
        WHERE id = $1 AND recipient_id = $2 RETURNING *`,
@@ -37,7 +60,7 @@ class NotificationRepository extends BaseRepository {
     return rows[0];
   }
 
-  async markAllAsRead(userId) {
+  async markAllAsRead(userId: string): Promise<number | null> {
     const { rowCount } = await this.query(
       `UPDATE notifications SET is_read = TRUE, read_at = NOW()
        WHERE recipient_id = $1 AND is_read = FALSE`,
@@ -46,24 +69,24 @@ class NotificationRepository extends BaseRepository {
     return rowCount;
   }
 
-  async getUnreadCount(userId) {
-    const { rows } = await this.query(
+  async getUnreadCount(userId: string): Promise<number> {
+    const { rows } = await this.query<{ count: string }>(
       `SELECT COUNT(*) AS count FROM notifications WHERE recipient_id = $1 AND is_read = FALSE`,
       [userId]
     );
     return parseInt(rows[0].count, 10);
   }
 
-  async getPreferences(userId) {
-    const { rows } = await this.query(
+  async getPreferences(userId: string): Promise<PreferenceRow[]> {
+    const { rows } = await this.query<PreferenceRow>(
       `SELECT * FROM notification_preferences WHERE user_id = $1`,
       [userId]
     );
     return rows;
   }
 
-  async upsertPreference(userId, prefs) {
-    const { rows } = await this.query(
+  async upsertPreference(userId: string, prefs: NotificationPrefsRequest): Promise<PreferenceRow> {
+    const { rows } = await this.query<PreferenceRow>(
       `INSERT INTO notification_preferences (user_id, event_type, in_app_enabled, push_enabled, email_enabled, quiet_hours_start, quiet_hours_end)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (user_id, event_type) DO UPDATE
@@ -80,4 +103,4 @@ class NotificationRepository extends BaseRepository {
   }
 }
 
-module.exports = new NotificationRepository();
+export = new NotificationRepository();

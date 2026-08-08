@@ -1,15 +1,43 @@
-const { pool } = require('../config/database');
+import { pool } from '../config/database';
+import type { Row } from '../types/rows';
 
-const RANGE_INTERVALS = {
+const RANGE_INTERVALS: Record<string, string> = {
   '1h': '1 hour',
   '6h': '6 hours',
   '24h': '24 hours',
   '7d': '7 days',
 };
 
+/** Fila de una instantánea, tal como la escribe el job de monitoreo. */
+export interface SnapshotInput {
+  host: string;
+  procesoInicio: Date;
+  heapPct: number;
+  memSistemaPct: number;
+  cpuProcesoPct: number;
+  latenciaDbMs: number | null;
+  poolOcupadas: number;
+  poolMax: number;
+  qps: number;
+  requestsPorMin: number;
+  errorRatePct: number;
+}
+
+export interface ConnectionDetail {
+  session_id: number;
+  program_name: string;
+  host_name: string;
+  status: string | null;
+  database_name: string | null;
+}
+
+/**
+ * No hereda de BaseRepository: consulta vistas del sistema (`pg_stat_activity`)
+ * y la tabla de instantáneas, no una tabla propia con id.
+ */
 class MonitoringRepository {
   async getConnectionCount() {
-    const { rows } = await pool.query(`
+    const { rows } = await pool.query<{ active_connections: number; total_connections: number }>(`
       SELECT
         COUNT(*) FILTER (WHERE state = 'active')::int AS active_connections,
         COUNT(*)::int AS total_connections
@@ -18,7 +46,7 @@ class MonitoringRepository {
         AND pid <> pg_backend_pid()
     `);
 
-    const { rows: details } = await pool.query(`
+    const { rows: details } = await pool.query<ConnectionDetail>(`
       SELECT
         pid AS session_id,
         COALESCE(application_name, '') AS program_name,
@@ -39,15 +67,19 @@ class MonitoringRepository {
     };
   }
 
-  async getDatabaseSize() {
-    const { rows } = await pool.query(`
+  async getDatabaseSize(): Promise<{ size_mb: number }> {
+    const { rows } = await pool.query<{ size_mb: string }>(`
       SELECT ROUND(pg_database_size(current_database()) / 1024.0 / 1024.0, 2) AS size_mb
     `);
-    return { size_mb: parseFloat(rows[0]?.size_mb ?? 0) };
+    return { size_mb: parseFloat(rows[0]?.size_mb ?? '0') };
   }
 
   async getWaitStats() {
-    const { rows } = await pool.query(`
+    const { rows } = await pool.query<{
+      wait_type: string;
+      waiting_tasks_count: number;
+      wait_time_ms: string;
+    }>(`
       SELECT
         wait_event_type AS wait_type,
         COUNT(*)::int AS waiting_tasks_count,
@@ -64,7 +96,7 @@ class MonitoringRepository {
   }
 
   async getCurrentWaits() {
-    const { rows } = await pool.query(`
+    const { rows } = await pool.query<{ session_id: number; wait_type: string; wait_time: number }>(`
       SELECT
         pid AS session_id,
         wait_event_type AS wait_type,
@@ -80,8 +112,8 @@ class MonitoringRepository {
     return rows;
   }
 
-  async insertSnapshot(snapshot) {
-    const { rows } = await pool.query(`
+  async insertSnapshot(snapshot: SnapshotInput) {
+    const { rows } = await pool.query<{ id: string; fecha_registro: Date }>(`
       INSERT INTO monitoring_snapshots (
         host, proceso_inicio, heap_pct, mem_sistema_pct, cpu_proceso_pct,
         latencia_db_ms, pool_ocupadas, pool_max, qps, requests_por_min, error_rate_pct
@@ -103,9 +135,9 @@ class MonitoringRepository {
     return rows[0];
   }
 
-  async getSnapshotHistory(range = '24h') {
+  async getSnapshotHistory(range = '24h'): Promise<Row<'monitoring_snapshots'>[]> {
     const interval = RANGE_INTERVALS[range] || RANGE_INTERVALS['24h'];
-    const { rows } = await pool.query(`
+    const { rows } = await pool.query<Row<'monitoring_snapshots'>>(`
       SELECT
         id,
         host,
@@ -127,7 +159,7 @@ class MonitoringRepository {
     return rows;
   }
 
-  async purgeOldSnapshots(retentionDays) {
+  async purgeOldSnapshots(retentionDays: number): Promise<{ deleted: number | null }> {
     const { rowCount } = await pool.query(`
       DELETE FROM monitoring_snapshots
       WHERE fecha_registro < NOW() - ($1 || ' days')::interval
@@ -136,4 +168,4 @@ class MonitoringRepository {
   }
 }
 
-module.exports = new MonitoringRepository();
+export = new MonitoringRepository();

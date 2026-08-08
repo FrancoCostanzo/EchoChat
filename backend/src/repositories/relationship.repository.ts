@@ -1,11 +1,31 @@
-const BaseRepository = require('./base.repository');
+import BaseRepository from './base.repository';
+import type { Row } from '../types/rows';
 
-class RelationshipRepository extends BaseRepository {
+type RelationshipRow = Row<'user_relationships'>;
+
+/** Relación con los datos del usuario destino que trae el JOIN. */
+export type RelationshipWithUser = RelationshipRow & {
+  username: string;
+  display_name: string;
+  department: string | null;
+  avatar_bucket: string | null;
+  avatar_object_key: string | null;
+  presence: string | null;
+};
+
+class RelationshipRepository extends BaseRepository<RelationshipRow> {
   constructor() {
     super('user_relationships');
   }
 
-  async create({ user_id, target_user_id, type, alias }) {
+  async create(
+    { user_id, target_user_id, type, alias }: {
+      user_id: string;
+      target_user_id: string;
+      type: string;
+      alias?: string | null;
+    },
+  ): Promise<RelationshipRow> {
     const { rows } = await this.query(
       `INSERT INTO user_relationships (user_id, target_user_id, type, alias)
        VALUES ($1, $2, $3, $4)
@@ -16,31 +36,31 @@ class RelationshipRepository extends BaseRepository {
     return rows[0];
   }
 
-  async remove(userId, targetUserId, type) {
+  async remove(userId: string, targetUserId: string, type: string): Promise<boolean> {
     const { rowCount } = await this.query(
       `DELETE FROM user_relationships WHERE user_id = $1 AND target_user_id = $2 AND type = $3`,
       [userId, targetUserId, type]
     );
-    return rowCount > 0;
+    return (rowCount ?? 0) > 0;
   }
 
-  async findByUser(userId, type = null) {
+  async findByUser(userId: string, type: string | null = null): Promise<RelationshipWithUser[]> {
     let sql = `SELECT ur.*, u.username, u.display_name, u.department,
                       u.avatar_bucket, u.avatar_object_key, u.presence
                FROM user_relationships ur
                JOIN users u ON u.id = ur.target_user_id
                WHERE ur.user_id = $1`;
-    const params = [userId];
+    const params: string[] = [userId];
     if (type) {
       sql += ` AND ur.type = $2`;
       params.push(type);
     }
     sql += ' ORDER BY u.display_name';
-    const { rows } = await this.query(sql, params);
+    const { rows } = await this.query<RelationshipWithUser>(sql, params);
     return rows;
   }
 
-  async isBlocked(userId, targetUserId) {
+  async isBlocked(userId: string, targetUserId: string): Promise<boolean> {
     const { rows } = await this.query(
       `SELECT 1 FROM user_relationships
        WHERE user_id = $1 AND target_user_id = $2 AND type = 'blocked'`,
@@ -50,4 +70,4 @@ class RelationshipRepository extends BaseRepository {
   }
 }
 
-module.exports = new RelationshipRepository();
+export = new RelationshipRepository();

@@ -1,13 +1,17 @@
-const BaseRepository = require('./base.repository');
-const { encrypt, decrypt } = require('../utils/crypto.util');
+import BaseRepository from './base.repository';
+import { encrypt, decrypt } from '../utils/crypto.util';
+import type { Row } from '../types/rows';
+import type { SavedMessageRow } from '../models/message.model';
+
+type SavedRow = Row<'saved_messages'>;
 
 // User-scoped saved/bookmarked messages (table: saved_messages).
-class SavedMessageRepository extends BaseRepository {
+class SavedMessageRepository extends BaseRepository<SavedRow> {
   constructor() {
     super('saved_messages');
   }
 
-  async save(userId, messageId, note) {
+  async save(userId: string, messageId: string, note?: string | null): Promise<SavedRow> {
     const { rows } = await this.query(
       `INSERT INTO saved_messages (user_id, message_id, note)
        VALUES ($1, $2, $3)
@@ -19,16 +23,19 @@ class SavedMessageRepository extends BaseRepository {
     return rows[0];
   }
 
-  async unsave(userId, messageId) {
+  async unsave(userId: string, messageId: string): Promise<boolean> {
     const { rowCount } = await this.query(
       `DELETE FROM saved_messages WHERE user_id = $1 AND message_id = $2`,
       [userId, messageId]
     );
-    return rowCount > 0;
+    return (rowCount ?? 0) > 0;
   }
 
-  async list(userId, { limit = 50, offset = 0 } = {}) {
-    const { rows } = await this.query(
+  async list(
+    userId: string,
+    { limit = 50, offset = 0 }: { limit?: number; offset?: number } = {},
+  ): Promise<SavedMessageRow[]> {
+    const { rows } = await this.query<SavedMessageRow>(
       `SELECT m.*,
               sm.note AS saved_note,
               sm.saved_at,
@@ -55,4 +62,4 @@ class SavedMessageRepository extends BaseRepository {
   }
 }
 
-module.exports = new SavedMessageRepository();
+export = new SavedMessageRepository();
