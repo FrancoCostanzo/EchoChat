@@ -477,6 +477,18 @@ export interface UserCredentials {
   must_change_pw: Generated<boolean | null>;
   password_hash: string;
   pw_changed_at: Generated<Timestamp | null>;
+  /**
+   * Hashes de los códigos de respaldo sin usar.
+   */
+  totp_backup_codes: Generated<string[]>;
+  /**
+   * TRUE sólo después de que el usuario confirmó un código válido.
+   */
+  totp_enabled: Generated<boolean>;
+  /**
+   * Secreto TOTP en base32. NULL si el usuario no tiene 2FA.
+   */
+  totp_secret: string | null;
   updated_at: Generated<Timestamp | null>;
   user_id: string;
 }

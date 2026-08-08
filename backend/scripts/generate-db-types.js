@@ -74,7 +74,9 @@ try {
   console.log(' listo.');
 
   console.log('Aplicando schema y migraciones...');
-  run('node', [path.join(__dirname, '..', 'src', 'cli', 'setup.js')], {
+  // Vía tsx y no node: el grafo de módulos ya incluye archivos .ts, que Node no
+  // puede cargar directamente.
+  run('npx', ['tsx', path.join(__dirname, '..', 'src', 'cli', 'setup.js')], {
     stdio: 'ignore',
     env: {
       ...process.env,
