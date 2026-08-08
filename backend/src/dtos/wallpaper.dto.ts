@@ -1,8 +1,21 @@
-const Joi = require('joi');
+import Joi from 'joi';
 
 const CONV_TYPES = ['direct', 'group', 'channel', 'broadcast', 'bot'];
 
-const upsertWallpaperDto = Joi.object({
+export interface UpsertWallpaperRequest {
+  scope: 'global' | 'type' | 'conversation';
+  /**
+   * Depende de `scope`: la palabra 'global', un tipo de conversación, o el id
+   * de una conversación.
+   */
+  scope_key: string;
+  wallpaper_type: 'preset' | 'color' | 'image';
+  wallpaper_value?: string | null;
+  /** Obligatorio cuando `wallpaper_type` es 'image'. */
+  storage_object_id?: string | null;
+}
+
+export const upsertWallpaperDto = Joi.object<UpsertWallpaperRequest>({
   scope: Joi.string().valid('global', 'type', 'conversation').required(),
   scope_key: Joi.when('scope', {
     switch: [
@@ -25,5 +38,3 @@ const upsertWallpaperDto = Joi.object({
     otherwise: Joi.string().uuid().allow(null).optional(),
   }),
 });
-
-module.exports = { upsertWallpaperDto };

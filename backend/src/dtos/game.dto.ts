@@ -1,6 +1,13 @@
-const Joi = require('joi');
+import Joi from 'joi';
 
-const createGameDto = Joi.object({
+export interface CreateGameRequest {
+  conversation_id: string;
+  kind: 'tictactoe' | 'rps' | 'hangman';
+  /** Sólo para hangman: la palabra secreta que elige quien invita. */
+  word?: string;
+}
+
+export const createGameDto = Joi.object<CreateGameRequest>({
   conversation_id: Joi.string().uuid().required(),
   kind: Joi.string().valid('tictactoe', 'rps', 'hangman').required(),
   // The inviter picks the secret word for hangman — never sent to the guesser.
@@ -11,13 +18,15 @@ const createGameDto = Joi.object({
   }),
 });
 
-const gameMoveDto = Joi.object({
+/** Una jugada trae exactamente uno de los tres campos, según el juego. */
+export interface GameMoveRequest {
+  cell?: number;
+  choice?: 'rock' | 'paper' | 'scissors';
+  letter?: string;
+}
+
+export const gameMoveDto = Joi.object<GameMoveRequest>({
   cell: Joi.number().integer().min(0).max(8),
   choice: Joi.string().valid('rock', 'paper', 'scissors'),
   letter: Joi.string().length(1),
 }).or('cell', 'choice', 'letter');
-
-module.exports = {
-  createGameDto,
-  gameMoveDto,
-};
