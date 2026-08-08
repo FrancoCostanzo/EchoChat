@@ -1,6 +1,6 @@
 /** Umbrales para evaluación de salud del sistema (healthy / degraded / unhealthy). */
 
-const monitoringThresholds = {
+export const monitoringThresholds = {
   heapDegradedPct: 75,
   heapUnhealthyPct: 90,
   sysMemDegradedPct: 85,
@@ -12,5 +12,3 @@ const monitoringThresholds = {
   poolSaturationPct: 80,
   snapshotRetentionDays: 30,
 };
-
-module.exports = { monitoringThresholds };

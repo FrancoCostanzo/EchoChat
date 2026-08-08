@@ -1,26 +1,43 @@
 /** In-memory tracker of background cron job execution results. */
 
-const config = require('../config');
+import config from '../config';
 
-const jobRuns = new Map();
+export interface JobRun {
+  descripcion: string;
+  ultimaEjecucion: string;
+  resultado: string;
+  origen: string;
+  /**
+   * Con varias instancias cada corrida la ejecuta una sola: saber cuál ayuda a
+   * leer el panel, porque este Map sigue siendo local a cada proceso.
+   */
+  instancia: string;
+}
 
-function recordJobRun(name, { descripcion, resultado = 'success', origen = 'automatica' } = {}) {
+const jobRuns = new Map<string, JobRun>();
+
+export function recordJobRun(
+  name: string,
+  { descripcion, resultado = 'success', origen = 'automatica' }: {
+    descripcion?: string;
+    resultado?: string;
+    origen?: string;
+  } = {},
+): void {
   jobRuns.set(name, {
     descripcion: descripcion || name,
     ultimaEjecucion: new Date().toISOString(),
     resultado,
     origen,
-    // Con varias instancias cada corrida la ejecuta una sola: saber cuál ayuda
-    // a leer el panel, porque este Map sigue siendo local a cada proceso.
     instancia: config.instanceId,
   });
 }
 
-function getJobRuns() {
+export function getJobRuns(): Record<string, JobRun> {
   return Object.fromEntries(jobRuns);
 }
 
-function getCronWorkerStatus() {
+export function getCronWorkerStatus() {
   const enabled = config.env === 'production';
   return {
     enabled,
@@ -32,9 +49,3 @@ function getCronWorkerStatus() {
       : 'RUN_JOBS=false: esta instancia no ejecuta jobs, sólo atiende tráfico.',
   };
 }
-
-module.exports = {
-  recordJobRun,
-  getJobRuns,
-  getCronWorkerStatus,
-};

@@ -1,5 +1,5 @@
-const crypto = require('crypto');
-const config = require('../config');
+import crypto from 'crypto';
+import config from '../config';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Cifrado de contenido en reposo (AES-256-GCM) + índice ciego de búsqueda (HMAC).
@@ -19,7 +19,7 @@ const config = require('../config');
 
 const PREFIX = 'enc';
 
-function loadMasterKey() {
+function loadMasterKey(): Buffer {
   const raw = config.messageEnc.key;
   if (!raw) {
     throw new Error(
@@ -35,7 +35,7 @@ function loadMasterKey() {
 }
 
 const MASTER_KEY = loadMasterKey();
-const KEY_ID = config.messageEnc.keyId;
+export const KEY_ID = config.messageEnc.keyId;
 
 // Derivamos dos subclaves del maestro (separación de dominios):
 //  - encKey:    cifrado AES-256-GCM del contenido.
@@ -44,7 +44,7 @@ const ENC_KEY = Buffer.from(crypto.hkdfSync('sha256', MASTER_KEY, Buffer.alloc(0
 const SEARCH_KEY = Buffer.from(crypto.hkdfSync('sha256', MASTER_KEY, Buffer.alloc(0), 'echochat:message-search', 32));
 
 /** Cifra un string. Devuelve null si la entrada es null/undefined. */
-function encrypt(plaintext) {
+export function encrypt(plaintext: string | null | undefined): string | null {
   if (plaintext == null) return null;
   const iv = crypto.randomBytes(12); // nonce de 96 bits, recomendado para GCM
   const cipher = crypto.createCipheriv('aes-256-gcm', ENC_KEY, iv);
@@ -54,7 +54,7 @@ function encrypt(plaintext) {
 }
 
 /** Descifra un token. Passthrough si es null o texto plano heredado (sin prefijo). */
-function decrypt(token) {
+export function decrypt(token: string | null | undefined): string | null {
   if (token == null) return null;
   if (typeof token !== 'string' || !token.startsWith(`${PREFIX}:`)) return token;
   const parts = token.split(':');
@@ -73,14 +73,14 @@ function decrypt(token) {
 
 // Normaliza texto a tokens comparables: minúsculas, sin acentos, solo
 // alfanumérico, longitud mínima 2. Es el mismo criterio al indexar y al buscar.
-function tokenize(text) {
+function tokenize(text: unknown): string[] {
   if (!text) return [];
   const normalized = String(text)
     .normalize('NFD')
     .replace(/\p{Diacritic}/gu, '') // quita diacríticos
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, ' ');
-  const seen = new Set();
+  const seen = new Set<string>();
   for (const word of normalized.split(' ')) {
     if (word.length >= 2) seen.add(word);
   }
@@ -88,18 +88,16 @@ function tokenize(text) {
 }
 
 /** HMAC-SHA256 determinista de un token normalizado (hex). */
-function hashToken(word) {
+function hashToken(word: string): string {
   return crypto.createHmac('sha256', SEARCH_KEY).update(word).digest('hex');
 }
 
 /** Tokens HMAC para indexar un texto (índice ciego). Deduplicados. */
-function searchTokens(text) {
+export function searchTokens(text: unknown): string[] {
   return tokenize(text).map(hashToken);
 }
 
 /** Tokens HMAC de una consulta de búsqueda. Igual que searchTokens. */
-function searchQueryTokens(term) {
+export function searchQueryTokens(term: unknown): string[] {
   return tokenize(term).map(hashToken);
 }
-
-module.exports = { encrypt, decrypt, searchTokens, searchQueryTokens, KEY_ID };

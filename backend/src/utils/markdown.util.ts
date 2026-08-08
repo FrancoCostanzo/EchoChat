@@ -8,14 +8,14 @@ const MARKDOWN_PATTERNS = [
   /(?:^|\s)\*[^*\n]+\*(?:\s|$)/m,
 ];
 
-function hasMarkdownSyntax(text) {
+export type BodyFormat = 'plain' | 'markdown';
+
+export function hasMarkdownSyntax(text: unknown): boolean {
   if (!text || typeof text !== 'string') return false;
   return MARKDOWN_PATTERNS.some((pattern) => pattern.test(text));
 }
 
-function resolveBodyFormat(body, explicitFormat) {
+export function resolveBodyFormat(body: unknown, explicitFormat?: string | null): string {
   if (explicitFormat && explicitFormat !== 'plain') return explicitFormat;
   return hasMarkdownSyntax(body) ? 'markdown' : 'plain';
 }
-
-module.exports = { hasMarkdownSyntax, resolveBodyFormat };

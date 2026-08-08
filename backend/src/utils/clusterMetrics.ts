@@ -12,16 +12,24 @@
  * son del momento en que se consulta.
  */
 
-const config = require('../config');
-const logger = require('../config/logger');
-const metricsRegistry = require('./metricsRegistry');
-const { getJobRuns } = require('./cronJobStatus');
+import type { Server } from 'socket.io';
+import config from '../config';
+import logger from '../config/logger';
+import * as metricsRegistry from './metricsRegistry';
+import type { Error5xx, MetricsSnapshot } from './metricsRegistry';
+import { getJobRuns, type JobRun } from './cronJobStatus';
 
 const EVENT = 'metrics:collect';
 const ACK_TIMEOUT_MS = 1500;
 
+interface Snapshot {
+  instancia: string;
+  http: MetricsSnapshot;
+  cronJobs: Record<string, JobRun>;
+}
+
 /** Lo que esta instancia aporta al total. */
-function localSnapshot() {
+export function localSnapshot(): Snapshot {
   return {
     instancia: config.instanceId,
     http: metricsRegistry.getSnapshot(),
@@ -29,20 +37,20 @@ function localSnapshot() {
   };
 }
 
-// socket.js nos pasa el servidor al inicializar; antes lo buscábamos con un
+// socket.ts nos pasa el servidor al inicializar; antes lo buscábamos con un
 // require perezoso de '../socket', que cerraba un ciclo.
-let servidor = null;
+let servidor: Server | null = null;
 
 /** Responde a las consultas de métricas que llegan de otras instancias. */
-function registerCollector(io) {
+export function registerCollector(io: Server): void {
   servidor = io;
-  io.on(EVENT, (respond) => {
+  io.on(EVENT, (respond: unknown) => {
     if (typeof respond === 'function') respond(localSnapshot());
   });
 }
 
-function mergeCronJobs(snapshots) {
-  const merged = {};
+export function mergeCronJobs(snapshots: Snapshot[]): Record<string, JobRun> {
+  const merged: Record<string, JobRun> = {};
   for (const snap of snapshots) {
     for (const [name, run] of Object.entries(snap.cronJobs || {})) {
       // Si dos instancias ejecutaron el mismo job en momentos distintos, vale
@@ -56,7 +64,7 @@ function mergeCronJobs(snapshots) {
   return merged;
 }
 
-function mergeHttp(snapshots) {
+export function mergeHttp(snapshots: Snapshot[]) {
   const total = {
     totalRequests: 0,
     requestsPerMinute: 0,
@@ -65,11 +73,11 @@ function mergeHttp(snapshots) {
     dbQueryTotal: 0,
     queriesPerSecond: 0,
   };
-  const routes = new Map(); // route → { count, samples: [] }
-  const errores = [];
+  const routes = new Map<string, { count: number; samples: number[] }>();
+  const errores: Error5xx[] = [];
 
   for (const snap of snapshots) {
-    const http = snap.http || {};
+    const http = snap.http || ({} as MetricsSnapshot);
     total.totalRequests += http.totalRequests || 0;
     total.requestsPerMinute += http.requestsPerMinute || 0;
     total.error4xx += http.error4xx || 0;
@@ -79,7 +87,7 @@ function mergeHttp(snapshots) {
 
     for (const { route, count, samples } of http.routes || []) {
       if (!routes.has(route)) routes.set(route, { count: 0, samples: [] });
-      const acc = routes.get(route);
+      const acc = routes.get(route)!;
       acc.count += count || 0;
       acc.samples.push(...(samples || []));
     }
@@ -88,7 +96,7 @@ function mergeHttp(snapshots) {
 
   // Percentiles sobre la unión de muestras: promediar los percentiles de cada
   // instancia daría un número que no corresponde a ninguna petición real.
-  const todas = [];
+  const todas: number[] = [];
   for (const acc of routes.values()) todas.push(...acc.samples);
   todas.sort((a, b) => a - b);
 
@@ -137,8 +145,8 @@ function mergeHttp(snapshots) {
  * Métricas de todo el cluster. Si no hay otras instancias (o no contestan a
  * tiempo) devuelve las locales, que es exactamente el comportamiento anterior.
  */
-async function gather() {
-  const snapshots = [localSnapshot()];
+export async function gather() {
+  const snapshots: Snapshot[] = [localSnapshot()];
   let instancias = 1;
 
   if (!servidor) return { instancias, http: mergeHttp(snapshots), cronJobs: mergeCronJobs(snapshots) };
@@ -149,8 +157,8 @@ async function gather() {
     // ponemos uno propio: el panel no debe quedar colgado por una instancia
     // que no contesta.
     const respuestas = await Promise.race([
-      servidor.serverSideEmitWithAck(EVENT),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ACK_TIMEOUT_MS)),
+      servidor.serverSideEmitWithAck(EVENT) as Promise<Snapshot[]>,
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), ACK_TIMEOUT_MS)),
     ]);
     for (const respuesta of respuestas) {
       if (respuesta && respuesta.http) {
@@ -161,7 +169,7 @@ async function gather() {
   } catch (err) {
     // Sin adapter Redis no hay otras instancias que consultar; si alguna no
     // contestó, mostramos lo que tenemos en vez de romper el panel.
-    logger.debug({ err: err.message }, 'No se pudieron recolectar métricas de otras instancias');
+    logger.debug({ err: (err as Error).message }, 'No se pudieron recolectar métricas de otras instancias');
   }
 
   return {
@@ -170,5 +178,3 @@ async function gather() {
     cronJobs: mergeCronJobs(snapshots),
   };
 }
-
-module.exports = { registerCollector, gather, localSnapshot, mergeHttp, mergeCronJobs };

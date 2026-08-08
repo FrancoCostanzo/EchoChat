@@ -1,40 +1,60 @@
 /** In-memory HTTP and DB query metrics (reset on process restart). */
 
 const MAX_SAMPLES_PER_ROUTE = 100;
-const MAX_RECENT_5XX = 20;
+export const MAX_RECENT_5XX = 20;
 const WINDOW_MS = 60_000;
+
+interface RouteStat {
+  count: number;
+  samples: number[];
+}
+
+export interface Error5xx {
+  route: string;
+  method: string;
+  statusCode: number;
+  timestamp: string;
+  message: string;
+}
 
 let totalRequests = 0;
 let error4xx = 0;
 let error5xx = 0;
-const requestTimestamps = [];
-const routeStats = new Map(); // routeLabel → { count, samples: number[] }
-const recentErrors5xx = [];
+const requestTimestamps: number[] = [];
+const routeStats = new Map<string, RouteStat>(); // routeLabel → { count, samples }
+const recentErrors5xx: Error5xx[] = [];
 
 let dbQueryTotal = 0;
-const dbQueryTimestamps = [];
+const dbQueryTimestamps: number[] = [];
 
-function normalizeRoute(method, path) {
+function normalizeRoute(method: string, path: string): string {
   const normalized = path
     .replace(/\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '/:id')
     .replace(/\/\d+/g, '/:id');
   return `${method} ${normalized}`;
 }
 
-function percentile(sorted, p) {
+export function percentile(sorted: number[], p: number): number | null {
   if (sorted.length === 0) return null;
   const idx = Math.ceil((p / 100) * sorted.length) - 1;
   return Math.round(sorted[Math.max(0, idx)]);
 }
 
-function pruneWindow(timestamps, now = Date.now()) {
+function pruneWindow(timestamps: number[], now: number = Date.now()): void {
   const cutoff = now - WINDOW_MS;
   while (timestamps.length > 0 && timestamps[0] < cutoff) {
     timestamps.shift();
   }
 }
 
-function recordRequest({ method, path, statusCode, durationMs }) {
+export function recordRequest(
+  { method, path, statusCode, durationMs }: {
+    method: string;
+    path: string;
+    statusCode: number;
+    durationMs: number;
+  },
+): void {
   const now = Date.now();
   totalRequests += 1;
   requestTimestamps.push(now);
@@ -59,7 +79,7 @@ function recordRequest({ method, path, statusCode, durationMs }) {
   if (!routeStats.has(routeLabel)) {
     routeStats.set(routeLabel, { count: 0, samples: [] });
   }
-  const stat = routeStats.get(routeLabel);
+  const stat = routeStats.get(routeLabel)!;
   stat.count += 1;
   stat.samples.push(durationMs);
   if (stat.samples.length > MAX_SAMPLES_PER_ROUTE) {
@@ -67,25 +87,25 @@ function recordRequest({ method, path, statusCode, durationMs }) {
   }
 }
 
-function recordDbQuery() {
+export function recordDbQuery(): void {
   const now = Date.now();
   dbQueryTotal += 1;
   dbQueryTimestamps.push(now);
   pruneWindow(dbQueryTimestamps, now);
 }
 
-function getQueriesPerSecond() {
+export function getQueriesPerSecond(): number {
   pruneWindow(dbQueryTimestamps);
   return Math.round((dbQueryTimestamps.length / (WINDOW_MS / 1000)) * 100) / 100;
 }
 
-function getDbQueryTotal() {
+export function getDbQueryTotal(): number {
   return dbQueryTotal;
 }
 
-function getHttpMetrics() {
+export function getHttpMetrics() {
   pruneWindow(requestTimestamps);
-  const allSamples = [];
+  const allSamples: number[] = [];
   for (const stat of routeStats.values()) {
     allSamples.push(...stat.samples);
   }
@@ -128,13 +148,24 @@ function getHttpMetrics() {
   };
 }
 
+export interface MetricsSnapshot {
+  totalRequests: number;
+  requestsPerMinute: number;
+  error4xx: number;
+  error5xx: number;
+  dbQueryTotal: number;
+  queriesPerSecond: number;
+  routes: { route: string; count: number; samples: number[] }[];
+  recentErrors5xx: Error5xx[];
+}
+
 /**
  * Estado crudo de esta instancia, pensado para combinarlo con el de las demás
- * (ver utils/clusterMetrics.js). Devuelve las muestras de latencia sin procesar
+ * (ver utils/clusterMetrics.ts). Devuelve las muestras de latencia sin procesar
  * a propósito: los percentiles no se pueden promediar entre instancias, hay que
  * calcularlos sobre la unión de las muestras.
  */
-function getSnapshot() {
+export function getSnapshot(): MetricsSnapshot {
   pruneWindow(requestTimestamps);
   return {
     totalRequests,
@@ -151,14 +182,3 @@ function getSnapshot() {
     recentErrors5xx: [...recentErrors5xx],
   };
 }
-
-module.exports = {
-  recordRequest,
-  recordDbQuery,
-  getHttpMetrics,
-  getQueriesPerSecond,
-  getDbQueryTotal,
-  getSnapshot,
-  percentile,
-  MAX_RECENT_5XX,
-};

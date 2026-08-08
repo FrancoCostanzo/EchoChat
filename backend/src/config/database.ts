@@ -1,7 +1,7 @@
 import { Pool, type PoolClient } from 'pg';
 import config from '../config';
 import logger from './logger';
-import metricsRegistry from '../utils/metricsRegistry';
+import * as metricsRegistry from '../utils/metricsRegistry';
 
 export const pool = new Pool({
   host: config.db.host,
