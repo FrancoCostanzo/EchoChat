@@ -1,11 +1,44 @@
-const BaseRepository = require('./base.repository');
+import BaseRepository from './base.repository';
+import type { Row } from '../types/rows';
+import type { StorageObjectAdminRow } from '../models/admin.model';
+import type { StorageObjectType } from '../dtos/storage.dto';
 
-class StorageRepository extends BaseRepository {
+type StorageRow = Row<'storage_objects'>;
+type PresignedRow = Row<'storage_presigned_urls'>;
+
+/** Los SUM()/COUNT() de pg vuelven como string cuando son bigint. */
+export interface StorageBucketStat {
+  bucket_name: string;
+  object_count: number;
+  total_bytes: string;
+}
+export interface StorageTypeStat {
+  object_type: string;
+  object_count: number;
+  total_bytes: string;
+}
+
+class StorageRepository extends BaseRepository<StorageRow> {
   constructor() {
     super('storage_objects');
   }
 
-  async create({ uploader_id, bucket_name, object_key, original_filename, mime_type, file_size_bytes, file_hash_sha256, object_type, image_width, image_height, duration_ms }) {
+  async create(
+    { uploader_id, bucket_name, object_key, original_filename, mime_type, file_size_bytes,
+      file_hash_sha256, object_type, image_width, image_height, duration_ms }: {
+      uploader_id: string | null;
+      bucket_name: string;
+      object_key: string;
+      original_filename: string;
+      mime_type: string;
+      file_size_bytes: number;
+      file_hash_sha256?: string | null;
+      object_type: StorageObjectType | string;
+      image_width?: number | null;
+      image_height?: number | null;
+      duration_ms?: number | null;
+    },
+  ): Promise<StorageRow> {
     const { rows } = await this.query(
       `INSERT INTO storage_objects
         (uploader_id, bucket_name, object_key, original_filename, mime_type,
@@ -19,7 +52,7 @@ class StorageRepository extends BaseRepository {
     return rows[0];
   }
 
-  async findByHash(hash) {
+  async findByHash(hash: string): Promise<StorageRow | null> {
     const { rows } = await this.query(
       `SELECT * FROM storage_objects WHERE file_hash_sha256 = $1 LIMIT 1`,
       [hash]
@@ -27,8 +60,9 @@ class StorageRepository extends BaseRepository {
     return rows[0] || null;
   }
 
-  async countReferences(objectId) {
-    const { rows } = await this.query(
+  /** Cuántas entidades referencian el objeto: si es 0, se puede borrar de MinIO. */
+  async countReferences(objectId: string): Promise<number> {
+    const { rows } = await this.query<{ ref_count: number }>(
       `SELECT (
          (SELECT COUNT(*) FROM user_wallpapers WHERE storage_object_id = $1) +
          (SELECT COUNT(*) FROM user_stickers WHERE storage_object_id = $1) +
@@ -39,10 +73,14 @@ class StorageRepository extends BaseRepository {
        )::int AS ref_count`,
       [objectId]
     );
-    return parseInt(rows[0].ref_count, 10);
+    return parseInt(String(rows[0].ref_count), 10);
   }
 
-  async updateProcessingStatus(id, status, error = null) {
+  async updateProcessingStatus(
+    id: string,
+    status: string,
+    error: string | null = null,
+  ): Promise<StorageRow> {
     const { rows } = await this.query(
       `UPDATE storage_objects
        SET processing_status = $1, processing_error = $2, processed_at = NOW()
@@ -52,7 +90,7 @@ class StorageRepository extends BaseRepository {
     return rows[0];
   }
 
-  async updateThumbnail(id, thumbnailKey) {
+  async updateThumbnail(id: string, thumbnailKey: string): Promise<StorageRow> {
     const { rows } = await this.query(
       `UPDATE storage_objects SET thumbnail_key = $1 WHERE id = $2 RETURNING *`,
       [thumbnailKey, id]
@@ -60,7 +98,7 @@ class StorageRepository extends BaseRepository {
     return rows[0];
   }
 
-  async findPending(limit = 10) {
+  async findPending(limit = 10): Promise<StorageRow[]> {
     const { rows } = await this.query(
       `SELECT * FROM storage_objects
        WHERE processing_status = 'pending'
@@ -71,8 +109,14 @@ class StorageRepository extends BaseRepository {
     return rows;
   }
 
-  async saveCachedPresignedUrl(objectId, userId, operation, url, expiresAt) {
-    const { rows } = await this.query(
+  async saveCachedPresignedUrl(
+    objectId: string,
+    userId: string | null,
+    operation: string,
+    url: string,
+    expiresAt: Date,
+  ): Promise<PresignedRow> {
+    const { rows } = await this.query<PresignedRow>(
       `INSERT INTO storage_presigned_urls (object_id, user_id, operation, presigned_url, expires_at)
        VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (object_id, user_id, operation) DO UPDATE
@@ -83,8 +127,12 @@ class StorageRepository extends BaseRepository {
     return rows[0];
   }
 
-  async getCachedPresignedUrl(objectId, userId, operation) {
-    const { rows } = await this.query(
+  async getCachedPresignedUrl(
+    objectId: string,
+    userId: string | null,
+    operation: string,
+  ): Promise<PresignedRow | null> {
+    const { rows } = await this.query<PresignedRow>(
       `SELECT * FROM storage_presigned_urls
        WHERE object_id = $1 AND user_id = $2 AND operation = $3 AND expires_at > NOW()`,
       [objectId, userId, operation]
@@ -93,7 +141,12 @@ class StorageRepository extends BaseRepository {
   }
 
   async getStats() {
-    const { rows } = await this.query(
+    const { rows } = await this.query<{
+      total_objects: number;
+      total_bytes: string;
+      pending_processing: number;
+      failed_processing: number;
+    }>(
       `SELECT
          COUNT(*)::int AS total_objects,
          COALESCE(SUM(file_size_bytes), 0)::bigint AS total_bytes,
@@ -101,7 +154,7 @@ class StorageRepository extends BaseRepository {
          COUNT(*) FILTER (WHERE processing_status = 'failed')::int AS failed_processing
        FROM storage_objects`
     );
-    const byBucket = await this.query(
+    const byBucket = await this.query<StorageBucketStat>(
       `SELECT bucket_name,
               COUNT(*)::int AS object_count,
               COALESCE(SUM(file_size_bytes), 0)::bigint AS total_bytes
@@ -109,7 +162,7 @@ class StorageRepository extends BaseRepository {
        GROUP BY bucket_name
        ORDER BY total_bytes DESC`
     );
-    const byType = await this.query(
+    const byType = await this.query<StorageTypeStat>(
       `SELECT object_type,
               COUNT(*)::int AS object_count,
               COALESCE(SUM(file_size_bytes), 0)::bigint AS total_bytes
@@ -120,9 +173,17 @@ class StorageRepository extends BaseRepository {
     return { summary: rows[0], by_bucket: byBucket.rows, by_type: byType.rows };
   }
 
-  async listObjects({ bucket, object_type, processing_status, limit = 50, offset = 0 } = {}) {
+  async listObjects(
+    { bucket, object_type, processing_status, limit = 50, offset = 0 }: {
+      bucket?: string;
+      object_type?: string;
+      processing_status?: string;
+      limit?: number;
+      offset?: number;
+    } = {},
+  ): Promise<StorageObjectAdminRow[]> {
     const conditions = ['1=1'];
-    const params = [];
+    const params: any[] = [];
     let idx = 1;
 
     if (bucket) {
@@ -142,7 +203,7 @@ class StorageRepository extends BaseRepository {
     }
 
     params.push(limit, offset);
-    const { rows } = await this.query(
+    const { rows } = await this.query<StorageObjectAdminRow>(
       `SELECT so.*, u.display_name AS uploader_display_name
        FROM storage_objects so
        LEFT JOIN users u ON u.id = so.uploader_id
@@ -155,4 +216,4 @@ class StorageRepository extends BaseRepository {
   }
 }
 
-module.exports = new StorageRepository();
+export = new StorageRepository();

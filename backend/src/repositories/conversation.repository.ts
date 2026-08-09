@@ -1,12 +1,30 @@
-const BaseRepository = require('./base.repository');
-const { decrypt } = require('../utils/crypto.util');
+import BaseRepository from './base.repository';
+import { decrypt } from '../utils/crypto.util';
+import type { Row } from '../types/rows';
+import type { ConversationRow, MemberRow } from '../models/conversation.model';
+import type {
+  CreateConversationRequest,
+  UpdateConversationRequest,
+  UpdateMemberRequest,
+} from '../dtos/conversation.dto';
 
-class ConversationRepository extends BaseRepository {
+type ConvRow = Row<'conversations'>;
+
+/** Campos internos que también se escriben en conversation_members. */
+type UpdateMemberFields = UpdateMemberRequest & {
+  last_read_at?: Date;
+  last_read_msg_id?: string;
+};
+
+class ConversationRepository extends BaseRepository<ConvRow> {
   constructor() {
     super('conversations');
   }
 
-  async create({ type, name, description, topic, is_discoverable, max_members, created_by }) {
+  async create(
+    { type, name, description, topic, is_discoverable, max_members, created_by }:
+      Partial<CreateConversationRequest> & { type: string; created_by: string },
+  ): Promise<ConvRow> {
     const { rows } = await this.query(
       `INSERT INTO conversations (type, name, description, topic, is_discoverable, max_members, created_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
@@ -15,10 +33,10 @@ class ConversationRepository extends BaseRepository {
     return rows[0];
   }
 
-  async update(id, fields) {
-    const allowed = ['name', 'description', 'topic', 'is_archived', 'is_read_only', 'is_discoverable', 'max_members'];
-    const sets = [];
-    const values = [];
+  async update(id: string, fields: UpdateConversationRequest): Promise<ConvRow | null> {
+    const allowed = ['name', 'description', 'topic', 'is_archived', 'is_read_only', 'is_discoverable', 'max_members'] as const;
+    const sets: string[] = [];
+    const values: any[] = [];
     let idx = 1;
 
     for (const key of allowed) {
@@ -38,7 +56,7 @@ class ConversationRepository extends BaseRepository {
     return rows[0];
   }
 
-  async findDirectBetween(userId1, userId2) {
+  async findDirectBetween(userId1: string, userId2: string): Promise<ConvRow | null> {
     const { rows } = await this.query(
       `SELECT c.* FROM conversations c
        JOIN conversation_members cm1 ON cm1.conversation_id = c.id AND cm1.user_id = $1
@@ -50,8 +68,11 @@ class ConversationRepository extends BaseRepository {
     return rows[0] || null;
   }
 
-  async findUserConversations(userId, { limit = 50, offset = 0 } = {}) {
-    const { rows } = await this.query(
+  async findUserConversations(
+    userId: string,
+    { limit = 50, offset = 0 }: { limit?: number; offset?: number } = {},
+  ): Promise<ConversationRow[]> {
+    const { rows } = await this.query<ConversationRow>(
       `SELECT c.*,
               cm.role AS member_role,
               cm.is_muted,
@@ -96,8 +117,13 @@ class ConversationRepository extends BaseRepository {
     return rows;
   }
 
-  async addMember(conversationId, userId, role = 'member', invitedBy = null) {
-    const { rows } = await this.query(
+  async addMember(
+    conversationId: string,
+    userId: string,
+    role = 'member',
+    invitedBy: string | null = null,
+  ): Promise<Row<'conversation_members'>> {
+    const { rows } = await this.query<Row<'conversation_members'>>(
       `INSERT INTO conversation_members (conversation_id, user_id, role, invited_by)
        VALUES ($1, $2, $3, $4)
        ON CONFLICT (conversation_id, user_id)
@@ -108,8 +134,11 @@ class ConversationRepository extends BaseRepository {
     return rows[0];
   }
 
-  async removeMember(conversationId, userId) {
-    const { rows } = await this.query(
+  async removeMember(
+    conversationId: string,
+    userId: string,
+  ): Promise<Row<'conversation_members'> | undefined> {
+    const { rows } = await this.query<Row<'conversation_members'>>(
       `UPDATE conversation_members SET left_at = NOW()
        WHERE conversation_id = $1 AND user_id = $2 AND left_at IS NULL
        RETURNING *`,
@@ -118,8 +147,8 @@ class ConversationRepository extends BaseRepository {
     return rows[0];
   }
 
-  async getMember(conversationId, userId) {
-    const { rows } = await this.query(
+  async getMember(conversationId: string, userId: string): Promise<MemberRow | null> {
+    const { rows } = await this.query<MemberRow>(
       `SELECT cm.*, u.username, u.display_name, u.avatar_object_key, u.presence
        FROM conversation_members cm
        JOIN users u ON u.id = cm.user_id
@@ -129,8 +158,11 @@ class ConversationRepository extends BaseRepository {
     return rows[0] || null;
   }
 
-  async getMembers(conversationId, { limit = 100, offset = 0 } = {}) {
-    const { rows } = await this.query(
+  async getMembers(
+    conversationId: string,
+    { limit = 100, offset = 0 }: { limit?: number; offset?: number } = {},
+  ): Promise<MemberRow[]> {
+    const { rows } = await this.query<MemberRow>(
       `SELECT cm.*, u.username, u.display_name, u.avatar_object_key, u.presence
        FROM conversation_members cm
        JOIN users u ON u.id = cm.user_id
@@ -142,10 +174,14 @@ class ConversationRepository extends BaseRepository {
     return rows;
   }
 
-  async updateMember(conversationId, userId, fields) {
-    const allowed = ['role', 'is_muted', 'muted_until', 'is_pinned', 'is_hidden', 'last_read_at', 'last_read_msg_id'];
-    const sets = [];
-    const values = [];
+  async updateMember(
+    conversationId: string,
+    userId: string,
+    fields: UpdateMemberFields,
+  ): Promise<Row<'conversation_members'> | null | undefined> {
+    const allowed = ['role', 'is_muted', 'muted_until', 'is_pinned', 'is_hidden', 'last_read_at', 'last_read_msg_id'] as const;
+    const sets: string[] = [];
+    const values: any[] = [];
     let idx = 1;
 
     for (const key of allowed) {
@@ -158,7 +194,7 @@ class ConversationRepository extends BaseRepository {
     if (sets.length === 0) return null;
 
     values.push(conversationId, userId);
-    const { rows } = await this.query(
+    const { rows } = await this.query<Row<'conversation_members'>>(
       `UPDATE conversation_members SET ${sets.join(', ')}
        WHERE conversation_id = $${idx} AND user_id = $${idx + 1} AND left_at IS NULL
        RETURNING *`,
@@ -167,8 +203,12 @@ class ConversationRepository extends BaseRepository {
     return rows[0];
   }
 
-  async markAsRead(conversationId, userId, messageId) {
-    const { rows } = await this.query(
+  async markAsRead(
+    conversationId: string,
+    userId: string,
+    messageId: string,
+  ): Promise<Row<'conversation_members'> | undefined> {
+    const { rows } = await this.query<Row<'conversation_members'>>(
       `UPDATE conversation_members
        SET last_read_at = NOW(), last_read_msg_id = $3
        WHERE conversation_id = $1 AND user_id = $2 AND left_at IS NULL
@@ -179,4 +219,4 @@ class ConversationRepository extends BaseRepository {
   }
 }
 
-module.exports = new ConversationRepository();
+export = new ConversationRepository();

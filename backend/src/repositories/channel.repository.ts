@@ -1,13 +1,21 @@
-const BaseRepository = require('./base.repository');
+import BaseRepository from './base.repository';
+import type { Row } from '../types/rows';
+import type { ChannelRow, JoinRequestRow } from '../models/channel.model';
+import type { CreateChannelRequest, UpdateChannelSettingsRequest } from '../dtos/channel.dto';
+
+type SettingsRow = Row<'channel_settings'>;
 
 // Handles channel-specific tables: channel_settings (1:1 with a conversation of
 // type 'channel') and channel_join_requests.
-class ChannelRepository extends BaseRepository {
+class ChannelRepository extends BaseRepository<SettingsRow> {
   constructor() {
     super('channel_settings');
   }
 
-  async createSettings(conversationId, { category, is_official, post_restriction, join_mode }) {
+  async createSettings(
+    conversationId: string,
+    { category, is_official, post_restriction, join_mode }: Partial<CreateChannelRequest>,
+  ): Promise<SettingsRow> {
     const { rows } = await this.query(
       `INSERT INTO channel_settings (conversation_id, category, is_official, post_restriction, join_mode)
        VALUES ($1, $2, $3, $4, $5)
@@ -23,7 +31,7 @@ class ChannelRepository extends BaseRepository {
     return rows[0];
   }
 
-  async getSettings(conversationId) {
+  async getSettings(conversationId: string): Promise<SettingsRow | null> {
     const { rows } = await this.query(
       `SELECT * FROM channel_settings WHERE conversation_id = $1`,
       [conversationId]
@@ -31,10 +39,13 @@ class ChannelRepository extends BaseRepository {
     return rows[0] || null;
   }
 
-  async updateSettings(conversationId, fields) {
-    const allowed = ['category', 'is_official', 'post_restriction', 'join_mode'];
-    const sets = [];
-    const values = [];
+  async updateSettings(
+    conversationId: string,
+    fields: UpdateChannelSettingsRequest,
+  ): Promise<SettingsRow | null> {
+    const allowed = ['category', 'is_official', 'post_restriction', 'join_mode'] as const;
+    const sets: string[] = [];
+    const values: any[] = [];
     let idx = 1;
     for (const key of allowed) {
       if (fields[key] !== undefined) {
@@ -54,13 +65,21 @@ class ChannelRepository extends BaseRepository {
   }
 
   // Discoverable channels, with the requesting user's membership/request state.
-  async findDiscoverable(userId, { search, category, limit = 30, offset = 0 } = {}) {
+  async findDiscoverable(
+    userId: string,
+    { search, category, limit = 30, offset = 0 }: {
+      search?: string;
+      category?: string;
+      limit?: number;
+      offset?: number;
+    } = {},
+  ): Promise<ChannelRow[]> {
     const conditions = [
       `c.type = 'channel'`,
       `c.is_discoverable = TRUE`,
       `c.is_archived = FALSE`,
     ];
-    const values = [userId];
+    const values: any[] = [userId];
     let idx = 2;
 
     if (search) {
@@ -75,7 +94,7 @@ class ChannelRepository extends BaseRepository {
     }
 
     values.push(limit, offset);
-    const { rows } = await this.query(
+    const { rows } = await this.query<ChannelRow>(
       `SELECT c.id, c.name, c.description, c.topic, c.avatar_object_id, c.max_members, c.created_at,
               cs.category, cs.is_official, cs.member_count, cs.post_restriction, cs.join_mode,
               EXISTS (
@@ -102,8 +121,12 @@ class ChannelRepository extends BaseRepository {
   }
 
   // ── Join requests ─────────────────────────────────────────────────────────
-  async createJoinRequest(conversationId, userId, message) {
-    const { rows } = await this.query(
+  async createJoinRequest(
+    conversationId: string,
+    userId: string,
+    message?: string | null,
+  ): Promise<Row<'channel_join_requests'>> {
+    const { rows } = await this.query<Row<'channel_join_requests'>>(
       `INSERT INTO channel_join_requests (conversation_id, user_id, message)
        VALUES ($1, $2, $3)
        RETURNING *`,
@@ -112,8 +135,11 @@ class ChannelRepository extends BaseRepository {
     return rows[0];
   }
 
-  async findPendingRequest(conversationId, userId) {
-    const { rows } = await this.query(
+  async findPendingRequest(
+    conversationId: string,
+    userId: string,
+  ): Promise<Row<'channel_join_requests'> | null> {
+    const { rows } = await this.query<Row<'channel_join_requests'>>(
       `SELECT * FROM channel_join_requests
        WHERE conversation_id = $1 AND user_id = $2 AND status = 'pending'
        LIMIT 1`,
@@ -122,16 +148,23 @@ class ChannelRepository extends BaseRepository {
     return rows[0] || null;
   }
 
-  async findRequestById(requestId) {
-    const { rows } = await this.query(
+  async findRequestById(requestId: string): Promise<Row<'channel_join_requests'> | null> {
+    const { rows } = await this.query<Row<'channel_join_requests'>>(
       `SELECT * FROM channel_join_requests WHERE id = $1`,
       [requestId]
     );
     return rows[0] || null;
   }
 
-  async listJoinRequests(conversationId, { status = 'pending', limit = 50, offset = 0 } = {}) {
-    const { rows } = await this.query(
+  async listJoinRequests(
+    conversationId: string,
+    { status = 'pending', limit = 50, offset = 0 }: {
+      status?: string;
+      limit?: number;
+      offset?: number;
+    } = {},
+  ): Promise<JoinRequestRow[]> {
+    const { rows } = await this.query<JoinRequestRow>(
       `SELECT jr.*, u.username, u.display_name, u.avatar_object_key, u.department
        FROM channel_join_requests jr
        JOIN users u ON u.id = jr.user_id
@@ -143,8 +176,12 @@ class ChannelRepository extends BaseRepository {
     return rows;
   }
 
-  async reviewJoinRequest(requestId, reviewerId, status) {
-    const { rows } = await this.query(
+  async reviewJoinRequest(
+    requestId: string,
+    reviewerId: string,
+    status: string,
+  ): Promise<Row<'channel_join_requests'> | null> {
+    const { rows } = await this.query<Row<'channel_join_requests'>>(
       `UPDATE channel_join_requests
        SET status = $2, reviewed_by = $3, reviewed_at = NOW()
        WHERE id = $1 AND status = 'pending'
@@ -155,4 +192,4 @@ class ChannelRepository extends BaseRepository {
   }
 }
 
-module.exports = new ChannelRepository();
+export = new ChannelRepository();
