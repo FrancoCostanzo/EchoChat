@@ -1,5 +1,47 @@
-const { pool } = require('../config/database');
+import { pool } from '../config/database';
+import type { Row } from '../types/rows';
+import type { AuditEntryRow } from '../models/admin.model';
 
+/**
+ * Entrada de auditoría. Casi todo es opcional a propósito: cada punto del código
+ * registra lo que tiene a mano. Hasta que esto estuvo declarado, TypeScript
+ * infería que todos los campos eran obligatorios a partir de la desestructuración
+ * y protestaba en cada llamada.
+ */
+export interface AuditEntryInput {
+  action: string;
+  actor_id?: string | null;
+  resource_type?: string | null;
+  resource_id?: string | null;
+  ip_address?: string | null;
+  user_agent?: string | null;
+  data_before?: unknown;
+  data_after?: unknown;
+  success?: boolean;
+  error_message?: string | null;
+  severity?: string;
+  category?: string;
+  session_id?: string | null;
+  duration_ms?: number | null;
+  metadata?: unknown;
+}
+
+export interface AuditSearchFilters {
+  action?: string;
+  actor_id?: string;
+  resource_type?: string;
+  success?: boolean | string;
+  from?: string | Date;
+  to?: string | Date;
+  severity?: string;
+  category?: string;
+  limit?: number;
+  offset?: number;
+  sort_column?: string;
+  sort_dir?: string;
+}
+
+/** No hereda de BaseRepository: sólo escribe y consulta, nunca por id. */
 class AuditRepository {
   async log({
     actor_id,
@@ -17,8 +59,8 @@ class AuditRepository {
     session_id,
     duration_ms,
     metadata,
-  }) {
-    const { rows } = await pool.query(
+  }: AuditEntryInput): Promise<Row<'audit_log'>> {
+    const { rows } = await pool.query<Row<'audit_log'>>(
       `INSERT INTO audit_log
          (actor_id, action, resource_type, resource_id, ip_address, user_agent,
           data_before, data_after, success, error_message,
@@ -46,16 +88,23 @@ class AuditRepository {
     return rows[0];
   }
 
-  async findByActor(actorId, { limit = 50, offset = 0 } = {}) {
-    const { rows } = await pool.query(
+  async findByActor(
+    actorId: string,
+    { limit = 50, offset = 0 }: { limit?: number; offset?: number } = {},
+  ): Promise<Row<'audit_log'>[]> {
+    const { rows } = await pool.query<Row<'audit_log'>>(
       `SELECT * FROM audit_log WHERE actor_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
       [actorId, limit, offset],
     );
     return rows;
   }
 
-  async findByResource(resourceType, resourceId, { limit = 50, offset = 0 } = {}) {
-    const { rows } = await pool.query(
+  async findByResource(
+    resourceType: string,
+    resourceId: string,
+    { limit = 50, offset = 0 }: { limit?: number; offset?: number } = {},
+  ): Promise<Row<'audit_log'>[]> {
+    const { rows } = await pool.query<Row<'audit_log'>>(
       `SELECT * FROM audit_log
        WHERE resource_type = $1 AND resource_id = $2
        ORDER BY created_at DESC LIMIT $3 OFFSET $4`,
@@ -65,7 +114,7 @@ class AuditRepository {
   }
 
   /** Whitelisted sortable columns → SQL expression. */
-  static #SORT_COLUMNS = {
+  static #SORT_COLUMNS: Record<string, string> = {
     created_at: 'a.created_at',
     action:     'a.action',
     severity:   'a.severity',
@@ -74,17 +123,17 @@ class AuditRepository {
     success:    'a.success',
   };
 
-  #buildOrderBy(sort_column, sort_dir) {
-    const col = AuditRepository.#SORT_COLUMNS[sort_column] ?? 'a.created_at';
+  #buildOrderBy(sort_column?: string, sort_dir?: string): string {
+    const col = (sort_column && AuditRepository.#SORT_COLUMNS[sort_column]) ?? 'a.created_at';
     const dir = sort_dir === 'ascending' ? 'ASC' : 'DESC';
     // Always secondary-sort by id DESC so order is stable within a tie.
     return `${col} ${dir}, a.id DESC`;
   }
 
   /** Builds the WHERE clause shared by search() and searchWithCount(). */
-  #buildWhere({ action, actor_id, resource_type, success, from, to, severity, category }) {
+  #buildWhere({ action, actor_id, resource_type, success, from, to, severity, category }: AuditSearchFilters) {
     const conditions = ['1=1'];
-    const params = [];
+    const params: any[] = [];
     let idx = 1;
 
     if (action) {
@@ -131,12 +180,12 @@ class AuditRepository {
     return { conditions, params, nextIdx: idx };
   }
 
-  async search(filters = {}) {
+  async search(filters: AuditSearchFilters = {}): Promise<AuditEntryRow[]> {
     const { limit = 50, offset = 0, sort_column, sort_dir, ...rest } = filters;
     const { conditions, params, nextIdx } = this.#buildWhere(rest);
     const orderBy = this.#buildOrderBy(sort_column, sort_dir);
     params.push(limit, offset);
-    const { rows } = await pool.query(
+    const { rows } = await pool.query<AuditEntryRow>(
       `SELECT a.*,
               u.display_name AS actor_display_name,
               u.username     AS actor_username
@@ -150,13 +199,13 @@ class AuditRepository {
     return rows;
   }
 
-  async searchWithCount(filters = {}) {
+  async searchWithCount(filters: AuditSearchFilters = {}): Promise<{ rows: AuditEntryRow[]; total: number }> {
     const { limit = 50, offset = 0, sort_column, sort_dir, ...rest } = filters;
     const { conditions, params: baseParams, nextIdx } = this.#buildWhere(rest);
     const orderBy = this.#buildOrderBy(sort_column, sort_dir);
 
     const countParams = [...baseParams];
-    const { rows: countRows } = await pool.query(
+    const { rows: countRows } = await pool.query<{ total: string }>(
       `SELECT COUNT(*) AS total
        FROM audit_log a
        LEFT JOIN users u ON u.id = a.actor_id
@@ -166,7 +215,7 @@ class AuditRepository {
     const total = parseInt(countRows[0].total, 10);
 
     const rowParams = [...baseParams, limit, offset];
-    const { rows } = await pool.query(
+    const { rows } = await pool.query<AuditEntryRow>(
       `SELECT a.*,
               u.display_name AS actor_display_name,
               u.username     AS actor_username
@@ -182,4 +231,4 @@ class AuditRepository {
   }
 }
 
-module.exports = new AuditRepository();
+export = new AuditRepository();
