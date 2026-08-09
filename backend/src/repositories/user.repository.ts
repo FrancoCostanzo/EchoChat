@@ -1,11 +1,22 @@
-const BaseRepository = require('./base.repository');
+import BaseRepository from './base.repository';
+import type { Row } from '../types/rows';
+import type { UpdateProfileRequest } from '../dtos/auth.dto';
 
-class UserRepository extends BaseRepository {
+type UserRow = Row<'users'>;
+
+/** Rol tal como se lista en el panel (sin las columnas internas del rol). */
+export type RoleSummary = Pick<Row<'roles'>, 'id' | 'name' | 'display_name' | 'description' | 'priority'>;
+
+/** Rol otorgado a un usuario, con los datos de la concesión. */
+export type GrantedRole = Pick<Row<'roles'>, 'id' | 'name' | 'display_name'> &
+  Pick<Row<'user_roles'>, 'granted_at' | 'expires_at'>;
+
+class UserRepository extends BaseRepository<UserRow> {
   constructor() {
     super('users');
   }
 
-  async findByUsername(username) {
+  async findByUsername(username: string): Promise<UserRow | null> {
     const { rows } = await this.query(
       'SELECT * FROM users WHERE username = $1 AND status != $2',
       [username, 'deleted']
@@ -13,7 +24,7 @@ class UserRepository extends BaseRepository {
     return rows[0] || null;
   }
 
-  async findByEmail(email) {
+  async findByEmail(email: string): Promise<UserRow | null> {
     const { rows } = await this.query(
       'SELECT * FROM users WHERE email = $1 AND status != $2',
       [email, 'deleted']
@@ -21,7 +32,18 @@ class UserRepository extends BaseRepository {
     return rows[0] || null;
   }
 
-  async create({ username, display_name, email, phone_extension, department, job_title, auth_provider, external_id }) {
+  async create(
+    { username, display_name, email, phone_extension, department, job_title, auth_provider, external_id }: {
+      username: string;
+      display_name: string;
+      email?: string | null;
+      phone_extension?: string | null;
+      department?: string | null;
+      job_title?: string | null;
+      auth_provider?: string | null;
+      external_id?: string | null;
+    },
+  ): Promise<UserRow> {
     const { rows } = await this.query(
       `INSERT INTO users (username, display_name, email, phone_extension, department, job_title, auth_provider, external_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -35,7 +57,7 @@ class UserRepository extends BaseRepository {
     return rows[0];
   }
 
-  async findByExternalId(externalId) {
+  async findByExternalId(externalId: string): Promise<UserRow | null> {
     const { rows } = await this.query(
       'SELECT * FROM users WHERE external_id = $1',
       [externalId]
@@ -47,7 +69,17 @@ class UserRepository extends BaseRepository {
   // `is_disabled` refleja el estado en el directorio (AD): sincroniza status
   // active/suspended, pero nunca reactiva una cuenta borrada localmente.
   // Devuelve { user, created, reactivated } para que el caller pueda contar/auditar.
-  async upsertLdapUser({ external_id, username, display_name, email, department, job_title, is_disabled = false }) {
+  async upsertLdapUser(
+    { external_id, username, display_name, email, department, job_title, is_disabled = false }: {
+      external_id: string;
+      username: string;
+      display_name: string;
+      email?: string | null;
+      department?: string | null;
+      job_title?: string | null;
+      is_disabled?: boolean;
+    },
+  ): Promise<{ user: UserRow; created: boolean; reactivated: boolean }> {
     const targetStatus = is_disabled ? 'suspended' : 'active';
     const existing = await this.findByExternalId(external_id);
     if (existing) {
@@ -76,7 +108,7 @@ class UserRepository extends BaseRepository {
 
   // Genera un username libre a partir de `base`, agregando sufijo numérico si ya
   // existe (los usuarios SSO nuevos podrían chocar con un username local existente).
-  async _uniqueUsername(base) {
+  async _uniqueUsername(base: string | null | undefined): Promise<string> {
     const seed = base || 'user';
     let candidate = seed;
     let n = 1;
@@ -90,7 +122,14 @@ class UserRepository extends BaseRepository {
 
   // Inserta o actualiza un usuario OIDC identificado por external_id (oidc:<prov>:<sub>).
   // Devuelve { user, created } al estilo de upsertLdapUser.
-  async upsertOidcUser({ external_id, username, display_name, email }) {
+  async upsertOidcUser(
+    { external_id, username, display_name, email }: {
+      external_id: string;
+      username: string;
+      display_name: string;
+      email?: string | null;
+    },
+  ): Promise<{ user: UserRow; created: boolean }> {
     const existing = await this.findByExternalId(external_id);
     if (existing) {
       // No tocamos `status`: si un admin deshabilitó al usuario, debe seguir bloqueado
@@ -117,7 +156,7 @@ class UserRepository extends BaseRepository {
   // ── SCIM ──────────────────────────────────────────────────────────────────
   // Usuario gestionado por SCIM (excluye borrados). Los suspendidos sí se devuelven:
   // desaprovisionar es active=false, no un delete.
-  async findScimById(id) {
+  async findScimById(id: string): Promise<UserRow | null> {
     const { rows } = await this.query(
       `SELECT * FROM users WHERE id = $1 AND auth_provider = 'scim' AND status <> 'deleted'`,
       [id]
@@ -127,14 +166,23 @@ class UserRepository extends BaseRepository {
 
   // Lista usuarios SCIM con filtro opcional por userName / externalId y paginación.
   // Devuelve { rows, total } para armar la ListResponse.
-  async listScimUsers({ username, externalId, limit, offset }) {
+  async listScimUsers(
+    { username, externalId, limit, offset }: {
+      username?: string;
+      externalId?: string;
+      limit: number;
+      offset: number;
+    },
+  ): Promise<{ rows: UserRow[]; total: number }> {
     const cond = [`auth_provider = 'scim'`, `status <> 'deleted'`];
-    const params = [];
+    const params: any[] = [];
     let i = 1;
     if (username) { cond.push(`username = $${i++}`); params.push(username); }
     if (externalId) { cond.push(`external_id = $${i++}`); params.push(`scim:${externalId}`); }
     const where = cond.join(' AND ');
-    const totalRes = await this.query(`SELECT COUNT(*)::int AS c FROM users WHERE ${where}`, params);
+    const totalRes = await this.query<{ c: number }>(
+      `SELECT COUNT(*)::int AS c FROM users WHERE ${where}`, params
+    );
     const rowsRes = await this.query(
       `SELECT * FROM users WHERE ${where} ORDER BY created_at ASC LIMIT $${i++} OFFSET $${i}`,
       [...params, limit, offset]
@@ -144,10 +192,10 @@ class UserRepository extends BaseRepository {
 
   // Deprovisioning: deshabilita a los usuarios LDAP activos cuyo external_id ya no
   // aparece en el directorio. Devuelve los ids afectados para revocar sus sesiones.
-  async disableLdapUsersNotIn(seenExternalIds) {
+  async disableLdapUsersNotIn(seenExternalIds: string[]): Promise<string[]> {
     // Sin ids vistos no deshabilitamos nada: evita un apagón masivo ante un fetch vacío.
     if (!Array.isArray(seenExternalIds) || seenExternalIds.length === 0) return [];
-    const { rows } = await this.query(
+    const { rows } = await this.query<{ id: string }>(
       `UPDATE users
        SET status = 'suspended', updated_at = NOW()
        WHERE auth_provider = 'ldap'
@@ -160,11 +208,11 @@ class UserRepository extends BaseRepository {
     return rows.map((r) => r.id);
   }
 
-  async updateProfile(id, fields) {
+  async updateProfile(id: string, fields: UpdateProfileRequest): Promise<UserRow | null> {
     const allowed = ['display_name', 'email', 'phone_extension', 'department', 'job_title',
-      'presence', 'presence_message', 'timezone', 'locale'];
-    const sets = [];
-    const values = [];
+      'presence', 'presence_message', 'timezone', 'locale'] as const;
+    const sets: string[] = [];
+    const values: any[] = [];
     let idx = 1;
 
     for (const key of allowed) {
@@ -184,7 +232,7 @@ class UserRepository extends BaseRepository {
     return rows[0];
   }
 
-  async updateAvatar(id, bucket, objectKey) {
+  async updateAvatar(id: string, bucket: string, objectKey: string): Promise<UserRow> {
     const { rows } = await this.query(
       `UPDATE users SET avatar_bucket = $1, avatar_object_key = $2 WHERE id = $3 RETURNING *`,
       [bucket, objectKey, id]
@@ -192,7 +240,7 @@ class UserRepository extends BaseRepository {
     return rows[0];
   }
 
-  async clearAvatar(id) {
+  async clearAvatar(id: string): Promise<UserRow> {
     const { rows } = await this.query(
       `UPDATE users SET avatar_bucket = NULL, avatar_object_key = NULL WHERE id = $1 RETURNING *`,
       [id]
@@ -200,7 +248,7 @@ class UserRepository extends BaseRepository {
     return rows[0];
   }
 
-  async updatePresence(id, presence) {
+  async updatePresence(id: string, presence: string): Promise<UserRow> {
     const { rows } = await this.query(
       `UPDATE users SET presence = $1, last_seen_at = NOW() WHERE id = $2 RETURNING *`,
       [presence, id]
@@ -210,14 +258,14 @@ class UserRepository extends BaseRepository {
 
   // Activity heartbeat: keeps the presence timeout job at bay without
   // touching the presence value itself.
-  async touchLastSeen(id) {
+  async touchLastSeen(id: string): Promise<void> {
     await this.query(
       `UPDATE users SET last_seen_at = NOW() WHERE id = $1`,
       [id]
     );
   }
 
-  async softDelete(id) {
+  async softDelete(id: string): Promise<UserRow> {
     const { rows } = await this.query(
       `UPDATE users SET status = 'deleted', updated_at = NOW() WHERE id = $1 RETURNING *`,
       [id]
@@ -227,8 +275,8 @@ class UserRepository extends BaseRepository {
 
   // ── RBAC ────────────────────────────────────────────────────────────────
   // Distinct permission codes granted to a user through their (non-expired) roles.
-  async getPermissionCodes(userId) {
-    const { rows } = await this.query(
+  async getPermissionCodes(userId: string): Promise<string[]> {
+    const { rows } = await this.query<{ code: string }>(
       `SELECT DISTINCT p.code
        FROM user_roles ur
        JOIN role_permissions rp ON rp.role_id = ur.role_id
@@ -241,8 +289,8 @@ class UserRepository extends BaseRepository {
   }
 
   // Role names held by a user (highest priority first), excluding expired grants.
-  async getRoleNames(userId) {
-    const { rows } = await this.query(
+  async getRoleNames(userId: string): Promise<string[]> {
+    const { rows } = await this.query<{ name: string }>(
       `SELECT r.name
        FROM user_roles ur
        JOIN roles r ON r.id = ur.role_id
@@ -256,8 +304,8 @@ class UserRepository extends BaseRepository {
 
   // Flip users who have been inactive for `minutes` from 'online' to 'away'.
   // Returns the affected user ids so the caller can broadcast presence changes.
-  async markStaleOnlineAsAway(minutes) {
-    const { rows } = await this.query(
+  async markStaleOnlineAsAway(minutes: number): Promise<string[]> {
+    const { rows } = await this.query<{ id: string }>(
       `UPDATE users
        SET presence = 'away'
        WHERE presence = 'online'
@@ -269,7 +317,7 @@ class UserRepository extends BaseRepository {
     return rows.map((r) => r.id);
   }
 
-  async hasPermission(userId, code) {
+  async hasPermission(userId: string, code: string): Promise<boolean> {
     const { rows } = await this.query(
       `SELECT 1
        FROM user_roles ur
@@ -284,7 +332,7 @@ class UserRepository extends BaseRepository {
     return rows.length > 0;
   }
 
-  async search(term, limit = 20, offset = 0) {
+  async search(term: string | null | undefined, limit = 20, offset = 0): Promise<UserRow[]> {
     const { rows } = await this.query(
       `SELECT * FROM users
        WHERE status != 'deleted'
@@ -296,9 +344,17 @@ class UserRepository extends BaseRepository {
     return rows;
   }
 
-  async listUsers({ search, status, department, limit = 50, offset = 0 } = {}) {
+  async listUsers(
+    { search, status, department, limit = 50, offset = 0 }: {
+      search?: string;
+      status?: string;
+      department?: string;
+      limit?: number;
+      offset?: number;
+    } = {},
+  ): Promise<UserRow[]> {
     const conditions = [`status != 'deleted'`];
-    const params = [];
+    const params: any[] = [];
     let idx = 1;
 
     if (search) {
@@ -327,7 +383,7 @@ class UserRepository extends BaseRepository {
     return rows;
   }
 
-  async updateStatus(id, status) {
+  async updateStatus(id: string, status: string): Promise<UserRow> {
     const { rows } = await this.query(
       `UPDATE users SET status = $1, updated_at = NOW() WHERE id = $2 AND status != 'deleted' RETURNING *`,
       [status, id]
@@ -335,15 +391,15 @@ class UserRepository extends BaseRepository {
     return rows[0];
   }
 
-  async listRoles() {
-    const { rows } = await this.query(
+  async listRoles(): Promise<RoleSummary[]> {
+    const { rows } = await this.query<RoleSummary>(
       `SELECT id, name, display_name, description, priority FROM roles ORDER BY priority DESC`
     );
     return rows;
   }
 
-  async getUserRoles(userId) {
-    const { rows } = await this.query(
+  async getUserRoles(userId: string): Promise<GrantedRole[]> {
+    const { rows } = await this.query<GrantedRole>(
       `SELECT r.id, r.name, r.display_name, ur.granted_at, ur.expires_at
        FROM user_roles ur
        JOIN roles r ON r.id = ur.role_id
@@ -355,10 +411,14 @@ class UserRepository extends BaseRepository {
     return rows;
   }
 
-  async setUserRoles(userId, roleNames, grantedBy) {
+  async setUserRoles(
+    userId: string,
+    roleNames: string[] | undefined,
+    grantedBy: string | null,
+  ): Promise<{ role_id: string }[]> {
     await this.query(`DELETE FROM user_roles WHERE user_id = $1`, [userId]);
     if (!roleNames?.length) return [];
-    const { rows } = await this.query(
+    const { rows } = await this.query<{ role_id: string }>(
       `INSERT INTO user_roles (user_id, role_id, granted_by)
        SELECT $1, r.id, $2 FROM roles r WHERE r.name = ANY($3::text[])
        RETURNING role_id`,
@@ -367,8 +427,8 @@ class UserRepository extends BaseRepository {
     return rows;
   }
 
-  async countUsersWithRole(roleName) {
-    const { rows } = await this.query(
+  async countUsersWithRole(roleName: string): Promise<number> {
+    const { rows } = await this.query<{ count: number }>(
       `SELECT COUNT(*)::int AS count
        FROM user_roles ur
        JOIN roles r ON r.id = ur.role_id
@@ -380,4 +440,4 @@ class UserRepository extends BaseRepository {
   }
 }
 
-module.exports = new UserRepository();
+export = new UserRepository();
