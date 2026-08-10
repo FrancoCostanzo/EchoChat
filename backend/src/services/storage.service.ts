@@ -1,14 +1,14 @@
-const { v4: uuidv4 } = require('uuid');
-const path = require('path');
-const logger = require('../config/logger');
-const { minioClient, publicMinioClient } = require('../config/minio');
-const config = require('../config');
-const { storageRepository } = require('../repositories');
-const { NotFoundError } = require('../errors');
-const { toStorageObjectResponse } = require('../models');
+import { v4 as uuidv4 } from 'uuid';
+import path from 'path';
+import logger from '../config/logger';
+import { minioClient, publicMinioClient } from '../config/minio';
+import { storageRepository } from '../repositories';
+import { NotFoundError } from '../errors';
+import { toStorageObjectResponse } from '../models';
+import type { UploadMetadataRequest, StorageObjectType } from '../dtos/storage.dto';
 
 // Map object_type to bucket
-const BUCKET_MAP = {
+const BUCKET_MAP: Record<string, string> = {
   image: 'messaging-images',
   video: 'messaging-videos',
   audio: 'messaging-audio',
@@ -23,12 +23,15 @@ const BUCKET_MAP = {
   other: 'messaging-documents',
 };
 
+/** Metadatos de subida, más el hash opcional que calcula el controlador. */
+export type UploadMetadata = UploadMetadataRequest & { file_hash_sha256?: string | null };
+
 class StorageService {
-  getBucket(objectType) {
+  getBucket(objectType: StorageObjectType | string): string {
     return BUCKET_MAP[objectType] || 'messaging-documents';
   }
 
-  generateObjectKey(objectType, originalFilename) {
+  generateObjectKey(objectType: string, originalFilename: string): string {
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -36,7 +39,7 @@ class StorageService {
     return `${objectType}s/${year}/${month}/${uuidv4()}${ext}`;
   }
 
-  async upload(userId, fileBuffer, metadata) {
+  async upload(userId: string, fileBuffer: Buffer, metadata: UploadMetadata) {
     const bucket = this.getBucket(metadata.object_type);
     const objectKey = this.generateObjectKey(metadata.object_type, metadata.original_filename);
 
@@ -64,7 +67,7 @@ class StorageService {
     return toStorageObjectResponse(storageObj);
   }
 
-  async getPresignedUrl(objectId, userId) {
+  async getPresignedUrl(objectId: string, userId: string | null): Promise<string> {
     // Check cache
     const cached = await storageRepository.getCachedPresignedUrl(objectId, userId, 'get');
     if (cached) return cached.presigned_url;
@@ -81,7 +84,7 @@ class StorageService {
     return url;
   }
 
-  async getUploadPresignedUrl(userId, metadata) {
+  async getUploadPresignedUrl(userId: string, metadata: UploadMetadata) {
     const bucket = this.getBucket(metadata.object_type);
     const objectKey = this.generateObjectKey(metadata.object_type, metadata.original_filename);
     const ttl = 3600;
@@ -89,13 +92,13 @@ class StorageService {
     return { url, bucket, objectKey };
   }
 
-  async getById(objectId) {
+  async getById(objectId: string) {
     const obj = await storageRepository.findById(objectId);
     if (!obj) throw new NotFoundError('Storage object');
     return toStorageObjectResponse(obj);
   }
 
-  async delete(objectId) {
+  async delete(objectId: string): Promise<void> {
     const obj = await storageRepository.findById(objectId);
     if (!obj) throw new NotFoundError('Storage object');
 
@@ -105,7 +108,7 @@ class StorageService {
   }
 
   /** Remove from MinIO + DB only when no other row references this object. */
-  async deleteIfUnreferenced(objectId) {
+  async deleteIfUnreferenced(objectId: string | null | undefined): Promise<boolean> {
     if (!objectId) return false;
     const refs = await storageRepository.countReferences(objectId);
     if (refs > 0) return false;
@@ -119,4 +122,4 @@ class StorageService {
   }
 }
 
-module.exports = new StorageService();
+export = new StorageService();

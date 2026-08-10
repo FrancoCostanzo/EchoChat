@@ -25,7 +25,14 @@ export function toUserStickerResponse(row: UserStickerRow | null | undefined, ur
   };
 }
 
-export function toStickerPackResponse(row: Row<'sticker_packs'> | null | undefined) {
+/**
+ * Sólo pide los campos que expone: los repositorios devuelven proyecciones sin
+ * `owner_id`, y exigir la fila completa obligaría a leer columnas que la
+ * respuesta ni siquiera muestra.
+ */
+type PackLike = Pick<Row<'sticker_packs'>, 'id' | 'name' | 'position'>;
+
+export function toStickerPackResponse(row: PackLike | null | undefined) {
   if (!row) return null;
   return {
     id: row.id,

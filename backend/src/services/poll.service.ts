@@ -1,16 +1,17 @@
-const logger = require('../config/logger');
-const {
+import logger from '../config/logger';
+import {
   pollRepository,
   messageRepository,
   conversationRepository,
-} = require('../repositories');
-const { NotFoundError, ForbiddenError, BadRequestError } = require('../errors');
-const { toMessageResponse, toPollResponse } = require('../models');
-const { toConversation } = require('../config/eventBus');
-
+} from '../repositories';
+import { NotFoundError, ForbiddenError, BadRequestError } from '../errors';
+import { toMessageResponse, toPollResponse } from '../models';
+import { toConversation } from '../config/eventBus';
+import type { Row } from '../types/rows';
+import type { CreatePollRequest } from '../dtos/poll.dto';
 
 class PollService {
-  async createPoll(userId, data) {
+  async createPoll(userId: string, data: CreatePollRequest) {
     const member = await conversationRepository.getMember(data.conversation_id, userId);
     if (!member) throw new ForbiddenError('Not a member of this conversation');
 
@@ -32,13 +33,13 @@ class PollService {
     try {
       toConversation(data.conversation_id, 'message:new', response);
     } catch (err) {
-      logger.warn({ err: err.message }, 'Failed to emit message:new (poll)');
+      logger.warn({ err: (err as Error).message }, 'Failed to emit message:new (poll)');
     }
     logger.info({ pollId: poll.id, conversationId: data.conversation_id }, 'Poll created');
     return response;
   }
 
-  async vote(userId, pollId, optionIds) {
+  async vote(userId: string, pollId: string, optionIds: string[]) {
     const poll = await pollRepository.findById(pollId);
     if (!poll) throw new NotFoundError('Poll');
     if (poll.is_closed) throw new BadRequestError('Poll is closed');
@@ -47,7 +48,7 @@ class PollService {
     }
 
     const message = await messageRepository.findById(poll.message_id);
-    const member = await conversationRepository.getMember(message.conversation_id, userId);
+    const member = await conversationRepository.getMember(message!.conversation_id, userId);
     if (!member) throw new ForbiddenError('Not a member of this conversation');
 
     // Validate options belong to this poll
@@ -59,37 +60,37 @@ class PollService {
       throw new BadRequestError('This poll only allows one option');
     }
 
-    await pollRepository.vote(pollId, chosen, userId, poll.is_multiple);
-    return this._emitPollUpdate(poll, message.conversation_id, userId);
+    await pollRepository.vote(pollId, chosen, userId, poll.is_multiple ?? false);
+    return this._emitPollUpdate(poll, message!.conversation_id, userId);
   }
 
-  async retractVote(userId, pollId) {
+  async retractVote(userId: string, pollId: string) {
     const poll = await pollRepository.findById(pollId);
     if (!poll) throw new NotFoundError('Poll');
     const message = await messageRepository.findById(poll.message_id);
-    const member = await conversationRepository.getMember(message.conversation_id, userId);
+    const member = await conversationRepository.getMember(message!.conversation_id, userId);
     if (!member) throw new ForbiddenError('Not a member of this conversation');
 
     await pollRepository.retractVote(pollId, userId);
-    return this._emitPollUpdate(poll, message.conversation_id, userId);
+    return this._emitPollUpdate(poll, message!.conversation_id, userId);
   }
 
-  async close(userId, pollId) {
+  async close(userId: string, pollId: string) {
     const poll = await pollRepository.findById(pollId);
     if (!poll) throw new NotFoundError('Poll');
     const message = await messageRepository.findById(poll.message_id);
-    if (message.sender_id !== userId) {
-      const member = await conversationRepository.getMember(message.conversation_id, userId);
-      if (!member || !['owner', 'admin', 'moderator'].includes(member.role)) {
+    if (message!.sender_id !== userId) {
+      const member = await conversationRepository.getMember(message!.conversation_id, userId);
+      if (!member || !['owner', 'admin', 'moderator'].includes(member.role as string)) {
         throw new ForbiddenError('Only the creator or a moderator can close this poll');
       }
     }
     await pollRepository.close(pollId);
     const updated = await pollRepository.findById(pollId);
-    return this._emitPollUpdate(updated, message.conversation_id, userId);
+    return this._emitPollUpdate(updated!, message!.conversation_id, userId);
   }
 
-  async getByMessage(messageId, userId) {
+  async getByMessage(messageId: string, userId: string) {
     const poll = await pollRepository.findByMessageId(messageId);
     if (!poll) return null;
     const options = await pollRepository.getOptions(poll.id);
@@ -98,16 +99,16 @@ class PollService {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
-  async _buildMessageWithPoll(messageId, userId) {
+  async _buildMessageWithPoll(messageId: string, userId: string) {
     const full = await messageRepository.findWithAttachments(messageId);
-    const response = toMessageResponse(full);
+    const response = toMessageResponse(full)!;
     response.poll = await this.getByMessage(messageId, userId);
     return response;
   }
 
   // Emits poll:update to the room (each client recomputes their own `voted`
   // flags on next fetch; the aggregate counts are authoritative here).
-  async _emitPollUpdate(poll, conversationId, userId) {
+  async _emitPollUpdate(poll: Row<'polls'>, conversationId: string, userId: string) {
     const options = await pollRepository.getOptions(poll.id);
     const myVotes = await pollRepository.getUserVotes(poll.id, userId);
     const payload = toPollResponse(poll, options, myVotes);
@@ -118,10 +119,10 @@ class PollService {
         poll: payload,
       });
     } catch (err) {
-      logger.warn({ err: err.message }, 'Failed to emit poll:update');
+      logger.warn({ err: (err as Error).message }, 'Failed to emit poll:update');
     }
     return payload;
   }
 }
 
-module.exports = new PollService();
+export = new PollService();
