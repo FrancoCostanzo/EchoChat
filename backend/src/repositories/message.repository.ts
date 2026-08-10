@@ -1,17 +1,58 @@
-const BaseRepository = require('./base.repository');
-const { encrypt, decrypt, searchTokens, searchQueryTokens } = require('../utils/crypto.util');
+import BaseRepository from './base.repository';
+import { encrypt, decrypt, searchTokens, searchQueryTokens } from '../utils/crypto.util';
+import type { Row } from '../types/rows';
+import type { MessageRow } from '../models/message.model';
+
+/** Recuentos de acuses de un mensaje. */
+export interface ReceiptCounts {
+  delivered_count: number;
+  read_count: number;
+}
+
+/** Estado por destinatario para la vista "Información del mensaje". */
+export interface ReceiptDetail {
+  user_id: string;
+  delivered_at: Date | null;
+  read_at: Date | null;
+  display_name: string;
+  username: string;
+  avatar_object_key: string | null;
+  avatar_bucket: string | null;
+}
+
+/** Objeto adjunto que no está compartido con otro mensaje. */
+export interface ExclusiveAttachment {
+  bucket_name: string;
+  object_key: string;
+  thumbnail_bucket: string | null;
+  thumbnail_key: string | null;
+  attachment_id: string;
+  object_id: string;
+}
+
+export type ReactionToggleResult = 'added' | 'removed' | 'updated';
 
 // Descifra in-place las columnas con contenido de usuario que puedan venir en una
 // fila de mensaje, para que el resto de la app siempre vea texto plano.
-function decryptRow(row) {
+function decryptRow<T extends Record<string, any>>(row: T): T;
+function decryptRow<T extends Record<string, any>>(row: T | undefined | null): T | undefined | null;
+function decryptRow<T extends Record<string, any>>(row: T | undefined | null) {
   if (!row) return row;
-  if ('body' in row) row.body = decrypt(row.body);
-  if ('reply_to_body' in row) row.reply_to_body = decrypt(row.reply_to_body);
-  if ('saved_note' in row) row.saved_note = decrypt(row.saved_note);
+  // El cast queda confinado a la mutación: la fila se descifra in-place y la
+  // firma de afuera conserva el tipo del llamador.
+  const r = row as Record<string, any>;
+  if ('body' in r) r.body = decrypt(r.body);
+  if ('reply_to_body' in r) r.reply_to_body = decrypt(r.reply_to_body);
+  if ('saved_note' in r) r.saved_note = decrypt(r.saved_note);
   return row;
 }
 
-function savedMessageSelect(viewerUserId, params) {
+/**
+ * Fragmento SELECT que marca si el mensaje está guardado por quien consulta.
+ * Empuja el id del viewer en `params`, así que el orden de llamada importa: los
+ * placeholders que se agreguen después tienen que contar con ese parámetro.
+ */
+function savedMessageSelect(viewerUserId: string | undefined | null, params: any[]): string {
   if (!viewerUserId) {
     return 'FALSE AS is_saved, NULL::text AS saved_note';
   }
@@ -26,20 +67,20 @@ function savedMessageSelect(viewerUserId, params) {
    LIMIT 1) AS saved_note`;
 }
 
-class MessageRepository extends BaseRepository {
+class MessageRepository extends BaseRepository<MessageRow> {
   constructor() {
     super('messages');
   }
 
   // findById se usa en todo el service (forward, updateBody, etc.); lo
   // sobreescribimos para que el body salga siempre descifrado.
-  async findById(id) {
+  async findById(id: string): Promise<MessageRow | null> {
     return decryptRow(await super.findById(id));
   }
 
   // Reconstruye el índice ciego de búsqueda (HMAC de tokens) de un mensaje a
   // partir de su texto plano. Se llama tras crear/editar.
-  async _setSearchTokens(messageId, plainBody) {
+  async _setSearchTokens(messageId: string, plainBody: string | null): Promise<void> {
     await this.query('DELETE FROM message_search_tokens WHERE message_id = $1', [messageId]);
     const tokens = searchTokens(plainBody);
     if (tokens.length === 0) return;
@@ -51,7 +92,21 @@ class MessageRepository extends BaseRepository {
     );
   }
 
-  async create({ conversation_id, sender_id, type, body, body_format, reply_to_id, thread_id, forwarded_from_id, forwarded_from_conv, metadata }) {
+  async create(
+    { conversation_id, sender_id, type, body, body_format, reply_to_id, thread_id,
+      forwarded_from_id, forwarded_from_conv, metadata }: {
+      conversation_id: string;
+      sender_id: string;
+      type?: string;
+      body?: string | null;
+      body_format?: string;
+      reply_to_id?: string | null;
+      thread_id?: string | null;
+      forwarded_from_id?: string | null;
+      forwarded_from_conv?: string | null;
+      metadata?: unknown;
+    },
+  ): Promise<MessageRow> {
     const plainBody = body || null;
     const { rows } = await this.query(
       `INSERT INTO messages (conversation_id, sender_id, type, body, body_format, reply_to_id, thread_id, forwarded_from_id, forwarded_from_conv, metadata)
@@ -64,11 +119,19 @@ class MessageRepository extends BaseRepository {
     return decryptRow(rows[0]);
   }
 
-  async findByConversation(conversationId, { cursor, limit = 50, direction = 'before', viewerUserId } = {}) {
+  async findByConversation(
+    conversationId: string,
+    { cursor, limit = 50, direction = 'before', viewerUserId }: {
+      cursor?: string | null;
+      limit?: number;
+      direction?: string;
+      viewerUserId?: string;
+    } = {},
+  ): Promise<MessageRow[]> {
     // Thread replies live in their own side panel; the main timeline only
     // shows root messages (with a reply counter aggregated below).
     let condition = 'm.conversation_id = $1 AND m.thread_id IS NULL';
-    const params = [conversationId];
+    const params: any[] = [conversationId];
 
     if (cursor) {
       const op = direction === 'before' ? '<' : '>';
@@ -137,12 +200,12 @@ class MessageRepository extends BaseRepository {
       params
     );
 
-    rows.forEach(decryptRow);
+    rows.forEach((r) => decryptRow(r));
     return direction === 'before' ? rows.reverse() : rows;
   }
 
-  async findWithAttachments(messageId, viewerUserId) {
-    const params = [messageId];
+  async findWithAttachments(messageId: string, viewerUserId?: string): Promise<MessageRow | null> {
+    const params: any[] = [messageId];
     const savedSql = savedMessageSelect(viewerUserId, params);
     const { rows } = await this.query(
       `SELECT m.*,
@@ -198,8 +261,11 @@ class MessageRepository extends BaseRepository {
 
   // All replies of a thread (oldest first), with the same enrichment as the
   // conversation timeline so the thread panel can reuse the message renderer.
-  async findThreadReplies(threadId, { limit = 200, viewerUserId } = {}) {
-    const params = [threadId];
+  async findThreadReplies(
+    threadId: string,
+    { limit = 200, viewerUserId }: { limit?: number; viewerUserId?: string } = {},
+  ): Promise<MessageRow[]> {
+    const params: any[] = [threadId];
     const savedSql = savedMessageSelect(viewerUserId, params);
     params.push(limit);
     const { rows } = await this.query(
@@ -245,19 +311,24 @@ class MessageRepository extends BaseRepository {
        LIMIT $${params.length}`,
       params
     );
-    rows.forEach(decryptRow);
+    rows.forEach((r) => decryptRow(r));
     return rows;
   }
 
-  async countThreadReplies(threadId) {
-    const { rows } = await this.query(
+  async countThreadReplies(threadId: string): Promise<number> {
+    const { rows } = await this.query<{ count: number }>(
       `SELECT COUNT(*)::int AS count FROM messages WHERE thread_id = $1 AND is_deleted = FALSE`,
       [threadId]
     );
     return rows[0]?.count ?? 0;
   }
 
-  async updateBody(id, body, editedBy, bodyFormat) {
+  async updateBody(
+    id: string,
+    body: string | null,
+    editedBy: string,
+    bodyFormat?: string,
+  ): Promise<MessageRow> {
     // Save edit history (el body anterior, ya en texto plano vía findById, se
     // vuelve a cifrar antes de guardarlo en el historial).
     const original = await this.findById(id);
@@ -276,7 +347,7 @@ class MessageRepository extends BaseRepository {
     return decryptRow(rows[0]);
   }
 
-  async softDelete(id, deletedBy) {
+  async softDelete(id: string, deletedBy: string): Promise<MessageRow> {
     const { rows } = await this.query(
       `UPDATE messages SET is_deleted = TRUE, deleted_at = NOW(), deleted_by = $2,
               body = NULL, type = 'deleted_placeholder'
@@ -291,8 +362,8 @@ class MessageRepository extends BaseRepository {
   // Returns only attachment objects that are NOT shared with another message
   // (e.g. forwarded copies reference the same object_id). Callers use this to
   // physically remove MinIO files without breaking the original message.
-  async getAttachmentObjects(messageId) {
-    const { rows } = await this.query(
+  async getAttachmentObjects(messageId: string): Promise<ExclusiveAttachment[]> {
+    const { rows } = await this.query<ExclusiveAttachment>(
       `SELECT so.bucket_name, so.object_key, so.thumbnail_bucket, so.thumbnail_key, ma.id AS attachment_id, so.id AS object_id
        FROM message_attachments ma
        JOIN storage_objects so ON so.id = ma.object_id
@@ -304,15 +375,15 @@ class MessageRepository extends BaseRepository {
   }
 
   // Object ids attached to a message (used to clone attachments when forwarding)
-  async getAttachmentObjectIds(messageId) {
-    const { rows } = await this.query(
+  async getAttachmentObjectIds(messageId: string): Promise<string[]> {
+    const { rows } = await this.query<{ object_id: string }>(
       `SELECT object_id FROM message_attachments WHERE message_id = $1 ORDER BY sort_order`,
       [messageId]
     );
     return rows.map((r) => r.object_id);
   }
 
-  async deleteAttachments(messageId) {
+  async deleteAttachments(messageId: string): Promise<void> {
     await this.query(`DELETE FROM message_attachments WHERE message_id = $1`, [messageId]);
     await this.query(
       `DELETE FROM storage_objects WHERE id IN (
@@ -322,8 +393,13 @@ class MessageRepository extends BaseRepository {
     );
   }
 
-  async addAttachment(messageId, objectId, sortOrder = 0, caption = null) {
-    const { rows } = await this.query(
+  async addAttachment(
+    messageId: string,
+    objectId: string,
+    sortOrder = 0,
+    caption: string | null = null,
+  ): Promise<Row<'message_attachments'>> {
+    const { rows } = await this.query<Row<'message_attachments'>>(
       `INSERT INTO message_attachments (message_id, object_id, sort_order, caption)
        VALUES ($1, $2, $3, $4) RETURNING *`,
       [messageId, objectId, sortOrder, caption]
@@ -331,8 +407,12 @@ class MessageRepository extends BaseRepository {
     return rows[0];
   }
 
-  async toggleReaction(messageId, userId, emoji) {
-    const { rows } = await this.query(
+  async toggleReaction(
+    messageId: string,
+    userId: string,
+    emoji: string,
+  ): Promise<ReactionToggleResult> {
+    const { rows } = await this.query<{ emoji: string }>(
       `SELECT emoji FROM message_reactions WHERE message_id = $1 AND user_id = $2`,
       [messageId, userId]
     );
@@ -360,16 +440,16 @@ class MessageRepository extends BaseRepository {
     return 'added';
   }
 
-  async removeReaction(messageId, userId, emoji) {
+  async removeReaction(messageId: string, userId: string, emoji: string): Promise<boolean> {
     const { rowCount } = await this.query(
       `DELETE FROM message_reactions WHERE message_id = $1 AND user_id = $2 AND emoji = $3`,
       [messageId, userId, emoji]
     );
-    return rowCount > 0;
+    return (rowCount ?? 0) > 0;
   }
 
-  async getReactions(messageId) {
-    const { rows } = await this.query(
+  async getReactions(messageId: string) {
+    const { rows } = await this.query<{ emoji: string; count: string; user_ids: string[] }>(
       `SELECT emoji, COUNT(*) AS count,
               ARRAY_AGG(user_id) AS user_ids
        FROM message_reactions
@@ -380,12 +460,16 @@ class MessageRepository extends BaseRepository {
     return rows;
   }
 
-  async addReceipt(messageId, userId, type = 'delivered') {
+  async addReceipt(
+    messageId: string,
+    userId: string,
+    type = 'delivered',
+  ): Promise<Row<'message_receipts'>> {
     if (type === 'read') {
       // Leer implica haber recibido: fijamos read_at y, si todavía no había
       // marca de entrega, completamos delivered_at en la misma operación para
       // que la "Información del mensaje" muestre ambas horas de forma coherente.
-      const { rows } = await this.query(
+      const { rows } = await this.query<Row<'message_receipts'>>(
         `INSERT INTO message_receipts (message_id, user_id, delivered_at, read_at)
          VALUES ($1, $2, NOW(), NOW())
          ON CONFLICT (message_id, user_id) DO UPDATE
@@ -396,7 +480,7 @@ class MessageRepository extends BaseRepository {
       );
       return rows[0];
     }
-    const { rows } = await this.query(
+    const { rows } = await this.query<Row<'message_receipts'>>(
       `INSERT INTO message_receipts (message_id, user_id, delivered_at)
        VALUES ($1, $2, NOW())
        ON CONFLICT (message_id, user_id) DO UPDATE
@@ -407,8 +491,8 @@ class MessageRepository extends BaseRepository {
     return rows[0];
   }
 
-  async getReceiptCounts(messageId) {
-    const { rows } = await this.query(
+  async getReceiptCounts(messageId: string): Promise<ReceiptCounts> {
+    const { rows } = await this.query<ReceiptCounts>(
       `SELECT
          COUNT(*) FILTER (WHERE delivered_at IS NOT NULL) AS delivered_count,
          COUNT(*) FILTER (WHERE read_at IS NOT NULL) AS read_count
@@ -424,8 +508,8 @@ class MessageRepository extends BaseRepository {
   // conversación (excepto el emisor) y hace LEFT JOIN con los recibos, de modo
   // que quien todavía no recibió ni leyó aparece con delivered_at/read_at en
   // NULL ("pendiente de entrega") en lugar de desaparecer de la lista.
-  async getReceipts(messageId) {
-    const { rows } = await this.query(
+  async getReceipts(messageId: string): Promise<ReceiptDetail[]> {
+    const { rows } = await this.query<ReceiptDetail>(
       `SELECT cm.user_id, mr.delivered_at, mr.read_at,
               u.display_name, u.username, u.avatar_object_key, u.avatar_bucket
        FROM messages m
@@ -445,9 +529,9 @@ class MessageRepository extends BaseRepository {
     return rows;
   }
 
-  async getReceiptCountsBatch(messageIds) {
+  async getReceiptCountsBatch(messageIds: string[]): Promise<Record<string, ReceiptCounts>> {
     if (!messageIds.length) return {};
-    const { rows } = await this.query(
+    const { rows } = await this.query<{ message_id: string } & ReceiptCounts>(
       `SELECT message_id,
          COUNT(*) FILTER (WHERE delivered_at IS NOT NULL)::int AS delivered_count,
          COUNT(*) FILTER (WHERE read_at IS NOT NULL)::int AS read_count
@@ -456,14 +540,14 @@ class MessageRepository extends BaseRepository {
        GROUP BY message_id`,
       [messageIds]
     );
-    const map = {};
+    const map: Record<string, ReceiptCounts> = {};
     for (const r of rows) {
       map[r.message_id] = { delivered_count: r.delivered_count, read_count: r.read_count };
     }
     return map;
   }
 
-  async search(conversationId, term, limit = 20) {
+  async search(conversationId: string, term: string, limit = 20): Promise<MessageRow[]> {
     // Búsqueda server-side sobre el índice ciego: el término se tokeniza y se
     // convierte a HMAC igual que al indexar. Semántica AND (deben aparecer todos
     // los tokens). Sin ranking ni stemming (trade-off del cifrado en reposo).
@@ -483,12 +567,16 @@ class MessageRepository extends BaseRepository {
        LIMIT $4`,
       [conversationId, tokens, tokens.length, limit]
     );
-    rows.forEach(decryptRow);
+    rows.forEach((r) => decryptRow(r));
     return rows;
   }
 
-  async pinMessage(conversationId, messageId, pinnedBy) {
-    const { rows } = await this.query(
+  async pinMessage(
+    conversationId: string,
+    messageId: string,
+    pinnedBy: string,
+  ): Promise<Row<'pinned_messages'> | undefined> {
+    const { rows } = await this.query<Row<'pinned_messages'>>(
       `INSERT INTO pinned_messages (conversation_id, message_id, pinned_by)
        VALUES ($1, $2, $3)
        ON CONFLICT (conversation_id, message_id) DO NOTHING
@@ -498,15 +586,15 @@ class MessageRepository extends BaseRepository {
     return rows[0];
   }
 
-  async unpinMessage(conversationId, messageId) {
+  async unpinMessage(conversationId: string, messageId: string): Promise<boolean> {
     const { rowCount } = await this.query(
       `DELETE FROM pinned_messages WHERE conversation_id = $1 AND message_id = $2`,
       [conversationId, messageId]
     );
-    return rowCount > 0;
+    return (rowCount ?? 0) > 0;
   }
 
-  async getPinnedMessages(conversationId) {
+  async getPinnedMessages(conversationId: string): Promise<MessageRow[]> {
     const { rows } = await this.query(
       `SELECT m.*, pm.pinned_by, pm.pinned_at,
               u.username AS sender_username, u.display_name AS sender_display_name
@@ -517,9 +605,9 @@ class MessageRepository extends BaseRepository {
        ORDER BY pm.pinned_at DESC`,
       [conversationId]
     );
-    rows.forEach(decryptRow);
+    rows.forEach((r) => decryptRow(r));
     return rows;
   }
 }
 
-module.exports = new MessageRepository();
+export = new MessageRepository();
