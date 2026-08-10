@@ -1,14 +1,17 @@
-const logger = require('../config/logger');
-const { callRepository, messageRepository } = require('../repositories');
-const { NotFoundError, ForbiddenError } = require('../errors');
-const { toCallResponse, toMessageResponse, toCallHistoryItem } = require('../models');
-const { minioClient } = require('../config/minio');
-const { toConversation } = require('../config/eventBus');
+import logger from '../config/logger';
+import { callRepository, messageRepository } from '../repositories';
+import { NotFoundError } from '../errors';
+import { toCallResponse, toMessageResponse, toCallHistoryItem } from '../models';
+import { minioClient } from '../config/minio';
+import { toConversation } from '../config/eventBus';
+import type { CallRow } from '../models/call.model';
+import type { CallHistoryItem } from '../models/call.model';
+import type { InitiateCallRequest, UpdateParticipantRequest } from '../dtos/call.dto';
 
 const AVATAR_BUCKET = 'messaging-avatars';
 
 // Firma la URL del avatar (directos) para que el frontend muestre la foto.
-async function withAvatarUrl(item) {
+async function withAvatarUrl(item: CallHistoryItem | null) {
   if (!item?.avatar_key) return item;
   try {
     const url = await minioClient.presignedGetObject(AVATAR_BUCKET, item.avatar_key, 60 * 60 * 24);
@@ -18,12 +21,11 @@ async function withAvatarUrl(item) {
   }
 }
 
-
 const TERMINAL_STATUSES = ['ended', 'missed', 'rejected', 'failed'];
 
 class CallService {
-  async initiate(userId, data) {
-    const call = await callRepository.create({
+  async initiate(userId: string, data: InitiateCallRequest) {
+    const call: CallRow = await callRepository.create({
       conversation_id: data.conversation_id,
       type: data.type,
       initiated_by: userId,
@@ -46,26 +48,26 @@ class CallService {
     return toCallResponse(call);
   }
 
-  async getById(callId) {
-    const call = await callRepository.findById(callId);
+  async getById(callId: string) {
+    const call: CallRow | null = await callRepository.findById(callId);
     if (!call) throw new NotFoundError('Call');
     call.participants = await callRepository.getParticipants(callId);
     return toCallResponse(call);
   }
 
-  async updateStatus(callId, userId, status, endReason) {
+  async updateStatus(callId: string, userId: string, status: string, endReason?: string | null) {
     const call = await callRepository.findById(callId);
     if (!call) throw new NotFoundError('Call');
 
-    const wasTerminal = TERMINAL_STATUSES.includes(call.status);
-    const updated = await callRepository.updateStatus(callId, status, endReason);
+    const wasTerminal = TERMINAL_STATUSES.includes(call.status as string);
+    const updated: CallRow = await callRepository.updateStatus(callId, status, endReason ?? null);
     updated.participants = await callRepository.getParticipants(callId);
     logger.info({ callId, status }, 'Call status updated');
 
     // Al finalizar por primera vez, dejamos un evento en el timeline de la
     // conversación. Sirve de aviso en el chat y de historial persistente.
     if (!wasTerminal && TERMINAL_STATUSES.includes(status) && updated.conversation_id) {
-      await this._emitCallEvent(updated).catch((err) =>
+      await this._emitCallEvent(updated).catch((err: Error) =>
         logger.warn({ err: err.message, callId }, 'Failed to post call event message'),
       );
     }
@@ -73,14 +75,14 @@ class CallService {
   }
 
   // Inserta y difunde un mensaje de sistema que resume la llamada finalizada.
-  async _emitCallEvent(call) {
+  async _emitCallEvent(call: CallRow) {
     const outcome =
       call.status === 'ended' ? 'completed'
       : call.status === 'rejected' ? 'declined'
       : 'missed';
 
     const message = await messageRepository.create({
-      conversation_id: call.conversation_id,
+      conversation_id: call.conversation_id!,
       sender_id: call.initiated_by,   // atribuido al que inició; se renderiza centrado
       type: 'system',
       body: null,
@@ -97,33 +99,40 @@ class CallService {
     const full = await messageRepository.findWithAttachments(message.id);
     const response = toMessageResponse(full);
     try {
-      toConversation(call.conversation_id, 'message:new', response);
+      toConversation(call.conversation_id!, 'message:new', response);
     } catch (err) {
-      logger.warn({ err: err.message }, 'Failed to emit call event message:new');
+      logger.warn({ err: (err as Error).message }, 'Failed to emit call event message:new');
     }
     return response;
   }
 
-  async updateParticipant(callId, userId, fields) {
+  async updateParticipant(callId: string, userId: string, fields: UpdateParticipantRequest) {
     const participant = await callRepository.updateParticipant(callId, userId, fields);
     if (!participant) throw new NotFoundError('Call participant');
     return participant;
   }
 
-  async getByConversation(conversationId, pagination) {
+  async getByConversation(
+    conversationId: string,
+    pagination?: { limit?: number; offset?: number },
+  ) {
     const calls = await callRepository.findByConversation(conversationId, pagination);
     return calls.map(toCallResponse);
   }
 
-  async getActiveByUser(userId) {
+  async getActiveByUser(userId: string) {
     const calls = await callRepository.findActiveByUser(userId);
     return calls.map(toCallResponse);
   }
 
-  async getHistoryByUser(userId, pagination, filter) {
+  async getHistoryByUser(
+    userId: string,
+    pagination: { limit?: number; offset?: number } | undefined,
+    filter?: string,
+  ) {
     const rows = await callRepository.findByUser(userId, { ...pagination, filter });
     return Promise.all(rows.map((row) => withAvatarUrl(toCallHistoryItem(row))));
   }
 }
 
-module.exports = new CallService();
+export = new CallService();

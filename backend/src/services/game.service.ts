@@ -1,21 +1,27 @@
-const logger = require('../config/logger');
-const {
+import logger from '../config/logger';
+import {
   gameRepository,
   messageRepository,
   conversationRepository,
-} = require('../repositories');
-const { NotFoundError, ForbiddenError, BadRequestError } = require('../errors');
-const { toMessageResponse, toGameResponse } = require('../models');
+} from '../repositories';
+import { NotFoundError, ForbiddenError, BadRequestError } from '../errors';
+import { toMessageResponse, toGameResponse } from '../models';
+import { toConversation, toUser } from '../config/eventBus';
+import type { GameRow, GameState, PlayerRole } from '../models/game.model';
+import type { CreateGameRequest, GameMoveRequest } from '../dtos/game.dto';
+
 const tictactoe = require('../games/tictactoe');
 const rps = require('../games/rps');
 const hangman = require('../games/hangman');
-const { toConversation, toUser } = require('../config/eventBus');
 
-
-const KIND_LABELS = { tictactoe: 'Tatetí', rps: 'Piedra, papel o tijera', hangman: 'Ahorcado' };
+const KIND_LABELS: Record<string, string> = {
+  tictactoe: 'Tatetí',
+  rps: 'Piedra, papel o tijera',
+  hangman: 'Ahorcado',
+};
 
 class GameService {
-  async createGame(userId, { conversation_id, kind, word }) {
+  async createGame(userId: string, { conversation_id, kind, word }: CreateGameRequest) {
     const conversation = await conversationRepository.findById(conversation_id);
     if (!conversation) throw new NotFoundError('Conversation');
     if (conversation.type !== 'direct') {
@@ -29,7 +35,7 @@ class GameService {
     const opponent = members.find((m) => m.user_id !== userId);
     if (!opponent) throw new BadRequestError('No opponent to play with');
 
-    let state;
+    let state: GameState;
     if (kind === 'tictactoe') state = tictactoe.createInitialState();
     else if (kind === 'rps') state = rps.createInitialState();
     else if (kind === 'hangman') {
@@ -62,23 +68,23 @@ class GameService {
     try {
       toConversation(conversation_id, 'message:new', response);
     } catch (err) {
-      logger.warn({ err: err.message }, 'Failed to emit message:new (game)');
+      logger.warn({ err: (err as Error).message }, 'Failed to emit message:new (game)');
     }
     logger.info({ gameId: game.id, kind, conversationId: conversation_id }, 'Game created');
     return response;
   }
 
-  async move(userId, gameId, payload) {
-    const game = await gameRepository.findById(gameId);
+  async move(userId: string, gameId: string, payload: GameMoveRequest) {
+    const game = (await gameRepository.findById(gameId)) as GameRow | null;
     if (!game) throw new NotFoundError('Game');
     if (game.status !== 'active') throw new BadRequestError('Game already finished');
 
-    let role;
+    let role: PlayerRole;
     if (game.player1_id === userId) role = 'player1';
     else if (game.player2_id === userId) role = 'player2';
     else throw new ForbiddenError('Not a player in this game');
 
-    let nextState;
+    let nextState: GameState;
     try {
       if (game.kind === 'tictactoe') {
         if (payload.cell === undefined) throw new BadRequestError('Missing cell');
@@ -95,7 +101,7 @@ class GameService {
       }
     } catch (err) {
       if (err instanceof BadRequestError || err instanceof ForbiddenError) throw err;
-      throw new BadRequestError(err.message);
+      throw new BadRequestError((err as Error).message);
     }
 
     const finished = !!nextState.winner;
@@ -104,9 +110,9 @@ class GameService {
       : null;
     const result = finished ? (nextState.winner === 'draw' ? 'draw' : 'win') : null;
 
-    const updated = await gameRepository.updateState(
+    const updated = (await gameRepository.updateState(
       game.id, nextState, finished ? 'finished' : 'active', winnerId, result,
-    );
+    )) as GameRow;
 
     // Emitted per-player personal room (not the shared conv room) so each
     // viewer gets their own redacted copy — RPS hides the opponent's choice
@@ -119,24 +125,24 @@ class GameService {
           game: toGameResponse(updated, uid),
         });
       } catch (err) {
-        logger.warn({ err: err.message }, 'Failed to emit game:update');
+        logger.warn({ err: (err as Error).message }, 'Failed to emit game:update');
       }
     }
     return toGameResponse(updated, userId);
   }
 
-  async getByMessage(messageId, userId) {
-    const game = await gameRepository.findByMessageId(messageId);
+  async getByMessage(messageId: string, userId: string) {
+    const game = (await gameRepository.findByMessageId(messageId)) as GameRow | null;
     if (!game) return null;
     return toGameResponse(game, userId);
   }
 
-  async _buildMessageWithGame(messageId, userId) {
+  async _buildMessageWithGame(messageId: string, userId: string) {
     const full = await messageRepository.findWithAttachments(messageId);
-    const response = toMessageResponse(full);
+    const response = toMessageResponse(full)!;
     response.game = await this.getByMessage(messageId, userId);
     return response;
   }
 }
 
-module.exports = new GameService();
+export = new GameService();
