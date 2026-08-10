@@ -1,18 +1,19 @@
-const logger = require('../config/logger');
-const {
+import logger from '../config/logger';
+import {
   conversationRepository,
   channelRepository,
   notificationRepository,
-} = require('../repositories');
-const { NotFoundError, ForbiddenError, ConflictError, BadRequestError } = require('../errors');
-const { toChannelResponse, toJoinRequestResponse } = require('../models');
-const { toUser } = require('../config/eventBus');
+} from '../repositories';
+import { NotFoundError, ForbiddenError, ConflictError, BadRequestError } from '../errors';
+import { toChannelResponse, toJoinRequestResponse } from '../models';
+import { toUser } from '../config/eventBus';
+import type { Row } from '../types/rows';
+import type { CreateChannelRequest, UpdateChannelSettingsRequest } from '../dtos/channel.dto';
 
 const MANAGE_ROLES = ['owner', 'admin', 'moderator'];
 
-
 class ChannelService {
-  async createChannel(userId, data) {
+  async createChannel(userId: string, data: CreateChannelRequest) {
     const conversation = await conversationRepository.create({
       type: 'channel',
       name: data.name,
@@ -44,7 +45,7 @@ class ChannelService {
     return this._merge(conversation, settings);
   }
 
-  async getChannel(conversationId, userId) {
+  async getChannel(conversationId: string, userId: string) {
     const conversation = await conversationRepository.findById(conversationId);
     if (!conversation || conversation.type !== 'channel') throw new NotFoundError('Channel');
     const settings = await channelRepository.getSettings(conversationId);
@@ -52,12 +53,19 @@ class ChannelService {
     return this._merge(conversation, settings, { is_member: !!member });
   }
 
-  async listDiscoverable(userId, query) {
+  async listDiscoverable(
+    userId: string,
+    query?: { search?: string; category?: string; limit?: number; offset?: number },
+  ) {
     const rows = await channelRepository.findDiscoverable(userId, query);
     return rows.map(toChannelResponse);
   }
 
-  async updateSettings(conversationId, userId, data) {
+  async updateSettings(
+    conversationId: string,
+    userId: string,
+    data: UpdateChannelSettingsRequest,
+  ) {
     await this._requireManageRole(conversationId, userId);
     const conversation = await conversationRepository.findById(conversationId);
     if (!conversation || conversation.type !== 'channel') throw new NotFoundError('Channel');
@@ -66,7 +74,7 @@ class ChannelService {
     return this._merge(conversation, settings);
   }
 
-  async join(conversationId, userId, message) {
+  async join(conversationId: string, userId: string, message?: string | null) {
     const conversation = await conversationRepository.findById(conversationId);
     if (!conversation || conversation.type !== 'channel') throw new NotFoundError('Channel');
 
@@ -96,13 +104,22 @@ class ChannelService {
     return { status: 'joined', conversation_id: conversationId, member };
   }
 
-  async listJoinRequests(conversationId, userId, query) {
+  async listJoinRequests(
+    conversationId: string,
+    userId: string,
+    query?: { status?: string; limit?: number; offset?: number },
+  ) {
     await this._requireManageRole(conversationId, userId);
     const rows = await channelRepository.listJoinRequests(conversationId, query);
     return rows.map(toJoinRequestResponse);
   }
 
-  async reviewJoinRequest(conversationId, requestId, reviewerId, status) {
+  async reviewJoinRequest(
+    conversationId: string,
+    requestId: string,
+    reviewerId: string,
+    status: string,
+  ) {
     await this._requireManageRole(conversationId, reviewerId);
 
     const request = await channelRepository.findRequestById(requestId);
@@ -133,7 +150,12 @@ class ChannelService {
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────
-  _merge(conversation, settings, extra = {}) {
+  /** Un canal es una conversación + su fila de channel_settings, aplanadas. */
+  _merge(
+    conversation: Row<'conversations'>,
+    settings: Row<'channel_settings'> | null,
+    extra: Record<string, unknown> = {},
+  ) {
     return toChannelResponse({
       ...conversation,
       category: settings?.category ?? null,
@@ -145,19 +167,19 @@ class ChannelService {
     });
   }
 
-  async _requireManageRole(conversationId, userId) {
+  async _requireManageRole(conversationId: string, userId: string) {
     const member = await conversationRepository.getMember(conversationId, userId);
     if (!member) throw new ForbiddenError('Not a member of this channel');
-    if (!MANAGE_ROLES.includes(member.role)) {
+    if (!MANAGE_ROLES.includes(member.role as string)) {
       throw new ForbiddenError('Insufficient role to manage this channel');
     }
     return member;
   }
 
-  async _notifyManagers(conversationId, requesterId, channelName) {
+  async _notifyManagers(conversationId: string, requesterId: string, channelName: string | null) {
     try {
       const members = await conversationRepository.getMembers(conversationId, { limit: 200 });
-      const managers = members.filter((m) => MANAGE_ROLES.includes(m.role) && m.user_id !== requesterId);
+      const managers = members.filter((m) => MANAGE_ROLES.includes(m.role as string) && m.user_id !== requesterId);
       for (const manager of managers) {
         await notificationRepository.create({
           recipient_id: manager.user_id,
@@ -170,13 +192,13 @@ class ChannelService {
         this._emitToUser(manager.user_id, 'channel:join_request', { conversationId });
       }
     } catch (err) {
-      logger.warn({ err: err.message, conversationId }, 'Failed to notify channel managers');
+      logger.warn({ err: (err as Error).message, conversationId }, 'Failed to notify channel managers');
     }
   }
 
-  _emitToUser(userId, event, payload) {
+  _emitToUser(userId: string, event: string, payload: unknown) {
     toUser(userId, event, payload);
   }
 }
 
-module.exports = new ChannelService();
+export = new ChannelService();

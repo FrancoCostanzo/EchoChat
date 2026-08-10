@@ -1,11 +1,26 @@
+import type { Request } from 'express';
+import config from '../config';
+import logger from '../config/logger';
+import { BadRequestError, AppError } from '../errors';
+import type { SsoTransaction } from '../utils/ssoTransaction';
+
 const { Issuer, generators } = require('openid-client');
-const config = require('../config');
-const logger = require('../config/logger');
-const { BadRequestError, AppError } = require('../errors');
+
+// El tipo de la transacción lo declara utils/ssoTransaction, que es el módulo
+// que fija el formato de la cookie donde viaja.
+export type { SsoTransaction as OidcTransaction } from '../utils/ssoTransaction';
+
+/** Claims ya mapeados a lo que necesita `upsertOidcUser`. */
+export interface OidcProfile {
+  external_id: string;
+  username: string;
+  display_name: string | null;
+  email: string | null;
+}
 
 // Normaliza un candidato a username local (mismo criterio que LDAP): minúsculas,
 // sólo [a-z0-9._], sin puntos repetidos ni en los extremos.
-function sanitizeUsername(raw) {
+function sanitizeUsername(raw: unknown): string | null {
   if (!raw) return null;
   return String(raw)
     .trim()
@@ -16,16 +31,14 @@ function sanitizeUsername(raw) {
 }
 
 class OidcService {
-  constructor() {
-    // Cache de clientes OIDC descubiertos, por nombre de proveedor.
-    this._clients = new Map();
-  }
+  // Cache de clientes OIDC descubiertos, por nombre de proveedor.
+  private _clients = new Map<string, any>();
 
-  isEnabled() {
+  isEnabled(): boolean {
     return Boolean(config.oidc.enabled && Object.keys(config.oidc.providers).length > 0);
   }
 
-  _getProviderConfig(name) {
+  _getProviderConfig(name: string) {
     const provider = config.oidc.providers[String(name || '').toLowerCase()];
     if (!provider) throw new BadRequestError('Proveedor SSO desconocido o no configurado');
     return provider;
@@ -38,14 +51,14 @@ class OidcService {
   }
 
   // redirect_uri que debe coincidir EXACTAMENTE con el registrado en el IdP.
-  redirectUri(providerName, req) {
+  redirectUri(providerName: string, req?: Request): string {
     const base = config.oidc.redirectBase
       || (req ? `${req.protocol}://${req.get('host')}` : '');
     return `${base.replace(/\/$/, '')}/api/auth/sso/${providerName}/callback`;
   }
 
   // Descubre el issuer (well-known) y crea el cliente OIDC. Cacheado por proveedor.
-  async _getClient(name) {
+  async _getClient(name: string) {
     const cached = this._clients.get(name);
     if (cached) return cached;
     const cfg = this._getProviderConfig(name);
@@ -66,7 +79,10 @@ class OidcService {
   }
 
   // Paso 1: genera el material de la transacción (state/nonce/PKCE) y la URL del IdP.
-  async buildAuthRequest(providerName, req) {
+  async buildAuthRequest(
+    providerName: string,
+    req: Request,
+  ): Promise<{ url: string; transaction: SsoTransaction }> {
     if (!this.isEnabled()) throw new BadRequestError('El SSO no está habilitado');
     const cfg = this._getProviderConfig(providerName);
     const client = await this._getClient(providerName);
@@ -89,7 +105,11 @@ class OidcService {
   }
 
   // Paso 2: valida el callback contra el material guardado y devuelve claims mapeados.
-  async handleCallback(providerName, req, transaction) {
+  async handleCallback(
+    providerName: string,
+    req: Request,
+    transaction: SsoTransaction,
+  ): Promise<OidcProfile> {
     const client = await this._getClient(providerName);
     const params = client.callbackParams(req);
     let tokenSet;
@@ -100,7 +120,7 @@ class OidcService {
         { state: transaction.state, nonce: transaction.nonce, code_verifier: transaction.codeVerifier }
       );
     } catch (err) {
-      logger.warn({ err: err.message, provider: providerName }, 'OIDC callback validation failed');
+      logger.warn({ err: (err as Error).message, provider: providerName }, 'OIDC callback validation failed');
       throw new BadRequestError('No se pudo validar la respuesta del proveedor de identidad');
     }
 
@@ -122,4 +142,4 @@ class OidcService {
   }
 }
 
-module.exports = new OidcService();
+export = new OidcService();
