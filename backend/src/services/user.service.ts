@@ -1,19 +1,33 @@
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
-const logger = require('../config/logger');
-const { userRepository, credentialRepository, auditRepository } = require('../repositories');
-const { clearAutoAway } = require('../config/presenceStore');
-const { toAll } = require('../config/eventBus');
-const { minioClient } = require('../config/minio');
-const { NotFoundError, BadRequestError } = require('../errors');
-const { toUserResponse } = require('../models');
-
+import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
+import logger from '../config/logger';
+import { userRepository, credentialRepository, auditRepository } from '../repositories';
+import { clearAutoAway } from '../config/presenceStore';
+import { toAll } from '../config/eventBus';
+import { minioClient } from '../config/minio';
+import { NotFoundError, BadRequestError } from '../errors';
+import { toUserResponse } from '../models';
+import type { UserResponse } from '../models/user.model';
+import type { UpdateProfileRequest } from '../dtos/auth.dto';
 
 const AVATAR_BUCKET = 'messaging-avatars';
 const AVATAR_ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const AVATAR_MAX_SIZE = 5 * 1024 * 1024; // 5 MB
 
-async function withAvatarUrl(user) {
+/**
+ * Contexto de auditoría cuando la acción la dispara un admin sobre otro
+ * usuario: sin esto, la entrada quedaría atribuida al propio afectado.
+ */
+export interface AuditOpts {
+  actorId?: string;
+  action?: string;
+  severity?: string;
+  category?: string;
+  ip?: string | null;
+  userAgent?: string | null;
+}
+
+async function withAvatarUrl(user: UserResponse | null) {
   if (!user || !user.avatar_object_key) return user;
   try {
     const url = await minioClient.presignedGetObject(
@@ -29,7 +43,7 @@ async function withAvatarUrl(user) {
 }
 
 class UserService {
-  async getProfile(userId) {
+  async getProfile(userId: string) {
     const user = await userRepository.findById(userId);
     if (!user) throw new NotFoundError('User');
     const creds = await credentialRepository.findByUserId(userId);
@@ -41,7 +55,7 @@ class UserService {
     return { ...profile, totp_enabled: creds?.totp_enabled ?? false, roles, permissions };
   }
 
-  async updateProfile(userId, data) {
+  async updateProfile(userId: string, data: UpdateProfileRequest) {
     const before = await userRepository.findById(userId);
     const user = await userRepository.updateProfile(userId, data);
     if (!user) throw new NotFoundError('User');
@@ -59,7 +73,14 @@ class UserService {
     return withAvatarUrl(toUserResponse(user));
   }
 
-  async uploadAvatar(userId, fileBuffer, mimeType, fileSize, originalFilename, opts = {}) {
+  async uploadAvatar(
+    userId: string,
+    fileBuffer: Buffer,
+    mimeType: string,
+    fileSize: number,
+    originalFilename: string,
+    opts: AuditOpts = {},
+  ) {
     if (!AVATAR_ALLOWED_TYPES.includes(mimeType)) {
       throw new BadRequestError('Invalid file type. Allowed: JPEG, PNG, WebP, GIF');
     }
@@ -105,7 +126,7 @@ class UserService {
     return withAvatarUrl(toUserResponse(user));
   }
 
-  async removeAvatar(userId, opts = {}) {
+  async removeAvatar(userId: string, opts: AuditOpts = {}) {
     const current = await userRepository.findById(userId);
     if (!current || current.status === 'deleted') throw new NotFoundError('User');
 
@@ -135,7 +156,7 @@ class UserService {
     return withAvatarUrl(toUserResponse(user));
   }
 
-  async updatePresence(userId, presence) {
+  async updatePresence(userId: string, presence: string) {
     // A manual choice supersedes a job-set away.
     await clearAutoAway(userId);
     const user = await userRepository.updatePresence(userId, presence);
@@ -144,16 +165,16 @@ class UserService {
     return toUserResponse(user);
   }
 
-  async search(term, limit, offset) {
+  async search(term: string | null | undefined, limit?: number, offset?: number) {
     const users = await userRepository.search(term, limit, offset);
     return Promise.all(users.map((u) => withAvatarUrl(toUserResponse(u))));
   }
 
-  async getUserById(id) {
+  async getUserById(id: string) {
     const user = await userRepository.findById(id);
     if (!user) throw new NotFoundError('User');
     return toUserResponse(user);
   }
 }
 
-module.exports = new UserService();
+export = new UserService();

@@ -1,12 +1,19 @@
-const logger = require('../config/logger');
-const { conversationRepository, auditRepository } = require('../repositories');
-const { minioClient } = require('../config/minio');
-const { NotFoundError, ForbiddenError, BadRequestError } = require('../errors');
-const { toConversationResponse, toMemberResponse } = require('../models');
+import logger from '../config/logger';
+import { conversationRepository, auditRepository } from '../repositories';
+import { minioClient } from '../config/minio';
+import { NotFoundError, ForbiddenError, BadRequestError } from '../errors';
+import { toConversationResponse, toMemberResponse } from '../models';
+import type { ConversationResponse, MemberResponse } from '../models/conversation.model';
+import type {
+  CreateConversationRequest,
+  UpdateConversationRequest,
+  UpdateMemberRequest,
+} from '../dtos/conversation.dto';
 
 const AVATAR_BUCKET = 'messaging-avatars';
 
-async function enrichAvatarUrl(conv) {
+/** Las URLs prefirmadas se resuelven acá: el repositorio sólo trae las claves. */
+async function enrichAvatarUrl(conv: ConversationResponse | null) {
   if (!conv || !conv.other_avatar_object_key) return conv;
   try {
     const url = await minioClient.presignedGetObject(AVATAR_BUCKET, conv.other_avatar_object_key, 60 * 60 * 24);
@@ -17,7 +24,7 @@ async function enrichAvatarUrl(conv) {
   }
 }
 
-async function enrichMemberAvatarUrl(member) {
+async function enrichMemberAvatarUrl(member: MemberResponse | null) {
   if (!member || !member.avatar_object_key) return member;
   try {
     const url = await minioClient.presignedGetObject(AVATAR_BUCKET, member.avatar_object_key, 60 * 60 * 24);
@@ -29,7 +36,7 @@ async function enrichMemberAvatarUrl(member) {
 }
 
 class ConversationService {
-  async create(userId, data) {
+  async create(userId: string, data: CreateConversationRequest) {
     // For direct chats, check if one already exists
     if (data.type === 'direct') {
       if (data.member_ids.length !== 1) {
@@ -58,7 +65,7 @@ class ConversationService {
     return enrichAvatarUrl(toConversationResponse(conversation));
   }
 
-  async getById(conversationId, userId) {
+  async getById(conversationId: string, userId: string) {
     const member = await conversationRepository.getMember(conversationId, userId);
     if (!member) throw new ForbiddenError('Not a member of this conversation');
 
@@ -67,12 +74,12 @@ class ConversationService {
     return enrichAvatarUrl(toConversationResponse(conversation));
   }
 
-  async getUserConversations(userId, pagination) {
+  async getUserConversations(userId: string, pagination?: { limit?: number; offset?: number }) {
     const conversations = await conversationRepository.findUserConversations(userId, pagination);
     return Promise.all(conversations.map(toConversationResponse).map(enrichAvatarUrl));
   }
 
-  async update(conversationId, userId, data) {
+  async update(conversationId: string, userId: string, data: UpdateConversationRequest) {
     await this._requireRole(conversationId, userId, ['owner', 'admin']);
     const conversation = await conversationRepository.update(conversationId, data);
     if (!conversation) throw new NotFoundError('Conversation');
@@ -80,7 +87,7 @@ class ConversationService {
     return toConversationResponse(conversation);
   }
 
-  async addMembers(conversationId, userId, memberIds) {
+  async addMembers(conversationId: string, userId: string, memberIds: string[]) {
     await this._requireRole(conversationId, userId, ['owner', 'admin', 'moderator']);
     const results = [];
     for (const memberId of memberIds) {
@@ -91,7 +98,7 @@ class ConversationService {
     return results;
   }
 
-  async removeMember(conversationId, userId, targetUserId) {
+  async removeMember(conversationId: string, userId: string, targetUserId: string) {
     // Users can remove themselves; admins can remove others
     if (userId !== targetUserId) {
       await this._requireRole(conversationId, userId, ['owner', 'admin', 'moderator']);
@@ -102,14 +109,23 @@ class ConversationService {
     return member;
   }
 
-  async getMembers(conversationId, userId, pagination) {
+  async getMembers(
+    conversationId: string,
+    userId: string,
+    pagination?: { limit?: number; offset?: number },
+  ) {
     const member = await conversationRepository.getMember(conversationId, userId);
     if (!member) throw new ForbiddenError('Not a member of this conversation');
     const members = await conversationRepository.getMembers(conversationId, pagination);
     return Promise.all(members.map(toMemberResponse).map(enrichMemberAvatarUrl));
   }
 
-  async updateMember(conversationId, userId, targetUserId, data) {
+  async updateMember(
+    conversationId: string,
+    userId: string,
+    targetUserId: string,
+    data: UpdateMemberRequest,
+  ) {
     // Users can update their own settings (mute, pin, hide); role changes need admin
     if (data.role && userId !== targetUserId) {
       await this._requireRole(conversationId, userId, ['owner', 'admin']);
@@ -129,23 +145,23 @@ class ConversationService {
         severity: 'warning',
         category: 'content',
         data_after: { target_user_id: targetUserId, new_role: data.role },
-      }).catch((err) => logger.warn({ err: err.message }, 'Failed to write audit log'));
+      }).catch((err: Error) => logger.warn({ err: err.message }, 'Failed to write audit log'));
     }
     return toMemberResponse(member);
   }
 
-  async markAsRead(conversationId, userId, messageId) {
+  async markAsRead(conversationId: string, userId: string, messageId: string) {
     return conversationRepository.markAsRead(conversationId, userId, messageId);
   }
 
-  async _requireRole(conversationId, userId, allowedRoles) {
+  async _requireRole(conversationId: string, userId: string, allowedRoles: string[]) {
     const member = await conversationRepository.getMember(conversationId, userId);
     if (!member) throw new ForbiddenError('Not a member of this conversation');
-    if (!allowedRoles.includes(member.role)) {
+    if (!allowedRoles.includes(member.role as string)) {
       throw new ForbiddenError('Insufficient role for this action');
     }
     return member;
   }
 }
 
-module.exports = new ConversationService();
+export = new ConversationService();
