@@ -1,28 +1,51 @@
-const os = require('os');
-const v8 = require('v8');
-const { readFileSync } = require('fs');
-const { performance } = require('perf_hooks');
-const config = require('../config');
-const { pool } = require('../config/database');
-const { getSocketMetrics } = require('../config/socketStore');
-const monitoringRepository = require('../repositories/monitoring.repository');
-const metricsRegistry = require('../utils/metricsRegistry');
-const { monitoringThresholds } = require('../utils/monitoringThresholds');
-const { getCronWorkerStatus } = require('../utils/cronJobStatus');
-const clusterMetrics = require('../utils/clusterMetrics');
+import os from 'os';
+import v8 from 'v8';
+import path from 'path';
+import { readFileSync } from 'fs';
+import { performance } from 'perf_hooks';
+import config from '../config';
+import { pool } from '../config/database';
+import { getSocketMetrics } from '../config/socketStore';
+import monitoringRepository from '../repositories/monitoring.repository';
+import * as metricsRegistry from '../utils/metricsRegistry';
+import { monitoringThresholds } from '../utils/monitoringThresholds';
+import { getCronWorkerStatus } from '../utils/cronJobStatus';
+import * as clusterMetrics from '../utils/clusterMetrics';
+import type { SnapshotInput } from '../repositories/monitoring.repository';
+
+/** Muestra de CPU con la que se calcula el uso entre dos llamadas. */
+interface CpuSample {
+  totalIdle: number;
+  totalTick: number;
+  time: number;
+  processCpu: NodeJS.CpuUsage;
+}
+
+/**
+ * Resultado del ping a la base. Un solo tipo con campos opcionales en vez de un
+ * union: los llamadores leen `responseTime` sin estrechar por `success`, que es
+ * justamente lo que un union prohibiría.
+ */
+interface DbConnectionTest {
+  success: boolean;
+  responseTime?: number;
+  data?: unknown;
+  error?: string;
+}
+
+type EstadoSalud = 'healthy' | 'degraded' | 'unhealthy';
 
 let packageVersion = 'unknown';
 try {
-  const pkg = JSON.parse(readFileSync(require('path').resolve(__dirname, '../../package.json'), 'utf-8'));
+  const pkg = JSON.parse(readFileSync(path.resolve(__dirname, '../../package.json'), 'utf-8'));
   packageVersion = pkg.version;
 } catch {
   // ignorar
 }
 
-let gitSha = process.env.MONITORING_GIT_SHA || null;
-let gitBranch = null;
+let gitSha: string | null = process.env.MONITORING_GIT_SHA || null;
+let gitBranch: string | null = null;
 try {
-  const path = require('path');
   const gitDir = path.resolve(__dirname, '../../../.git');
   const head = readFileSync(path.join(gitDir, 'HEAD'), 'utf-8').trim();
   if (head.startsWith('ref:')) {
@@ -46,6 +69,9 @@ try {
 const gitShaShort = gitSha ? gitSha.slice(0, 7) : null;
 
 class MonitoringService {
+  serverStartTime: Date;
+  lastSystemCpuUsage: CpuSample | null;
+
   constructor() {
     this.serverStartTime = new Date();
     this.lastSystemCpuUsage = null;
@@ -173,7 +199,7 @@ class MonitoringService {
     const cronReady = !cronWorker.enabled || cronWorker.ready;
 
     const ready = dbReady && cronReady;
-    const reasons = [];
+    const reasons: string[] = [];
     if (!connectionTest.success) reasons.push('db_connection_failed');
     if (!poolStatus.connected) reasons.push('pool_disconnected');
     if (!poolStatus.healthy) reasons.push('pool_unhealthy');
@@ -199,7 +225,7 @@ class MonitoringService {
     const connectionTest = await this._testDatabaseConnection();
     const http = metricsRegistry.getHttpMetrics();
 
-    const snapshot = {
+    const snapshot: SnapshotInput = {
       host: os.hostname(),
       procesoInicio: this.serverStartTime,
       heapPct: processInfo.memory.heapLimitPercentage,
@@ -221,14 +247,19 @@ class MonitoringService {
     return { snapshot, insertResult, purgeResult };
   }
 
-  _evaluateHealth({ processInfo, systemMetrics, poolStatus, connectionTest }) {
-    const reasons = [];
-    const serverReasons = [];
-    const databaseReasons = [];
+  _evaluateHealth({ processInfo, systemMetrics, poolStatus, connectionTest }: {
+    processInfo: ReturnType<MonitoringService['_getProcessInfo']>;
+    systemMetrics: ReturnType<MonitoringService['_getSystemMetrics']>;
+    poolStatus: ReturnType<MonitoringService['_getPoolStatus']>;
+    connectionTest: DbConnectionTest;
+  }) {
+    const reasons: string[] = [];
+    const serverReasons: string[] = [];
+    const databaseReasons: string[] = [];
     const t = monitoringThresholds;
 
-    let serverStatus = 'healthy';
-    let databaseStatus = 'healthy';
+    let serverStatus: EstadoSalud = 'healthy';
+    let databaseStatus: EstadoSalud = 'healthy';
 
     const heapPct = processInfo.memory.heapLimitPercentage;
     if (heapPct >= t.heapUnhealthyPct) {
@@ -288,7 +319,7 @@ class MonitoringService {
       }
     }
 
-    let overallStatus = 'healthy';
+    let overallStatus: EstadoSalud = 'healthy';
     if (serverStatus === 'unhealthy' || databaseStatus === 'unhealthy') {
       overallStatus = 'unhealthy';
     } else if (serverStatus === 'degraded' || databaseStatus === 'degraded') {
@@ -322,13 +353,13 @@ class MonitoringService {
     };
   }
 
-  _primeCpuMeasurement() {
+  _primeCpuMeasurement(): void {
     const cpus = os.cpus();
     let totalIdle = 0;
     let totalTick = 0;
     cpus.forEach((cpu) => {
       for (const type in cpu.times) {
-        totalTick += cpu.times[type];
+        totalTick += cpu.times[type as keyof typeof cpu.times];
       }
       totalIdle += cpu.times.idle;
     });
@@ -349,7 +380,7 @@ class MonitoringService {
 
     cpus.forEach((cpu) => {
       for (const type in cpu.times) {
-        totalTick += cpu.times[type];
+        totalTick += cpu.times[type as keyof typeof cpu.times];
       }
       totalIdle += cpu.times.idle;
     });
@@ -357,16 +388,19 @@ class MonitoringService {
     if (!this.lastSystemCpuUsage) {
       this._primeCpuMeasurement();
     }
+    // _primeCpuMeasurement lo deja siempre seteado, pero el compilador no puede
+    // saberlo: se toma acá para no repetir la aserción en cada lectura.
+    const previa = this.lastSystemCpuUsage!;
 
-    const idleDiff = totalIdle - this.lastSystemCpuUsage.totalIdle;
-    const totalDiff = totalTick - this.lastSystemCpuUsage.totalTick;
+    const idleDiff = totalIdle - previa.totalIdle;
+    const totalDiff = totalTick - previa.totalTick;
     const systemCpuPercentage = totalDiff > 0 ? (100 - (100 * idleDiff / totalDiff)) : 0;
 
     const currentProcessCpu = process.cpuUsage();
-    const timeDiffMs = currentTime - this.lastSystemCpuUsage.time;
+    const timeDiffMs = currentTime - previa.time;
 
-    const processUserDiff = currentProcessCpu.user - this.lastSystemCpuUsage.processCpu.user;
-    const processSystemDiff = currentProcessCpu.system - this.lastSystemCpuUsage.processCpu.system;
+    const processUserDiff = currentProcessCpu.user - previa.processCpu.user;
+    const processSystemDiff = currentProcessCpu.system - previa.processCpu.system;
     const processTotalDiff = processUserDiff + processSystemDiff;
 
     const timeDiffMicro = timeDiffMs * 1000;
@@ -478,7 +512,7 @@ class MonitoringService {
     };
   }
 
-  async _testDatabaseConnection() {
+  async _testDatabaseConnection(): Promise<DbConnectionTest> {
     try {
       const startTime = performance.now();
       const { rows } = await pool.query('SELECT 1 AS test, NOW() AS timestamp');
@@ -492,19 +526,19 @@ class MonitoringService {
     } catch (error) {
       return {
         success: false,
-        error: error.message,
+        error: (error as Error).message,
       };
     }
   }
 
-  _formatBytes(bytes) {
+  _formatBytes(bytes: number): string {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     if (bytes === 0) return '0 Bytes';
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
     return `${Math.round(bytes / 1024 ** i * 100) / 100} ${sizes[i]}`;
   }
 
-  _formatUptime(seconds) {
+  _formatUptime(seconds: number): string {
     const days = Math.floor(seconds / 86400);
     const hours = Math.floor((seconds % 86400) / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -517,4 +551,4 @@ class MonitoringService {
   }
 }
 
-module.exports = new MonitoringService();
+export = new MonitoringService();

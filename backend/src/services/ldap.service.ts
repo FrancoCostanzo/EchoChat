@@ -16,6 +16,22 @@ export interface LdapUser {
   dn: string;
 }
 
+/**
+ * Entrada ya filtrada por `fetchAllUsers`: tiene los identificadores que el
+ * upsert exige sí o sí. El filtro sólo mira username y external_id porque
+ * display_name cae a rawUsername cuando el directorio no lo trae (ver
+ * `_mapEntry`), así que si hay username hay display_name.
+ */
+export type LdapUserImportable = LdapUser & {
+  external_id: string;
+  username: string;
+  display_name: string;
+};
+
+function esImportable(u: LdapUser): u is LdapUserImportable {
+  return Boolean(u.username && u.external_id && u.display_name);
+}
+
 /** Los atributos de una entrada llegan como string, Buffer o arrays de ambos. */
 type LdapValue = string | Buffer | (string | Buffer)[] | undefined | null;
 type LdapEntry = { dn: string } & Record<string, any>;
@@ -173,7 +189,7 @@ class LdapService {
   }
 
   // Trae todos los usuarios del directorio bajo baseDn que matcheen userFilter.
-  async fetchAllUsers(): Promise<LdapUser[]> {
+  async fetchAllUsers(): Promise<LdapUserImportable[]> {
     this._assertEnabled();
     const client = this._newClient();
     try {
@@ -189,7 +205,7 @@ class LdapService {
       });
       return searchEntries
         .map((e) => this._mapEntry(e as LdapEntry))
-        .filter((u) => u.username && u.external_id);
+        .filter(esImportable);
     } catch (err) {
       logger.error({ err }, 'LDAP fetchAllUsers failed');
       throw new AppError('No se pudo importar desde el servidor LDAP', 502);

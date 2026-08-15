@@ -1,39 +1,80 @@
-const bcrypt = require('bcrypt');
-const config = require('../config');
-const logger = require('../config/logger');
-const userService = require('./user.service');
-const { minioClient } = require('../config/minio');
+import bcrypt from 'bcrypt';
+import config from '../config';
+import logger from '../config/logger';
+import userService from './user.service';
+import { minioClient } from '../config/minio';
 // Require directo (no vía ../services) para evitar dependencia circular.
-const ldapService = require('./ldap.service');
-const oidcService = require('./oidc.service');
-const {
+import ldapService from './ldap.service';
+import oidcService from './oidc.service';
+import {
   userRepository,
   credentialRepository,
   sessionRepository,
   auditRepository,
   systemSettingsRepository,
   storageRepository,
-} = require('../repositories');
-const {
+} from '../repositories';
+import {
   NotFoundError,
   ForbiddenError,
   ConflictError,
   BadRequestError,
-} = require('../errors');
-const {
+} from '../errors';
+import {
   toAdminUserResponse,
   toSettingResponse,
   toAuditEntryResponse,
   toStorageObjectAdminResponse,
-} = require('../models');
+} from '../models';
+import type { AdminUserResponse } from '../models/admin.model';
+import type { LdapUserImportable } from './ldap.service';
+import type { AuditSearchFilters } from '../repositories/audit.repository';
+import type {
+  AdminCreateUserRequest,
+  AdminUpdateUserRequest,
+} from '../dtos/admin.dto';
 
 const SALT_ROUNDS = 12;
 const AVATAR_BUCKET = 'messaging-avatars';
 
+/** Resumen de una corrida de sincronización LDAP (lo devuelve el panel y el job). */
+export interface LdapSyncSummary {
+  total: number;
+  created: number;
+  updated: number;
+  reactivated: number;
+  disabled: number;
+  failed: number;
+}
+
+export interface LdapSyncOptions {
+  actorId?: string | null;
+  ip?: string | null;
+  userAgent?: string | null;
+  origin?: string;
+}
+
+/** Filtros del listado de usuarios del panel (los arma el controller). */
+export interface AdminUserFilters {
+  search?: string;
+  status?: string;
+  department?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface AdminStorageFilters {
+  bucket?: string;
+  object_type?: string;
+  processing_status?: string;
+  limit?: number;
+  offset?: number;
+}
+
 // Adds a 24h presigned `avatar_url` from the stored MinIO object key.
 // Admin responses carry avatar_object_key/bucket but, unlike the user
 // service, were never presigned — so the admin table fell back to initials.
-async function withAvatarUrl(user) {
+async function withAvatarUrl(user: AdminUserResponse | null) {
   if (!user || !user.avatar_object_key) return user;
   try {
     const url = await minioClient.presignedGetObject(
@@ -51,7 +92,7 @@ async function withAvatarUrl(user) {
 class AdminService {
   // ── Users (7.1) ───────────────────────────────────────────────────────────
 
-  async listUsers(filters) {
+  async listUsers(filters: AdminUserFilters) {
     const users = await userRepository.listUsers(filters);
     const enriched = await Promise.all(
       users.map(async (u) => {
@@ -67,7 +108,12 @@ class AdminService {
     return enriched;
   }
 
-  async createUser(actorId, data, ip, userAgent) {
+  async createUser(
+    actorId: string,
+    data: AdminCreateUserRequest,
+    ip?: string | null,
+    userAgent?: string | null,
+  ) {
     const existing = await userRepository.findByUsername(data.username);
     if (existing) throw new ConflictError('Username already taken');
 
@@ -100,7 +146,13 @@ class AdminService {
     return toAdminUserResponse(user, roles);
   }
 
-  async updateUser(actorId, userId, data, ip, userAgent) {
+  async updateUser(
+    actorId: string,
+    userId: string,
+    data: AdminUpdateUserRequest,
+    ip?: string | null,
+    userAgent?: string | null,
+  ) {
     if (actorId === userId && data.status && data.status !== 'active') {
       throw new ForbiddenError('Cannot change your own account status');
     }
@@ -115,12 +167,12 @@ class AdminService {
       await userRepository.setUserRoles(userId, data.role_names, actorId);
     }
 
-    const profileFields = {};
-    for (const key of ['display_name', 'email', 'department', 'job_title']) {
+    const profileFields: Partial<AdminUpdateUserRequest> = {};
+    for (const key of ['display_name', 'email', 'department', 'job_title'] as const) {
       if (data[key] !== undefined) profileFields[key] = data[key];
     }
     if (Object.keys(profileFields).length) {
-      user = await userRepository.updateProfile(userId, profileFields);
+      user = (await userRepository.updateProfile(userId, profileFields))!;
     }
 
     if (data.status) {
@@ -150,7 +202,13 @@ class AdminService {
     }));
   }
 
-  async uploadUserAvatar(actorId, userId, file, ip, userAgent) {
+  async uploadUserAvatar(
+    actorId: string,
+    userId: string,
+    file: Express.Multer.File | undefined,
+    ip?: string | null,
+    userAgent?: string | null,
+  ) {
     if (!file) throw new BadRequestError('No file provided');
 
     // Require directo para no importar vía ../services (ciclo).
@@ -180,7 +238,12 @@ class AdminService {
     }));
   }
 
-  async removeUserAvatar(actorId, userId, ip, userAgent) {
+  async removeUserAvatar(
+    actorId: string,
+    userId: string,
+    ip?: string | null,
+    userAgent?: string | null,
+  ) {
     await userService.removeAvatar(userId, {
       actorId,
       action: 'admin.user_avatar_remove',
@@ -205,7 +268,12 @@ class AdminService {
    * Clears secret + backup codes, audits under security, and revokes sessions
    * so a stolen cookie cannot keep the account open without re-login.
    */
-  async disableUser2fa(actorId, userId, ip, userAgent) {
+  async disableUser2fa(
+    actorId: string,
+    userId: string,
+    ip?: string | null,
+    userAgent?: string | null,
+  ) {
     const user = await userRepository.findById(userId);
     if (!user || user.status === 'deleted') throw new NotFoundError('User');
 
@@ -238,7 +306,12 @@ class AdminService {
     return withAvatarUrl(toAdminUserResponse(user, roles, { totp_enabled: false }));
   }
 
-  async deleteUser(actorId, userId, ip, userAgent) {
+  async deleteUser(
+    actorId: string,
+    userId: string,
+    ip?: string | null,
+    userAgent?: string | null,
+  ) {
     if (actorId === userId) throw new ForbiddenError('Cannot delete your own account');
 
     const user = await userRepository.findById(userId);
@@ -269,7 +342,13 @@ class AdminService {
     return toAdminUserResponse(deleted, []);
   }
 
-  async resetUserPassword(actorId, userId, newPassword, ip, userAgent) {
+  async resetUserPassword(
+    actorId: string,
+    userId: string,
+    newPassword: string,
+    ip?: string | null,
+    userAgent?: string | null,
+  ) {
     const user = await userRepository.findById(userId);
     if (!user || user.status === 'deleted') throw new NotFoundError('User');
     if (user.auth_provider === 'ldap') {
@@ -327,16 +406,22 @@ class AdminService {
   }
 
   // Compat: la importación manual desde el panel admin delega en el sync unificado.
-  async importLdapUsers(actorId, ip, userAgent) {
+  async importLdapUsers(
+    actorId: string,
+    ip?: string | null,
+    userAgent?: string | null,
+  ): Promise<LdapSyncSummary> {
     return this.syncLdapUsers({ actorId, ip, userAgent, origin: 'manual' });
   }
 
   // Sincronización LDAP compartida por la importación manual (con actor) y el job
   // cron (actorId null, origin 'automatic'). Crea/actualiza usuarios, opcionalmente
   // mapea grupos→roles y deshabilita a los que ya no están en el directorio.
-  async syncLdapUsers({ actorId = null, ip = null, userAgent = null, origin = 'manual' } = {}) {
+  async syncLdapUsers(
+    { actorId = null, ip = null, userAgent = null, origin = 'manual' }: LdapSyncOptions = {},
+  ): Promise<LdapSyncSummary> {
     const entries = await ldapService.fetchAllUsers();
-    const seenExternalIds = [];
+    const seenExternalIds: string[] = [];
     let created = 0;
     let updated = 0;
     let reactivated = 0;
@@ -369,7 +454,7 @@ class AdminService {
       }
     }
 
-    const summary = { total: entries.length, created, updated, reactivated, disabled, failed };
+    const summary: LdapSyncSummary = { total: entries.length, created, updated, reactivated, disabled, failed };
 
     await auditRepository.log({
       actor_id: actorId,
@@ -392,7 +477,12 @@ class AdminService {
   // dirigidos por los grupos del directorio (reemplaza los actuales); sin mapeo
   // aplicable cae al rol por defecto para no dejar al usuario sin acceso. Sin
   // syncRoles, sólo asigna el rol por defecto a los recién creados (no toca updates).
-  async _applyLdapRoles(userId, entry, wasCreated, actorId) {
+  async _applyLdapRoles(
+    userId: string,
+    entry: LdapUserImportable,
+    wasCreated: boolean,
+    actorId: string | null,
+  ): Promise<void> {
     const { syncRoles, defaultRole } = config.ldap;
     if (syncRoles) {
       const mapped = ldapService.mapGroupsToRoles(entry.groups);
@@ -403,7 +493,7 @@ class AdminService {
     }
   }
 
-  async _guardLastSuperAdmin(userId, newRoleNames) {
+  async _guardLastSuperAdmin(userId: string, newRoleNames: string[]): Promise<void> {
     const currentRoles = await userRepository.getUserRoles(userId);
     const wasSuperAdmin = currentRoles.some((r) => r.name === 'super_admin');
     const willBeSuperAdmin = newRoleNames.includes('super_admin');
@@ -422,7 +512,13 @@ class AdminService {
     return rows.map(toSettingResponse);
   }
 
-  async updateSetting(actorId, key, value, ip, userAgent) {
+  async updateSetting(
+    actorId: string,
+    key: string,
+    value: unknown,
+    ip?: string | null,
+    userAgent?: string | null,
+  ) {
     const before = await systemSettingsRepository.findByKey(key);
     if (!before) throw new NotFoundError('Setting');
 
@@ -447,7 +543,7 @@ class AdminService {
 
   // ── Audit (7.3) ───────────────────────────────────────────────────────────
 
-  async getAuditLog(filters) {
+  async getAuditLog(filters: AuditSearchFilters) {
     const { rows, total } = await auditRepository.searchWithCount(filters);
     return { entries: rows.map(toAuditEntryResponse), total };
   }
@@ -458,10 +554,10 @@ class AdminService {
     return storageRepository.getStats();
   }
 
-  async listStorageObjects(filters) {
+  async listStorageObjects(filters: AdminStorageFilters) {
     const rows = await storageRepository.listObjects(filters);
     return rows.map(toStorageObjectAdminResponse);
   }
 }
 
-module.exports = new AdminService();
+export = new AdminService();
