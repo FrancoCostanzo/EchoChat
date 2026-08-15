@@ -41,7 +41,13 @@ class StickerService {
 
   // Upload a new custom sticker. Deduplicates by SHA-256: if the same artwork
   // already exists in storage it is reused instead of uploaded again.
-  async uploadSticker(userId: string, fileBuffer: Buffer, metadata: UploadMetadata) {
+  // `object_type` no entra por parámetro: lo fija esta función más abajo, así
+  // que pedirlo obligaba al controller a mandar un valor que se descartaba.
+  async uploadSticker(
+    userId: string,
+    fileBuffer: Buffer,
+    metadata: Omit<UploadMetadata, 'object_type'>,
+  ) {
     if (!ALLOWED_STICKER_MIMES.has(metadata.mime_type)) {
       throw new BadRequestError('Unsupported sticker format');
     }

@@ -1,0 +1,39 @@
+import { Router } from 'express';
+import authRoutes from './auth.routes';
+import userRoutes from './user.routes';
+import conversationRoutes from './conversation.routes';
+import channelRoutes from './channel.routes';
+import messageRoutes from './message.routes';
+import pollRoutes from './poll.routes';
+import gameRoutes from './game.routes';
+import callRoutes from './call.routes';
+import storageRoutes from './storage.routes';
+import stickerRoutes from './sticker.routes';
+import broadcastRoutes from './broadcast.routes';
+import notificationRoutes from './notification.routes';
+import relationshipRoutes from './relationship.routes';
+import adminRoutes from './admin.routes';
+import wallpaperRoutes from './wallpaper.routes';
+import { healthRouter, monitoringRouter } from './monitoring.routes';
+
+const router = Router();
+
+router.use('/auth', authRoutes);
+router.use('/users', userRoutes);
+router.use('/conversations', conversationRoutes);
+router.use('/channels', channelRoutes);
+router.use('/messages', messageRoutes);
+router.use('/polls', pollRoutes);
+router.use('/games', gameRoutes);
+router.use('/calls', callRoutes);
+router.use('/storage', storageRoutes);
+router.use('/stickers', stickerRoutes);
+router.use('/broadcasts', broadcastRoutes);
+router.use('/notifications', notificationRoutes);
+router.use('/relationships', relationshipRoutes);
+router.use('/admin', adminRoutes);
+router.use('/preferences/wallpapers', wallpaperRoutes);
+router.use('/health', healthRouter);
+router.use('/monitoring', monitoringRouter);
+
+export = router;
