@@ -1,21 +1,62 @@
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
-const { TOTP, NobleCryptoPlugin, ScureBase32Plugin, generateSecret, generateURI } = require('otplib');
-const QRCode = require('qrcode');
-const config = require('../config');
-const logger = require('../config/logger');
-const { userRepository, credentialRepository, sessionRepository, auditRepository, systemSettingsRepository } = require('../repositories');
-const { UnauthorizedError, ConflictError, BadRequestError, ForbiddenError } = require('../errors');
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+import QRCode from 'qrcode';
+import config from '../config';
+import logger from '../config/logger';
+import { userRepository, credentialRepository, sessionRepository, auditRepository, systemSettingsRepository } from '../repositories';
+import { UnauthorizedError, ConflictError, BadRequestError, ForbiddenError } from '../errors';
 // Require directo para evitar el ciclo services/index → auth.service.
-const ldapService = require('./ldap.service');
+import ldapService from './ldap.service';
+import type { Row } from '../types/rows';
+import type { RegisterRequest, LoginRequest, DeviceType } from '../dtos/auth.dto';
+import type { OidcProfile } from './oidc.service';
+
+const { TOTP, NobleCryptoPlugin, ScureBase32Plugin, generateSecret, generateURI } = require('otplib');
 
 const SALT_ROUNDS = 12;
 const APP_NAME = 'EchoChat';
 const totp = new TOTP({ crypto: new NobleCryptoPlugin(), base32: new ScureBase32Plugin() });
 
+type UserRow = Row<'users'>;
+
+/** Sesión emitida: lo que devuelven todos los caminos de login. */
+export interface SessionResult {
+  user: UserRow;
+  token: string;
+  expires_at: Date;
+}
+
+/** Login local con 2FA activo: no hay sesión todavía, sólo el desafío. */
+export interface TwoFactorChallenge {
+  requires_2fa: true;
+  temp_token: string;
+}
+
+/**
+ * `config.jwt.secret` sale del entorno y es `string | undefined`: sin JWT_SECRET
+ * la app no puede funcionar y esto revienta, igual que antes.
+ */
+const jwtSecret = () => config.jwt.secret as jwt.Secret;
+
+/**
+ * Verifica un JWT y garantiza que el payload sea un objeto.
+ *
+ * `jwt.verify` puede devolver un string cuando el token no lleva un payload JSON.
+ * En ese caso `payload.sub` no sería el subject sino `String.prototype.sub` —el
+ * método deprecado— y se terminaría buscando un usuario por una función. Acá se
+ * corta ese camino de forma explícita.
+ */
+function verifyJwt(token: string): jwt.JwtPayload {
+  const payload = jwt.verify(token, jwtSecret());
+  if (typeof payload !== 'object' || payload === null) {
+    throw new UnauthorizedError('Invalid token');
+  }
+  return payload;
+}
+
 class AuthService {
-  async register(data, ip, userAgent) {
+  async register(data: RegisterRequest, ip?: string | null, userAgent?: string | null) {
     if (!(await this.isRegistrationAllowed())) {
       throw new ForbiddenError('El registro de nuevos usuarios está deshabilitado');
     }
@@ -55,7 +96,11 @@ class AuthService {
     return user;
   }
 
-  async login({ username, password, device_name, device_type }, ip, userAgent) {
+  async login(
+    { username, password, device_name, device_type }: LoginRequest,
+    ip?: string | null,
+    userAgent?: string | null,
+  ): Promise<SessionResult | TwoFactorChallenge> {
     const user = await userRepository.findByUsername(username);
     if (!user) throw new UnauthorizedError('Invalid credentials');
     if (user.status !== 'active') throw new UnauthorizedError('Account is not active');
@@ -125,8 +170,14 @@ class AuthService {
   // Login por SSO/OIDC: el IdP ya autenticó al usuario y nos pasa sus claims mapeados.
   // Hace JIT provisioning (crea al usuario en el primer login), respeta el estado de
   // la cuenta y termina en el mismo _createSession que los demás caminos.
-  async loginWithClaims(claims, provider, { device_name, device_type } = {}, ip, userAgent) {
-    const { user, created } = await userRepository.upsertOidcUser(claims);
+  async loginWithClaims(
+    claims: OidcProfile,
+    provider: string,
+    { device_name, device_type }: { device_name?: string | null; device_type?: DeviceType } = {},
+    ip?: string | null,
+    userAgent?: string | null,
+  ): Promise<SessionResult> {
+    const { user, created } = await userRepository.upsertOidcUser(claims as any);
 
     if (created) {
       const role = config.oidc.defaultRole;
@@ -168,7 +219,12 @@ class AuthService {
 
   // Emite token + sesión, marca presencia y audita un login exitoso.
   // Compartido por el camino local (sin 2FA), el LDAP y el SSO/OIDC.
-  async _createSession(user, { device_name, device_type }, ip, userAgent) {
+  async _createSession(
+    user: UserRow,
+    { device_name, device_type }: { device_name?: string | null; device_type?: DeviceType },
+    ip?: string | null,
+    userAgent?: string | null,
+  ): Promise<SessionResult> {
     const token = this._generateToken(user);
     const tokenHash = this._hashToken(token);
     const expiresAt = this._getTokenExpiry();
@@ -202,13 +258,13 @@ class AuthService {
   }
 
   // Lee el toggle `allow_registration` (system_settings). Default permisivo si falta.
-  async isRegistrationAllowed() {
+  async isRegistrationAllowed(): Promise<boolean> {
     const setting = await systemSettingsRepository.findByKey('allow_registration');
     if (!setting) return true;
     return setting.value !== false && setting.value !== 'false';
   }
 
-  async logout(userId, tokenHash) {
+  async logout(userId: string, tokenHash: string): Promise<void> {
     const session = await sessionRepository.findActiveByTokenHash(tokenHash);
     if (session) {
       await sessionRepository.deactivate(session.id);
@@ -225,7 +281,7 @@ class AuthService {
     logger.info({ userId }, 'User logged out');
   }
 
-  async logoutAll(userId, exceptSessionId = null) {
+  async logoutAll(userId: string, exceptSessionId: string | null = null): Promise<void> {
     await sessionRepository.deactivateAllForUser(userId, exceptSessionId);
     if (!exceptSessionId) await userRepository.updatePresence(userId, 'offline');
     await auditRepository.log({
@@ -240,16 +296,16 @@ class AuthService {
     logger.info({ userId, exceptSessionId }, 'Sessions revoked');
   }
 
-  async validateToken(token) {
+  async validateToken(token: string) {
     try {
-      const payload = jwt.verify(token, config.jwt.secret);
+      const payload = verifyJwt(token);
       const tokenHash = this._hashToken(token);
       const session = await sessionRepository.findActiveByTokenHash(tokenHash);
       if (!session) throw new UnauthorizedError('Session expired or revoked');
 
       await sessionRepository.updateActivity(session.id);
 
-      const user = await userRepository.findById(payload.sub);
+      const user = await userRepository.findById(payload.sub as string);
       if (!user || user.status !== 'active') throw new UnauthorizedError('User not active');
 
       return { user, session };
@@ -259,7 +315,13 @@ class AuthService {
     }
   }
 
-  async changePassword(userId, currentPassword, newPassword, ip, userAgent) {
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+    ip?: string | null,
+    userAgent?: string | null,
+  ): Promise<void> {
     const creds = await credentialRepository.findByUserId(userId);
     if (!creds) throw new BadRequestError('No credentials found');
 
@@ -283,50 +345,53 @@ class AuthService {
     logger.info({ userId }, 'Password changed');
   }
 
-  async getSessions(userId) {
+  async getSessions(userId: string) {
     return sessionRepository.findActiveByUser(userId);
   }
 
-  async revokeSession(userId, sessionId) {
+  async revokeSession(userId: string, sessionId: string): Promise<void> {
     await sessionRepository.deactivate(sessionId);
     logger.info({ userId, sessionId }, 'Session revoked');
   }
 
-  _generateToken(user) {
+  _generateToken(user: UserRow): string {
     return jwt.sign(
       // jti único: evita que dos logins del mismo usuario en el mismo segundo
       // produzcan un token idéntico (colisión de token_hash en user_sessions).
       { sub: user.id, username: user.username, jti: crypto.randomUUID() },
-      config.jwt.secret,
-      { expiresIn: config.jwt.expiresIn }
+      jwtSecret(),
+      // `expiresIn` viene del entorno como string suelto; @types/jsonwebtoken
+      // espera un literal de duración ("7d"). Un valor inválido revienta al
+      // firmar, igual que antes.
+      { expiresIn: config.jwt.expiresIn } as jwt.SignOptions
     );
   }
 
-  _generateTempToken(user) {
+  _generateTempToken(user: UserRow): string {
     return jwt.sign(
       { sub: user.id, purpose: '2fa_pending' },
-      config.jwt.secret,
+      jwtSecret(),
       { expiresIn: '5m' }
     );
   }
 
   // ── 2FA ────────────────────────────────────────────────────────────────────
 
-  async setupTotp(userId) {
+  async setupTotp(userId: string) {
     const user = await userRepository.findById(userId);
     const secret = generateSecret();
-    const identifier = user.email || user.username;
+    const identifier = user!.email || user!.username;
     const otpauthUrl = generateURI({ label: `${APP_NAME}:${identifier}`, issuer: APP_NAME, secret });
     const qrCode = await QRCode.toDataURL(otpauthUrl);
     await credentialRepository.setTotpSecret(userId, secret);
     return { secret, qr_code: qrCode, otpauth_url: otpauthUrl };
   }
 
-  async enableTotp(userId, code) {
+  async enableTotp(userId: string, code: string) {
     const creds = await credentialRepository.findByUserId(userId);
-    if (!creds.totp_secret) throw new BadRequestError('2FA setup not initiated');
-    if (creds.totp_enabled) throw new BadRequestError('2FA already enabled');
-    const isValid = await totp.verify(code, { secret: creds.totp_secret });
+    if (!creds!.totp_secret) throw new BadRequestError('2FA setup not initiated');
+    if (creds!.totp_enabled) throw new BadRequestError('2FA already enabled');
+    const isValid = await totp.verify(code, { secret: creds!.totp_secret });
     if (!isValid?.valid) throw new UnauthorizedError('Invalid verification code');
     const backupCodes = this._generateBackupCodes();
     const hashedCodes = backupCodes.map((c) =>
@@ -345,12 +410,12 @@ class AuthService {
     return { backup_codes: backupCodes };
   }
 
-  async disableTotp(userId, password, code) {
+  async disableTotp(userId: string, password: string, code: string): Promise<void> {
     const creds = await credentialRepository.findByUserId(userId);
-    if (!creds.totp_enabled) throw new BadRequestError('2FA is not enabled');
-    const validPw = await bcrypt.compare(password, creds.password_hash);
+    if (!creds!.totp_enabled) throw new BadRequestError('2FA is not enabled');
+    const validPw = await bcrypt.compare(password, creds!.password_hash);
     if (!validPw) throw new UnauthorizedError('Invalid password');
-    const isValid = await totp.verify(code, { secret: creds.totp_secret });
+    const isValid = await totp.verify(code, { secret: creds!.totp_secret });
     if (!isValid?.valid) throw new UnauthorizedError('Invalid verification code');
     await credentialRepository.disableTotp(userId);
     await auditRepository.log({
@@ -364,28 +429,37 @@ class AuthService {
     logger.info({ userId }, '2FA disabled');
   }
 
-  async verifyTotpChallenge({ tempToken, code, deviceName, deviceType }, ip, userAgent) {
-    let payload;
+  async verifyTotpChallenge(
+    { tempToken, code, deviceName, deviceType }: {
+      tempToken: string;
+      code: string;
+      deviceName?: string | null;
+      deviceType?: DeviceType;
+    },
+    ip?: string | null,
+    userAgent?: string | null,
+  ): Promise<SessionResult> {
+    let payload: jwt.JwtPayload;
     try {
-      payload = jwt.verify(tempToken, config.jwt.secret);
+      payload = verifyJwt(tempToken);
     } catch {
       throw new UnauthorizedError('Invalid or expired challenge token');
     }
     if (payload.purpose !== '2fa_pending') throw new UnauthorizedError('Invalid token purpose');
-    const userId = payload.sub;
+    const userId = payload.sub as string;
     const user = await userRepository.findById(userId);
     if (!user || user.status !== 'active') throw new UnauthorizedError('User not found or inactive');
     const creds = await credentialRepository.findByUserId(userId);
-    if (!creds.totp_enabled) throw new UnauthorizedError('2FA not enabled');
+    if (!creds!.totp_enabled) throw new UnauthorizedError('2FA not enabled');
 
     // Check backup code first
     const codeHash = crypto.createHash('sha256').update(code.replace(/-/g, '').toUpperCase()).digest('hex');
-    const isBackup = (creds.totp_backup_codes || []).includes(codeHash);
+    const isBackup = (creds!.totp_backup_codes || []).includes(codeHash);
     if (isBackup) {
       await credentialRepository.removeBackupCode(userId, codeHash);
       logger.info({ userId }, '2FA backup code used');
     } else {
-      const isValid = await totp.verify(code, { secret: creds.totp_secret });
+      const isValid = await totp.verify(code, { secret: creds!.totp_secret });
       if (!isValid?.valid) throw new UnauthorizedError('Invalid verification code');
     }
 
@@ -417,10 +491,10 @@ class AuthService {
     return { user, token, expires_at: expiresAt };
   }
 
-  async regenerateBackupCodes(userId, code) {
+  async regenerateBackupCodes(userId: string, code: string) {
     const creds = await credentialRepository.findByUserId(userId);
-    if (!creds.totp_enabled) throw new BadRequestError('2FA is not enabled');
-    const isValid = await totp.verify(code, { secret: creds.totp_secret });
+    if (!creds!.totp_enabled) throw new BadRequestError('2FA is not enabled');
+    const isValid = await totp.verify(code, { secret: creds!.totp_secret });
     if (!isValid?.valid) throw new UnauthorizedError('Invalid verification code');
     const backupCodes = this._generateBackupCodes();
     const hashedCodes = backupCodes.map((c) =>
@@ -439,24 +513,24 @@ class AuthService {
     return { backup_codes: backupCodes };
   }
 
-  _generateBackupCodes() {
+  _generateBackupCodes(): string[] {
     return Array.from({ length: 8 }, () => {
       const hex = crypto.randomBytes(5).toString('hex').toUpperCase();
       return `${hex.slice(0, 5)}-${hex.slice(5)}`;
     });
   }
 
-  _hashToken(token) {
+  _hashToken(token: string): string {
     return crypto.createHash('sha256').update(token).digest('hex');
   }
 
-  _getTokenExpiry() {
+  _getTokenExpiry(): Date {
     const match = config.jwt.expiresIn.match(/^(\d+)([dhms])$/);
     if (!match) return new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const num = parseInt(match[1], 10);
-    const unit = { d: 86400000, h: 3600000, m: 60000, s: 1000 }[match[2]];
+    const unit = ({ d: 86400000, h: 3600000, m: 60000, s: 1000 } as Record<string, number>)[match[2]];
     return new Date(Date.now() + num * unit);
   }
 }
 
-module.exports = new AuthService();
+export = new AuthService();
