@@ -1,19 +1,32 @@
-const logger = require('../config/logger');
-const {
+import logger from '../config/logger';
+import {
   broadcastRepository,
   conversationRepository,
   messageRepository,
   notificationRepository,
-} = require('../repositories');
-const { minioClient } = require('../config/minio');
-const { NotFoundError, ForbiddenError } = require('../errors');
-const { toMessageResponse } = require('../models');
-const { toConversation, toUser } = require('../config/eventBus');
+} from '../repositories';
+import { minioClient } from '../config/minio';
+import { NotFoundError, ForbiddenError } from '../errors';
+import { toMessageResponse } from '../models';
+import { toConversation, toUser } from '../config/eventBus';
+import type {
+  RecipientWithUser,
+  BroadcastMessageWithStats,
+  DeliveryDetail,
+  ListWithCount,
+} from '../repositories/broadcast.repository';
+import type {
+  CreateBroadcastListRequest,
+  SendBroadcastRequest,
+  AddBroadcastRecipientsRequest,
+} from '../dtos/broadcast.dto';
 
 const AVATAR_BUCKET = 'messaging-avatars';
 
+/** Fila con avatar: tanto destinatarios como entregas traen las mismas claves. */
+type ConAvatar = { avatar_object_key?: string | null; avatar_bucket?: string | null; user_id?: string };
 
-async function withRecipientAvatar(recipient) {
+async function withRecipientAvatar<T extends ConAvatar>(recipient: T) {
   if (!recipient?.avatar_object_key) return recipient;
   try {
     const url = await minioClient.presignedGetObject(
@@ -28,11 +41,11 @@ async function withRecipientAvatar(recipient) {
   }
 }
 
-async function enrichRecipients(recipients) {
+async function enrichRecipients<T extends ConAvatar>(recipients: T[]) {
   return Promise.all((recipients || []).map(withRecipientAvatar));
 }
 
-async function withSenderAvatar(message) {
+async function withSenderAvatar(message: BroadcastMessageWithStats) {
   if (!message?.sender_avatar_object_key) return message;
   try {
     const url = await minioClient.presignedGetObject(
@@ -47,8 +60,11 @@ async function withSenderAvatar(message) {
   }
 }
 
+/** Lista con sus destinatarios ya resueltos (los cuelga getListById). */
+type ListConDestinatarios = ListWithCount & { recipients?: unknown[] };
+
 class BroadcastService {
-  async createList(userId, data) {
+  async createList(userId: string, data: CreateBroadcastListRequest) {
     const list = await broadcastRepository.createList({
       name: data.name,
       description: data.description,
@@ -59,41 +75,41 @@ class BroadcastService {
     return list;
   }
 
-  async getLists(userId) {
+  async getLists(userId: string) {
     return broadcastRepository.findByOwner(userId);
   }
 
-  async getListById(listId, userId) {
-    const list = await broadcastRepository.findById(listId);
+  async getListById(listId: string, userId: string): Promise<ListConDestinatarios> {
+    const list = (await broadcastRepository.findById(listId)) as ListConDestinatarios | null;
     if (!list) throw new NotFoundError('Broadcast list');
     if (list.owner_id !== userId) throw new ForbiddenError('Not the owner of this broadcast list');
     list.recipients = await enrichRecipients(await broadcastRepository.getRecipients(listId));
     return list;
   }
 
-  async getMessages(listId, userId) {
+  async getMessages(listId: string, userId: string) {
     await this.getListById(listId, userId);
     const messages = await broadcastRepository.findMessagesByListId(listId);
     return Promise.all(messages.map(withSenderAvatar));
   }
 
-  async getDeliveries(listId, messageId, userId) {
+  async getDeliveries(listId: string, messageId: string, userId: string) {
     await this.getListById(listId, userId);
     const message = await broadcastRepository.findMessageById(messageId);
     if (!message || message.broadcast_list_id !== listId) {
       throw new NotFoundError('Broadcast message');
     }
-    return enrichRecipients(await broadcastRepository.getDeliveries(messageId));
+    return enrichRecipients<DeliveryDetail>(await broadcastRepository.getDeliveries(messageId));
   }
 
   /**
    * When a DM gets a client delivery/read receipt, update the matching
    * broadcast_deliveries row (if this DM was created by a broadcast).
    */
-  async syncFromMessageReceipt(messageId, userId, type) {
+  async syncFromMessageReceipt(messageId: string, userId: string, type: string) {
     const message = await messageRepository.findById(messageId);
     if (!message) return null;
-    let meta = message.metadata;
+    let meta: any = message.metadata;
     if (typeof meta === 'string') {
       try { meta = JSON.parse(meta); } catch { meta = {}; }
     }
@@ -107,7 +123,7 @@ class BroadcastService {
     return broadcastRepository.refreshMessageTotals(broadcastMsgId);
   }
 
-  async sendMessage(listId, userId, data) {
+  async sendMessage(listId: string, userId: string, data: SendBroadcastRequest) {
     const list = await broadcastRepository.findById(listId);
     if (!list) throw new NotFoundError('Broadcast list');
     if (list.owner_id !== userId) throw new ForbiddenError('Not the owner of this broadcast list');
@@ -131,7 +147,11 @@ class BroadcastService {
     return message;
   }
 
-  async addRecipients(listId, userId, { recipient_ids = [], department }) {
+  async addRecipients(
+    listId: string,
+    userId: string,
+    { recipient_ids = [], department }: AddBroadcastRecipientsRequest,
+  ) {
     await this.getListById(listId, userId);
     let ids = [...recipient_ids];
     if (department) {
@@ -145,25 +165,25 @@ class BroadcastService {
     return enrichRecipients(await broadcastRepository.getRecipients(listId));
   }
 
-  async removeRecipient(listId, userId, recipientId) {
+  async removeRecipient(listId: string, userId: string, recipientId: string) {
     await this.getListById(listId, userId);
     await broadcastRepository.removeRecipient(listId, recipientId);
     return enrichRecipients(await broadcastRepository.getRecipients(listId));
   }
 
-  async processDueScheduled() {
+  async processDueScheduled(): Promise<number> {
     const due = await broadcastRepository.findDueScheduledMessages();
     for (const msg of due) {
       try {
         await this.dispatchMessage(msg.id);
       } catch (err) {
-        logger.warn({ err: err.message, broadcastMsgId: msg.id }, 'Scheduled broadcast dispatch failed');
+        logger.warn({ err: (err as Error).message, broadcastMsgId: msg.id }, 'Scheduled broadcast dispatch failed');
       }
     }
     return due.length;
   }
 
-  async _findOrCreateDirect(senderId, recipientId) {
+  async _findOrCreateDirect(senderId: string, recipientId: string) {
     const existing = await conversationRepository.findDirectBetween(senderId, recipientId);
     if (existing) return existing;
 
@@ -176,14 +196,14 @@ class BroadcastService {
     return conversation;
   }
 
-  async dispatchMessage(messageId) {
+  async dispatchMessage(messageId: string) {
     const message = await broadcastRepository.findMessageById(messageId);
-    if (!message || !['draft', 'scheduled'].includes(message.status)) return null;
+    if (!message || !['draft', 'scheduled'].includes(message.status as string)) return null;
 
     await broadcastRepository.updateMessageStatus(messageId, { status: 'sending' });
 
     const list = await broadcastRepository.findById(message.broadcast_list_id);
-    const recipients = await broadcastRepository.getRecipients(message.broadcast_list_id);
+    const recipients: RecipientWithUser[] = await broadcastRepository.getRecipients(message.broadcast_list_id);
     const total = recipients.length;
     let delivered = 0;
 
@@ -240,7 +260,7 @@ class BroadcastService {
         delivered++;
       } catch (err) {
         logger.warn(
-          { err: err.message, broadcastMsgId: messageId, recipientId: recipient.user_id },
+          { err: (err as Error).message, broadcastMsgId: messageId, recipientId: recipient.user_id },
           'Broadcast delivery failed for recipient',
         );
       }
@@ -261,4 +281,4 @@ class BroadcastService {
   }
 }
 
-module.exports = new BroadcastService();
+export = new BroadcastService();
