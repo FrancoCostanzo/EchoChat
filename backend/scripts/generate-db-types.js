@@ -3,7 +3,7 @@
  * Regenera src/types/db.d.ts a partir del schema del proyecto.
  *
  * Levanta una PostgreSQL efímera en Docker, le aplica el schema base + las
- * migraciones con el propio migrador (src/cli/setup.js) y la introspecciona.
+ * migraciones con el propio migrador (src/cli/setup.ts) y la introspecciona.
  * Se hace así, y no contra la base de desarrollo, porque los tipos tienen que
  * reflejar el schema commiteado: una base local puede haber quedado con
  * columnas de una rama vieja o con migraciones a medias.

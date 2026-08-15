@@ -1,18 +1,20 @@
-require('express-async-errors');
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const pinoHttp = require('pino-http');
-const rateLimit = require('express-rate-limit');
+import 'express-async-errors';
+import express from 'express';
+import type { Request, Response } from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import pinoHttp from 'pino-http';
+import rateLimit from 'express-rate-limit';
 
-const config = require('./config');
-const logger = require('./config/logger');
-const { pool } = require('./config/database');
-const { createRateLimitStore } = require('./config/rateLimitStore');
-const { isRedisEnabled, getRedisClient } = require('./config/redis');
-const routes = require('./routes');
-const { errorHandler } = require('./middlewares');
-const httpMetrics = require('./middlewares/httpMetrics');
+import config from './config';
+import logger from './config/logger';
+import { pool } from './config/database';
+import { createRateLimitStore } from './config/rateLimitStore';
+import { isRedisEnabled, getRedisClient } from './config/redis';
+import routes from './routes';
+import { errorHandler } from './middlewares';
+import httpMetrics from './middlewares/httpMetrics';
+import scimRoutes from './routes/scim.routes';
 
 const app = express();
 
@@ -46,7 +48,7 @@ app.use(express.urlencoded({ extended: true }));
 // global de JSON no reconoce, así que le damos su propio express.json.
 app.use('/scim/v2',
   express.json({ type: ['application/json', 'application/scim+json'], limit: '1mb' }),
-  require('./routes/scim.routes'));
+  scimRoutes);
 
 // ── Request logging ─────────────────────────────────────────────────────
 app.use(pinoHttp({
@@ -60,7 +62,7 @@ app.use(pinoHttp({
 }));
 
 // ── Health check ────────────────────────────────────────────────────────
-app.get('/api/health', async (req, res) => {
+app.get('/api/health', async (req: Request, res: Response) => {
   let db = 'ok';
   try {
     await pool.query('SELECT 1');
@@ -84,13 +86,13 @@ app.get('/api/health', async (req, res) => {
 
 // 'disabled' = una sola instancia (sin REDIS_URL), que es una configuración
 // válida y no un problema.
-async function checkRedis() {
+async function checkRedis(): Promise<string> {
   if (!isRedisEnabled()) return 'disabled';
   try {
     const client = await getRedisClient();
     await Promise.race([
       client.ping(),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1000)),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 1000)),
     ]);
     return 'ok';
   } catch {
@@ -107,4 +109,4 @@ app.use('/api', routes);
 // ── Error handling ──────────────────────────────────────────────────────
 app.use(errorHandler);
 
-module.exports = app;
+export = app;

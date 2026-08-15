@@ -1,18 +1,33 @@
-const cron = require('node-cron');
-const config = require('../config');
-const logger = require('../config/logger');
-const { isRedisEnabled, getRedisClient } = require('../config/redis');
-const { recordJobRun } = require('../utils/cronJobStatus');
+import cron from 'node-cron';
+import type { ScheduledTask } from 'node-cron';
+import config from '../config';
+import logger from '../config/logger';
+import { isRedisEnabled, getRedisClient } from '../config/redis';
+import { recordJobRun } from '../utils/cronJobStatus';
+import presenceTimeoutJob from './presenceTimeout.job';
+import presignedCleanupJob from './presignedCleanup.job';
+import scheduledBroadcastsJob from './scheduledBroadcasts.job';
+import monitoringSnapshotJob from './monitoringSnapshot.job';
+import ldapSyncJob from './ldapSync.job';
 
-const jobs = [
-  require('./presenceTimeout.job'),
-  require('./presignedCleanup.job'),
-  require('./scheduledBroadcasts.job'),
-  require('./monitoringSnapshot.job'),
-  require('./ldapSync.job'),
+/** Lo que cada archivo de job exporta. */
+export interface BackgroundJob {
+  name: string;
+  schedule: string;
+  /** Texto que muestra el panel de monitoreo; si falta se usa `name`. */
+  descripcion?: string;
+  run: () => Promise<void>;
+}
+
+const jobs: BackgroundJob[] = [
+  presenceTimeoutJob,
+  presignedCleanupJob,
+  scheduledBroadcastsJob,
+  monitoringSnapshotJob,
+  ldapSyncJob,
 ];
 
-const tasks = [];
+const tasks: ScheduledTask[] = [];
 
 // Ventana del lock que decide quién ejecuta cada corrida. Todas las instancias
 // disparan el mismo tick con milisegundos de diferencia, así que alcanza con
@@ -26,7 +41,7 @@ const LOCK_TTL_SECONDS = 30;
  * se saltea el tick: sin esto, con N instancias una difusión programada se
  * enviaría N veces.
  */
-async function claimRun(jobName) {
+async function claimRun(jobName: string): Promise<boolean> {
   if (!isRedisEnabled()) return true;
 
   try {
@@ -39,12 +54,12 @@ async function claimRun(jobName) {
   } catch (err) {
     // Ante la duda no ejecutamos: saltear un tick se recupera en el siguiente,
     // pero una difusión duplicada le llega dos veces al usuario.
-    logger.warn({ err: err.message, job: jobName }, 'No se pudo tomar el lock del job — se saltea la corrida');
+    logger.warn({ err: (err as Error).message, job: jobName }, 'No se pudo tomar el lock del job — se saltea la corrida');
     return false;
   }
 }
 
-function startJobs() {
+function startJobs(): void {
   if (!config.jobs.enabled) {
     logger.info('RUN_JOBS=false — esta instancia no ejecuta jobs en background');
     return;
@@ -73,7 +88,7 @@ function startJobs() {
           resultado: 'error',
           origen: 'automatica',
         });
-        logger.warn({ err: err.message, job: job.name }, 'Background job failed');
+        logger.warn({ err: (err as Error).message, job: job.name }, 'Background job failed');
       }
     });
     tasks.push(task);
@@ -81,11 +96,11 @@ function startJobs() {
   }
 }
 
-function stopJobs() {
+function stopJobs(): void {
   for (const task of tasks) {
     task.stop();
   }
   tasks.length = 0;
 }
 
-module.exports = { startJobs, stopJobs };
+export { startJobs, stopJobs };

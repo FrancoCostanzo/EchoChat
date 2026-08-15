@@ -1,19 +1,19 @@
-const http = require('http');
-const app = require('./app');
-const config = require('./config');
-const logger = require('./config/logger');
-const { pool } = require('./config/database');
-const { setup } = require('./config/migrate');
-const { ensureBuckets } = require('./config/minio');
-const { closeRedis } = require('./config/redis');
-const { initSocket, closeSocket } = require('./socket');
-const { startJobs, stopJobs } = require('./jobs');
+import http from 'http';
+import app from './app';
+import config from './config';
+import logger from './config/logger';
+import { pool } from './config/database';
+import { setup } from './config/migrate';
+import { ensureBuckets } from './config/minio';
+import { closeRedis } from './config/redis';
+import { initSocket, closeSocket } from './socket';
+import { startJobs, stopJobs } from './jobs';
 
 // Tope para el apagado: si algo no cierra, salimos igual en vez de quedar
 // colgados y que el orquestador tenga que matar el contenedor a la fuerza.
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 
-async function start() {
+async function start(): Promise<void> {
   try {
     // Prepare the database: wait for it, apply schema + migrations and create
     // the first administrator. Controlled by RUN_MIGRATIONS_ON_BOOT (default on).
@@ -54,7 +54,7 @@ async function start() {
 // recién después soltamos Redis —que usa el adapter— y el pool de Postgres.
 let shuttingDown = false;
 
-async function shutdown(signal) {
+async function shutdown(signal: string): Promise<void> {
   if (shuttingDown) return;
   shuttingDown = true;
   logger.info({ signal }, 'Shutting down gracefully...');
@@ -71,12 +71,12 @@ async function shutdown(signal) {
     await closeRedis();
     await pool.end();
   } catch (err) {
-    logger.warn({ err: err.message }, 'Error durante el apagado');
+    logger.warn({ err: (err as Error).message }, 'Error durante el apagado');
   }
   process.exit(0);
 }
 
-for (const signal of ['SIGINT', 'SIGTERM']) {
+for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => shutdown(signal));
 }
 

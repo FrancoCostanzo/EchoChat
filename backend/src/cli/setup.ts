@@ -5,10 +5,10 @@
 // útil para preparar una BD externa antes de levantar la app, o para forzar
 // las migraciones sin reiniciar el servidor.
 
-require('../config'); // carga variables de entorno (.env)
-const logger = require('../config/logger');
-const { pool } = require('../config/database');
-const { setup } = require('../config/migrate');
+import '../config'; // carga variables de entorno (.env)
+import logger from '../config/logger';
+import { pool } from '../config/database';
+import { setup } from '../config/migrate';
 
 setup()
   .then(() => {

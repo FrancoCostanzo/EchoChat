@@ -1,7 +1,8 @@
-const logger = require('../config/logger');
-const monitoringService = require('../services/monitoring.service');
+import logger from '../config/logger';
+import monitoringService from '../services/monitoring.service';
+import type { BackgroundJob } from './index';
 
-async function run() {
+async function run(): Promise<void> {
   const result = await monitoringService.collectSnapshot();
   logger.debug(
     { snapshotId: result.insertResult?.id, purged: result.purgeResult?.deleted },
@@ -9,9 +10,11 @@ async function run() {
   );
 }
 
-module.exports = {
+const job: BackgroundJob = {
   name: 'monitoring-snapshot',
   schedule: '*/5 * * * *',
   descripcion: 'Recolección de métricas del sistema cada 5 minutos',
   run,
 };
+
+export = job;

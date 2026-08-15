@@ -1,16 +1,18 @@
 // Pure Tic-Tac-Toe rules: no I/O, no persistence — the service layer owns that.
 
+import type { PlayerRole, TicTacToeMark, TicTacToeState } from '../models/game.model';
+
 const LINES = [
   [0, 1, 2], [3, 4, 5], [6, 7, 8],
   [0, 3, 6], [1, 4, 7], [2, 5, 8],
   [0, 4, 8], [2, 4, 6],
 ];
 
-function createInitialState() {
+function createInitialState(): TicTacToeState {
   return { board: Array(9).fill(null), turn: 'player1', winner: null };
 }
 
-function checkWinnerMark(board) {
+function checkWinnerMark(board: (TicTacToeMark | null)[]): TicTacToeMark | 'draw' | null {
   for (const [a, b, c] of LINES) {
     if (board[a] && board[a] === board[b] && board[a] === board[c]) return board[a];
   }
@@ -18,7 +20,7 @@ function checkWinnerMark(board) {
 }
 
 /** Applies a move for `role` ('player1' | 'player2') at `cell` (0-8). Throws on illegal moves. */
-function applyMove(state, role, cell) {
+function applyMove(state: TicTacToeState, role: PlayerRole, cell: number): TicTacToeState {
   if (state.winner) throw new Error('Game already finished');
   if (state.turn !== role) throw new Error('Not your turn');
   if (!Number.isInteger(cell) || cell < 0 || cell > 8) throw new Error('Invalid cell');
@@ -36,4 +38,4 @@ function applyMove(state, role, cell) {
   };
 }
 
-module.exports = { createInitialState, applyMove };
+export { createInitialState, applyMove };

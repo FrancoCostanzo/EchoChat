@@ -1,26 +1,35 @@
-const { Server } = require('socket.io');
-const { createAdapter } = require('@socket.io/redis-adapter');
-const config = require('./config');
-const logger = require('./config/logger');
-const { isRedisEnabled, createRedisClient } = require('./config/redis');
-const { setSocketServer, registerSocket, unregisterSocket } = require('./config/socketStore');
-const { isAutoAway, clearAutoAway } = require('./config/presenceStore');
-const { onRealtime } = require('./config/eventBus');
-const { registerCollector } = require('./utils/clusterMetrics');
-const { authService } = require('./services');
-const broadcastService = require('./services/broadcast.service');
-const {
+import { Server, Socket } from 'socket.io';
+import type { Server as HttpServer } from 'http';
+import { createAdapter } from '@socket.io/redis-adapter';
+import config from './config';
+import logger from './config/logger';
+import { isRedisEnabled, createRedisClient } from './config/redis';
+import { setSocketServer, registerSocket, unregisterSocket } from './config/socketStore';
+import { isAutoAway, clearAutoAway } from './config/presenceStore';
+import { onRealtime } from './config/eventBus';
+import { registerCollector } from './utils/clusterMetrics';
+import { authService } from './services';
+import broadcastService from './services/broadcast.service';
+import {
   conversationRepository,
   userRepository,
   messageRepository,
   callRepository,
-} = require('./repositories');
+} from './repositories';
+import type { Row } from './types/rows';
 
 // Los servicios y repositorios se importan arriba: el ciclo que obligaba a
-// cargarlos dentro de las funciones lo rompió el bus de eventos (config/eventBus.js).
+// cargarlos dentro de las funciones lo rompió el bus de eventos (config/eventBus.ts).
 
-let io;
-const offlineTimers = new Map();
+/**
+ * Socket que ya pasó por el middleware de auth de más abajo, que rechaza la
+ * conexión si el token no vale. Es el equivalente de `AuthRequest` en HTTP: una
+ * sola afirmación en el punto donde la garantía se establece.
+ */
+type SocketAutenticado = Socket & { userId: string; user: Row<'users'> };
+
+let io: Server | null = null;
+const offlineTimers = new Map<string, NodeJS.Timeout>();
 
 // Único puente entre la capa de negocio y Socket.IO: los servicios publican en
 // el bus y esto los empuja a los clientes. Se registra a nivel de módulo (una
@@ -31,7 +40,7 @@ onRealtime(({ room, event, payload }) => {
   else io.emit(event, payload);
 });
 
-function cancelOfflineTimer(userId) {
+function cancelOfflineTimer(userId: string): void {
   const timer = offlineTimers.get(userId);
   if (timer) {
     clearTimeout(timer);
@@ -39,30 +48,31 @@ function cancelOfflineTimer(userId) {
   }
 }
 
-function scheduleOffline(userId) {
+function scheduleOffline(userId: string): void {
   cancelOfflineTimer(userId);
   const timer = setTimeout(async () => {
     offlineTimers.delete(userId);
     try {
-      const sockets = await io.in(`user:${userId}`).fetchSockets();
+      const sockets = await io!.in(`user:${userId}`).fetchSockets();
       if (sockets.length === 0) {
         await updatePresence(userId, 'offline');
       }
     } catch (err) {
-      logger.warn({ err: err.message, userId }, 'Failed to mark user offline');
+      logger.warn({ err: (err as Error).message, userId }, 'Failed to mark user offline');
     }
   }, 2500);
   offlineTimers.set(userId, timer);
 }
 
-async function initSocket(httpServer) {
+async function initSocket(httpServer: HttpServer): Promise<Server> {
 
-  io = new Server(httpServer, {
+  const servidor = new Server(httpServer, {
     cors: {
       origin: config.cors.origin,
       credentials: true,
     },
   });
+  io = servidor;
 
   // ── Adapter Redis (multi-instancia) ──────────────────────────────────
   // Sin adapter, las salas (`user:*`, `conv:*`, `call:*`) sólo existen dentro de
@@ -72,7 +82,7 @@ async function initSocket(httpServer) {
   if (isRedisEnabled()) {
     const pubClient = await createRedisClient('socket-pub');
     const subClient = await createRedisClient('socket-sub');
-    io.adapter(createAdapter(pubClient, subClient));
+    servidor.adapter(createAdapter(pubClient, subClient));
     logger.info('Socket.IO usando adapter Redis (modo multi-instancia)');
   } else {
     logger.warn('REDIS_URL no configurado: Socket.IO en memoria, sólo una instancia (ver docs/SCALING.md)');
@@ -80,18 +90,19 @@ async function initSocket(httpServer) {
 
   // Los módulos que necesitan el servidor de verdad (no sólo emitir) lo reciben
   // acá, en vez de ir a buscarlo con un require perezoso.
-  setSocketServer(io);
-  registerCollector(io);
+  setSocketServer(servidor);
+  registerCollector(servidor);
 
   // ── Auth middleware ──────────────────────────────────────────────────
-  io.use(async (socket, next) => {
+  servidor.use(async (socket, next) => {
     try {
       const token = socket.handshake.auth?.token;
       if (!token) return next(new Error('Authentication required'));
 
       const { user } = await authService.validateToken(token);
-      socket.userId = user.id;
-      socket.user = user;
+      const autenticado = socket as SocketAutenticado;
+      autenticado.userId = user.id;
+      autenticado.user = user;
       // `data` es lo único que Socket.IO serializa al consultar sockets de otras
       // instancias con fetchSockets(): las props sueltas del socket no viajan.
       socket.data.userId = user.id;
@@ -101,7 +112,8 @@ async function initSocket(httpServer) {
     }
   });
 
-  io.on('connection', async (socket) => {
+  servidor.on('connection', async (conexion) => {
+    const socket = conexion as SocketAutenticado;
     const userId = socket.userId;
     logger.info({ userId, socketId: socket.id }, 'Socket connected');
     registerSocket(socket.id, userId);
@@ -116,7 +128,7 @@ async function initSocket(httpServer) {
         socket.join(`conv:${conv.id}`);
       }
     } catch (err) {
-      logger.warn({ err: err.message, userId }, 'Failed to join conversation rooms');
+      logger.warn({ err: (err as Error).message, userId }, 'Failed to join conversation rooms');
     }
 
     // ── Restore presence on connect (debounced disconnect avoids F5 → offline) ─
@@ -127,17 +139,17 @@ async function initSocket(httpServer) {
         await updatePresence(userId, 'online');
       } else if (dbUser?.presence) {
         await userRepository.updatePresence(userId, dbUser.presence);
-        io.emit('presence:changed', { userId, presence: dbUser.presence });
+        servidor.emit('presence:changed', { userId, presence: dbUser.presence });
       } else {
         await updatePresence(userId, 'online');
       }
     } catch (err) {
-      logger.warn({ err: err.message, userId }, 'Failed to restore presence on connect');
+      logger.warn({ err: (err as Error).message, userId }, 'Failed to restore presence on connect');
       await updatePresence(userId, 'online');
     }
 
     // ── Join a new conversation room (when creating/entering one) ───
-    socket.on('join:conversation', (conversationId) => {
+    socket.on('join:conversation', (conversationId: string) => {
       socket.join(`conv:${conversationId}`);
     });
 
@@ -155,12 +167,12 @@ async function initSocket(httpServer) {
           await userRepository.touchLastSeen(userId);
         }
       } catch (err) {
-        logger.warn({ err: err.message, userId }, 'Failed to process activity heartbeat');
+        logger.warn({ err: (err as Error).message, userId }, 'Failed to process activity heartbeat');
       }
     });
 
     // ── Typing indicators ───────────────────────────────────────────
-    socket.on('typing:start', ({ conversationId }) => {
+    socket.on('typing:start', ({ conversationId }: { conversationId: string }) => {
       socket.to(`conv:${conversationId}`).emit('typing:start', {
         conversationId,
         userId,
@@ -168,7 +180,7 @@ async function initSocket(httpServer) {
       });
     });
 
-    socket.on('typing:stop', ({ conversationId }) => {
+    socket.on('typing:stop', ({ conversationId }: { conversationId: string }) => {
       socket.to(`conv:${conversationId}`).emit('typing:stop', {
         conversationId,
         userId,
@@ -176,7 +188,7 @@ async function initSocket(httpServer) {
     });
 
     // ── Read receipts ───────────────────────────────────────────────
-    socket.on('messages:read', async ({ conversationId, messageIds }) => {
+    socket.on('messages:read', async ({ conversationId, messageIds }: { conversationId?: string; messageIds?: string[] }) => {
       if (!conversationId || !Array.isArray(messageIds) || messageIds.length === 0) return;
       try {
         for (const msgId of messageIds) {
@@ -184,7 +196,7 @@ async function initSocket(httpServer) {
           try {
             await broadcastService.syncFromMessageReceipt(msgId, userId, 'read');
           } catch (syncErr) {
-            logger.warn({ err: syncErr.message, msgId }, 'Failed to sync broadcast read receipt');
+            logger.warn({ err: (syncErr as Error).message, msgId }, 'Failed to sync broadcast read receipt');
           }
         }
         // Update last_read_at so unread_count recalculates correctly
@@ -198,12 +210,12 @@ async function initSocket(httpServer) {
           countsMap,
         });
       } catch (err) {
-        logger.warn({ err: err.message, userId }, 'Failed to process read receipts');
+        logger.warn({ err: (err as Error).message, userId }, 'Failed to process read receipts');
       }
     });
 
     // ── Mark delivered (cuando un mensaje llega al cliente pero no se lee) ──
-    socket.on('messages:delivered', async ({ conversationId, messageIds }) => {
+    socket.on('messages:delivered', async ({ conversationId, messageIds }: { conversationId?: string; messageIds?: string[] }) => {
       if (!Array.isArray(messageIds) || messageIds.length === 0) return;
       try {
         for (const msgId of messageIds) {
@@ -211,7 +223,7 @@ async function initSocket(httpServer) {
           try {
             await broadcastService.syncFromMessageReceipt(msgId, userId, 'delivered');
           } catch (syncErr) {
-            logger.warn({ err: syncErr.message, msgId }, 'Failed to sync broadcast delivery receipt');
+            logger.warn({ err: (syncErr as Error).message, msgId }, 'Failed to sync broadcast delivery receipt');
           }
         }
         // Avisar al emisor (y al resto de la conversación) para que el tick del
@@ -226,21 +238,21 @@ async function initSocket(httpServer) {
             if (!message) continue;
             room = `conv:${message.conversation_id}`;
           }
-          io.to(room).emit('message:receipt', {
+          servidor.to(room).emit('message:receipt', {
             messageId: msgId,
             delivered_count: Number(counts.delivered_count) || 0,
             read_count: Number(counts.read_count) || 0,
           });
         }
       } catch (err) {
-        logger.warn({ err: err.message, userId }, 'Failed to process delivery receipts');
+        logger.warn({ err: (err as Error).message, userId }, 'Failed to process delivery receipts');
       }
     });
 
     // ── Llamadas: señalización WebRTC (malla P2P) ───────────────────
     // El backend solo transporta la señalización (SDP/ICE) y el ciclo de vida
     // de la llamada; el audio/vídeo viaja P2P entre los navegadores.
-    registerCallHandlers(io, socket, userId);
+    registerCallHandlers(servidor, socket, userId);
 
     // ── Disconnect ──────────────────────────────────────────────────
     // 'disconnecting' aún expone socket.rooms → avisamos a las llamadas activas
@@ -264,19 +276,21 @@ async function initSocket(httpServer) {
     });
   });
 
-  return io;
+  return servidor;
 }
 
 // ── Señalización de llamadas ──────────────────────────────────────────
 // Convención de salas: `call:{callId}` agrupa a los participantes conectados
 // de una llamada. Los eventos de invitación viajan por la sala personal
 // `user:{userId}` (el invitado puede no estar aún en la sala de la llamada).
-function registerCallHandlers(io, socket, userId) {
-  const room = (callId) => `call:${callId}`;
+function registerCallHandlers(io: Server, socket: Socket, userId: string): void {
+  const room = (callId: string) => `call:${callId}`;
 
   // El que inicia timbra a los invitados por su sala personal y se une a la
   // sala de la llamada para quedar a la escucha de aceptaciones/rechazos.
-  socket.on('call:start', ({ callId, conversationId, type, calleeIds, from }) => {
+  socket.on('call:start', ({ callId, conversationId, type, calleeIds, from }: {
+    callId?: string; conversationId?: string; type?: string; calleeIds?: string[]; from?: unknown;
+  }) => {
     if (!callId || !Array.isArray(calleeIds)) return;
     socket.join(room(callId));
     for (const uid of calleeIds) {
@@ -294,11 +308,11 @@ function registerCallHandlers(io, socket, userId) {
 
   // El invitado acepta: calcula quiénes ya están dentro (para armar la malla),
   // se une a la sala y avisa a los presentes que llegó un nuevo par.
-  socket.on('call:accept', async ({ callId }) => {
+  socket.on('call:accept', async ({ callId }: { callId?: string }) => {
     if (!callId) return;
     // fetchSockets() consulta también las otras instancias; `io.sockets.adapter.rooms`
     // y `io.sockets.sockets` sólo verían a los participantes de este proceso.
-    const existing = new Set();
+    const existing = new Set<string>();
     try {
       const members = await io.in(room(callId)).fetchSockets();
       for (const s of members) {
@@ -306,7 +320,7 @@ function registerCallHandlers(io, socket, userId) {
         if (memberId && memberId !== userId) existing.add(memberId);
       }
     } catch (err) {
-      logger.warn({ err: err.message, callId }, 'Failed to list call participants');
+      logger.warn({ err: (err as Error).message, callId }, 'Failed to list call participants');
     }
     socket.join(room(callId));
     socket.emit('call:peers', { callId, userIds: [...existing] });
@@ -322,19 +336,19 @@ function registerCallHandlers(io, socket, userId) {
         }
         await callRepository.updateParticipant(callId, userId, { status: 'joined' });
       } catch (err) {
-        logger.warn({ err: err.message, callId, userId }, 'Failed to persist call accept');
+        logger.warn({ err: (err as Error).message, callId, userId }, 'Failed to persist call accept');
       }
     })();
   });
 
   // Rechazo (el invitado dice que no). Los presentes en la sala se enteran.
-  socket.on('call:reject', ({ callId, reason }) => {
+  socket.on('call:reject', ({ callId, reason }: { callId?: string; reason?: string }) => {
     if (!callId) return;
     io.to(room(callId)).emit('call:rejected', { callId, userId, reason: reason || 'declined' });
   });
 
   // Cancelación del que llama antes de que contesten.
-  socket.on('call:cancel', ({ callId, calleeIds }) => {
+  socket.on('call:cancel', ({ callId, calleeIds }: { callId?: string; calleeIds?: string[] }) => {
     if (!callId) return;
     for (const uid of calleeIds || []) {
       io.to(`user:${uid}`).emit('call:cancelled', { callId });
@@ -343,38 +357,38 @@ function registerCallHandlers(io, socket, userId) {
   });
 
   // Relé de señalización dirigida (offer/answer/ICE) a un par concreto.
-  socket.on('call:signal', ({ callId, to, data }) => {
+  socket.on('call:signal', ({ callId, to, data }: { callId?: string; to?: string; data?: unknown }) => {
     if (!callId || !to) return;
     io.to(`user:${to}`).emit('call:signal', { callId, from: userId, data });
   });
 
   // Un participante deja la llamada.
-  socket.on('call:leave', ({ callId }) => {
+  socket.on('call:leave', ({ callId }: { callId?: string }) => {
     if (!callId) return;
     socket.to(room(callId)).emit('call:peer-left', { callId, userId });
     socket.leave(room(callId));
   });
 
   // Cambios de estado de medios (silenciar micro, apagar cámara, compartir).
-  socket.on('call:media', ({ callId, kind, enabled }) => {
+  socket.on('call:media', ({ callId, kind, enabled }: { callId?: string; kind?: string; enabled?: boolean }) => {
     if (!callId || !kind) return;
     socket.to(room(callId)).emit('call:media', { callId, userId, kind, enabled });
   });
 }
 
-async function updatePresence(userId, presence) {
+async function updatePresence(userId: string, presence: string): Promise<void> {
   try {
     // Any explicit presence write supersedes a job-set away.
     await clearAutoAway(userId);
     await userRepository.updatePresence(userId, presence);
     // Broadcast presence change to all users who share a conversation
-    io.emit('presence:changed', { userId, presence });
+    io!.emit('presence:changed', { userId, presence });
   } catch (err) {
-    logger.warn({ err: err.message, userId }, 'Failed to update presence');
+    logger.warn({ err: (err as Error).message, userId }, 'Failed to update presence');
   }
 }
 
-function getIO() {
+function getIO(): Server {
   if (!io) throw new Error('Socket.IO not initialized');
   return io;
 }
@@ -384,14 +398,14 @@ function getIO() {
  * a los clientes para que se reconecten contra otra instancia. Se llama antes
  * de cerrar Redis, porque el adapter usa esos clientes.
  */
-async function closeSocket() {
+async function closeSocket(): Promise<void> {
   if (!io) return;
   for (const timer of offlineTimers.values()) clearTimeout(timer);
   offlineTimers.clear();
   const instance = io;
   io = null;
   setSocketServer(null);
-  await new Promise((resolve) => instance.close(() => resolve()));
+  await new Promise<void>((resolve) => instance.close(() => resolve()));
 }
 
-module.exports = { initSocket, getIO, closeSocket };
+export { initSocket, getIO, closeSocket };

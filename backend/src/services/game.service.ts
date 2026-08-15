@@ -7,12 +7,15 @@ import {
 import { NotFoundError, ForbiddenError, BadRequestError } from '../errors';
 import { toMessageResponse, toGameResponse } from '../models';
 import { toConversation, toUser } from '../config/eventBus';
-import type { GameRow, GameState, PlayerRole } from '../models/game.model';
+import type {
+  GameRow, GameState, PlayerRole,
+  TicTacToeState, RpsState, HangmanState,
+} from '../models/game.model';
 import type { CreateGameRequest, GameMoveRequest } from '../dtos/game.dto';
 
-const tictactoe = require('../games/tictactoe');
-const rps = require('../games/rps');
-const hangman = require('../games/hangman');
+import * as tictactoe from '../games/tictactoe';
+import * as rps from '../games/rps';
+import * as hangman from '../games/hangman';
 
 const KIND_LABELS: Record<string, string> = {
   tictactoe: 'Tatetí',
@@ -84,18 +87,21 @@ class GameService {
     else if (game.player2_id === userId) role = 'player2';
     else throw new ForbiddenError('Not a player in this game');
 
+    // `kind` y `state` son columnas separadas, así que el tipo no puede ligarlas:
+    // la correspondencia la garantiza createGame, que escribe las dos juntas. Por
+    // eso cada rama afirma la variante que le corresponde a su kind.
     let nextState: GameState;
     try {
       if (game.kind === 'tictactoe') {
         if (payload.cell === undefined) throw new BadRequestError('Missing cell');
-        nextState = tictactoe.applyMove(game.state, role, payload.cell);
+        nextState = tictactoe.applyMove(game.state as TicTacToeState, role, payload.cell);
       } else if (game.kind === 'rps') {
         if (!payload.choice) throw new BadRequestError('Missing choice');
-        nextState = rps.applyChoice(game.state, role, payload.choice);
+        nextState = rps.applyChoice(game.state as RpsState, role, payload.choice);
       } else if (game.kind === 'hangman') {
         if (role !== 'player2') throw new ForbiddenError('Only the guesser can guess letters');
         if (!payload.letter) throw new BadRequestError('Missing letter');
-        nextState = hangman.applyGuess(game.state, payload.letter);
+        nextState = hangman.applyGuess(game.state as HangmanState, payload.letter);
       } else {
         throw new BadRequestError('Unknown game kind');
       }

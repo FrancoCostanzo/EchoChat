@@ -2,19 +2,19 @@
   "name": "echochat-backend",
   "version": "1.0.0-alpha.4",
   "description": "",
-  "main": "src/server.js",
+  "main": "dist/server.js",
   "directories": {
     "doc": "docs"
   },
   "scripts": {
     "start": "node dist/server.js",
     "build": "tsc",
-    "dev": "tsx watch src/server.js | pino-pretty",
+    "dev": "tsx watch src/server.ts | pino-pretty",
     "db:types": "node scripts/generate-db-types.js",
     "typecheck": "tsc --noEmit",
     "typecheck:all": "tsc --noEmit --checkJs",
-    "migrate": "tsx src/cli/setup.js",
-    "setup": "tsx src/cli/setup.js",
+    "migrate": "tsx src/cli/setup.ts",
+    "setup": "tsx src/cli/setup.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

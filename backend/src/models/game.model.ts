@@ -9,13 +9,17 @@ export type PlayerRole = 'player1' | 'player2';
  * Forma del JSON de `games.state`, que en la base es una columna `jsonb` sin
  * estructura declarada. Cada variante la produce el módulo puro de `games/`.
  */
+/** El tablero guarda la marca jugada, no el rol: player1 es X y player2 es O. */
+export type TicTacToeMark = 'X' | 'O';
 export type TicTacToeState = {
-  board: (PlayerRole | null)[];
+  board: (TicTacToeMark | null)[];
   turn: PlayerRole;
   winner: PlayerRole | 'draw' | null;
 };
+export type RpsChoice = 'rock' | 'paper' | 'scissors';
 export type RpsState = {
-  choices: Record<PlayerRole, string | null>;
+  /** 'hidden' aparece sólo en la respuesta, cuando se oculta la del rival. */
+  choices: Record<PlayerRole, RpsChoice | 'hidden' | null>;
   winner: PlayerRole | 'draw' | null;
 };
 export type HangmanState = {

@@ -1,6 +1,6 @@
 # ── Etapa 1: Build ─────────────────────────────────────────────────────
-# Compila src/ (mezcla .ts y .js) a dist/. Necesita las devDependencies:
-# TypeScript y los @types viven ahí.
+# Compila src/ a dist/. Necesita las devDependencies: TypeScript y los @types
+# viven ahí.
 FROM node:22-alpine AS build
 
 WORKDIR /app
