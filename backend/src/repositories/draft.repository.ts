@@ -1,9 +1,9 @@
 import BaseRepository from './base.repository';
 import { encrypt, decrypt } from '../utils/crypto.util';
-import type { Row } from '../types/rows';
 import type { DraftRequest } from '../dtos/message.dto';
-
-type DraftRow = Row<'drafts'>;
+// El tipo lo declara el modelo, que ya reemplaza el Json crudo de
+// pending_attachments por el array que el código realmente guarda.
+import type { DraftRow } from '../models/message.model';
 
 // Per-user, per-conversation message drafts (table: drafts).
 class DraftRepository extends BaseRepository<DraftRow> {

@@ -99,7 +99,15 @@ export function toSavedMessageResponse(row: SavedMessageRow | null | undefined) 
   };
 }
 
-export type DraftRow = Row<'drafts'> & { pending_attachments?: unknown[] | null };
+/**
+ * `pending_attachments` es una columna `jsonb`, así que el tipo generado la deja
+ * como Json (string, número, objeto…). El código siempre guarda un array, y por
+ * eso se reemplaza en vez de intersecarse: una intersección exigiría que fuera
+ * las dos cosas a la vez.
+ */
+export type DraftRow = Omit<Row<'drafts'>, 'pending_attachments'> & {
+  pending_attachments?: unknown[] | null;
+};
 
 export function toDraftResponse(row: DraftRow | null | undefined) {
   if (!row) return null;

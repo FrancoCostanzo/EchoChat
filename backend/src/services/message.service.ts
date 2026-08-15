@@ -1,7 +1,7 @@
-const logger = require('../config/logger');
-const { toConversation } = require('../config/eventBus');
-const broadcastService = require('./broadcast.service');
-const {
+import logger from '../config/logger';
+import { toConversation } from '../config/eventBus';
+import broadcastService from './broadcast.service';
+import {
   messageRepository,
   conversationRepository,
   userRepository,
@@ -11,21 +11,30 @@ const {
   pollRepository,
   gameRepository,
   systemSettingsRepository,
-} = require('../repositories');
-const { NotFoundError, ForbiddenError, BadRequestError } = require('../errors');
-const { toMessageResponse, toSavedMessageResponse, toDraftResponse, toPollResponse, toGameResponse } = require('../models');
-const { resolveBodyFormat } = require('../utils/markdown.util');
-const { minioClient } = require('../config/minio');
+} from '../repositories';
+import { NotFoundError, ForbiddenError, BadRequestError } from '../errors';
+import { toMessageResponse, toSavedMessageResponse, toDraftResponse, toPollResponse, toGameResponse } from '../models';
+import { resolveBodyFormat } from '../utils/markdown.util';
+import { minioClient } from '../config/minio';
+import type { MessageResponse } from '../models/message.model';
+import type { GameRow } from '../models/game.model';
+import type { ReceiptDetail } from '../repositories/message.repository';
+import type {
+  SendMessageRequest,
+  PaginationRequest,
+  DraftRequest,
+} from '../dtos/message.dto';
 
 const AVATAR_BUCKET = 'messaging-avatars';
 const DEFAULT_EDIT_WINDOW_MINUTES = 15;
 const DEFAULT_DELETE_WINDOW_MINUTES = 15;
 
-async function getWindowMinutes(key, defaultMinutes) {
+/** Lee una ventana de tiempo de system_settings, cayendo al default si no es válida. */
+async function getWindowMinutes(key: string, defaultMinutes: number): Promise<number> {
   try {
     const row = await systemSettingsRepository.findByKey(key);
     const raw = row?.value;
-    const minutes = parseInt(raw, 10);
+    const minutes = parseInt(String(raw ?? ''), 10);
     if (!Number.isFinite(minutes) || minutes < 0) return defaultMinutes;
     return minutes;
   } catch {
@@ -33,10 +42,10 @@ async function getWindowMinutes(key, defaultMinutes) {
   }
 }
 
-function assertWithinWindow(sentAt, minutes, action) {
+function assertWithinWindow(sentAt: Date | string | null, minutes: number, action: string): void {
   // 0 = unlimited (same convention as message_retention_days).
   if (minutes === 0) return;
-  const sentMs = new Date(sentAt).getTime();
+  const sentMs = new Date(sentAt as Date).getTime();
   if (!Number.isFinite(sentMs)) {
     throw new BadRequestError(`Cannot ${action} this message`);
   }
@@ -47,7 +56,8 @@ function assertWithinWindow(sentAt, minutes, action) {
     );
   }
 }
-async function withAvatarUrl(user) {
+
+async function withAvatarUrl<T extends { avatar_object_key?: string | null; avatar_bucket?: string | null }>(user: T) {
   if (!user?.avatar_object_key) return user;
   try {
     const url = await minioClient.presignedGetObject(
@@ -61,9 +71,8 @@ async function withAvatarUrl(user) {
   }
 }
 
-
 class MessageService {
-  async send(userId, data) {
+  async send(userId: string, data: SendMessageRequest): Promise<MessageResponse> {
     // Verify membership
     const member = await conversationRepository.getMember(data.conversation_id, userId);
     if (!member) throw new ForbiddenError('Not a member of this conversation');
@@ -80,7 +89,7 @@ class MessageService {
 
     if (data.type === 'code') {
       data.body_format = 'plain';
-      const lang = data.metadata?.language || 'plaintext';
+      const lang = (data.metadata as any)?.language || 'plaintext';
       data.metadata = { ...data.metadata, language: lang };
     }
 
@@ -100,7 +109,7 @@ class MessageService {
     const full = await messageRepository.findWithAttachments(message.id);
     logger.info({ messageId: message.id, conversationId: data.conversation_id }, 'Message sent');
 
-    const response = toMessageResponse(full);
+    const response = toMessageResponse(full)!;
     try {
       toConversation(data.conversation_id, 'message:new', response);
       // Let open timelines refresh the root's reply counter without refetching
@@ -112,27 +121,27 @@ class MessageService {
         });
       }
     } catch (err) {
-      logger.warn({ err: err.message }, 'Failed to emit message:new');
+      logger.warn({ err: (err as Error).message }, 'Failed to emit message:new');
     }
     return response;
   }
 
   // Root message + ordered replies for the thread side panel
-  async getThread(messageId, userId) {
+  async getThread(messageId: string, userId: string) {
     const root = await messageRepository.findWithAttachments(messageId, userId);
     if (!root) throw new NotFoundError('Message');
     const member = await conversationRepository.getMember(root.conversation_id, userId);
     if (!member) throw new ForbiddenError('Not a member of this conversation');
 
     const replies = await messageRepository.findThreadReplies(messageId, { viewerUserId: userId });
-    const rootResponse = toMessageResponse(root);
-    const replyResponses = replies.map(toMessageResponse);
+    const rootResponse = toMessageResponse(root)!;
+    const replyResponses = replies.map((r) => toMessageResponse(r)!);
     await this._attachPolls([rootResponse, ...replyResponses], userId);
     await this._attachGames([rootResponse, ...replyResponses], userId);
     return { root: rootResponse, replies: replyResponses };
   }
 
-  async getMessages(conversationId, userId, pagination) {
+  async getMessages(conversationId: string, userId: string, pagination?: PaginationRequest) {
     const member = await conversationRepository.getMember(conversationId, userId);
     if (!member) throw new ForbiddenError('Not a member of this conversation');
 
@@ -140,14 +149,14 @@ class MessageService {
       ...pagination,
       viewerUserId: userId,
     });
-    const responses = messages.map(toMessageResponse);
+    const responses = messages.map((m) => toMessageResponse(m)!);
     await this._attachPolls(responses, userId);
     await this._attachGames(responses, userId);
     return responses;
   }
 
   // Attach poll data (options + the user's votes) to any 'poll' type messages.
-  async _attachPolls(responses, userId) {
+  async _attachPolls(responses: MessageResponse[], userId: string) {
     for (const m of responses) {
       if (m.type !== 'poll') continue;
       const poll = await pollRepository.findByMessageId(m.id);
@@ -161,23 +170,23 @@ class MessageService {
 
   // Attach game state (board/choices/masked word, redacted per viewer) to
   // any 'game' type messages.
-  async _attachGames(responses, userId) {
+  async _attachGames(responses: MessageResponse[], userId: string) {
     for (const m of responses) {
       if (m.type !== 'game') continue;
-      const game = await gameRepository.findByMessageId(m.id);
+      const game = (await gameRepository.findByMessageId(m.id)) as GameRow | null;
       if (!game) continue;
       m.game = toGameResponse(game, userId);
     }
     return responses;
   }
 
-  async getById(messageId) {
+  async getById(messageId: string) {
     const message = await messageRepository.findWithAttachments(messageId);
     if (!message) throw new NotFoundError('Message');
     return toMessageResponse(message);
   }
 
-  async update(messageId, userId, body, bodyFormat) {
+  async update(messageId: string, userId: string, body: string, bodyFormat?: string) {
     const message = await messageRepository.findById(messageId);
     if (!message) throw new NotFoundError('Message');
     if (message.is_deleted) throw new BadRequestError('Cannot edit a deleted message');
@@ -194,12 +203,12 @@ class MessageService {
     try {
       toConversation(message.conversation_id, 'message:edited', response);
     } catch (err) {
-      logger.warn({ err: err.message }, 'Failed to emit message:edited');
+      logger.warn({ err: (err as Error).message }, 'Failed to emit message:edited');
     }
     return response;
   }
 
-  async delete(messageId, userId) {
+  async delete(messageId: string, userId: string) {
     const message = await messageRepository.findById(messageId);
     if (!message) throw new NotFoundError('Message');
     if (message.is_deleted) throw new BadRequestError('Message already deleted');
@@ -228,13 +237,13 @@ class MessageService {
       try {
         await minioClient.removeObject(obj.bucket_name, obj.object_key);
       } catch (err) {
-        logger.warn({ err: err.message, objectKey: obj.object_key }, 'Failed to delete object from MinIO');
+        logger.warn({ err: (err as Error).message, objectKey: obj.object_key }, 'Failed to delete object from MinIO');
       }
       if (obj.thumbnail_bucket && obj.thumbnail_key) {
         try {
           await minioClient.removeObject(obj.thumbnail_bucket, obj.thumbnail_key);
         } catch (err) {
-          logger.warn({ err: err.message }, 'Failed to delete thumbnail from MinIO');
+          logger.warn({ err: (err as Error).message }, 'Failed to delete thumbnail from MinIO');
         }
       }
     }
@@ -254,67 +263,67 @@ class MessageService {
       category: 'content',
       data_before: { conversation_id: message.conversation_id, sender_id: message.sender_id },
       data_after: { by_owner: isOwner },
-    }).catch((err) => logger.warn({ err: err.message }, 'Failed to write audit log'));
+    }).catch((err: Error) => logger.warn({ err: err.message }, 'Failed to write audit log'));
 
     const response = toMessageResponse(deleted);
     try {
       toConversation(message.conversation_id, 'message:deleted', response);
     } catch (err) {
-      logger.warn({ err: err.message }, 'Failed to emit message:deleted');
+      logger.warn({ err: (err as Error).message }, 'Failed to emit message:deleted');
     }
     return response;
   }
 
-  async addReaction(messageId, userId, emoji) {
+  async addReaction(messageId: string, userId: string, emoji: string) {
     await messageRepository.toggleReaction(messageId, userId, emoji);
     const reactions = await messageRepository.getReactions(messageId);
     try {
       const message = await messageRepository.findById(messageId);
-      toConversation(message.conversation_id, 'message:reaction', {
+      toConversation(message!.conversation_id, 'message:reaction', {
         messageId,
         reactions,
       });
     } catch (err) {
-      logger.warn({ err: err.message }, 'Failed to emit message:reaction');
+      logger.warn({ err: (err as Error).message }, 'Failed to emit message:reaction');
     }
     return reactions;
   }
 
-  async removeReaction(messageId, userId, emoji) {
+  async removeReaction(messageId: string, userId: string, emoji: string) {
     await messageRepository.removeReaction(messageId, userId, emoji);
     const reactions = await messageRepository.getReactions(messageId);
     try {
       const message = await messageRepository.findById(messageId);
-      toConversation(message.conversation_id, 'message:reaction', {
+      toConversation(message!.conversation_id, 'message:reaction', {
         messageId,
         reactions,
       });
     } catch (err) {
-      logger.warn({ err: err.message }, 'Failed to emit message:reaction');
+      logger.warn({ err: (err as Error).message }, 'Failed to emit message:reaction');
     }
     return reactions;
   }
 
-  async addReceipt(messageId, userId, type) {
+  async addReceipt(messageId: string, userId: string, type: string) {
     const receipt = await messageRepository.addReceipt(messageId, userId, type);
     try {
       const message = await messageRepository.findById(messageId);
       const counts = await messageRepository.getReceiptCounts(messageId);
-      toConversation(message.conversation_id, 'message:receipt', {
+      toConversation(message!.conversation_id, 'message:receipt', {
         messageId,
-        conversationId: message.conversation_id,
-        delivered_count: parseInt(counts.delivered_count, 10) || 0,
-        read_count: parseInt(counts.read_count, 10) || 0,
+        conversationId: message!.conversation_id,
+        delivered_count: parseInt(String(counts.delivered_count), 10) || 0,
+        read_count: parseInt(String(counts.read_count), 10) || 0,
       });
 
       await broadcastService.syncFromMessageReceipt(messageId, userId, type);
     } catch (err) {
-      logger.warn({ err: err.message }, 'Failed to emit message:receipt');
+      logger.warn({ err: (err as Error).message }, 'Failed to emit message:receipt');
     }
     return receipt;
   }
 
-  async search(conversationId, userId, term, limit) {
+  async search(conversationId: string, userId: string, term: string, limit?: number) {
     const member = await conversationRepository.getMember(conversationId, userId);
     if (!member) throw new ForbiddenError('Not a member of this conversation');
 
@@ -324,7 +333,7 @@ class MessageService {
 
   // "Información del mensaje": cuándo se envió y, por destinatario, cuándo se
   // entregó y se leyó. Accesible para cualquier miembro de la conversación.
-  async getMessageInfo(messageId, userId) {
+  async getMessageInfo(messageId: string, userId: string) {
     const message = await messageRepository.findById(messageId);
     if (!message) throw new NotFoundError('Message');
     const member = await conversationRepository.getMember(message.conversation_id, userId);
@@ -337,13 +346,13 @@ class MessageService {
       sent_at: message.sent_at,
       is_edited: message.is_edited,
       edited_at: message.edited_at,
-      receipts: await Promise.all(receipts.map(async (r) => {
+      receipts: await Promise.all(receipts.map(async (r: ReceiptDetail) => {
         const withUrl = await withAvatarUrl(r).catch(() => r);
         return {
           user_id: r.user_id,
           display_name: r.display_name,
           username: r.username,
-          avatar_url: withUrl.avatar_url ?? null,
+          avatar_url: (withUrl as { avatar_url?: string }).avatar_url ?? null,
           delivered_at: r.delivered_at,
           read_at: r.read_at,
         };
@@ -351,15 +360,15 @@ class MessageService {
     };
   }
 
-  async pinMessage(conversationId, messageId, userId) {
+  async pinMessage(conversationId: string, messageId: string, userId: string) {
     return messageRepository.pinMessage(conversationId, messageId, userId);
   }
 
-  async unpinMessage(conversationId, messageId) {
+  async unpinMessage(conversationId: string, messageId: string) {
     return messageRepository.unpinMessage(conversationId, messageId);
   }
 
-  async getPinnedMessages(conversationId, userId) {
+  async getPinnedMessages(conversationId: string, userId: string) {
     const member = await conversationRepository.getMember(conversationId, userId);
     if (!member) throw new ForbiddenError('Not a member of this conversation');
 
@@ -368,7 +377,7 @@ class MessageService {
   }
 
   // ── Saved messages ────────────────────────────────────────────────────────
-  async saveMessage(userId, messageId, note) {
+  async saveMessage(userId: string, messageId: string, note?: string | null) {
     const message = await messageRepository.findById(messageId);
     if (!message) throw new NotFoundError('Message');
     const member = await conversationRepository.getMember(message.conversation_id, userId);
@@ -376,46 +385,46 @@ class MessageService {
     return savedMessageRepository.save(userId, messageId, note);
   }
 
-  async unsaveMessage(userId, messageId) {
+  async unsaveMessage(userId: string, messageId: string): Promise<void> {
     await savedMessageRepository.unsave(userId, messageId);
   }
 
-  async listSaved(userId, pagination) {
+  async listSaved(userId: string, pagination?: { limit?: number; offset?: number }) {
     const rows = await savedMessageRepository.list(userId, pagination);
     return rows.map(toSavedMessageResponse);
   }
 
   // ── Drafts ──────────────────────────────────────────────────────────────
-  async saveDraft(userId, conversationId, data) {
+  async saveDraft(userId: string, conversationId: string, data: DraftRequest) {
     const member = await conversationRepository.getMember(conversationId, userId);
     if (!member) throw new ForbiddenError('Not a member of this conversation');
     const draft = await draftRepository.upsert(userId, conversationId, data);
     return toDraftResponse(draft);
   }
 
-  async getDraft(userId, conversationId) {
+  async getDraft(userId: string, conversationId: string) {
     const draft = await draftRepository.get(userId, conversationId);
     return draft ? toDraftResponse(draft) : null;
   }
 
-  async deleteDraft(userId, conversationId) {
+  async deleteDraft(userId: string, conversationId: string): Promise<void> {
     await draftRepository.remove(userId, conversationId);
   }
 
-  async listDrafts(userId) {
+  async listDrafts(userId: string) {
     const drafts = await draftRepository.listByUser(userId);
     return drafts.map(toDraftResponse);
   }
 
   // ── Forwarding ────────────────────────────────────────────────────────────
-  async forward(userId, messageId, conversationIds) {
+  async forward(userId: string, messageId: string, conversationIds: string[]) {
     const source = await messageRepository.findById(messageId);
     if (!source) throw new NotFoundError('Message');
     const srcMember = await conversationRepository.getMember(source.conversation_id, userId);
     if (!srcMember) throw new ForbiddenError('Not a member of the source conversation');
 
     const objectIds = await messageRepository.getAttachmentObjectIds(messageId);
-    const results = [];
+    const results: MessageResponse[] = [];
 
     for (const convId of conversationIds) {
       const member = await conversationRepository.getMember(convId, userId);
@@ -436,11 +445,11 @@ class MessageService {
       }
 
       const full = await messageRepository.findWithAttachments(created.id);
-      const response = toMessageResponse(full);
+      const response = toMessageResponse(full)!;
       try {
         toConversation(convId, 'message:new', response);
       } catch (err) {
-        logger.warn({ err: err.message }, 'Failed to emit message:new (forward)');
+        logger.warn({ err: (err as Error).message }, 'Failed to emit message:new (forward)');
       }
       results.push(response);
     }
@@ -450,4 +459,4 @@ class MessageService {
   }
 }
 
-module.exports = new MessageService();
+export = new MessageService();
