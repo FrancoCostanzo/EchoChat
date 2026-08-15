@@ -21,4 +21,4 @@ function authenticate(req: Request, res: Response, next: NextFunction): void {
     .catch(next);
 }
 
-export = authenticate;
+export default authenticate;

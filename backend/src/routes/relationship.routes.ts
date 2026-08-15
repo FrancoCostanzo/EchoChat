@@ -13,4 +13,4 @@ router.get('/contacts', withAuth((req, res) => relationshipController.getContact
 router.get('/blocked', withAuth((req, res) => relationshipController.getBlocked(req, res)));
 router.get('/favorites', withAuth((req, res) => relationshipController.getFavorites(req, res)));
 
-export = router;
+export default router;

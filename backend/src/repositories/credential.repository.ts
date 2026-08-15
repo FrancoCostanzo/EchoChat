@@ -100,4 +100,4 @@ class CredentialRepository extends BaseRepository<CredentialRow> {
   }
 }
 
-export = new CredentialRepository();
+export default new CredentialRepository();

@@ -57,4 +57,4 @@ class BroadcastController {
   }
 }
 
-export = new BroadcastController();
+export default new BroadcastController();

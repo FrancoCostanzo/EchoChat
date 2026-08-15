@@ -26,4 +26,4 @@ router.patch('/:id', validate(updateStickerDto), withAuth((req, res) => stickerC
 router.delete('/:id', withAuth((req, res) => stickerController.remove(req, res)));
 router.post('/:id/use', withAuth((req, res) => stickerController.use(req, res)));
 
-export = router;
+export default router;

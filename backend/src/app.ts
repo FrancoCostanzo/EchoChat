@@ -109,4 +109,4 @@ app.use('/api', routes);
 // ── Error handling ──────────────────────────────────────────────────────
 app.use(errorHandler);
 
-export = app;
+export default app;

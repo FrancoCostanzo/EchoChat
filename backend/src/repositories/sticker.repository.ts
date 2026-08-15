@@ -202,4 +202,4 @@ class StickerRepository extends BaseRepository<StickerRow> {
   }
 }
 
-export = new StickerRepository();
+export default new StickerRepository();

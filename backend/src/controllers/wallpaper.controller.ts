@@ -20,4 +20,4 @@ class WallpaperController {
   }
 }
 
-export = new WallpaperController();
+export default new WallpaperController();

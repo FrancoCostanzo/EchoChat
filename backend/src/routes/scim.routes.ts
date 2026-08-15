@@ -31,4 +31,4 @@ router.get('/Groups', (req, res) => scimController.listGroups(req, res));
 
 router.use(scimErrorHandler);
 
-export = router;
+export default router;

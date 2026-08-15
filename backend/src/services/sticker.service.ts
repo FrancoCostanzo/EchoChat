@@ -122,4 +122,4 @@ class StickerService {
   }
 }
 
-export = new StickerService();
+export default new StickerService();

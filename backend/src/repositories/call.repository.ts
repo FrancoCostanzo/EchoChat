@@ -170,4 +170,4 @@ class CallRepository extends BaseRepository<CallRow> {
   }
 }
 
-export = new CallRepository();
+export default new CallRepository();

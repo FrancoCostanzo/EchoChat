@@ -216,4 +216,4 @@ class StorageRepository extends BaseRepository<StorageRow> {
   }
 }
 
-export = new StorageRepository();
+export default new StorageRepository();

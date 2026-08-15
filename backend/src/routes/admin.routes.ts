@@ -51,4 +51,4 @@ router.get('/audit', requirePermission('admin.view_audit'), withAuth((req, res) 
 router.get('/storage/stats', requirePermission('admin.storage'), withAuth((req, res) => adminController.getStorageStats(req, res)));
 router.get('/storage/objects', requirePermission('admin.storage'), withAuth((req, res) => adminController.listStorageObjects(req, res)));
 
-export = router;
+export default router;

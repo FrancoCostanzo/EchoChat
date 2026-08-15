@@ -12,4 +12,4 @@ router.post('/:pollId/vote', validate(voteDto), withAuth((req, res) => pollContr
 router.delete('/:pollId/vote', withAuth((req, res) => pollController.retract(req, res)));
 router.post('/:pollId/close', withAuth((req, res) => pollController.close(req, res)));
 
-export = router;
+export default router;

@@ -103,4 +103,4 @@ class NotificationRepository extends BaseRepository<NotificationRow> {
   }
 }
 
-export = new NotificationRepository();
+export default new NotificationRepository();

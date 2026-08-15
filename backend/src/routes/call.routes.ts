@@ -15,4 +15,4 @@ router.get('/:callId', withAuth((req, res) => callController.getById(req, res)))
 router.put('/:callId/status', validate(updateCallStatusDto), withAuth((req, res) => callController.updateStatus(req, res)));
 router.put('/:callId/participants/:userId', validate(updateParticipantDto), withAuth((req, res) => callController.updateParticipant(req, res)));
 
-export = router;
+export default router;

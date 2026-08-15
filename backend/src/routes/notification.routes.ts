@@ -16,4 +16,4 @@ router.put('/:notificationId/read', withAuth((req, res) => notificationControlle
 router.get('/preferences', withAuth((req, res) => notificationController.getPreferences(req, res)));
 router.put('/preferences', validate(notificationPrefsDto), withAuth((req, res) => notificationController.updatePreference(req, res)));
 
-export = router;
+export default router;

@@ -440,4 +440,4 @@ class UserRepository extends BaseRepository<UserRow> {
   }
 }
 
-export = new UserRepository();
+export default new UserRepository();

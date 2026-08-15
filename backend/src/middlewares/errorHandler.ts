@@ -60,4 +60,4 @@ function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunc
   });
 }
 
-export = errorHandler;
+export default errorHandler;

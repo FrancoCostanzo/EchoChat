@@ -551,4 +551,4 @@ class MonitoringService {
   }
 }
 
-export = new MonitoringService();
+export default new MonitoringService();

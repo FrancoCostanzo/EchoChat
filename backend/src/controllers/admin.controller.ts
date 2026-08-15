@@ -161,4 +161,4 @@ class AdminController {
   }
 }
 
-export = new AdminController();
+export default new AdminController();

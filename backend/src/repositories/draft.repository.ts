@@ -60,4 +60,4 @@ class DraftRepository extends BaseRepository<DraftRow> {
   }
 }
 
-export = new DraftRepository();
+export default new DraftRepository();

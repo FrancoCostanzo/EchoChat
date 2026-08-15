@@ -17,4 +17,4 @@ const job: BackgroundJob = {
   run,
 };
 
-export = job;
+export default job;

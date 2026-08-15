@@ -51,4 +51,4 @@ class GameRepository extends BaseRepository<GameRow> {
   }
 }
 
-export = new GameRepository();
+export default new GameRepository();

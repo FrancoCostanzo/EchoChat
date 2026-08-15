@@ -42,4 +42,4 @@ class StorageController {
   }
 }
 
-export = new StorageController();
+export default new StorageController();

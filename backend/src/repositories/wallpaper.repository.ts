@@ -57,4 +57,4 @@ class WallpaperRepository extends BaseRepository<WallpaperRow> {
   }
 }
 
-export = new WallpaperRepository();
+export default new WallpaperRepository();

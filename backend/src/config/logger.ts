@@ -20,6 +20,4 @@ const logger = pino({
   },
 });
 
-// `export =` por lo mismo que en config/index.ts: el resto del backend hace
-// `const logger = require('../config/logger')` y espera la instancia directa.
-export = logger;
+export default logger;

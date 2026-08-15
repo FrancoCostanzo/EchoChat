@@ -66,4 +66,4 @@ class ConversationController {
   }
 }
 
-export = new ConversationController();
+export default new ConversationController();

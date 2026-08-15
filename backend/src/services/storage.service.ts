@@ -122,4 +122,4 @@ class StorageService {
   }
 }
 
-export = new StorageService();
+export default new StorageService();

@@ -168,4 +168,4 @@ class MonitoringRepository {
   }
 }
 
-export = new MonitoringRepository();
+export default new MonitoringRepository();

@@ -560,4 +560,4 @@ class AdminService {
   }
 }
 
-export = new AdminService();
+export default new AdminService();

@@ -70,4 +70,4 @@ class RelationshipRepository extends BaseRepository<RelationshipRow> {
   }
 }
 
-export = new RelationshipRepository();
+export default new RelationshipRepository();

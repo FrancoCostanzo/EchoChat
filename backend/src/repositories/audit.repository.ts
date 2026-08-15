@@ -231,4 +231,4 @@ class AuditRepository {
   }
 }
 
-export = new AuditRepository();
+export default new AuditRepository();

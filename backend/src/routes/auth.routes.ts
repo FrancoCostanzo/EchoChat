@@ -31,4 +31,4 @@ router.post('/2fa/enable', validate(totpEnableDto), withAuth((req, res) => authC
 router.post('/2fa/disable', validate(totpDisableDto), withAuth((req, res) => authController.disable2fa(req, res)));
 router.post('/2fa/backup-codes/regenerate', validate(totpRegenerateDto), withAuth((req, res) => authController.regenerateBackupCodes(req, res)));
 
-export = router;
+export default router;

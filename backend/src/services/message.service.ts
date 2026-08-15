@@ -459,4 +459,4 @@ class MessageService {
   }
 }
 
-export = new MessageService();
+export default new MessageService();

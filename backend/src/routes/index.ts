@@ -36,4 +36,4 @@ router.use('/preferences/wallpapers', wallpaperRoutes);
 router.use('/health', healthRouter);
 router.use('/monitoring', monitoringRouter);
 
-export = router;
+export default router;

@@ -125,4 +125,4 @@ class PollService {
   }
 }
 
-export = new PollService();
+export default new PollService();

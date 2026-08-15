@@ -175,4 +175,4 @@ class AuthController {
   }
 }
 
-export = new AuthController();
+export default new AuthController();

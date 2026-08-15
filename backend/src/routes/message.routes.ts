@@ -45,4 +45,4 @@ router.get('/conversation/:conversationId/draft', withAuth((req, res) => message
 router.put('/conversation/:conversationId/draft', validate(draftDto), withAuth((req, res) => messageController.saveDraft(req, res)));
 router.delete('/conversation/:conversationId/draft', withAuth((req, res) => messageController.deleteDraft(req, res)));
 
-export = router;
+export default router;

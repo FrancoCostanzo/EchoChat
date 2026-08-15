@@ -21,4 +21,4 @@ router.delete('/:conversationId/members/:userId', withAuth((req, res) => convers
 // Read status
 router.post('/:conversationId/read', withAuth((req, res) => conversationController.markAsRead(req, res)));
 
-export = router;
+export default router;

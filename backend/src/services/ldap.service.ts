@@ -220,4 +220,4 @@ class LdapService {
   }
 }
 
-export = new LdapService();
+export default new LdapService();

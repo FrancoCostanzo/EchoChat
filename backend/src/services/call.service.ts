@@ -135,4 +135,4 @@ class CallService {
   }
 }
 
-export = new CallService();
+export default new CallService();

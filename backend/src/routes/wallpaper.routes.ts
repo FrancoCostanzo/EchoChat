@@ -11,4 +11,4 @@ router.get('/', withAuth((req, res) => wallpaperController.getAll(req, res)));
 router.put('/', validate(upsertWallpaperDto), withAuth((req, res) => wallpaperController.upsert(req, res)));
 router.delete('/:scope/:scope_key', withAuth((req, res) => wallpaperController.remove(req, res)));
 
-export = router;
+export default router;

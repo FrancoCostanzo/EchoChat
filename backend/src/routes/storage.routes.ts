@@ -20,4 +20,4 @@ router.get('/:objectId', withAuth((req, res) => storageController.getById(req, r
 router.get('/:objectId/url', withAuth((req, res) => storageController.getPresignedUrl(req, res)));
 router.delete('/:objectId', withAuth((req, res) => storageController.delete(req, res)));
 
-export = router;
+export default router;

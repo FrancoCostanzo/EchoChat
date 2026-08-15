@@ -53,4 +53,4 @@ class ChannelController {
   }
 }
 
-export = new ChannelController();
+export default new ChannelController();

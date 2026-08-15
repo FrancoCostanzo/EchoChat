@@ -41,4 +41,4 @@ class MonitoringController {
   }
 }
 
-export = new MonitoringController();
+export default new MonitoringController();

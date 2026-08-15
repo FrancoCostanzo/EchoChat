@@ -24,4 +24,4 @@ router.post('/:conversationId/join', validate(joinChannelDto), withAuth((req, re
 router.get('/:conversationId/requests', withAuth((req, res) => channelController.listRequests(req, res)));
 router.put('/:conversationId/requests/:requestId', validate(reviewJoinRequestDto), withAuth((req, res) => channelController.reviewRequest(req, res)));
 
-export = router;
+export default router;

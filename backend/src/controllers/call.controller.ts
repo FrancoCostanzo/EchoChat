@@ -53,4 +53,4 @@ class CallController {
   }
 }
 
-export = new CallController();
+export default new CallController();

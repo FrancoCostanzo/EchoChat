@@ -142,4 +142,4 @@ class OidcService {
   }
 }
 
-export = new OidcService();
+export default new OidcService();

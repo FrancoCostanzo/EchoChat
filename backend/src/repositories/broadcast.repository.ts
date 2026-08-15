@@ -319,4 +319,4 @@ class BroadcastRepository extends BaseRepository<ListRow> {
   }
 }
 
-export = new BroadcastRepository();
+export default new BroadcastRepository();

@@ -34,4 +34,4 @@ class NotificationService {
   }
 }
 
-export = new NotificationService();
+export default new NotificationService();

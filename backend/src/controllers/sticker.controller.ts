@@ -59,4 +59,4 @@ class StickerController {
   }
 }
 
-export = new StickerController();
+export default new StickerController();

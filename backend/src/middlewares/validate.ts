@@ -25,4 +25,4 @@ function validate(schema: Schema): RequestHandler {
   };
 }
 
-export = validate;
+export default validate;

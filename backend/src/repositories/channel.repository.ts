@@ -192,4 +192,4 @@ class ChannelRepository extends BaseRepository<SettingsRow> {
   }
 }
 
-export = new ChannelRepository();
+export default new ChannelRepository();

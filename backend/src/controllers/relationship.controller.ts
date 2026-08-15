@@ -30,4 +30,4 @@ class RelationshipController {
   }
 }
 
-export = new RelationshipController();
+export default new RelationshipController();

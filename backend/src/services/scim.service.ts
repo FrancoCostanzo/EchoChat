@@ -204,4 +204,4 @@ class ScimService {
   }
 }
 
-export = new ScimService();
+export default new ScimService();

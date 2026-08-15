@@ -164,4 +164,4 @@ class ConversationService {
   }
 }
 
-export = new ConversationService();
+export default new ConversationService();

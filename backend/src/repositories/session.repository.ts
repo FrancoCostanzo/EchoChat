@@ -82,4 +82,4 @@ class SessionRepository extends BaseRepository<SessionRow> {
   }
 }
 
-export = new SessionRepository();
+export default new SessionRepository();

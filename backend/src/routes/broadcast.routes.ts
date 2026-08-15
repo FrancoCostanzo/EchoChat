@@ -16,4 +16,4 @@ router.post('/:listId/recipients', requirePermission('broadcast.create'), valida
 router.delete('/:listId/recipients/:userId', requirePermission('broadcast.create'), withAuth((req, res) => broadcastController.removeRecipient(req, res)));
 router.post('/:listId/messages', requirePermission('broadcast.send'), validate(sendBroadcastDto), withAuth((req, res) => broadcastController.sendMessage(req, res)));
 
-export = router;
+export default router;

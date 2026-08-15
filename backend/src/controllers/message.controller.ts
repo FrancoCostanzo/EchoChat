@@ -139,4 +139,4 @@ class MessageController {
   }
 }
 
-export = new MessageController();
+export default new MessageController();

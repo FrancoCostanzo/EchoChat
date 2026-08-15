@@ -219,4 +219,4 @@ class ConversationRepository extends BaseRepository<ConvRow> {
   }
 }
 
-export = new ConversationRepository();
+export default new ConversationRepository();

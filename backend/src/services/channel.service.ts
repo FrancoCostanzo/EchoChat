@@ -201,4 +201,4 @@ class ChannelService {
   }
 }
 
-export = new ChannelService();
+export default new ChannelService();

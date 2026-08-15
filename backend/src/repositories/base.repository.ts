@@ -53,7 +53,4 @@ class BaseRepository<T extends QueryResultRow = any> {
   }
 }
 
-// `export =` y no `export default`: los repositorios que todavía son .js hacen
-// `require('./base.repository')` y lo extienden directo. Con export default
-// recibirían { default: ... } y el `extends` fallaría en runtime.
-export = BaseRepository;
+export default BaseRepository;

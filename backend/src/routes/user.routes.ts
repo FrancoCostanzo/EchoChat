@@ -24,4 +24,4 @@ router.put('/me/presence', withAuth((req, res) => userController.updatePresence(
 router.get('/search', withAuth((req, res) => userController.search(req, res)));
 router.get('/:userId', withAuth((req, res) => userController.getUserById(req, res)));
 
-export = router;
+export default router;

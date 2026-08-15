@@ -15,4 +15,4 @@ class GameController {
   }
 }
 
-export = new GameController();
+export default new GameController();

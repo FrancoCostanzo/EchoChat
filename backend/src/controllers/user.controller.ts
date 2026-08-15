@@ -45,4 +45,4 @@ class UserController {
   }
 }
 
-export = new UserController();
+export default new UserController();

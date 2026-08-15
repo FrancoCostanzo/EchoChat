@@ -177,4 +177,4 @@ class UserService {
   }
 }
 
-export = new UserService();
+export default new UserService();

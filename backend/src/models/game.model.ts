@@ -1,6 +1,6 @@
 import type { Row } from '../types/rows';
 
-const hangman = require('../games/hangman');
+import * as hangman from '../games/hangman';
 
 /** Rol de un jugador dentro de una partida. */
 export type PlayerRole = 'player1' | 'player2';

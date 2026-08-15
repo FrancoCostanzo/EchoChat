@@ -151,4 +151,4 @@ class GameService {
   }
 }
 
-export = new GameService();
+export default new GameService();

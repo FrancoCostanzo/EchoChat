@@ -25,4 +25,4 @@ class PollController {
   }
 }
 
-export = new PollController();
+export default new PollController();

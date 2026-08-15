@@ -37,4 +37,4 @@ class WallpaperService {
   }
 }
 
-export = new WallpaperService();
+export default new WallpaperService();

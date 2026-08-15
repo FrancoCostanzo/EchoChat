@@ -39,4 +39,4 @@ class NotificationController {
   }
 }
 
-export = new NotificationController();
+export default new NotificationController();

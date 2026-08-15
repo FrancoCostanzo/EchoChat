@@ -34,4 +34,4 @@ class SystemSettingsRepository extends BaseRepository<SettingRow> {
   }
 }
 
-export = new SystemSettingsRepository();
+export default new SystemSettingsRepository();

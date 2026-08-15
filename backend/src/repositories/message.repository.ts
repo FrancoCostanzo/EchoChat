@@ -610,4 +610,4 @@ class MessageRepository extends BaseRepository<MessageRow> {
   }
 }
 
-export = new MessageRepository();
+export default new MessageRepository();

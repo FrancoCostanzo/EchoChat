@@ -25,4 +25,4 @@ function scimAuth(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-export = scimAuth;
+export default scimAuth;

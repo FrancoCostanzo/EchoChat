@@ -102,4 +102,4 @@ class PollRepository extends BaseRepository<PollRow> {
   }
 }
 
-export = new PollRepository();
+export default new PollRepository();

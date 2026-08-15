@@ -264,8 +264,4 @@ const config: AppConfig = {
   },
 };
 
-// `export =` y no `export default`: todo el backend hace
-// `const config = require('../config')` y espera el objeto directo. Con
-// `export default` recibiría `{ default: config }` y `config.port` sería
-// undefined en runtime, sin que el compilador diga nada.
-export = config;
+export default config;

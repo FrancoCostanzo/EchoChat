@@ -62,4 +62,4 @@ class SavedMessageRepository extends BaseRepository<SavedRow> {
   }
 }
 
-export = new SavedMessageRepository();
+export default new SavedMessageRepository();

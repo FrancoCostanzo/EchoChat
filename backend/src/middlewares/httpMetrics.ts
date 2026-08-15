@@ -19,4 +19,4 @@ function httpMetrics(req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
-export = httpMetrics;
+export default httpMetrics;

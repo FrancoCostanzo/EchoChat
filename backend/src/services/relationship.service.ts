@@ -45,4 +45,4 @@ class RelationshipService {
   }
 }
 
-export = new RelationshipService();
+export default new RelationshipService();
