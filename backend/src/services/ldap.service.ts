@@ -1,11 +1,28 @@
-const { Client } = require('ldapts');
-const config = require('../config');
-const logger = require('../config/logger');
-const { BadRequestError, AppError } = require('../errors');
+import { Client } from 'ldapts';
+import config from '../config';
+import logger from '../config/logger';
+import { BadRequestError, AppError } from '../errors';
+
+/** Entrada del directorio ya mapeada a la forma que usa la base. */
+export interface LdapUser {
+  external_id: string | null;
+  username: string | null;
+  display_name: string | null;
+  email: string | null;
+  department: string | null;
+  job_title: string | null;
+  groups: string[];
+  is_disabled: boolean;
+  dn: string;
+}
+
+/** Los atributos de una entrada llegan como string, Buffer o arrays de ambos. */
+type LdapValue = string | Buffer | (string | Buffer)[] | undefined | null;
+type LdapEntry = { dn: string } & Record<string, any>;
 
 // Caracteres válidos para un username local: el directorio puede traer cosas con
 // espacios o mayúsculas, así que normalizamos a lo que aceptan nuestros DTOs.
-function sanitizeUsername(raw) {
+function sanitizeUsername(raw: unknown): string | null {
   if (!raw) return null;
   return String(raw)
     .trim()
@@ -17,20 +34,20 @@ function sanitizeUsername(raw) {
 
 // objectGUID (AD) y entryUUID/objectGUID binarios llegan como Buffer; los demás
 // como string. Serializamos a hex para tener un id estable y comparable.
-function normalizeExternalId(value) {
+function normalizeExternalId(value: LdapValue): string | null {
   if (value == null) return null;
   if (Buffer.isBuffer(value)) return value.toString('hex');
   if (Array.isArray(value)) return normalizeExternalId(value[0]);
   return String(value);
 }
 
-function firstValue(value) {
+function firstValue(value: LdapValue) {
   if (Array.isArray(value)) return value[0];
   return value;
 }
 
 class LdapService {
-  isEnabled() {
+  isEnabled(): boolean {
     return Boolean(config.ldap.enabled && config.ldap.url && config.ldap.baseDn);
   }
 
@@ -47,13 +64,13 @@ class LdapService {
     };
   }
 
-  _assertEnabled() {
+  _assertEnabled(): void {
     if (!this.isEnabled()) {
       throw new BadRequestError('La integración LDAP no está habilitada o está mal configurada');
     }
   }
 
-  _newClient() {
+  _newClient(): Client {
     return new Client({
       url: config.ldap.url,
       timeout: config.ldap.timeoutMs,
@@ -63,7 +80,7 @@ class LdapService {
   }
 
   // Mapea una entrada del directorio a la forma que usa nuestra BD.
-  _mapEntry(entry) {
+  _mapEntry(entry: LdapEntry): LdapUser {
     const { attr } = config.ldap;
     const rawUsername = firstValue(entry[attr.username]);
     const username = sanitizeUsername(rawUsername);
@@ -73,34 +90,34 @@ class LdapService {
       external_id: externalId,
       username,
       display_name: displayName ? String(displayName).slice(0, 100) : null,
-      email: firstValue(entry[attr.email]) || null,
-      department: firstValue(entry[attr.department]) || null,
-      job_title: firstValue(entry[attr.jobTitle]) || null,
-      groups: this._asArray(entry[attr.memberOf]),
+      email: (firstValue(entry[attr.email]) as string) || null,
+      department: (firstValue(entry[attr.department]) as string) || null,
+      job_title: (firstValue(entry[attr.jobTitle]) as string) || null,
+      groups: this._asArray(entry[attr.memberOf]).map(String),
       is_disabled: this._isAccountDisabled(entry[attr.accountControl]),
       dn: entry.dn,
     };
   }
 
-  _asArray(value) {
+  _asArray(value: LdapValue): (string | Buffer)[] {
     if (value == null) return [];
     return Array.isArray(value) ? value : [value];
   }
 
   // AD codifica el estado de la cuenta en userAccountControl; el bit ACCOUNTDISABLE
   // (0x2) indica cuenta deshabilitada. Otros directorios no lo traen → false.
-  _isAccountDisabled(value) {
+  _isAccountDisabled(value: LdapValue): boolean {
     const raw = firstValue(value);
     if (raw == null) return false;
-    const uac = parseInt(raw, 10);
+    const uac = parseInt(String(raw), 10);
     return Number.isFinite(uac) && (uac & 0x2) === 0x2;
   }
 
   // Traduce los grupos (memberOf) del usuario a nombres de rol de EchoChat según
   // config.ldap.groupRoleMap. Devuelve roles únicos; vacío si no hay mapeo aplicable.
-  mapGroupsToRoles(groups) {
+  mapGroupsToRoles(groups: LdapValue): string[] {
     const map = config.ldap.groupRoleMap || {};
-    const roles = new Set();
+    const roles = new Set<string>();
     for (const dn of this._asArray(groups)) {
       const role = map[String(dn).trim().toLowerCase()];
       if (role) roles.add(role);
@@ -108,7 +125,7 @@ class LdapService {
     return [...roles];
   }
 
-  _attributeList() {
+  _attributeList(): string[] {
     const { attr } = config.ldap;
     // dn siempre viene; pedimos el resto explícitamente para no traer todo el objeto.
     return [...new Set(Object.values(attr))];
@@ -117,12 +134,12 @@ class LdapService {
   // Bind con la cuenta de servicio, busca al usuario y verifica su contraseña
   // re-bindeando como su DN. Devuelve los atributos mapeados o `null` si las
   // credenciales no son válidas.
-  async authenticate(username, password) {
+  async authenticate(username: string, password: string): Promise<LdapUser | null> {
     this._assertEnabled();
     if (!password) return null; // un bind con password vacía es un "unauthenticated bind" → lo rechazamos
 
     const searchClient = this._newClient();
-    let userEntry;
+    let userEntry: LdapEntry | null;
     try {
       await searchClient.bind(config.ldap.bindDn, config.ldap.bindPassword);
       const filter = config.ldap.userFilter.replace(/\{\{username\}\}/g, this._escapeFilter(username));
@@ -132,7 +149,7 @@ class LdapService {
         attributes: this._attributeList(),
         sizeLimit: 2,
       });
-      userEntry = searchEntries[0] || null;
+      userEntry = (searchEntries[0] as LdapEntry) || null;
     } catch (err) {
       logger.error({ err }, 'LDAP search failed during authentication');
       throw new AppError('No se pudo contactar al servidor LDAP', 502);
@@ -156,7 +173,7 @@ class LdapService {
   }
 
   // Trae todos los usuarios del directorio bajo baseDn que matcheen userFilter.
-  async fetchAllUsers() {
+  async fetchAllUsers(): Promise<LdapUser[]> {
     this._assertEnabled();
     const client = this._newClient();
     try {
@@ -171,7 +188,7 @@ class LdapService {
         paged: true,
       });
       return searchEntries
-        .map((e) => this._mapEntry(e))
+        .map((e) => this._mapEntry(e as LdapEntry))
         .filter((u) => u.username && u.external_id);
     } catch (err) {
       logger.error({ err }, 'LDAP fetchAllUsers failed');
@@ -182,9 +199,9 @@ class LdapService {
   }
 
   // Escapa los metacaracteres de un filtro LDAP (RFC 4515) en la entrada del usuario.
-  _escapeFilter(input) {
+  _escapeFilter(input: string): string {
     return String(input).replace(/[\\*()\0]/g, (c) => `\\${c.charCodeAt(0).toString(16).padStart(2, '0')}`);
   }
 }
 
-module.exports = new LdapService();
+export = new LdapService();

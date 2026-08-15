@@ -1,9 +1,33 @@
-const config = require('../config');
-const logger = require('../config/logger');
-const { userRepository, auditRepository, sessionRepository } = require('../repositories');
-const { BadRequestError, NotFoundError, ConflictError } = require('../errors');
+import config from '../config';
+import logger from '../config/logger';
+import { userRepository, auditRepository, sessionRepository } from '../repositories';
+import { BadRequestError, NotFoundError, ConflictError } from '../errors';
+import type { Row } from '../types/rows';
 
-function sanitizeUsername(raw) {
+/** Subconjunto del recurso User de SCIM que el backend consume. */
+export interface ScimUserPayload {
+  userName?: string;
+  displayName?: string;
+  externalId?: string;
+  active?: boolean;
+  name?: { givenName?: string; familyName?: string; formatted?: string };
+  emails?: { value?: string; primary?: boolean }[];
+}
+
+/** Operación de un PATCH SCIM (RFC 7644). */
+export interface ScimPatchOperation {
+  op?: string;
+  path?: string;
+  value?: any;
+}
+
+/** Datos del request que se guardan en la auditoría. */
+export interface ScimContext {
+  ip?: string | null;
+  userAgent?: string | null;
+}
+
+function sanitizeUsername(raw: unknown): string | null {
   if (!raw) return null;
   return String(raw)
     .trim()
@@ -15,7 +39,7 @@ function sanitizeUsername(raw) {
 
 class ScimService {
   // Extrae los campos que nos interesan de un recurso User de SCIM.
-  _fromScim(payload = {}) {
+  _fromScim(payload: ScimUserPayload = {}) {
     const emails = Array.isArray(payload.emails) ? payload.emails : [];
     const primaryEmail = (emails.find((e) => e.primary) || emails[0])?.value || null;
     const nameFromParts = [payload.name?.givenName, payload.name?.familyName].filter(Boolean).join(' ');
@@ -30,7 +54,7 @@ class ScimService {
   }
 
   // Parsea el subconjunto de filtros SCIM que usan los IdPs: `attr eq "valor"`.
-  parseFilter(filter) {
+  parseFilter(filter?: string): { username?: string | null; externalId?: string; unsupported?: boolean } {
     if (!filter) return {};
     const m = String(filter).match(/(\w+)\s+eq\s+"([^"]*)"/i);
     if (!m) return { unsupported: true };
@@ -41,14 +65,18 @@ class ScimService {
     return { unsupported: true };
   }
 
-  async list({ filter, startIndex = 1, count = 100 }) {
+  async list({ filter, startIndex = 1, count = 100 }: {
+    filter?: string;
+    startIndex?: number;
+    count?: number;
+  }) {
     const parsed = this.parseFilter(filter);
     // Un filtro no soportado no es un error: devolvemos lista vacía (el IdP interpreta
     // que el recurso no existe y procede a crearlo).
     if (parsed.unsupported) return { rows: [], total: 0, startIndex, count };
     const offset = Math.max(0, startIndex - 1);
     const { rows, total } = await userRepository.listScimUsers({
-      username: parsed.username,
+      username: parsed.username ?? undefined,
       externalId: parsed.externalId,
       limit: count,
       offset,
@@ -56,13 +84,13 @@ class ScimService {
     return { rows, total, startIndex, count };
   }
 
-  async getById(id) {
+  async getById(id: string): Promise<Row<'users'>> {
     const user = await userRepository.findScimById(id);
     if (!user) throw new NotFoundError('User');
     return user;
   }
 
-  async create(payload, ctx = {}) {
+  async create(payload: ScimUserPayload, ctx: ScimContext = {}) {
     const data = this._fromScim(payload);
     if (!data.username) throw new BadRequestError('userName es requerido');
 
@@ -72,7 +100,7 @@ class ScimService {
 
     const created = await userRepository.create({
       username: data.username,
-      display_name: data.display_name,
+      display_name: data.display_name!,
       email: data.email,
       auth_provider: 'scim',
       external_id: data.external_id,
@@ -88,7 +116,7 @@ class ScimService {
   }
 
   // PUT: reemplazo completo del recurso.
-  async replace(id, payload, ctx = {}) {
+  async replace(id: string, payload: ScimUserPayload, ctx: ScimContext = {}) {
     const user = await this.getById(id);
     const data = this._fromScim(payload);
     await userRepository.updateProfile(id, {
@@ -100,13 +128,13 @@ class ScimService {
   }
 
   // PATCH: operaciones parciales. La clave para los IdPs es active=false (baja).
-  async patch(id, body, ctx = {}) {
+  async patch(id: string, body: { Operations?: ScimPatchOperation[] }, ctx: ScimContext = {}) {
     const user = await this.getById(id);
     const ops = Array.isArray(body?.Operations) ? body.Operations : [];
     if (ops.length === 0) throw new BadRequestError('PATCH sin Operations');
 
-    const profile = {};
-    let nextActive;
+    const profile: { display_name?: string; email?: string } = {};
+    let nextActive: boolean | undefined;
 
     for (const op of ops) {
       const kind = String(op.op || '').toLowerCase();
@@ -133,7 +161,7 @@ class ScimService {
     return userRepository.findById(id);
   }
 
-  async remove(id, ctx = {}) {
+  async remove(id: string, ctx: ScimContext = {}): Promise<void> {
     const user = await this.getById(id);
     await userRepository.softDelete(id);
     await this._audit('user.scim_deprovision', id, ctx, { username: user.username, method: 'delete' });
@@ -141,7 +169,7 @@ class ScimService {
   }
 
   // Aplica el flag active respetando el ciclo de vida: al desactivar, revoca sesiones.
-  async _applyActive(user, active, ctx) {
+  async _applyActive(user: Row<'users'>, active: boolean | undefined, ctx: ScimContext): Promise<void> {
     if (active === undefined) return;
     const target = active ? 'active' : 'suspended';
     if (user.status === target) return;
@@ -156,12 +184,12 @@ class ScimService {
     }
   }
 
-  _toBool(v) {
+  _toBool(v: unknown): boolean {
     if (typeof v === 'boolean') return v;
     return String(v).toLowerCase() === 'true';
   }
 
-  _audit(action, userId, ctx, metadata) {
+  _audit(action: string, userId: string, ctx: ScimContext, metadata: Record<string, unknown>) {
     return auditRepository.log({
       actor_id: null,
       action,
@@ -176,4 +204,4 @@ class ScimService {
   }
 }
 
-module.exports = new ScimService();
+export = new ScimService();
