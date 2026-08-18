@@ -5,7 +5,7 @@ import QRCode from 'qrcode';
 import config from '../config';
 import logger from '../config/logger';
 import { userRepository, credentialRepository, sessionRepository, auditRepository, systemSettingsRepository } from '../repositories';
-import { UnauthorizedError, ConflictError, BadRequestError, ForbiddenError } from '../errors';
+import { UnauthorizedError, ConflictError, BadRequestError, ForbiddenError, NotFoundError } from '../errors';
 // Require directo para evitar el ciclo services/index → auth.service.
 import ldapService from './ldap.service';
 import type { Row } from '../types/rows';
@@ -379,8 +379,9 @@ class AuthService {
 
   async setupTotp(userId: string) {
     const user = await userRepository.findById(userId);
+    if (!user) throw new NotFoundError('User');
     const secret = generateSecret();
-    const identifier = user!.email || user!.username;
+    const identifier = user.email || user.username;
     const otpauthUrl = generateURI({ label: `${APP_NAME}:${identifier}`, issuer: APP_NAME, secret });
     const qrCode = await QRCode.toDataURL(otpauthUrl);
     await credentialRepository.setTotpSecret(userId, secret);
@@ -389,9 +390,11 @@ class AuthService {
 
   async enableTotp(userId: string, code: string) {
     const creds = await credentialRepository.findByUserId(userId);
-    if (!creds!.totp_secret) throw new BadRequestError('2FA setup not initiated');
-    if (creds!.totp_enabled) throw new BadRequestError('2FA already enabled');
-    const isValid = await totp.verify(code, { secret: creds!.totp_secret });
+    // `creds` es null para quien se autentica por LDAP/OIDC y no tiene
+    // credenciales locales: sin ellas no hay 2FA propio que configurar.
+    if (!creds?.totp_secret) throw new BadRequestError('2FA setup not initiated');
+    if (creds.totp_enabled) throw new BadRequestError('2FA already enabled');
+    const isValid = await totp.verify(code, { secret: creds.totp_secret });
     if (!isValid?.valid) throw new UnauthorizedError('Invalid verification code');
     const backupCodes = this._generateBackupCodes();
     const hashedCodes = backupCodes.map((c) => this._hashBackupCode(c));
@@ -410,10 +413,10 @@ class AuthService {
 
   async disableTotp(userId: string, password: string, code: string): Promise<void> {
     const creds = await credentialRepository.findByUserId(userId);
-    if (!creds!.totp_enabled) throw new BadRequestError('2FA is not enabled');
-    const validPw = await bcrypt.compare(password, creds!.password_hash);
+    if (!creds?.totp_enabled || !creds.totp_secret) throw new BadRequestError('2FA is not enabled');
+    const validPw = await bcrypt.compare(password, creds.password_hash);
     if (!validPw) throw new UnauthorizedError('Invalid password');
-    const isValid = await totp.verify(code, { secret: creds!.totp_secret });
+    const isValid = await totp.verify(code, { secret: creds.totp_secret });
     if (!isValid?.valid) throw new UnauthorizedError('Invalid verification code');
     await credentialRepository.disableTotp(userId);
     await auditRepository.log({
@@ -448,15 +451,15 @@ class AuthService {
     const user = await userRepository.findById(userId);
     if (!user || user.status !== 'active') throw new UnauthorizedError('User not found or inactive');
     const creds = await credentialRepository.findByUserId(userId);
-    if (!creds!.totp_enabled) throw new UnauthorizedError('2FA not enabled');
+    if (!creds?.totp_enabled) throw new UnauthorizedError('2FA not enabled');
 
     // Check backup code first
     const codeHash = this._hashBackupCode(code);
-    const isBackup = (creds!.totp_backup_codes || []).includes(codeHash);
+    const isBackup = (creds.totp_backup_codes || []).includes(codeHash);
     if (isBackup) {
       await credentialRepository.removeBackupCode(userId, codeHash);
       logger.info({ userId }, '2FA backup code used');
-    } else if (!(await this._verifyTotp(code, creds!.totp_secret))) {
+    } else if (!creds.totp_secret || !(await this._verifyTotp(code, creds.totp_secret))) {
       throw new UnauthorizedError('Invalid verification code');
     }
 
@@ -490,8 +493,8 @@ class AuthService {
 
   async regenerateBackupCodes(userId: string, code: string) {
     const creds = await credentialRepository.findByUserId(userId);
-    if (!creds!.totp_enabled) throw new BadRequestError('2FA is not enabled');
-    const isValid = await totp.verify(code, { secret: creds!.totp_secret });
+    if (!creds?.totp_enabled || !creds.totp_secret) throw new BadRequestError('2FA is not enabled');
+    const isValid = await totp.verify(code, { secret: creds.totp_secret });
     if (!isValid?.valid) throw new UnauthorizedError('Invalid verification code');
     const backupCodes = this._generateBackupCodes();
     const hashedCodes = backupCodes.map((c) => this._hashBackupCode(c));
