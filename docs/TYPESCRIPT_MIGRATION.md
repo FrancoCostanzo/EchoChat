@@ -3,9 +3,32 @@
 > Alcance: **backend** (`backend/src`). El frontend se trata al final, como
 > decisión aparte.
 >
-> Esfuerzo total estimado: **22-31 días-dev**. No aporta capacidad de escala
-> (eso lo cubre `docs/SCALING.md`); aporta que los errores de forma de datos
-> aparezcan al escribir en vez de en producción.
+> Esfuerzo estimado: **22-31 días-dev**. No aporta capacidad de escala (eso lo
+> cubre `docs/SCALING.md`); aporta que los errores de forma de datos aparezcan
+> al escribir en vez de en producción.
+>
+> **Estado: terminado.** `backend/src` está entero en TypeScript —148 archivos
+> `.ts`, ningún `.js`— y compila con `strict`. Lo que sigue conserva el plan tal como
+> se escribió, con lo que efectivamente pasó anotado en cada fase: las
+> estimaciones no se corrigen a posteriori, para que se vea dónde acertaron y
+> dónde no.
+
+## Estado por fase
+
+| Fase | Tema | Estimado | Estado |
+|------|------|----------|--------|
+| 0 | Herramientas y línea base | 1 d | ✅ |
+| 1 | Romper ciclos ⚠️ | 2-3 d | ✅ |
+| 2 | Tipos generados del schema | 1-2 d | ✅ |
+| 2.5 | Build de producción (adelantada desde la 7) | — | ✅ |
+| 3 | errors + config + utils + models | 2-3 d | ✅ |
+| 4 | dtos + repositories | 4-5 d | ✅ |
+| 5 | services | 5-7 d | ✅ |
+| 6 | controllers + routes + middlewares | 3-4 d | ✅ |
+| 7 | jobs + raíz + games + cli | 2-3 d | ✅ |
+| 8 | Endurecer a `strict` | 2-3 d | ✅ salieron 8 errores |
+
+`typecheck:all`: **351 → 0**.
 
 ## Punto de partida (medido, no estimado)
 
@@ -96,6 +119,27 @@ transformación**.
    verificable a mano en un rato.
 
 Si en algún momento hay que abandonar, la etapa 1 se sostiene sola.
+
+### Con qué se verificó cada capa (lo que se hizo en la práctica)
+
+Un protocolo fijo, repetido en cada commit, porque "compila" no dice nada sobre
+comportamiento:
+
+1. Matar los procesos node viejos y **confirmar que el puerto quedó libre**
+   (más de una vez un servidor zombi dio un falso resultado, para bien y para mal).
+2. Postgres efímero en Docker, vacío, migrado por el propio migrador del
+   proyecto: así se verifica el schema real y no el estado acumulado del entorno.
+3. `npm run build` y arrancar **desde `dist/`** — y también con `tsx` desde las
+   fuentes, que es lo que descubrió la trampa 7.
+4. Baterías HTTP contra el backend vivo, una por área: bus de tiempo real,
+   superficie HTTP completa (un endpoint por controller), control de acceso y
+   2FA, códigos de respaldo, panel de admin y monitoreo, y SCIM ejercitado como
+   lo haría un IdP (PATCH estilo Azure sin `path` y estilo Okta con `path`).
+
+> ⚠️ **Esas baterías no están en el repo.** Se escribieron como scripts sueltos
+> fuera del proyecto y se perdieron al terminar. Cubrían bastante y ya estaban
+> escritas: pasarlas a una suite de integración es lo pendiente de mejor
+> relación esfuerzo/valor que dejó esta migración.
 
 ---
 
@@ -310,7 +354,7 @@ chica (`errors/`, 2 archivos):
 > porque compose se lo pasa desde el `.env`. Se agregó `ENV NODE_ENV=production`
 > al Dockerfile como default sobreescribible.
 
-### Fase 3 — Base: `errors` + `config` + `utils` + `models` (2-3 días · ~2.000 líneas)
+### Fase 3 — Base: `errors` + `config` + `utils` + `models` (2-3 días · ~2.000 líneas) ✅
 
 `errors/` ✅ — migrada como piloto del pipeline (arriba). Las clases de error
 aparecen en todas las capas, así que era la primera de todos modos.
@@ -323,7 +367,7 @@ aparecen en todas las capas, así que era la primera de todos modos.
   `toXxxResponse()` definen el contrato de la API. Tiparlos produce los tipos
   que después puede consumir el frontend.
 
-### Fase 4 — `dtos` + `repositories` (4-5 días · ~3.450 líneas)
+### Fase 4 — `dtos` + `repositories` (4-5 días · ~3.450 líneas) ✅
 
 Joi 18 no infiere tipos. En vez de sumar un generador, se declara el tipo y se
 ata el esquema con el genérico de Joi, que verifica que no se desfasen:
@@ -352,7 +396,7 @@ async findByUsername(username: string): Promise<Users | null> {
 
 `base.repository` se migra primero: es del que heredan los 21 restantes.
 
-### Fase 5 — `services` (5-7 días · 3.965 líneas) 🔴
+### Fase 5 — `services` (5-7 días · 3.965 líneas) ✅
 
 La fase más larga y la de mayor valor. Requisito previo: **Fase 1 terminada**;
 si quedan `require()` circulares, acá todo degrada a `any`.
@@ -364,7 +408,7 @@ mientras queden archivos `.js` importándolos.
 Recomendación: un servicio por commit. Son 20 unidades independientes y así cada
 una se puede probar y revertir sola.
 
-### Fase 6 — `controllers` + `routes` + `middlewares` (3-4 días · ~1.800 líneas)
+### Fase 6 — `controllers` + `routes` + `middlewares` (3-4 días · ~1.800 líneas) ✅
 
 La pieza no obvia es `req.user`, que hoy inyecta el middleware de auth. Se
 declara una vez:
@@ -374,16 +418,35 @@ declara una vez:
 declare global {
   namespace Express {
     interface Request {
-      user?: AuthenticatedUser;
-      file?: Express.Multer.File;
+      user?: Row<'users'>;
+      session?: Row<'user_sessions'>;
+      roles?: string[];        // los carga loadRbac
+      permissions?: string[];
     }
   }
 }
 ```
 
-Con eso los 18 controladores quedan casi gratis.
+**Lo que faltaba en el plan:** esas props van *opcionales* sí o sí, porque en el
+tipo de Express no hay forma de expresar "esta ruta ya pasó por `authenticate`".
+Con lo cual los controladores no quedan gratis: o se llenan de `!` (108 accesos
+a `req.user`) o hace falta un lugar donde la garantía se afirme una sola vez. Se
+resolvió con un tipo `AuthRequest` que los controladores declaran, y un helper
+`withAuth()` que los adapta en el router —que es donde la garantía existe:
 
-### Fase 7 — `jobs` + raíz (`app`, `server`, `socket`) (2-3 días · ~790 líneas)
+```ts
+router.get('/me', withAuth((req, res) => userController.getProfile(req, res)));
+```
+
+`req.file` no hay que declararlo: lo aporta `@types/multer`.
+
+Efecto secundario a tener en cuenta al planificar: mientras los controladores
+están en `.ts` y las rutas todavía en `.js`, el contador de errores **sube**
+(acá pasó de 12 a 126) porque cada llamada del router ve el requisito nuevo sin
+poder satisfacerlo. Se cierra al migrar las rutas; conviene hacer las tres capas
+juntas y no tomar ese pico como una regresión.
+
+### Fase 7 — `jobs` + raíz (`app`, `server`, `socket`) (2-3 días · ~790 líneas) ✅
 
 Se deja para el final porque `socket.js` es el nudo de todo. Si la Fase 1 se
 hizo bien, para acá ya es un archivo normal.
@@ -401,7 +464,7 @@ interface SocketData { userId: string; }   // el que ya usa fetchSockets()
 
 ---
 
-## FASE 8 — Endurecer (2-3 días)
+## FASE 8 — Endurecer (2-3 días) ✅
 
 Con todo en `.ts`, subir el listón de a un flag por vez, arreglando entre uno y
 otro. En este orden, del más barato al más caro:
@@ -413,6 +476,39 @@ otro. En este orden, del más barato al más caro:
 5. `strict: true` como estado final
 
 Sumar `typescript-eslint` recién acá: antes sólo aporta ruido.
+
+**Lo que salió (medido antes de tocar nada):**
+
+| Flag | Errores |
+|---|---:|
+| `strictNullChecks` | 9 |
+| `strictFunctionTypes`, `strictBindCallApply`, `noImplicitThis`, `alwaysStrict` | 0 |
+| `noImplicitAny` | 1 |
+| **`strict: true`** | **8** |
+
+Ocho, no los cientos que justificaban ir de a un flag por vez: migrar capa por
+capa con los tipos generados desde el schema ya había hecho el trabajo. Se
+activó `strict` de una vez.
+
+Ninguno de los ocho era ruido de tipos; los cuatro que valen la pena registrar:
+
+- Dos chequeos de Redis que preguntaban por un lado (`isRedisEnabled()`) y
+  usaban el cliente por otro, o sea dos fuentes de verdad que podían divergir.
+- Las tres escrituras de SCIM releían la fila con `findById`, que no filtra por
+  `auth_provider` ni descarta borrados, mientras el resto del servicio leía con
+  `getById`, que sí.
+- `updateUser` armaba los campos del perfil con un `for` sobre las claves: como
+  `display_name` no admite `null` y los otros tres sí, el tipo de escritura del
+  índice era la **intersección** de los cuatro y rechazaba el `null` legítimo.
+- Y el hallazgo grande: los cuatro métodos de 2FA leían las credenciales con
+  `creds!`. Para un usuario de LDAP u OIDC no hay credenciales locales, así que
+  `findByUserId` devuelve `null` y el acceso tiraba `TypeError` → **500**. Un
+  usuario del directorio que abriera la pantalla de 2FA se comía un error
+  interno; ahora recibe un 400 o un 404 según el caso.
+
+Moraleja para el próximo proyecto: **las aserciones `!` que se escriben durante
+la migración son deuda, no solución.** Cada una es un `strict` desactivado a
+mano en un punto, y ahí es donde aparecieron los bugs reales.
 
 ---
 
@@ -465,67 +561,88 @@ migraciones y `/api/health` responde `200`.
 | 4 | **Joi no infiere.** Sin el genérico, `req.body` queda `any` y se pierde el chequeo justo en el borde. | `dtos/` |
 | 5 | **`socket.data` vs props sueltas.** Ya documentado en `SCALING.md`; tipar `SocketData` lo vuelve error de compilación. | `socket.js` |
 | 6 | **Sin tests, el compilador no valida comportamiento.** Migrar de a poco y verificar a mano cada capa. | Todo |
+| 7 | **`export =` junto a `export type` rompe tsx.** Apareció migrando: `tsc` borra los tipos antes de emitir y no se entera, pero esbuild (que es lo que usa tsx) no analiza tipos —le alcanza con ver un `export` para tratar el archivo como ESM— y el `export =` del final queda apuntando a una variable inexistente. `npm run dev` moría al arrancar mientras `dist/` funcionaba, así que pasó desapercibido varios commits. **Verificar los dos caminos de arranque, no sólo el build.** | 17 archivos |
+| 8 | **`export =` deja de tener sentido apenas no quedan `.js`.** Se usa para que un `require()` reciba el objeto directo; una vez que todo el `src/` es `.ts` es sólo la trampa 7 esperando. Todo pasó a `export default` sin tocar un solo llamador, porque ya importaban con `import X from`. | 86 archivos |
 
 ---
 
 ## Esfuerzo y orden
 
-| Fase | Tema | Esfuerzo |
-|------|------|----------|
-| 0 | Herramientas y línea base | 1 d ✅ |
-| 1 | Romper ciclos ⚠️ | 2-3 d ✅ |
-| 2 | Tipos generados del schema | 1-2 d ✅ |
-| 3 | errors + config + utils + models | 2-3 d |
-| 4 | dtos + repositories | 4-5 d |
-| 5 | services | 5-7 d |
-| 6 | controllers + routes + middlewares | 3-4 d |
-| 7 | jobs + raíz + build de producción | 2-3 d |
-| 8 | Endurecer a `strict` | 2-3 d |
-| | **Total** | **22-31 días-dev** |
+| Fase | Tema | Esfuerzo | |
+|------|------|----------|---|
+| 0 | Herramientas y línea base | 1 d | ✅ |
+| 1 | Romper ciclos ⚠️ | 2-3 d | ✅ |
+| 2 | Tipos generados del schema | 1-2 d | ✅ |
+| 3 | errors + config + utils + models | 2-3 d | ✅ |
+| 4 | dtos + repositories | 4-5 d | ✅ |
+| 5 | services | 5-7 d | ✅ |
+| 6 | controllers + routes + middlewares | 3-4 d | ✅ |
+| 7 | jobs + raíz + build de producción | 2-3 d | ✅ |
+| 8 | Endurecer a `strict` | 2-3 d | ✅ |
+| | **Total** | **22-31 días-dev** | |
 
 Las fases 0-2 dan valor por sí solas y se pueden hacer sin comprometerse al
 resto. **Las fases 3 a 7 no conviene dejarlas a medias**: un backend mitad `.ts`
 mitad `.js` durante meses tiene lo peor de los dos mundos.
 
+De las estimaciones, la que más se pasó fue la 8: 2-3 días previstos contra 8
+errores reales. El motivo es la fase 0 —tipar `base.repository.query()` sacó el
+81% de los errores de un saque— y la 2, que puso los tipos de fila abajo de
+todo. Cuando llegó el turno de `strict`, casi no quedaba nada que endurecer.
+
 ---
 
 ## Qué no migrar
 
-- `games/` (109 líneas de funciones puras) y `cli/` (27 líneas): migrarlos no
-  cambia nada. Que entren si el barrido pasa por ahí, sin gastarles tiempo.
 - Los `.sql` de `backend/docs/`: son la fuente de los tipos, no un destino.
+
+> `games/` (109 líneas de funciones puras) y `cli/` (27) figuraban acá como "no
+> vale la pena". Terminaron migrados igual, en la fase 7, y de paso `games/`
+> devolvió algo: el tablero de tatetí estaba declarado como `(PlayerRole|null)[]`
+> pero el motor guarda `'X'`/`'O'`, y `game.service` los cargaba con `require()`
+> sueltos, así que las jugadas entraban como `any`. Con 109 líneas de funciones
+> puras, el costo fue menor que el de dejarlas afuera.
 
 ---
 
-## Antes de arrancar: ¿conviene?
+## Lo que queda: el frontend
 
-Honestamente, el mayor retorno concreto para **este** proyecto no es tipar el
-backend: es **compartir los tipos de respuesta de la API con el frontend**, para
-que un cambio en `toMessageResponse()` rompa la compilación en el componente que
-lo consume.
+Esta sección arrancó como "¿conviene?", antes de decidir. La decisión fue hacer
+el backend completo (fases 0-8) y está hecho, pero el análisis sigue en pie en
+un punto y conviene dejarlo escrito:
 
-Y eso **sólo se materializa si el frontend también se migra** — hoy son 83
-archivos `.js`/`.jsx` sin una línea de TypeScript. Migrar sólo el backend deja
-seguridad interna (real, pero acotada) y el borde HTTP sigue sin verificarse.
+> El mayor retorno concreto para **este** proyecto no es tipar el backend: es
+> **compartir los tipos de respuesta de la API con el frontend**, para que un
+> cambio en `toMessageResponse()` rompa la compilación en el componente que lo
+> consume.
 
-Tres caminos, en orden de lo que yo recomendaría:
+Eso **todavía no está**: el frontend son 83 archivos `.js`/`.jsx` sin una línea
+de TypeScript. Lo que hay hoy es seguridad interna del backend, y ya se pagó
+sola: migrando aparecieron bugs que estaban escondidos y ninguno se buscaba.
 
-1. **Fases 0-2 y parar.** ~4-6 días. Se rompen los ciclos, aparecen los tipos
-   del dominio y el `typecheck` empieza a atajar errores sobre el JS existente,
-   sin comprometerse a nada.
-2. **Backend completo (0-8).** 22-31 días. Tiene sentido si el equipo va a
-   crecer o si aparecen bugs de forma de datos con frecuencia.
-3. **Backend + frontend.** Sumale otro tanto por el frontend. Es el único camino
-   que da el beneficio grande, y el único que justifica del todo el costo.
+| Bug | Cómo apareció |
+|---|---|
+| Los códigos de respaldo del 2FA nunca funcionaron: se guardaban hasheando con el guion y se verificaban sin él. Quien perdía el autenticador quedaba afuera, y el intento salía 500. | Probando el camino de recuperación al migrar `auth.service` |
+| Los cuatro endpoints de 2FA devolvían 500 a los usuarios de LDAP y SSO, que no tienen credenciales locales. | `strict`, fase 8 |
+| `npm run dev` moría al arrancar (trampa 7). Llevaba varios commits roto porque `dist/` funcionaba. | Arrancando por las fuentes y no sólo por el build |
+| Subir sin archivo a `/storage/upload` o `/stickers/upload` daba 500 en vez de 400. | Tipar `req.file`, que es opcional |
+| `uploadSticker` exigía un `object_type` que después pisaba con `'sticker'`. | El único `TS2345` que arrastraba `typecheck:all` |
+| El tablero de tatetí declaraba `(PlayerRole\|null)[]` y el motor guardaba `'X'`/`'O'`. | Tipar `games/`, la carpeta que el plan decía no migrar |
 
-Lo que **no** recomiendo es arrancar por la Fase 5 (`services`) porque "es donde
-está la lógica": sin la Fase 1 hecha, ahí todo termina en `any` y el esfuerzo se
-tira.
+Pero el borde HTTP sigue sin verificarse en el consumidor.
+
+La pieza que lo haría posible ya existe: `models/` está tipada y los
+`toXxxResponse()` son el contrato. Migrar el frontend es lo que falta para
+cobrarlo.
+
+Y una advertencia que quedó confirmada: no arrancar por la Fase 5 (`services`)
+porque "es donde está la lógica". Sin la Fase 1 hecha, ahí todo termina en `any`
+y el esfuerzo se tira.
 
 ---
 
 ## Referencias
 
-- `docs/SCALING.md` — escalado horizontal (fases 1-4, hechas)
+- `docs/SCALING.md` — escalado horizontal (fases 1-5, hechas)
 - `docs/STYLE_GUIDE.md` — convenciones del proyecto
 - `AGENTS.md` — flujo de trabajo y commits
