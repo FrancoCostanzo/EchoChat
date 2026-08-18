@@ -394,9 +394,7 @@ class AuthService {
     const isValid = await totp.verify(code, { secret: creds!.totp_secret });
     if (!isValid?.valid) throw new UnauthorizedError('Invalid verification code');
     const backupCodes = this._generateBackupCodes();
-    const hashedCodes = backupCodes.map((c) =>
-      crypto.createHash('sha256').update(c).digest('hex')
-    );
+    const hashedCodes = backupCodes.map((c) => this._hashBackupCode(c));
     await credentialRepository.enableTotp(userId, hashedCodes);
     await auditRepository.log({
       actor_id: userId,
@@ -453,14 +451,13 @@ class AuthService {
     if (!creds!.totp_enabled) throw new UnauthorizedError('2FA not enabled');
 
     // Check backup code first
-    const codeHash = crypto.createHash('sha256').update(code.replace(/-/g, '').toUpperCase()).digest('hex');
+    const codeHash = this._hashBackupCode(code);
     const isBackup = (creds!.totp_backup_codes || []).includes(codeHash);
     if (isBackup) {
       await credentialRepository.removeBackupCode(userId, codeHash);
       logger.info({ userId }, '2FA backup code used');
-    } else {
-      const isValid = await totp.verify(code, { secret: creds!.totp_secret });
-      if (!isValid?.valid) throw new UnauthorizedError('Invalid verification code');
+    } else if (!(await this._verifyTotp(code, creds!.totp_secret))) {
+      throw new UnauthorizedError('Invalid verification code');
     }
 
     const token = this._generateToken(user);
@@ -497,9 +494,7 @@ class AuthService {
     const isValid = await totp.verify(code, { secret: creds!.totp_secret });
     if (!isValid?.valid) throw new UnauthorizedError('Invalid verification code');
     const backupCodes = this._generateBackupCodes();
-    const hashedCodes = backupCodes.map((c) =>
-      crypto.createHash('sha256').update(c).digest('hex')
-    );
+    const hashedCodes = backupCodes.map((c) => this._hashBackupCode(c));
     await credentialRepository.updateBackupCodes(userId, hashedCodes);
     await auditRepository.log({
       actor_id: userId,
@@ -518,6 +513,32 @@ class AuthService {
       const hex = crypto.randomBytes(5).toString('hex').toUpperCase();
       return `${hex.slice(0, 5)}-${hex.slice(5)}`;
     });
+  }
+
+  /**
+   * Verifica un TOTP sin propagar excepciones. El desafío de login acepta
+   * códigos de 5 a 15 caracteres porque ahí también entran los de respaldo, así
+   * que a otplib puede llegarle algo que no es numérico: si tira, es un código
+   * inválido (401), no un error del servidor (500).
+   */
+  async _verifyTotp(code: string, secret: string): Promise<boolean> {
+    try {
+      const resultado = await totp.verify(code, { secret });
+      return resultado?.valid === true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Hash de un código de respaldo. Normaliza antes de hashear —saca guiones y
+   * espacios y pasa a mayúsculas— para que el guardado y la verificación
+   * coincidan sí o sí, y para que el usuario pueda tipear el código como
+   * quiera. Tiene que ser el único lugar donde se hashea un código.
+   */
+  _hashBackupCode(code: string): string {
+    const normalizado = String(code).replace(/[\s-]/g, '').toUpperCase();
+    return crypto.createHash('sha256').update(normalizado).digest('hex');
   }
 
   _hashToken(token: string): string {
