@@ -34,9 +34,10 @@ export type ReactionToggleResult = 'added' | 'removed' | 'updated';
 
 // Descifra in-place las columnas con contenido de usuario que puedan venir en una
 // fila de mensaje, para que el resto de la app siempre vea texto plano.
-function decryptRow<T extends Record<string, any>>(row: T): T;
-function decryptRow<T extends Record<string, any>>(row: T | undefined | null): T | undefined | null;
-function decryptRow<T extends Record<string, any>>(row: T | undefined | null) {
+// Una sola firma en vez de dos sobrecargas: `T` absorbe el null/undefined que
+// traiga el llamador y lo devuelve tal cual, en vez de agregarle un `undefined`
+// que la consulta no puede producir.
+function decryptRow<T extends Record<string, any> | null | undefined>(row: T): T {
   if (!row) return row;
   // El cast queda confinado a la mutación: la fila se descifra in-place y la
   // firma de afuera conserva el tipo del llamador.

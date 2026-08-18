@@ -10,7 +10,7 @@ import config from './config';
 import logger from './config/logger';
 import { pool } from './config/database';
 import { createRateLimitStore } from './config/rateLimitStore';
-import { isRedisEnabled, getRedisClient } from './config/redis';
+import { getRedisClient } from './config/redis';
 import routes from './routes';
 import { errorHandler } from './middlewares';
 import httpMetrics from './middlewares/httpMetrics';
@@ -87,9 +87,11 @@ app.get('/api/health', async (req: Request, res: Response) => {
 // 'disabled' = una sola instancia (sin REDIS_URL), que es una configuración
 // válida y no un problema.
 async function checkRedis(): Promise<string> {
-  if (!isRedisEnabled()) return 'disabled';
   try {
+    // getRedisClient() devuelve null exactamente cuando no hay REDIS_URL, así
+    // que el estado sale de ahí y no de un chequeo aparte que puede divergir.
     const client = await getRedisClient();
+    if (!client) return 'disabled';
     await Promise.race([
       client.ping(),
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 1000)),

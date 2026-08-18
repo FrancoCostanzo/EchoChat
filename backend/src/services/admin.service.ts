@@ -33,6 +33,7 @@ import type {
   AdminCreateUserRequest,
   AdminUpdateUserRequest,
 } from '../dtos/admin.dto';
+import type { UpdateProfileRequest } from '../dtos/auth.dto';
 
 const SALT_ROUNDS = 12;
 const AVATAR_BUCKET = 'messaging-avatars';
@@ -167,12 +168,19 @@ class AdminService {
       await userRepository.setUserRoles(userId, data.role_names, actorId);
     }
 
-    const profileFields: Partial<AdminUpdateUserRequest> = {};
-    for (const key of ['display_name', 'email', 'department', 'job_title'] as const) {
-      if (data[key] !== undefined) profileFields[key] = data[key];
-    }
+    // Campo por campo y no con un for sobre las claves: display_name no admite
+    // null y los otros tres sí, así que el tipo de escritura del índice era la
+    // intersección de los cuatro y no dejaba pasar el null legítimo.
+    const profileFields: UpdateProfileRequest = {};
+    if (data.display_name !== undefined) profileFields.display_name = data.display_name;
+    if (data.email !== undefined) profileFields.email = data.email;
+    if (data.department !== undefined) profileFields.department = data.department;
+    if (data.job_title !== undefined) profileFields.job_title = data.job_title;
     if (Object.keys(profileFields).length) {
-      user = (await userRepository.updateProfile(userId, profileFields))!;
+      const actualizado = await userRepository.updateProfile(userId, profileFields);
+      // Sólo puede faltar si lo borraron entre el findById de arriba y esto.
+      if (!actualizado) throw new NotFoundError('User');
+      user = actualizado;
     }
 
     if (data.status) {

@@ -112,7 +112,10 @@ class ScimService {
 
     await this._audit('user.scim_provision', created.id, ctx, { username: created.username, active: data.active });
     logger.info({ userId: created.id, username: created.username }, 'SCIM user provisioned');
-    return userRepository.findById(created.id);
+    // Relee con getById y no con findById: es la lectura que ya usa el resto
+    // del servicio (filtra por auth_provider='scim' y descarta borrados), y
+    // devuelve la fila sin nullable en vez de dejársela al controller.
+    return this.getById(created.id);
   }
 
   // PUT: reemplazo completo del recurso.
@@ -124,7 +127,7 @@ class ScimService {
       email: data.email,
     });
     await this._applyActive(user, data.active, ctx);
-    return userRepository.findById(id);
+    return this.getById(id);
   }
 
   // PATCH: operaciones parciales. La clave para los IdPs es active=false (baja).
@@ -158,7 +161,7 @@ class ScimService {
 
     if (Object.keys(profile).length) await userRepository.updateProfile(id, profile);
     if (nextActive !== undefined) await this._applyActive(user, nextActive, ctx);
-    return userRepository.findById(id);
+    return this.getById(id);
   }
 
   async remove(id: string, ctx: ScimContext = {}): Promise<void> {

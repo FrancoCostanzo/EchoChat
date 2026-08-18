@@ -2,7 +2,7 @@ import cron from 'node-cron';
 import type { ScheduledTask } from 'node-cron';
 import config from '../config';
 import logger from '../config/logger';
-import { isRedisEnabled, getRedisClient } from '../config/redis';
+import { getRedisClient } from '../config/redis';
 import { recordJobRun } from '../utils/cronJobStatus';
 import presenceTimeoutJob from './presenceTimeout.job';
 import presignedCleanupJob from './presignedCleanup.job';
@@ -42,10 +42,10 @@ const LOCK_TTL_SECONDS = 30;
  * enviaría N veces.
  */
 async function claimRun(jobName: string): Promise<boolean> {
-  if (!isRedisEnabled()) return true;
-
   try {
+    // Sin cliente no hay REDIS_URL, o sea una sola instancia: le toca a esta.
     const client = await getRedisClient();
+    if (!client) return true;
     const acquired = await client.set(`jobs:lock:${jobName}`, config.instanceId, {
       NX: true,
       EX: LOCK_TTL_SECONDS,

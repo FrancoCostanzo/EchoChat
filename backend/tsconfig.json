@@ -1,10 +1,10 @@
 {
-  // Config de build (ver docs/TYPESCRIPT_MIGRATION.md). Compila src/ a dist/
-  // mezclando .ts y .js: la migración avanza capa por capa y las dos conviven.
+  // Config de build (ver docs/TYPESCRIPT_MIGRATION.md). Compila src/ a dist/.
   //
-  // `checkJs` está apagado a propósito: cada archivo .js se suma al chequeo
-  // poniéndole `// @ts-check` arriba, para ir migrando de a poco en vez de
-  // enfrentar miles de errores de golpe. Para chequear todo: npm run typecheck:all
+  // Ya no queda ningún .js en src/: `allowJs` se conserva sólo para que uno que
+  // se cuele igual se compile a dist/ en vez de quedar afuera y romper recién en
+  // runtime. Con `strict` activo (fase 8) el chequeo es el mismo por las dos
+  // vías, así que `typecheck` y `typecheck:all` dan lo mismo.
   //
   // IMPORTANTE: rootDir/outDir hacen que dist/ replique la estructura de src/.
   // Cinco rutas se resuelven con __dirname relativo ('../../docs', '../../.env',
@@ -25,8 +25,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
 
-    // Se endurece de a un flag por vez en la fase 8.
-    "strict": false,
+    "strict": true,
 
     "outDir": "dist",
     "rootDir": "src"
