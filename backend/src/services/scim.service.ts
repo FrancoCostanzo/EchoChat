@@ -100,7 +100,7 @@ class ScimService {
 
     const created = await userRepository.create({
       username: data.username,
-      display_name: data.display_name!,
+      display_name: data.display_name ?? data.username,
       email: data.email,
       auth_provider: 'scim',
       external_id: data.external_id,

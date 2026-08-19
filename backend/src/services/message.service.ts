@@ -279,10 +279,9 @@ class MessageService {
     const reactions = await messageRepository.getReactions(messageId);
     try {
       const message = await messageRepository.findById(messageId);
-      toConversation(message!.conversation_id, 'message:reaction', {
-        messageId,
-        reactions,
-      });
+      if (message) {
+        toConversation(message.conversation_id, 'message:reaction', { messageId, reactions });
+      }
     } catch (err) {
       logger.warn({ err: (err as Error).message }, 'Failed to emit message:reaction');
     }
@@ -294,10 +293,9 @@ class MessageService {
     const reactions = await messageRepository.getReactions(messageId);
     try {
       const message = await messageRepository.findById(messageId);
-      toConversation(message!.conversation_id, 'message:reaction', {
-        messageId,
-        reactions,
-      });
+      if (message) {
+        toConversation(message.conversation_id, 'message:reaction', { messageId, reactions });
+      }
     } catch (err) {
       logger.warn({ err: (err as Error).message }, 'Failed to emit message:reaction');
     }
@@ -309,12 +307,14 @@ class MessageService {
     try {
       const message = await messageRepository.findById(messageId);
       const counts = await messageRepository.getReceiptCounts(messageId);
-      toConversation(message!.conversation_id, 'message:receipt', {
-        messageId,
-        conversationId: message!.conversation_id,
-        delivered_count: parseInt(String(counts.delivered_count), 10) || 0,
-        read_count: parseInt(String(counts.read_count), 10) || 0,
-      });
+      if (message) {
+        toConversation(message.conversation_id, 'message:receipt', {
+          messageId,
+          conversationId: message.conversation_id,
+          delivered_count: parseInt(String(counts.delivered_count), 10) || 0,
+          read_count: parseInt(String(counts.read_count), 10) || 0,
+        });
+      }
 
       await broadcastService.syncFromMessageReceipt(messageId, userId, type);
     } catch (err) {

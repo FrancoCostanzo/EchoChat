@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import type { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import { authService, userService, oidcService } from '../services';
@@ -88,10 +87,9 @@ class AuthController {
   }
 
   async logout(req: AuthRequest, res: Response) {
-    // El token existe siempre: `authenticate` tira 401 antes de llegar acá.
-    const token = req.headers.authorization!.split(' ')[1];
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-    await authService.logout(req.user.id, tokenHash);
+    // El hash ya lo resolvió `authenticate` al validar el token, y viene en la
+    // sesión: sacarlo de ahí evita volver a parsear el header y hashear de nuevo.
+    await authService.logout(req.user.id, req.session.token_hash);
     res.json({ status: 'success', message: 'Logged out' });
   }
 

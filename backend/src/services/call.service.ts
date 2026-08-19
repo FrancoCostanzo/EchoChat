@@ -76,13 +76,17 @@ class CallService {
 
   // Inserta y difunde un mensaje de sistema que resume la llamada finalizada.
   async _emitCallEvent(call: CallRow) {
+    // updateStatus sólo llama acá con llamadas que tienen conversación (una
+    // llamada suelta no tiene timeline donde dejar el evento).
+    if (!call.conversation_id) return;
+
     const outcome =
       call.status === 'ended' ? 'completed'
       : call.status === 'rejected' ? 'declined'
       : 'missed';
 
     const message = await messageRepository.create({
-      conversation_id: call.conversation_id!,
+      conversation_id: call.conversation_id,
       sender_id: call.initiated_by,   // atribuido al que inició; se renderiza centrado
       type: 'system',
       body: null,
@@ -99,7 +103,7 @@ class CallService {
     const full = await messageRepository.findWithAttachments(message.id);
     const response = toMessageResponse(full);
     try {
-      toConversation(call.conversation_id!, 'message:new', response);
+      toConversation(call.conversation_id, 'message:new', response);
     } catch (err) {
       logger.warn({ err: (err as Error).message }, 'Failed to emit call event message:new');
     }

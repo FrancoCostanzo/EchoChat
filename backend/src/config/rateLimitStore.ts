@@ -18,7 +18,10 @@ export function createRateLimitStore(prefix: string): RedisStore | undefined {
     // conectado: resolvemos el cliente en cada comando (ya viene cacheado).
     sendCommand: async (...args: string[]) => {
       const client = await getRedisClient();
-      return client!.sendCommand(args);
+      // Sólo se llega acá con Redis habilitado (si no, la función devolvió
+      // undefined y no hay store), pero sin cliente no hay nada que hacer.
+      if (!client) throw new Error('Rate limit: no hay cliente Redis disponible');
+      return client.sendCommand(args);
     },
   });
 }

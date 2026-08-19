@@ -514,6 +514,11 @@ Moraleja para el próximo proyecto: **las aserciones `!` que se escriben durante
 la migración son deuda, no solución.** Cada una es un `strict` desactivado a
 mano en un punto, y ahí es donde aparecieron los bugs reales.
 
+Por eso, después de activar `strict`, se sacaron las 21 que quedaban: hoy no hay
+ninguna en `backend/src`. La mitad resultó ser correcta pero apoyada en una
+garantía que vivía en el llamador y no se veía desde el archivo; la otra mitad
+tapaba un null que sí podía pasar.
+
 ---
 
 ## Build y despliegue

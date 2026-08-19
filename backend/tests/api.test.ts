@@ -242,6 +242,20 @@ describe('llamadas', () => {
       method: 'PUT', token: ana.token, body: { status: 'ended', end_reason: 'hangup' },
     })).status, 200);
   });
+
+  test('una llamada sin conversación se inicia y se termina sin romper', async () => {
+    // conversation_id es opcional en el DTO, y sin él no hay timeline donde
+    // dejar el mensaje de sistema que resume la llamada.
+    const llamada = await pedir('/api/calls', {
+      method: 'POST', token: ana.token, body: { type: 'voice', participant_ids: [beto.id] },
+    });
+    assert.equal(llamada.status, 201);
+    assert.equal(llamada.datos.conversation_id, null);
+
+    assert.equal((await pedir(`/api/calls/${llamada.datos.id}/status`, {
+      method: 'PUT', token: ana.token, body: { status: 'ended', end_reason: 'hangup' },
+    })).status, 200);
+  });
 });
 
 describe('canales', () => {

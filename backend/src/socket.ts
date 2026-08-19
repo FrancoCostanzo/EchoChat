@@ -52,8 +52,11 @@ function scheduleOffline(userId: string): void {
   cancelOfflineTimer(userId);
   const timer = setTimeout(async () => {
     offlineTimers.delete(userId);
+    // closeSocket limpia los temporizadores, pero si alguno llega tarde no hay
+    // servidor al que preguntarle: la presencia la resolverá otra instancia.
+    if (!io) return;
     try {
-      const sockets = await io!.in(`user:${userId}`).fetchSockets();
+      const sockets = await io.in(`user:${userId}`).fetchSockets();
       if (sockets.length === 0) {
         await updatePresence(userId, 'offline');
       }
@@ -382,7 +385,7 @@ async function updatePresence(userId: string, presence: string): Promise<void> {
     await clearAutoAway(userId);
     await userRepository.updatePresence(userId, presence);
     // Broadcast presence change to all users who share a conversation
-    io!.emit('presence:changed', { userId, presence });
+    io?.emit('presence:changed', { userId, presence });
   } catch (err) {
     logger.warn({ err: (err as Error).message, userId }, 'Failed to update presence');
   }

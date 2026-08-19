@@ -48,7 +48,8 @@ class PollService {
     }
 
     const message = await messageRepository.findById(poll.message_id);
-    const member = await conversationRepository.getMember(message!.conversation_id, userId);
+    if (!message) throw new NotFoundError('Poll message');
+    const member = await conversationRepository.getMember(message.conversation_id, userId);
     if (!member) throw new ForbiddenError('Not a member of this conversation');
 
     // Validate options belong to this poll
@@ -61,33 +62,36 @@ class PollService {
     }
 
     await pollRepository.vote(pollId, chosen, userId, poll.is_multiple ?? false);
-    return this._emitPollUpdate(poll, message!.conversation_id, userId);
+    return this._emitPollUpdate(poll, message.conversation_id, userId);
   }
 
   async retractVote(userId: string, pollId: string) {
     const poll = await pollRepository.findById(pollId);
     if (!poll) throw new NotFoundError('Poll');
     const message = await messageRepository.findById(poll.message_id);
-    const member = await conversationRepository.getMember(message!.conversation_id, userId);
+    if (!message) throw new NotFoundError('Poll message');
+    const member = await conversationRepository.getMember(message.conversation_id, userId);
     if (!member) throw new ForbiddenError('Not a member of this conversation');
 
     await pollRepository.retractVote(pollId, userId);
-    return this._emitPollUpdate(poll, message!.conversation_id, userId);
+    return this._emitPollUpdate(poll, message.conversation_id, userId);
   }
 
   async close(userId: string, pollId: string) {
     const poll = await pollRepository.findById(pollId);
     if (!poll) throw new NotFoundError('Poll');
     const message = await messageRepository.findById(poll.message_id);
-    if (message!.sender_id !== userId) {
-      const member = await conversationRepository.getMember(message!.conversation_id, userId);
+    if (!message) throw new NotFoundError('Poll message');
+    if (message.sender_id !== userId) {
+      const member = await conversationRepository.getMember(message.conversation_id, userId);
       if (!member || !['owner', 'admin', 'moderator'].includes(member.role as string)) {
         throw new ForbiddenError('Only the creator or a moderator can close this poll');
       }
     }
     await pollRepository.close(pollId);
     const updated = await pollRepository.findById(pollId);
-    return this._emitPollUpdate(updated!, message!.conversation_id, userId);
+    if (!updated) throw new NotFoundError('Poll');
+    return this._emitPollUpdate(updated, message.conversation_id, userId);
   }
 
   async getByMessage(messageId: string, userId: string) {

@@ -63,7 +63,8 @@ class StickerService {
         object_type: 'sticker',
         file_hash_sha256: hash,
       });
-      objectId = obj!.id;
+      if (!obj) throw new BadRequestError('No se pudo guardar el sticker');
+      objectId = obj.id;
     }
 
     const entry = await stickerRepository.addEntry({ ownerId: userId, storageObjectId: objectId });

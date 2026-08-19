@@ -353,7 +353,7 @@ class MonitoringService {
     };
   }
 
-  _primeCpuMeasurement(): void {
+  _primeCpuMeasurement(): CpuSample {
     const cpus = os.cpus();
     let totalIdle = 0;
     let totalTick = 0;
@@ -369,6 +369,7 @@ class MonitoringService {
       time: Date.now(),
       processCpu: process.cpuUsage(),
     };
+    return this.lastSystemCpuUsage;
   }
 
   _calculateSystemCpuUsage() {
@@ -385,12 +386,8 @@ class MonitoringService {
       totalIdle += cpu.times.idle;
     });
 
-    if (!this.lastSystemCpuUsage) {
-      this._primeCpuMeasurement();
-    }
-    // _primeCpuMeasurement lo deja siempre seteado, pero el compilador no puede
-    // saberlo: se toma acá para no repetir la aserción en cada lectura.
-    const previa = this.lastSystemCpuUsage!;
+    // En la primera llamada todavía no hay muestra previa contra la cual medir.
+    const previa = this.lastSystemCpuUsage ?? this._primeCpuMeasurement();
 
     const idleDiff = totalIdle - previa.totalIdle;
     const totalDiff = totalTick - previa.totalTick;

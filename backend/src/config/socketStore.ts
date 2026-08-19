@@ -23,10 +23,12 @@ export function setSocketServer(io: Server | null): void {
 
 export function registerSocket(socketId: string, userId: string): void {
   connectedSockets.set(socketId, userId);
-  if (!connectedUsers.has(userId)) {
-    connectedUsers.set(userId, new Set());
+  let sockets = connectedUsers.get(userId);
+  if (!sockets) {
+    sockets = new Set();
+    connectedUsers.set(userId, sockets);
   }
-  connectedUsers.get(userId)!.add(socketId);
+  sockets.add(socketId);
 }
 
 export function unregisterSocket(socketId: string): void {
