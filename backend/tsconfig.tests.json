@@ -1,0 +1,12 @@
+{
+  // Chequeo de tipos de la suite. No emite: el build (tsconfig.json) sólo
+  // compila src/ a dist/, y los tests no tienen que viajar a la imagen.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    // rootDir del build es src/; acá el programa incluye también tests/, así
+    // que se sube un nivel. Como no emite, no cambia la forma de dist/.
+    "rootDir": "."
+  },
+  "include": ["src/**/*", "tests/**/*"]
+}

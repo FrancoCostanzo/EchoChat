@@ -136,10 +136,14 @@ comportamiento:
    2FA, códigos de respaldo, panel de admin y monitoreo, y SCIM ejercitado como
    lo haría un IdP (PATCH estilo Azure sin `path` y estilo Okta con `path`).
 
-> ⚠️ **Esas baterías no están en el repo.** Se escribieron como scripts sueltos
-> fuera del proyecto y se perdieron al terminar. Cubrían bastante y ya estaban
-> escritas: pasarlas a una suite de integración es lo pendiente de mejor
-> relación esfuerzo/valor que dejó esta migración.
+> Esas baterías empezaron como scripts sueltos fuera del proyecto. **Ya están en
+> el repo**, portadas a `backend/tests/` con el runner de Node: 77 tests que se
+> corren con `npm test`. Ver [backend/tests/README.md](../backend/tests/README.md).
+> Al portarlas apareció un bug más, que los scripts sueltos no podían ver porque
+> nunca hubo dos instancias contra la misma base: el seed le asigna 'user' a todo
+> usuario sin roles en cada arranque, y si eso pasaba entre el alta del usuario y
+> su INSERT de rol —el bcrypt del medio tarda cientos de ms— el registro moría
+> con un 409.
 
 ---
 

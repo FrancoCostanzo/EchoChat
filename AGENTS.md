@@ -53,6 +53,9 @@ cd frontend && npm install && npm run dev
 # Esquema + migraciones + primer admin (automático al arrancar el backend;
 # o manual sin levantar la app):
 cd backend && npm run migrate
+
+# Tests de integración del backend (necesitan una BD vacía; ver backend/tests/README.md)
+cd backend && npm test
 ```
 
 Modelo de base de datos (ver `src/config/migrate.js`), en este orden al arrancar:
