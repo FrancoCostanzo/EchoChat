@@ -702,7 +702,7 @@ function AttachmentView({ attachment }) {
       className="flex items-center gap-2 rounded-md border border-ink-400/40 bg-ink-800 px-3 py-2 text-[13px] transition-colors hover:border-ink-300 hover:bg-ink-750"
     >
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent/15">
-        <Paperclip size={14} className="text-accent" />
+        <Paperclip size={14} className="echo-accent-fg" />
       </div>
       <span className="max-w-48 truncate font-medium text-ink-0">{attachment.original_filename}</span>
       <Download size={12} className="ml-auto shrink-0 text-ink-200" />
@@ -1072,7 +1072,9 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
         isMediaOnly ? 'overflow-hidden p-1' : 'px-3 py-1.5',
         isOwn
           ? 'echo-grad-own echo-glow-own echo-on-accent'
-          : 'bg-ink-800/85 text-ink-0 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.4)] ring-1 ring-white/8',
+          // Solid fill, not glass: the bubble is primary content, so its
+          // contrast can't depend on which wallpaper happens to sit behind it.
+          : 'bg-ink-800 text-ink-0 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.4)] ring-1 ring-white/8',
         'rounded-2xl',
         isFirstInGroup ? (isOwn ? 'rounded-tr-md' : 'rounded-tl-md') : '',
         isContextOpen ? 'echo-selected' : '',
@@ -1205,7 +1207,7 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
             <>
               {/* Poll */}
               {message.type === 'poll' && message.poll && (
-                <PollMessage message={message} currentUserId={currentUserId} />
+                <PollMessage message={message} currentUserId={currentUserId} variant={isOwn ? 'own' : 'other'} />
               )}
 
               {/* Code snippet */}
@@ -1456,6 +1458,7 @@ export default function ConversationPage() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [pinnedOpen, setPinnedOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [membersOpen, setMembersOpen] = useState(false);
   const [pinnedIds, setPinnedIds] = useState(() => new Set());
   const [forwardTarget, setForwardTarget] = useState(null); // message being forwarded
   const [infoTarget, setInfoTarget] = useState(null); // message whose info panel is open
@@ -1618,6 +1621,10 @@ export default function ConversationPage() {
       .finally(() => { if (active) setLoadingMembers(false); });
     return () => { active = false; };
   }, [conversationId, conversation, isDirect]);
+
+  useEffect(() => {
+    setMembersOpen(false);
+  }, [conversationId]);
 
   // Members are fetched once via REST; overlay live presence from the socket
   // so the member panel doesn't go stale while the conversation stays open.
@@ -2046,6 +2053,7 @@ export default function ConversationPage() {
     if (closeSearch && window.innerWidth < 768) {
       setSearchOpen(false);
       setPinnedOpen(false);
+      setMembersOpen(false);
     }
   }, []);
 
@@ -2151,11 +2159,12 @@ export default function ConversationPage() {
     }
   }, [conversationId, sendMessage, user]);
 
-  // Thread, search and pinned panels share the right column — only one open at a time
+  // Thread, search, pinned and members panels share the right column — only one open at a time
   const handleOpenThread = useCallback((msg) => {
     setThreadRoot(msg);
     setSearchOpen(false);
     setPinnedOpen(false);
+    setMembersOpen(false);
   }, []);
 
   const handleOpenSearch = useCallback(() => {
@@ -2163,6 +2172,7 @@ export default function ConversationPage() {
     setThreadRoot(null);
     setPinnedOpen(false);
     setHistoryOpen(false);
+    setMembersOpen(false);
   }, []);
 
   const handleOpenPinned = useCallback(() => {
@@ -2170,6 +2180,7 @@ export default function ConversationPage() {
     setSearchOpen(false);
     setThreadRoot(null);
     setHistoryOpen(false);
+    setMembersOpen(false);
   }, []);
 
   const handleOpenHistory = useCallback(() => {
@@ -2177,6 +2188,15 @@ export default function ConversationPage() {
     setSearchOpen(false);
     setPinnedOpen(false);
     setThreadRoot(null);
+    setMembersOpen(false);
+  }, []);
+
+  const handleOpenMembers = useCallback(() => {
+    setMembersOpen((p) => !p);
+    setSearchOpen(false);
+    setPinnedOpen(false);
+    setThreadRoot(null);
+    setHistoryOpen(false);
   }, []);
 
   const startCall = useCallStore((s) => s.startCall);
@@ -2454,9 +2474,16 @@ export default function ConversationPage() {
                 </div>
                 <h2 className="echo-display truncate text-2xl font-semibold tracking-tight leading-tight">{convName}</h2>
                 {conversation.member_count && (
-                  <span className="hidden md:inline-block shrink-0 border-l border-ink-400/40 pl-3 text-[13px] text-ink-200">
+                  <Button
+                    variant="ghost"
+                    onPress={handleOpenMembers}
+                    className={[
+                      'hidden h-auto min-w-0 shrink-0 rounded-none border-l border-ink-400/40 px-3 py-0.5 text-[13px] font-normal md:inline-flex',
+                      membersOpen ? 'text-accent' : 'text-ink-200 hover:text-foreground',
+                    ].join(' ')}
+                  >
                     {conversation.member_count} {t('chat.members')}
-                  </span>
+                  </Button>
                 )}
               </>
             ) : (
@@ -2464,9 +2491,16 @@ export default function ConversationPage() {
                 <Hash size={22} strokeWidth={2.5} className="shrink-0 text-ink-200" />
                 <h2 className="echo-display truncate text-2xl font-semibold tracking-tight leading-tight">{convName}</h2>
                 {conversation.member_count && (
-                  <span className="hidden md:inline-block shrink-0 border-l border-ink-400/40 pl-3 text-[13px] text-ink-200">
+                  <Button
+                    variant="ghost"
+                    onPress={handleOpenMembers}
+                    className={[
+                      'hidden h-auto min-w-0 shrink-0 rounded-none border-l border-ink-400/40 px-3 py-0.5 text-[13px] font-normal md:inline-flex',
+                      membersOpen ? 'text-accent' : 'text-ink-200 hover:text-foreground',
+                    ].join(' ')}
+                  >
                     {conversation.member_count} {t('chat.members')}
-                  </span>
+                  </Button>
                 )}
               </>
             )}
@@ -2548,6 +2582,23 @@ export default function ConversationPage() {
                 <Search size={18} />
               </Button>
             </Tooltip>
+            {!isDirect && (
+              <Tooltip content={t('chat.viewMembers')} placement="bottom">
+                <Button
+                  isIconOnly
+                  size="sm"
+                  variant="ghost"
+                  onPress={handleOpenMembers}
+                  className={[
+                    'h-8 w-8 min-w-0 rounded-md hover:bg-ink-600 hover:text-foreground',
+                    membersOpen ? 'bg-ink-600 text-foreground' : 'text-ink-100',
+                  ].join(' ')}
+                  aria-label={t('chat.viewMembers')}
+                >
+                  <Users size={18} />
+                </Button>
+              </Tooltip>
+            )}
             <Dropdown>
               <Button isIconOnly size="sm" variant="ghost" className="h-8 w-8 min-w-0 rounded-md text-ink-100 hover:bg-ink-600 hover:text-foreground">
                 <MoreVertical size={18} />
@@ -2568,6 +2619,12 @@ export default function ConversationPage() {
                     <Dropdown.Item id="callHistory" textValue={t('call.history.title')} onAction={handleOpenHistory}>
                       <Phone size={15} />
                       <Label>{t('call.history.title')}</Label>
+                    </Dropdown.Item>
+                  )}
+                  {!isDirect && (
+                    <Dropdown.Item id="members" textValue={t('chat.viewMembers')} onAction={handleOpenMembers}>
+                      <Users size={15} />
+                      <Label>{t('chat.memberPanel')}</Label>
                     </Dropdown.Item>
                   )}
                   <Dropdown.Item id="wallpaper" textValue={t('chat.changeWallpaper')} onAction={() => setWallpaperPickerOpen(true)}>
@@ -2855,7 +2912,8 @@ export default function ConversationPage() {
         <PresenceAvatarStack
           members={membersWithPresence}
           loading={loadingMembers}
-          className="mr-1"
+          open={membersOpen}
+          onOpenChange={setMembersOpen}
         />
 
         {/* ── Message search panel ── */}

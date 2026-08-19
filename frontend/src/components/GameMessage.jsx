@@ -32,18 +32,19 @@ function useGameMove(game) {
   return { move, busy };
 }
 
-// Own messages sit on an accent-gradient bubble (`echo-on-accent`, meant for
-// plain text that inherits its color) — Tailwind `text-*` utilities on our
-// own elements would override that inherited color and can end up low-
-// contrast against the gradient. Giving the whole game its own opaque dark
-// card (same trick as CodeMessage) sidesteps that: every text color below
-// is chosen against this fixed dark surface, regardless of bubble variant.
+// Both variants render on a fixed-dark "console" card (see --color-console-*
+// in index.css): own tints the accent gradient dark enough for white text at
+// every accent choice (verified against all 7), other is a literal slate,
+// never the theme-flipping ink-* scale. That's what lets every piece of text
+// below use one invariant white-based palette regardless of variant or site
+// theme, instead of ink-* classes that read fine in dark mode by accident and
+// go unreadable in light mode.
 function GameCard({ variant, className = '', children }) {
   const isOwn = variant === 'own';
   return (
     <div className={[
       'w-fit min-w-56 rounded-lg border p-3',
-      isOwn ? 'border-white/15 bg-black/30' : 'border-ink-400/40 bg-ink-900/80',
+      isOwn ? 'border-white/15 bg-black/55' : 'border-white/10 bg-console-900',
       className,
     ].filter(Boolean).join(' ')}>
       {children}
@@ -51,16 +52,22 @@ function GameCard({ variant, className = '', children }) {
   );
 }
 
-function ResultBanner({ game, currentUserId }) {
+function ResultBanner({ game, currentUserId, variant }) {
   const { t } = useTranslation();
   if (game.status !== 'finished') return null;
+  const won = game.winner_id === currentUserId;
   const text = game.result === 'draw'
     ? t('game.draw')
-    : game.winner_id === currentUserId ? t('game.youWon') : t('game.youLost');
+    : won ? t('game.youWon') : t('game.youLost');
+  // echo-online (semantic success green) only contrasts reliably against the
+  // neutral "other" card — against "own"'s accent-tinted card it measures as
+  // low as 2.37:1 for brighter accents, so own falls back to white like the
+  // rest of its text.
+  const wonClass = variant === 'own' ? 'text-white/95' : 'text-echo-online';
   return (
     <p className={[
       'text-sm font-semibold',
-      game.result === 'draw' ? 'text-ink-100' : game.winner_id === currentUserId ? 'text-echo-online' : 'text-ink-200',
+      game.result === 'draw' ? 'text-white/75' : won ? wonClass : 'text-white/55',
     ].join(' ')}>
       {text}
     </p>
@@ -79,8 +86,8 @@ function TicTacToeBoard({ game, currentUserId, variant }) {
 
   return (
     <GameCard variant={variant} className="flex flex-col gap-2">
-      {statusText && <p className="text-sm font-medium text-ink-100">{statusText}</p>}
-      <ResultBanner game={game} currentUserId={currentUserId} />
+      {statusText && <p className="text-sm font-medium text-white/85">{statusText}</p>}
+      <ResultBanner game={game} currentUserId={currentUserId} variant={variant} />
       <div className="grid w-44 grid-cols-3 gap-1.5">
         {game.board.map((cell, i) => (
           <button
@@ -90,8 +97,9 @@ function TicTacToeBoard({ game, currentUserId, variant }) {
             onClick={() => move({ cell: i })}
             className={[
               'flex aspect-square items-center justify-center rounded-lg border text-xl font-bold transition-colors',
-              cell ? 'border-black/20 bg-ink-800' : 'border-black/20 bg-ink-800 hover:border-accent/50',
-              cell === 'X' ? 'text-accent' : cell === 'O' ? 'text-echo-accent-energy' : 'text-transparent',
+              'border-white/10 bg-console-800',
+              !cell ? 'hover:border-accent/50' : '',
+              cell === 'X' ? 'echo-accent-on-dark' : cell === 'O' ? 'text-echo-accent-energy' : 'text-transparent',
               (busy || !isMyTurn) && !cell ? 'cursor-default' : '',
             ].join(' ')}
           >
@@ -118,10 +126,10 @@ function RockPaperScissors({ game, currentUserId, variant }) {
       <GameCard variant={variant} className="flex flex-col items-center gap-2">
         <div className="flex items-center gap-3 text-3xl">
           <span>{emojiFor(game.choices.player1)}</span>
-          <span className="text-sm text-ink-200">{t('rps.vs')}</span>
+          <span className="text-sm text-white/70">{t('rps.vs')}</span>
           <span>{emojiFor(game.choices.player2)}</span>
         </div>
-        <ResultBanner game={game} currentUserId={currentUserId} />
+        <ResultBanner game={game} currentUserId={currentUserId} variant={variant} />
       </GameCard>
     );
   }
@@ -130,7 +138,7 @@ function RockPaperScissors({ game, currentUserId, variant }) {
     return (
       <GameCard variant={variant} className="flex flex-col items-center gap-2 text-center">
         <span className="text-3xl">{emojiFor(myChoice)}</span>
-        <p className="text-sm text-ink-100">
+        <p className="text-sm text-white/85">
           {opponentChoice ? t('rps.resolving') : t('rps.waiting')}
         </p>
       </GameCard>
@@ -139,7 +147,7 @@ function RockPaperScissors({ game, currentUserId, variant }) {
 
   return (
     <GameCard variant={variant} className="flex flex-col gap-2">
-      <p className="text-sm font-medium text-ink-100">{t('rps.chooseYours')}</p>
+      <p className="text-sm font-medium text-white/85">{t('rps.chooseYours')}</p>
       <div className="flex gap-2">
         {RPS_CHOICES.map(({ id, emoji }) => (
           <button
@@ -147,7 +155,7 @@ function RockPaperScissors({ game, currentUserId, variant }) {
             type="button"
             disabled={busy}
             onClick={() => move({ choice: id })}
-            className="flex flex-1 flex-col items-center gap-1 rounded-lg border border-black/20 bg-ink-800 py-2.5 text-2xl transition-colors hover:border-accent/50 disabled:opacity-60"
+            className="flex flex-1 flex-col items-center gap-1 rounded-lg border border-white/10 bg-console-800 py-2.5 text-2xl transition-colors hover:border-accent/50 disabled:opacity-60"
           >
             {emoji}
           </button>
@@ -168,19 +176,19 @@ function Hangman({ game, currentUserId, variant }) {
 
   return (
     <GameCard variant={variant} className="flex flex-col gap-2">
-      <p className="text-sm font-medium text-ink-100">
+      <p className="text-sm font-medium text-white/85">
         {isGuesser ? t('hangman.guesserPrompt') : t('hangman.spectatorPrompt')}
       </p>
-      <p className="select-none font-mono text-2xl tracking-[0.3em] text-ink-0">
+      <p className="select-none font-mono text-2xl tracking-[0.3em] text-white">
         {displayWord.split('').map((c) => c === ' ' ? '  ' : c).join(' ')}
       </p>
       {game.status === 'active' && (
-        <p className="text-[12px] text-ink-200">
+        <p className="text-[12px] text-white/70">
           {t('hangman.attemptsLeft', { count: remaining })}
           {game.wrong.length > 0 && ` · ${t('hangman.wrongLetters')}: ${game.wrong.join(', ')}`}
         </p>
       )}
-      <ResultBanner game={game} currentUserId={currentUserId} />
+      <ResultBanner game={game} currentUserId={currentUserId} variant={variant} />
       {canGuess && (
         <div className="grid grid-cols-9 gap-1">
           {LETTERS.map((l) => {
@@ -193,7 +201,10 @@ function Hangman({ game, currentUserId, variant }) {
                 onClick={() => move({ letter: l })}
                 className={[
                   'flex h-6 items-center justify-center rounded text-[11px] font-semibold uppercase transition-colors',
-                  used ? 'bg-ink-950 text-ink-300' : 'bg-ink-800 text-ink-50 hover:bg-accent hover:text-accent-foreground',
+                  // Deliberately dim: an already-tried letter is a disabled,
+                  // non-interactive marker, not information someone needs to
+                  // read at full contrast.
+                  used ? 'bg-black/25 text-white/35' : 'bg-console-800 text-white/90 hover:bg-accent hover:text-accent-foreground',
                 ].join(' ')}
               >
                 {l}

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { Button, Tooltip, toast } from '@heroui/react';
+import { Button, Label, ListBox, Select, Tooltip, toast } from '@heroui/react';
 import {
   Sticker, Clapperboard, Search, X, Loader2, ImageOff, KeyRound,
   Plus, Trash2, Check, Star, Pencil, FolderPlus, ChevronLeft,
@@ -28,6 +28,13 @@ const MAX_STICKER_BYTES = 5 * 1024 * 1024; // 5 MB — animated stickers need he
 const STICKER_MIMES = ['image/webp', 'image/png', 'image/gif', 'image/jpeg'];
 
 const EMPTY_COLLECTION = { packs: [], stickers: [], recents: [] };
+const NO_PACK = 'none';
+
+function isPortaledOverlay(target) {
+  return target instanceof Element && Boolean(
+    target.closest('[data-react-aria-top-layer], [role="listbox"], [data-slot="popover"]'),
+  );
+}
 
 // Read an image's natural dimensions from a File (best-effort, for nicer sizing).
 function readImageSize(file) {
@@ -131,7 +138,7 @@ function StickerTile({ sticker, managing, onPick, onEdit, t }) {
 function StickerEditor({ sticker, packs, onSave, onDelete, onClose, t }) {
   const [name, setName] = useState(sticker.name || '');
   const [keywords, setKeywords] = useState(sticker.keywords || []);
-  const [packId, setPackId] = useState(sticker.pack_id || '');
+  const [packId, setPackId] = useState(sticker.pack_id || NO_PACK);
   const [favorite, setFavorite] = useState(!!sticker.is_favorite);
   const [kwInput, setKwInput] = useState('');
   const [saving, setSaving] = useState(false);
@@ -149,7 +156,7 @@ function StickerEditor({ sticker, packs, onSave, onDelete, onClose, t }) {
       await onSave(sticker.id, {
         name: name.trim(),
         keywords,
-        pack_id: packId || null,
+        pack_id: packId === NO_PACK ? null : packId,
         is_favorite: favorite,
       });
     } finally {
@@ -222,17 +229,34 @@ function StickerEditor({ sticker, packs, onSave, onDelete, onClose, t }) {
           />
         </div>
 
-        <label className="block">
-          <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-ink-300">{t('sticker.pack')}</span>
-          <select
-            value={packId}
-            onChange={(e) => setPackId(e.target.value)}
-            className="w-full rounded-lg bg-ink-750 px-2.5 py-2 text-[14px] text-foreground outline-none focus:ring-1 focus:ring-accent/60"
-          >
-            <option value="">{t('sticker.noPack')}</option>
-            {packs.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-        </label>
+        <Select
+          className="w-full"
+          fullWidth
+          variant="secondary"
+          value={packId}
+          onChange={(v) => setPackId(v == null ? NO_PACK : String(v))}
+          placeholder={t('sticker.noPack')}
+        >
+          <Label>{t('sticker.pack')}</Label>
+          <Select.Trigger className="w-full">
+            <Select.Value />
+            <Select.Indicator />
+          </Select.Trigger>
+          <Select.Popover>
+            <ListBox>
+              <ListBox.Item id={NO_PACK} textValue={t('sticker.noPack')}>
+                {t('sticker.noPack')}
+                <ListBox.ItemIndicator />
+              </ListBox.Item>
+              {packs.map((p) => (
+                <ListBox.Item key={p.id} id={p.id} textValue={p.name}>
+                  {p.name}
+                  <ListBox.ItemIndicator />
+                </ListBox.Item>
+              ))}
+            </ListBox>
+          </Select.Popover>
+        </Select>
       </div>
 
       <div className="flex items-center gap-2 border-t border-ink-400/30 p-2">
@@ -437,8 +461,15 @@ export default function StickerGifPicker({ onPick, disabled, open, onOpenChange 
   // Close on outside click / Escape
   useEffect(() => {
     if (!open) return;
-    const onDown = (e) => { if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false); };
-    const onKey = (e) => { if (e.key === 'Escape') { if (editing) setEditing(null); else setOpen(false); } };
+    const onDown = (e) => {
+      if (!rootRef.current || rootRef.current.contains(e.target) || isPortaledOverlay(e.target)) return;
+      setOpen(false);
+    };
+    const onKey = (e) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      if (editing) setEditing(null);
+      else setOpen(false);
+    };
     document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey);
     return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };

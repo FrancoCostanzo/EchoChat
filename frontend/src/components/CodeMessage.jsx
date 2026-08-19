@@ -45,16 +45,16 @@ export default function CodeMessage({ message, variant = 'other' }) {
     <div
       className={[
         'min-w-[min(100%,280px)] max-w-full overflow-hidden rounded-lg border',
-        isOwn ? 'border-white/15 bg-black/30' : 'border-ink-400/40 bg-ink-900/80',
+        // Always a dark "console" card (own tints the accent gradient dark,
+        // other is a literal slate — never the ink-* scale, which flips
+        // light in light theme and would leave `oneDark` syntax colors
+        // painted on a near-white card). Both variants read the same white-
+        // based text below, no isOwn branching needed past this point.
+        isOwn ? 'border-white/15 bg-black/55' : 'border-white/10 bg-console-900',
       ].join(' ')}
     >
-      <div
-        className={[
-          'flex items-center justify-between gap-2 border-b px-2.5 py-1.5',
-          isOwn ? 'border-white/10 bg-black/20' : 'border-ink-400/30 bg-ink-850/60',
-        ].join(' ')}
-      >
-        <div className="flex min-w-0 items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-100">
+      <div className="flex items-center justify-between gap-2 border-b border-white/10 bg-black/20 px-2.5 py-1.5">
+        <div className="flex min-w-0 items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-white/70">
           <Code2 size={12} className="shrink-0 opacity-80" />
           <span className="truncate">{langLabel}</span>
         </div>
@@ -64,10 +64,7 @@ export default function CodeMessage({ message, variant = 'other' }) {
             variant="ghost"
             size="sm"
             onPress={handleCopy}
-            className={[
-              'h-6 w-6 min-w-0',
-              isOwn ? 'text-white/80 hover:text-white' : 'text-ink-100 hover:text-foreground',
-            ].join(' ')}
+            className="h-6 w-6 min-w-0 text-white/80 hover:text-white"
             aria-label={copied ? t('code.copied') : t('code.copy')}
           >
             {copied ? <Check size={13} /> : <Copy size={13} />}

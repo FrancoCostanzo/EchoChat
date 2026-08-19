@@ -169,6 +169,12 @@
     "membersActive": "Active",
     "membersOffline": "Offline",
     "membersOnlineCount": "{{count}} online",
+    "searchMembers": "Search members...",
+    "noMemberResults": "No members match",
+    "emptyMembers": "No members yet",
+    "roleOwner": "Owner",
+    "roleAdmin": "Admin",
+    "roleModerator": "Mod",
     "changeWallpaper": "Change wallpaper",
     "formatToolbar": "Text formatting",
     "format": {

@@ -169,6 +169,12 @@
     "membersActive": "Activos",
     "membersOffline": "Desconectados",
     "membersOnlineCount": "{{count}} en línea",
+    "searchMembers": "Buscar miembros...",
+    "noMemberResults": "Ningún miembro coincide",
+    "emptyMembers": "Todavía no hay miembros",
+    "roleOwner": "Propietario",
+    "roleAdmin": "Admin",
+    "roleModerator": "Mod",
     "changeWallpaper": "Cambiar fondo",
     "formatToolbar": "Formato de texto",
     "format": {
