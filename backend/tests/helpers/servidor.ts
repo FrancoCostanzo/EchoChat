@@ -30,10 +30,17 @@ export function levantarServidor(): Promise<ServidorDeTest> {
 async function arrancar(): Promise<ServidorDeTest> {
   // Guarda: la suite crea usuarios, manda mensajes y suspende cuentas. Correrla
   // contra la base de desarrollo la ensuciaría sin aviso.
-  if (config.db.database !== process.env.TEST_DB_NAME) {
+  const bdDeTests = process.env.TEST_DB_NAME;
+  if (!bdDeTests) {
     throw new Error(
-      `Los tests sólo corren contra "${process.env.TEST_DB_NAME}" y config apunta `
-      + `a "${config.db.database}". Falta el preload tests/entorno.ts.`,
+      'Falta el preload tests/entorno.ts: sin él la suite correría contra la base '
+      + `de la app ("${config.db.database}"). Usá "npm test".`,
+    );
+  }
+  if (config.db.database !== bdDeTests) {
+    throw new Error(
+      `Los tests sólo corren contra "${bdDeTests}" y config apunta a `
+      + `"${config.db.database}". Revisá DB_NAME.`,
     );
   }
 
