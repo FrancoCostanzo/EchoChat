@@ -73,10 +73,16 @@ class AuthService {
     const passwordHash = await bcrypt.hash(data.password, SALT_ROUNDS);
     await credentialRepository.create(user.id, passwordHash);
 
-    // Assign default 'user' role
+    // Assign default 'user' role.
+    // ON CONFLICT porque el backfill de docs/seed.sql —que corre en cada
+    // arranque— le asigna 'user' a todo usuario que no tenga ninguno. Si otra
+    // instancia arranca entre el INSERT del usuario y esta línea (el bcrypt de
+    // arriba tarda cientos de ms), el rol ya está puesto y esto reventaba con
+    // un 23505 que salía como 409 al que se estaba registrando.
     await userRepository.query(
       `INSERT INTO user_roles (user_id, role_id)
-       SELECT $1, id FROM roles WHERE name = 'user'`,
+       SELECT $1, id FROM roles WHERE name = 'user'
+       ON CONFLICT DO NOTHING`,
       [user.id]
     );
 
