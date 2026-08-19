@@ -7,13 +7,44 @@ const {
   savedMessageRepository,
   draftRepository,
   pollRepository,
+  gameRepository,
+  systemSettingsRepository,
 } = require('../repositories');
 const { NotFoundError, ForbiddenError, BadRequestError } = require('../errors');
-const { toMessageResponse, toSavedMessageResponse, toDraftResponse, toPollResponse } = require('../models');
+const { toMessageResponse, toSavedMessageResponse, toDraftResponse, toPollResponse, toGameResponse } = require('../models');
 const { resolveBodyFormat } = require('../utils/markdown.util');
 const { minioClient } = require('../config/minio');
 
 const AVATAR_BUCKET = 'messaging-avatars';
+const DEFAULT_EDIT_WINDOW_MINUTES = 15;
+const DEFAULT_DELETE_WINDOW_MINUTES = 15;
+
+async function getWindowMinutes(key, defaultMinutes) {
+  try {
+    const row = await systemSettingsRepository.findByKey(key);
+    const raw = row?.value;
+    const minutes = parseInt(raw, 10);
+    if (!Number.isFinite(minutes) || minutes < 0) return defaultMinutes;
+    return minutes;
+  } catch {
+    return defaultMinutes;
+  }
+}
+
+function assertWithinWindow(sentAt, minutes, action) {
+  // 0 = unlimited (same convention as message_retention_days).
+  if (minutes === 0) return;
+  const sentMs = new Date(sentAt).getTime();
+  if (!Number.isFinite(sentMs)) {
+    throw new BadRequestError(`Cannot ${action} this message`);
+  }
+  const elapsedMs = Date.now() - sentMs;
+  if (elapsedMs > minutes * 60 * 1000) {
+    throw new ForbiddenError(
+      `Can only ${action} messages within ${minutes} minutes of sending`,
+    );
+  }
+}
 async function withAvatarUrl(user) {
   if (!user?.avatar_object_key) return user;
   try {
@@ -99,6 +130,7 @@ class MessageService {
     const rootResponse = toMessageResponse(root);
     const replyResponses = replies.map(toMessageResponse);
     await this._attachPolls([rootResponse, ...replyResponses], userId);
+    await this._attachGames([rootResponse, ...replyResponses], userId);
     return { root: rootResponse, replies: replyResponses };
   }
 
@@ -112,6 +144,7 @@ class MessageService {
     });
     const responses = messages.map(toMessageResponse);
     await this._attachPolls(responses, userId);
+    await this._attachGames(responses, userId);
     return responses;
   }
 
@@ -128,6 +161,18 @@ class MessageService {
     return responses;
   }
 
+  // Attach game state (board/choices/masked word, redacted per viewer) to
+  // any 'game' type messages.
+  async _attachGames(responses, userId) {
+    for (const m of responses) {
+      if (m.type !== 'game') continue;
+      const game = await gameRepository.findByMessageId(m.id);
+      if (!game) continue;
+      m.game = toGameResponse(game, userId);
+    }
+    return responses;
+  }
+
   async getById(messageId) {
     const message = await messageRepository.findWithAttachments(messageId);
     if (!message) throw new NotFoundError('Message');
@@ -137,7 +182,11 @@ class MessageService {
   async update(messageId, userId, body, bodyFormat) {
     const message = await messageRepository.findById(messageId);
     if (!message) throw new NotFoundError('Message');
+    if (message.is_deleted) throw new BadRequestError('Cannot edit a deleted message');
     if (message.sender_id !== userId) throw new ForbiddenError('Can only edit your own messages');
+
+    const editWindow = await getWindowMinutes('message_edit_window_minutes', DEFAULT_EDIT_WINDOW_MINUTES);
+    assertWithinWindow(message.sent_at, editWindow, 'edit');
 
     const format = resolveBodyFormat(body, bodyFormat);
     const updated = await messageRepository.updateBody(messageId, body, userId, format);
@@ -155,13 +204,24 @@ class MessageService {
   async delete(messageId, userId) {
     const message = await messageRepository.findById(messageId);
     if (!message) throw new NotFoundError('Message');
+    if (message.is_deleted) throw new BadRequestError('Message already deleted');
 
     // Owners delete their own messages; others need the global `messages.delete_any`
     // permission (moderators/admins). This connects per-message ownership with RBAC.
     const isOwner = message.sender_id === userId;
-    if (!isOwner) {
-      const canDeleteAny = await userRepository.hasPermission(userId, 'messages.delete_any');
-      if (!canDeleteAny) throw new ForbiddenError('Can only delete your own messages');
+    const canDeleteAny = await userRepository.hasPermission(userId, 'messages.delete_any');
+    if (!isOwner && !canDeleteAny) {
+      throw new ForbiddenError('Can only delete your own messages');
+    }
+
+    // Own deletes respect the time window; moderators with delete_any can always
+    // remove messages (including their own past the window).
+    if (!canDeleteAny) {
+      const deleteWindow = await getWindowMinutes(
+        'message_delete_window_minutes',
+        DEFAULT_DELETE_WINDOW_MINUTES,
+      );
+      assertWithinWindow(message.sent_at, deleteWindow, 'delete');
     }
 
     // Delete attachments from MinIO before soft-deleting the message
@@ -248,6 +308,9 @@ class MessageService {
         delivered_count: parseInt(counts.delivered_count, 10) || 0,
         read_count: parseInt(counts.read_count, 10) || 0,
       });
+
+      const broadcastService = require('./broadcast.service');
+      await broadcastService.syncFromMessageReceipt(messageId, userId, type);
     } catch (err) {
       logger.warn({ err: err.message }, 'Failed to emit message:receipt');
     }

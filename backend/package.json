@@ -9,6 +9,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js | pino-pretty",
+    "migrate": "node src/cli/setup.js",
+    "setup": "node src/cli/setup.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -37,6 +39,7 @@
     "minio": "^8.0.7",
     "multer": "^2.2.0",
     "node-cron": "^4.2.1",
+    "openid-client": "^5.7.1",
     "otplib": "^13.4.0",
     "pg": "^8.20.0",
     "pino": "^10.3.1",

@@ -233,22 +233,26 @@ export default function ChannelsExplorePage() {
       {/* Controls */}
       <div className="flex flex-col gap-3 px-5 pt-4">
         <div className="relative">
-          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-200" />
+          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 z-1 text-ink-200" />
           <Input
+            fullWidth
             className="pl-9"
             placeholder={t('channels.search')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <Tabs selectedKey={category} onSelectionChange={setCategory}>
-          <Tabs.List aria-label={t('channels.categories.all')}>
-            {CATEGORIES.map((cat) => (
-              <Tabs.Tab key={cat} id={cat}>
-                {t(`channels.categories.${cat}`)}
-              </Tabs.Tab>
-            ))}
-          </Tabs.List>
+        <Tabs selectedKey={category} onSelectionChange={setCategory} className="w-full">
+          <Tabs.ListContainer>
+            <Tabs.List aria-label={t('channels.categories.all')} className="w-full">
+              {CATEGORIES.map((cat) => (
+                <Tabs.Tab key={cat} id={cat}>
+                  {t(`channels.categories.${cat}`)}
+                  <Tabs.Indicator />
+                </Tabs.Tab>
+              ))}
+            </Tabs.List>
+          </Tabs.ListContainer>
         </Tabs>
       </div>
 

@@ -10,6 +10,11 @@ router.post('/register', validate(registerDto), (req, res) => authController.reg
 router.post('/login', validate(loginDto), (req, res) => authController.login(req, res));
 router.post('/2fa/challenge', validate(totpChallengeDto), (req, res) => authController.verify2faChallenge(req, res));
 
+// SSO / OIDC (públicas: son navegaciones del navegador, no llamadas autenticadas)
+router.get('/sso/providers', (req, res) => authController.ssoProviders(req, res));
+router.get('/sso/:provider/login', (req, res) => authController.ssoLogin(req, res));
+router.get('/sso/:provider/callback', (req, res) => authController.ssoCallback(req, res));
+
 // Protected routes
 router.use(authenticate);
 router.post('/logout', (req, res) => authController.logout(req, res));

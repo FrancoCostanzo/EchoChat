@@ -67,6 +67,17 @@ export const useAuthStore = create((set, get) => ({
     return data;
   },
 
+  // Login por SSO: el token llega ya emitido (en el fragmento del callback), sólo
+  // resta persistirlo y traer el perfil. Reutiliza el mismo estado que el login local.
+  loginWithToken: async (token) => {
+    localStorage.setItem(TOKEN_KEY, token);
+    api.setToken(token);
+    const { data } = await authApi.me();
+    localStorage.setItem(USER_KEY, JSON.stringify(data));
+    set({ user: data, token, isAuthenticated: true, pending2fa: null });
+    return data;
+  },
+
   cancelPending2fa: () => set({ pending2fa: null }),
 
   register: async (data) => {

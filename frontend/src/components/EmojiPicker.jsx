@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { Button, Tooltip } from '@heroui/react';
@@ -18,10 +18,12 @@ import { useThemeStore } from '@/stores/themeStore';
 
 const SUPPORTED_LOCALES = ['en', 'es', 'pt', 'fr', 'de', 'it', 'ru', 'ja', 'zh'];
 
-export default function EmojiPicker({ onPick }) {
+export default function EmojiPicker({ onPick, open, onOpenChange }) {
   const { t, i18n } = useTranslation();
   const mode = useThemeStore((s) => s.mode);
-  const [open, setOpen] = useState(false);
+  const setOpen = useCallback((next) => {
+    onOpenChange(typeof next === 'function' ? next(open) : next);
+  }, [open, onOpenChange]);
   const rootRef = useRef(null);
   const mountRef = useRef(null);
 
@@ -115,7 +117,7 @@ export default function EmojiPicker({ onPick }) {
           onPress={() => setOpen((p) => !p)}
           aria-label={t('chat.emoji')}
           aria-expanded={open}
-          className="flex h-8 w-8 min-w-0 shrink-0 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
+          className="flex h-9 w-9 min-w-0 shrink-0 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
         >
           <Smile size={18} />
         </Button>

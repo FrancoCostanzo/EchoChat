@@ -23,11 +23,13 @@ import {
   ScrollText,
   HardDrive,
   Activity,
+  Plug,
   Phone,
   PhoneMissed,
   Video,
   Sticker,
   Clapperboard,
+  Megaphone,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
@@ -104,6 +106,11 @@ function ConversationItem({ conversation, isActive, onClick, t, animIndex = 0, t
     conversation.last_message_type === 'sticker'
       ? conversation.last_message_metadata?.sticker?.kind || 'sticker'
       : null;
+  const isBroadcastPreview = Boolean(
+    conversation.last_message_metadata?.broadcast_msg_id
+    || conversation.last_message_metadata?.broadcast_list_id,
+  );
+  const broadcastListName = conversation.last_message_metadata?.broadcast_list_name || null;
   const lastMsg = conversation.last_message_body;
   const time = conversation.last_message_at;
   const unread = conversation.unread_count || 0;
@@ -202,6 +209,16 @@ function ConversationItem({ conversation, isActive, onClick, t, animIndex = 0, t
               ? <Clapperboard size={12} className="shrink-0" />
               : <Sticker size={12} className="shrink-0" />}
             <span className="truncate">{t(stickerKind === 'gif' ? 'sticker.previewGif' : 'sticker.previewSticker')}</span>
+          </p>
+        ) : isBroadcastPreview ? (
+          <p className="flex items-center gap-1.5 text-xs text-ink-200">
+            <Megaphone size={12} className="shrink-0 text-accent" />
+            <span className="truncate">
+              {lastMsg
+                || (broadcastListName
+                  ? t('chat.fromBroadcastList', { name: broadcastListName })
+                  : t('chat.fromBroadcast'))}
+            </span>
           </p>
         ) : (
           lastMsg && <p className="truncate text-xs text-ink-200">{lastMsg}</p>
@@ -519,6 +536,7 @@ function SettingsSidebar() {
    ───────────────────────────────────────────────────────── */
 const ADMIN_NAV = [
   { id: 'users',      icon: Users,       perm: 'admin.users' },
+  { id: 'integrations', icon: Plug,     perm: 'admin.users' },
   { id: 'settings',  icon: Settings,    perm: 'admin.settings' },
   { id: 'audit',     icon: ScrollText,  perm: 'admin.view_audit' },
   { id: 'storage',   icon: HardDrive,   perm: 'admin.storage' },

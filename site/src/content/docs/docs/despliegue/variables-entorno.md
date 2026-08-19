@@ -42,21 +42,63 @@ como el MCP de PostgreSQL en Cursor — el backend **no** la lee directamente.
 | `JWT_SECRET` | — | ⚠️ Obligatoria. Generar con `node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"` |
 | `JWT_EXPIRES_IN` | `7d` | Duración del access token |
 | `JWT_REFRESH_EXPIRES_IN` | `30d` | Duración del refresh token |
-| `MESSAGE_ENC_KEY` | — | ⚠️ Clave AES-256-GCM (32 bytes en base64) para cifrar mensajes en reposo. Generar con `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`. **Si se pierde, se pierden todos los mensajes** |
+| `MESSAGE_ENC_KEY` | — | ⚠️ Obligatoria. Clave AES-256-GCM (32 bytes en base64) para cifrar mensajes en reposo. Generar con `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`. **El backend no arranca sin ella; si se pierde, se pierden todos los mensajes** |
 | `MESSAGE_ENC_KEY_ID` | `v1` | Identificador de versión de clave (para rotación) |
 
-Solo en despliegues Docker (`.env` raíz), además:
+## Primer administrador y migraciones
+
+En el primer arranque el backend prepara la base (esquema + migraciones + seed) y crea el
+primer `super_admin` si no existe ninguno. Ver [Base de datos](/docs/despliegue/base-de-datos).
 
 | Variable | Default | Descripción |
 |----------|---------|--------------|
-| `LDAP_ENABLED` | `false` | Habilita login/importación contra un directorio LDAP/Active Directory |
+| `ADMIN_USERNAME` | — | Usuario del primer administrador. Si falta, no se crea (habrá que hacerlo a mano) |
+| `ADMIN_PASSWORD` | — | Contraseña del primer administrador. Cambiala tras el primer login |
+| `ADMIN_DISPLAY_NAME` | `Administrador` | Nombre visible del primer administrador |
+| `ADMIN_EMAIL` | — | Email opcional del primer administrador |
+| `RUN_MIGRATIONS_ON_BOOT` | `true` | Aplicar esquema + migraciones + seed al arrancar. `false` para hacerlo manual con `npm run migrate` |
+
+## Identidad e integraciones
+
+Opcionales. Habilitan directorio corporativo, SSO y aprovisionamiento automático.
+Funcionan tanto en `backend/.env` como en el `.env` de Docker. La guía conceptual está en
+[Integraciones](/docs/admin/integraciones).
+
+**LDAP / Active Directory:**
+
+| Variable | Default | Descripción |
+|----------|---------|--------------|
+| `LDAP_ENABLED` | `false` | Habilita login/importación contra un directorio LDAP/AD |
 | `LDAP_URL` | — | `ldap://` o `ldaps://` |
 | `LDAP_BIND_DN` / `LDAP_BIND_PASSWORD` | — | Cuenta de servicio de solo lectura |
 | `LDAP_BASE_DN` | — | Base de búsqueda de usuarios |
 | `LDAP_USER_FILTER` | `(objectClass=person)` | Filtro de búsqueda, con `{{username}}` |
-| `LDAP_ATTR_*` | — | Mapeo de atributos (usuario, nombre, email, departamento, cargo, ID externo) |
-| `LDAP_TIMEOUT_MS` | `10000` | |
+| `LDAP_ATTR_*` | — | Mapeo de atributos (usuario, nombre, email, departamento, cargo, grupos, ID externo) |
+| `LDAP_TIMEOUT_MS` | `10000` | Timeout de conexión/consulta |
 | `LDAP_TLS_REJECT_UNAUTHORIZED` | `true` | Poner en `false` solo con certificados autofirmados |
+| `LDAP_SYNC_ENABLED` / `LDAP_SYNC_CRON` | `false` / `0 */6 * * *` | Sincronización automática periódica |
+| `LDAP_DEPROVISION` | `false` | Deshabilitar usuarios ausentes del directorio y revocar sus sesiones |
+| `LDAP_SYNC_ROLES` / `LDAP_GROUP_ROLE_MAP` | `false` / — | Mapear grupos (`memberOf`) a roles de EchoChat |
+| `LDAP_DEFAULT_ROLE` | `user` | Rol de los usuarios importados |
+
+**SSO / OpenID Connect** (Azure AD, Google Workspace, Okta):
+
+| Variable | Default | Descripción |
+|----------|---------|--------------|
+| `OIDC_ENABLED` | `false` | Habilita el login federado |
+| `OIDC_PROVIDERS` | — | Lista de proveedores, ej. `azure,google` |
+| `OIDC_<NOMBRE>_ISSUER` / `_CLIENT_ID` / `_CLIENT_SECRET` | — | Credenciales por proveedor (discovery OIDC) |
+| `OIDC_<NOMBRE>_LABEL` / `_SCOPES` | (nombre) / `openid profile email` | Texto del botón y scopes |
+| `OIDC_REDIRECT_BASE` | (deriva del request) | Base pública del backend para el `redirect_uri` |
+| `OIDC_DEFAULT_ROLE` | `user` | Rol de los usuarios creados por SSO |
+
+**SCIM 2.0** (aprovisionamiento automático desde Okta/Azure):
+
+| Variable | Default | Descripción |
+|----------|---------|--------------|
+| `SCIM_ENABLED` | `false` | Habilita el endpoint `/scim/v2` |
+| `SCIM_TOKEN` | — | ⚠️ Bearer token estático que presenta el IdP (largo y secreto) |
+| `SCIM_DEFAULT_ROLE` | `user` | Rol de los usuarios aprovisionados |
 
 ## MinIO y almacenamiento
 

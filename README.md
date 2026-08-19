@@ -367,6 +367,14 @@ MINIO_SECRET_KEY=mi_password_segura_minio
 # Secreto JWT (generar uno aleatorio)
 JWT_SECRET=generar_con_node_-e_console.log(require('crypto').randomBytes(64).toString('hex'))
 
+# Clave de cifrado de mensajes en reposo — 32 bytes en base64 (OBLIGATORIA)
+#   node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+MESSAGE_ENC_KEY=clave_de_32_bytes_en_base64
+
+# Primer administrador (se crea solo en el primer arranque)
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=mi_password_de_admin
+
 # URL pública: poner la IP o dominio del servidor
 CORS_ORIGIN=http://192.168.1.100
 MINIO_PUBLIC_ENDPOINT=192.168.1.100
@@ -376,9 +384,15 @@ MINIO_PUBLIC_ENDPOINT=192.168.1.100
 docker compose up -d
 ```
 
-La app estará en **http://192.168.1.100** (o la IP/dominio configurado).
+La app estará en **http://192.168.1.100** (o la IP/dominio configurado). Inicie
+sesión con el usuario `ADMIN_USERNAME` / `ADMIN_PASSWORD` y cambie la contraseña.
 
-> **Nota:** El esquema SQL se aplica automáticamente en el primer inicio desde `backend/docs/messaging_intranet_schema.sql`. Los buckets de MinIO se crean automáticamente al iniciar el backend.
+> **Nota:** Al arrancar, el backend prepara la base de datos automáticamente:
+> aplica el esquema, corre las migraciones pendientes (registradas en la tabla
+> `schema_migrations`, así que es seguro reiniciar) y crea el primer `super_admin`
+> a partir de `ADMIN_USERNAME`/`ADMIN_PASSWORD` si todavía no existe ninguno. Los
+> buckets de MinIO también se crean solos. No hay que ejecutar ningún `psql` ni
+> seed a mano.
 
 ### Modo 2: La empresa ya tiene PostgreSQL y/o MinIO
 
@@ -403,10 +417,11 @@ MINIO_SECRET_KEY=secret_key_existente
 MINIO_PUBLIC_ENDPOINT=10.0.1.51
 ```
 
-> **Importante:** Si usa PostgreSQL externo, debe ejecutar el esquema SQL manualmente:
-> ```bash
-> psql -h 10.0.1.50 -U echochat -d echochat -f backend/docs/messaging_intranet_schema.sql
-> ```
+> **Nota:** Con PostgreSQL externo **no** hace falta ejecutar nada a mano: el
+> backend detecta que la BD está vacía, aplica el esquema y las migraciones al
+> arrancar, y crea el primer administrador. (Si prefiere prepararla antes de
+> levantar la app, puede correr `npm run migrate` desde `backend/` apuntando al
+> mismo `.env`.)
 
 ### Modo 3: Mixto (ej: BD externa, MinIO local)
 
@@ -511,11 +526,16 @@ cd EchoChat
 
 ### 2. Configurar la base de datos
 
-Ejecutar el script SQL para crear el esquema completo:
+Solo hay que crear la base **vacía**; el esquema, las migraciones y el primer
+administrador se aplican solos cuando arranca el backend (paso 6):
 
 ```bash
-psql -U tu_usuario -d echochat -f backend/docs/messaging_intranet_schema.sql
+createdb -U tu_usuario echochat
 ```
+
+> Si preferís prepararla sin arrancar la app, corré `npm run migrate` desde
+> `backend/` (usa el mismo `.env`). El backend lleva el control en la tabla
+> `schema_migrations`, así que es seguro re-ejecutarlo.
 
 ### 3. Configurar MinIO
 
@@ -1050,7 +1070,9 @@ EchoChat/
 │   ├── 📄 Dockerfile              # Imagen Docker del backend
 │   ├── 📄 .dockerignore
 │   ├── 📁 docs/
-│   │   └── 📄 messaging_intranet_schema.sql
+│   │   ├── 📄 messaging_intranet_schema.sql  # DDL (esquema base)
+│   │   ├── 📄 seed.sql                        # Datos de referencia (idempotente)
+│   │   └── 📁 migrations/                     # Cambios de esquema incrementales
 │   ├── 📁 src/
 │   │   ├── 📄 app.js              # Configuración de Express
 │   │   ├── 📄 server.js           # Punto de entrada del servidor

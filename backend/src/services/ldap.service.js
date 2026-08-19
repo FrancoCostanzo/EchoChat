@@ -35,9 +35,15 @@ class LdapService {
   }
 
   status() {
+    const enabled = this.isEnabled();
     return {
-      enabled: this.isEnabled(),
-      base_dn: this.isEnabled() ? config.ldap.baseDn : null,
+      enabled,
+      base_dn: enabled ? config.ldap.baseDn : null,
+      url: enabled ? config.ldap.url : null,
+      sync_enabled: config.ldap.syncEnabled,
+      sync_cron: config.ldap.syncCron,
+      deprovision: config.ldap.deprovision,
+      sync_roles: config.ldap.syncRoles,
     };
   }
 
@@ -70,8 +76,36 @@ class LdapService {
       email: firstValue(entry[attr.email]) || null,
       department: firstValue(entry[attr.department]) || null,
       job_title: firstValue(entry[attr.jobTitle]) || null,
+      groups: this._asArray(entry[attr.memberOf]),
+      is_disabled: this._isAccountDisabled(entry[attr.accountControl]),
       dn: entry.dn,
     };
+  }
+
+  _asArray(value) {
+    if (value == null) return [];
+    return Array.isArray(value) ? value : [value];
+  }
+
+  // AD codifica el estado de la cuenta en userAccountControl; el bit ACCOUNTDISABLE
+  // (0x2) indica cuenta deshabilitada. Otros directorios no lo traen → false.
+  _isAccountDisabled(value) {
+    const raw = firstValue(value);
+    if (raw == null) return false;
+    const uac = parseInt(raw, 10);
+    return Number.isFinite(uac) && (uac & 0x2) === 0x2;
+  }
+
+  // Traduce los grupos (memberOf) del usuario a nombres de rol de EchoChat según
+  // config.ldap.groupRoleMap. Devuelve roles únicos; vacío si no hay mapeo aplicable.
+  mapGroupsToRoles(groups) {
+    const map = config.ldap.groupRoleMap || {};
+    const roles = new Set();
+    for (const dn of this._asArray(groups)) {
+      const role = map[String(dn).trim().toLowerCase()];
+      if (role) roles.add(role);
+    }
+    return [...roles];
   }
 
   _attributeList() {

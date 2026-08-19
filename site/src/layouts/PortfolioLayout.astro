@@ -79,39 +79,61 @@ const ogImage = new URL(`${base}/icon-512.png`, Astro.site ?? 'https://echochat.
 		</script>
 	</head>
 	<body>
-		<header class="site-header">
+		<div class="scroll-progress" id="scroll-progress" aria-hidden="true"></div>
+		<header class="site-header" id="site-header">
 			<div class="inner">
 				<a href={homeHref} class="brand">
 					<BrandMark />
-					EchoChat
+					<span class="brand-name">EchoChat</span>
 					<span class="brand-ver">v1.0 α</span>
 				</a>
-				<nav class="nav">
-					<a href={homeHref}>{t.nav.home}</a>
-					<a href={featuresHref}>{t.nav.features}</a>
-					<a href={docsHref}>{t.nav.docs}</a>
-					<a href={faqHref}>{t.nav.faq}</a>
-					<a class="nav-github" href={REPO_URL} target="_blank" rel="noopener">
+				<nav class="nav" id="site-nav" data-open="false">
+					<div class="nav-links">
+						<a href={homeHref}>{t.nav.home}</a>
+						<a href={featuresHref}>{t.nav.features}</a>
+						{/* viewport: precarga docs apenas se ve el link, así la view
+						    transition ya tiene el documento listo en el primer click */}
+						<a href={docsHref} data-astro-prefetch="viewport">{t.nav.docs}</a>
+						<a href={faqHref} data-astro-prefetch="viewport">{t.nav.faq}</a>
+					</div>
+					<a class="nav-github" href={REPO_URL} target="_blank" rel="noopener" aria-label={t.nav.github}>
 						<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
 							<path
 								d="M12 .5C5.73.5.77 5.46.77 11.73c0 4.93 3.2 9.11 7.63 10.58.56.1.77-.24.77-.54v-1.9c-3.1.67-3.76-1.5-3.76-1.5-.5-1.3-1.24-1.64-1.24-1.64-1-.7.08-.68.08-.68 1.12.08 1.7 1.15 1.7 1.15 1 1.7 2.6 1.2 3.24.92.1-.72.39-1.2.7-1.47-2.47-.28-5.07-1.23-5.07-5.5 0-1.22.43-2.2 1.14-2.98-.11-.28-.5-1.4.11-2.9 0 0 .94-.3 3.07 1.13a10.6 10.6 0 0 1 5.6 0c2.12-1.43 3.06-1.13 3.06-1.13.61 1.5.22 2.62.11 2.9.71.78 1.13 1.76 1.13 2.98 0 4.28-2.6 5.21-5.08 5.49.4.34.76 1.02.76 2.06v3.05c0 .3.2.65.78.54a11.24 11.24 0 0 0 7.62-10.58C23.23 5.46 18.27.5 12 .5z"
 							/>
 						</svg>
-						{t.nav.github}
+						<span class="nav-github-label">{t.nav.github}</span>
 					</a>
-					<div class="lang-switch" role="navigation" aria-label={t.nav.langLabel}>
-						{
-							LANGS.map((code) => (
-								<a
-									href={`${base}${pagePaths[page][code]}`}
-									class:list={['lang-pill', { 'is-active': code === lang }]}
-									aria-current={code === lang ? 'page' : undefined}
-									hreflang={code}
-								>
-									{LANG_LABELS[code]}
-								</a>
-							))
-						}
+					<div class="lang-switch" data-open="false">
+						<button
+							type="button"
+							class="lang-trigger"
+							id="lang-trigger"
+							aria-expanded="false"
+							aria-haspopup="listbox"
+							aria-controls="lang-menu"
+							aria-label={t.nav.langLabel}
+						>
+							<span class="lang-current">{LANG_LABELS[lang]}</span>
+							<svg class="lang-caret" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+								<path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+							</svg>
+						</button>
+						<div class="lang-menu" id="lang-menu" role="listbox" aria-label={t.nav.langLabel} hidden>
+							{
+								LANGS.map((code) => (
+									<a
+										href={`${base}${pagePaths[page][code]}`}
+										class:list={['lang-option', { 'is-active': code === lang }]}
+										role="option"
+										aria-selected={code === lang ? 'true' : 'false'}
+										hreflang={code}
+									>
+										{LANG_LABELS[code]}
+									</a>
+								))
+							}
+						</div>
 					</div>
 					<button class="theme-toggle" id="theme-toggle" aria-label={t.theme.toggle}>
 						<svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -122,13 +144,39 @@ const ogImage = new URL(`${base}/icon-512.png`, Astro.site ?? 'https://echochat.
 							<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
 						</svg>
 					</button>
+					<button
+						class="nav-menu-toggle"
+						id="nav-menu-toggle"
+						type="button"
+						aria-expanded="false"
+						aria-controls="site-nav-panel"
+						aria-label={t.nav.menuOpen}
+						data-label-open={t.nav.menuOpen}
+						data-label-close={t.nav.menuClose}
+					>
+						<span class="nav-menu-bars" aria-hidden="true"></span>
+					</button>
 				</nav>
 			</div>
+			<div class="nav-panel" id="site-nav-panel" hidden>
+				<a href={homeHref} style="--nav-i: 0">{t.nav.home}</a>
+				<a href={featuresHref} style="--nav-i: 1">{t.nav.features}</a>
+				<a href={docsHref} style="--nav-i: 2" data-astro-prefetch="viewport">{t.nav.docs}</a>
+				<a href={faqHref} style="--nav-i: 3" data-astro-prefetch="viewport">{t.nav.faq}</a>
+				<a href={REPO_URL} target="_blank" rel="noopener" style="--nav-i: 4">{t.nav.github}</a>
+			</div>
+			<div class="nav-scrim" id="nav-scrim" hidden></div>
 		</header>
 
 		<main>
 			<slot />
 		</main>
+
+		<button class="to-top" id="to-top" type="button" aria-label={t.nav.backToTop}>
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+				<path d="M12 19V5M5 12l7-7 7 7" />
+			</svg>
+		</button>
 
 		<footer class="site-footer">
 			<div class="container inner">
@@ -171,6 +219,7 @@ const ogImage = new URL(`${base}/icon-512.png`, Astro.site ?? 'https://echochat.
 				document.documentElement.classList.add('theme-vt');
 				const vt = document.startViewTransition(apply);
 				vt.ready.then(() => {
+					const toDark = next === 'dark';
 					document.documentElement.animate(
 						{
 							clipPath: [
@@ -179,8 +228,11 @@ const ogImage = new URL(`${base}/icon-512.png`, Astro.site ?? 'https://echochat.
 							],
 						},
 						{
-							duration: 480,
-							easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+							// Oscuro: revelado más lento y vistoso; claro: un poco más ágil
+							duration: toDark ? 900 : 620,
+							easing: toDark
+								? 'cubic-bezier(0.22, 1, 0.36, 1)'
+								: 'cubic-bezier(0.33, 1, 0.68, 1)',
 							pseudoElement: '::view-transition-new(root)',
 						}
 					);
@@ -215,6 +267,86 @@ const ogImage = new URL(`${base}/icon-512.png`, Astro.site ?? 'https://echochat.
 					card.style.setProperty('--mx', `${((ev.clientX - r.left) / r.width) * 100}%`);
 					card.style.setProperty('--my', `${((ev.clientY - r.top) / r.height) * 100}%`);
 				});
+			});
+
+			// Menú móvil del header
+			const menuBtn = document.getElementById('nav-menu-toggle');
+			const menuPanel = document.getElementById('site-nav-panel');
+			const menuScrim = document.getElementById('nav-scrim');
+			const setMenu = (open) => {
+				if (!menuBtn || !menuPanel) return;
+				menuBtn.setAttribute('aria-expanded', String(open));
+				menuBtn.setAttribute(
+					'aria-label',
+					open ? menuBtn.dataset.labelClose : menuBtn.dataset.labelOpen,
+				);
+				menuBtn.classList.toggle('is-open', open);
+				menuPanel.hidden = !open;
+				if (menuScrim) menuScrim.hidden = !open;
+				document.body.classList.toggle('nav-open', open);
+			};
+			menuBtn?.addEventListener('click', () => {
+				setMenu(menuBtn.getAttribute('aria-expanded') !== 'true');
+			});
+			menuScrim?.addEventListener('click', () => setMenu(false));
+			menuPanel?.querySelectorAll('a').forEach((link) => {
+				link.addEventListener('click', () => setMenu(false));
+			});
+			matchMedia('(min-width: 861px)').addEventListener('change', (ev) => {
+				if (ev.matches) setMenu(false);
+			});
+
+			// Scroll: barra de progreso + header compacto + botón "volver arriba".
+			// Un solo handler con rAF para no recalcular en cada evento.
+			const progress = document.getElementById('scroll-progress');
+			const header = document.getElementById('site-header');
+			const toTop = document.getElementById('to-top');
+			let scrollTick = false;
+			const onScroll = () => {
+				const y = scrollY;
+				const max = document.documentElement.scrollHeight - innerHeight;
+				if (progress) progress.style.setProperty('--progress', max > 0 ? String(y / max) : '0');
+				header?.classList.toggle('is-scrolled', y > 24);
+				toTop?.classList.toggle('is-visible', y > innerHeight * 0.9);
+				scrollTick = false;
+			};
+			addEventListener(
+				'scroll',
+				() => {
+					if (!scrollTick) {
+						scrollTick = true;
+						requestAnimationFrame(onScroll);
+					}
+				},
+				{ passive: true }
+			);
+			onScroll();
+			toTop?.addEventListener('click', () => {
+				scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' });
+			});
+
+			// Selector de idioma (dropdown)
+			const langSwitch = document.querySelector('.lang-switch');
+			const langTrigger = document.getElementById('lang-trigger');
+			const langMenu = document.getElementById('lang-menu');
+			const setLangOpen = (open) => {
+				if (!langSwitch || !langTrigger || !langMenu) return;
+				langSwitch.dataset.open = String(open);
+				langTrigger.setAttribute('aria-expanded', String(open));
+				langMenu.hidden = !open;
+			};
+			langTrigger?.addEventListener('click', (ev) => {
+				ev.stopPropagation();
+				setLangOpen(langTrigger.getAttribute('aria-expanded') !== 'true');
+			});
+			document.addEventListener('click', (ev) => {
+				if (langSwitch && !langSwitch.contains(ev.target)) setLangOpen(false);
+			});
+			document.addEventListener('keydown', (ev) => {
+				if (ev.key === 'Escape') {
+					setMenu(false);
+					setLangOpen(false);
+				}
 			});
 		</script>
 	</body>

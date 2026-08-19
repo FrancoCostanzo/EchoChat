@@ -25,7 +25,8 @@ class RelationshipRepository extends BaseRepository {
   }
 
   async findByUser(userId, type = null) {
-    let sql = `SELECT ur.*, u.username, u.display_name, u.avatar_object_key, u.presence
+    let sql = `SELECT ur.*, u.username, u.display_name, u.department,
+                      u.avatar_bucket, u.avatar_object_key, u.presence
                FROM user_relationships ur
                JOIN users u ON u.id = ur.target_user_id
                WHERE ur.user_id = $1`;

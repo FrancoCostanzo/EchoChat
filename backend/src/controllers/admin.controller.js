@@ -34,6 +34,37 @@ class AdminController {
     res.json({ status: 'success', data: user });
   }
 
+  async uploadUserAvatar(req, res) {
+    const user = await adminService.uploadUserAvatar(
+      req.user.id,
+      req.params.userId,
+      req.file,
+      req.ip,
+      req.get('user-agent'),
+    );
+    res.json({ status: 'success', data: user });
+  }
+
+  async removeUserAvatar(req, res) {
+    const user = await adminService.removeUserAvatar(
+      req.user.id,
+      req.params.userId,
+      req.ip,
+      req.get('user-agent'),
+    );
+    res.json({ status: 'success', data: user });
+  }
+
+  async disableUser2fa(req, res) {
+    const user = await adminService.disableUser2fa(
+      req.user.id,
+      req.params.userId,
+      req.ip,
+      req.get('user-agent'),
+    );
+    res.json({ status: 'success', data: user });
+  }
+
   async deleteUser(req, res) {
     const user = await adminService.deleteUser(
       req.user.id,
@@ -62,6 +93,10 @@ class AdminController {
 
   async getLdapStatus(req, res) {
     res.json({ status: 'success', data: adminService.getLdapStatus() });
+  }
+
+  async getIntegrations(req, res) {
+    res.json({ status: 'success', data: adminService.getIntegrations() });
   }
 
   async syncLdap(req, res) {

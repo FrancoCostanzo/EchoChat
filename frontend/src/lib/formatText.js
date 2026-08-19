@@ -30,3 +30,18 @@ export function applyWrap(textarea, prefix, suffix, onChange, placeholder) {
     textarea.setSelectionRange(selectionStart, selectionEnd);
   });
 }
+
+/**
+ * Code formatting is context-sensitive: a single backtick can't hold a
+ * newline (it renders as literal text, not code), so a multi-line selection
+ * is wrapped as a fenced block instead of silently producing broken markdown.
+ */
+export function applyCodeWrap(textarea, onChange, placeholder) {
+  const start = textarea.selectionStart ?? 0;
+  const end = textarea.selectionEnd ?? 0;
+  const selected = (textarea.value ?? '').slice(start, end);
+  const isMultiline = selected.includes('\n');
+  const prefix = isMultiline ? '```\n' : '`';
+  const suffix = isMultiline ? '\n```' : '`';
+  applyWrap(textarea, prefix, suffix, onChange, placeholder);
+}

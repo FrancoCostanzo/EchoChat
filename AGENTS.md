@@ -28,6 +28,17 @@ Plataforma de mensajería empresarial en tiempo real: Node.js + Express + Socket
 | Test | ✅ | Agregar o corregir tests | `Test ✅: tests para notificaciones` |
 | Dependencies | 📦 | Actualización de dependencias | `Dependencies 📦: actualizar mssql a v12` |
 
+**Esta convención es obligatoria, también para agentes de IA (Claude Code, Cursor).**
+El formato es `Tipo <emoji>: descripción en español`, empezando con mayúscula el tipo y
+en minúscula la descripción, que explica el **por qué**.
+
+```text
+❌ Add mini-games to direct chats
+❌ Automatizar instalación: schema + migraciones
+✅ Feat 🆕: minijuegos en chats directos (ta-te-ti, piedra-papel-tijera, ahorcado)
+✅ Refactor ♻️: separar seed del schema para converger datos de referencia
+```
+
 Ramas desde `develop`: `feat/`, `fix/`, `refactor/`, etc. en kebab-case. No commitear directo a `main`.
 
 ## Comandos de desarrollo
@@ -39,9 +50,26 @@ cd backend && npm install && npm run dev
 # Frontend (puerto 5173, proxy a /api y /socket.io)
 cd frontend && npm install && npm run dev
 
-# Esquema de BD (solo si falta)
-psql -U echochat -d echochat -f backend/docs/messaging_intranet_schema.sql
+# Esquema + migraciones + primer admin (automático al arrancar el backend;
+# o manual sin levantar la app):
+cd backend && npm run migrate
 ```
+
+Modelo de base de datos (ver `src/config/migrate.js`), en este orden al arrancar:
+
+1. **`docs/messaging_intranet_schema.sql`** — solo DDL. Se aplica una vez (se
+   registra como `000_base_schema` en `schema_migrations`).
+2. **`docs/migrations/NNN_*.sql`** — cambios estructurales incrementales. Cada
+   uno se aplica una vez y queda registrado. Deben ser idempotentes.
+3. **`docs/seed.sql`** — datos de referencia (roles, permisos, settings). Todo
+   `ON CONFLICT DO NOTHING`; corre en **cada** arranque para converger: agregar
+   un permiso/setting acá basta para que llegue a instancias existentes.
+4. **Primer admin** — crea el `super_admin` desde `ADMIN_USERNAME`/`ADMIN_PASSWORD`
+   si no existe ninguno.
+
+> Las migraciones arrancan en `003`: `001`/`002` sembraban RBAC y quedaron
+> subsumidas por `seed.sql`. Para un cambio de esquema nuevo, agregá el
+> siguiente número correlativo; para datos de referencia, editá `seed.sql`.
 
 Variables de entorno: `backend/.env` en desarrollo; `.env` en la raíz para Docker. Ver `README.md`.
 

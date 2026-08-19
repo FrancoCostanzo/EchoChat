@@ -17,10 +17,12 @@ datos entre versiones alpha (ver [Actualización](/docs/despliegue/actualizacion
 
 Listas y en uso en producción interna:
 
-- Mensajería completa: edición, reacciones, hilos, reenvío, fijados, guardados,
-  borradores, búsqueda, recibos y formato markdown/bloques de código.
+- Mensajería completa: edición/eliminación con ventana de tiempo (15 min por defecto),
+  soft delete, reacciones, hilos, reenvío, fijados, guardados, borradores, búsqueda,
+  recibos y formato markdown/bloques de código.
 - Canales con descubrimiento, solicitudes de ingreso y moderación.
-- Difusiones con destinatarios, envío programado y tracking de entrega.
+- Difusiones con destinatarios, envío programado, tracking real de
+  enviado/recibido/leído y sello “Difusión” en el chat del destinatario.
 - Encuestas con votación en tiempo real.
 - RBAC aplicado por endpoint, audit log e infraestructura de jobs en background.
 - Panel de administración: usuarios (con import LDAP), settings, auditoría, storage.
@@ -32,8 +34,6 @@ Listas y en uso en producción interna:
 - **Notificaciones push y email**: la UI de preferencias por evento ya existe, pero el
   envío real de Web Push (VAPID) y email (SMTP) todavía no está implementado — los
   toggles se guardan sin efecto de envío.
-- **Difusiones**: falta sincronizar el contador `total_read` con los recibos de lectura
-  reales.
 - **Formato enriquecido**: markdown, barra de formato y bloques de código ya están
   implementados; faltan @menciones, previews de enlaces y mensajes de ubicación/contacto.
 

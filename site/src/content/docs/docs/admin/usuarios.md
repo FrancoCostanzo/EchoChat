@@ -14,7 +14,8 @@ estado (`active`, `inactive`, `suspended`) y por departamento.
 
 Un admin puede crear usuarios locales manualmente asignándoles usuario, contraseña
 inicial, perfil (nombre, departamento, cargo, extensión) y roles. Alternativa: importar
-usuarios desde LDAP (ver más abajo) si tu organización usa un directorio corporativo.
+usuarios desde un directorio o SSO si tu organización usa identidad corporativa
+(ver [Integraciones](/docs/admin/integraciones)).
 
 ## Editar perfil y estado
 
@@ -44,12 +45,15 @@ conversaciones donde participó.
 El sistema impide eliminar o degradar al **último usuario `super_admin`** restante, para
 evitar que la instancia quede sin ningún administrador con acceso total.
 
-## Import LDAP
+## Origen de la cuenta
 
-Si `LDAP_ENABLED=true`, el panel muestra el estado de la conexión LDAP y un botón para
-**importar usuarios** del directorio. Los usuarios importados quedan con
-`auth_provider='ldap'` y su contraseña se valida contra el directorio (bind) en cada
-login; los usuarios creados a mano siguen usando su contraseña local.
+Cada usuario muestra un chip de **origen** según su `auth_provider`: `local` (contraseña
+propia), `ldap` (directorio), `oidc` (SSO), `saml` o `scim`. Los usuarios externos validan
+su identidad contra el proveedor correspondiente y no tienen contraseña local (por eso no
+ofrecen la acción de resetear contraseña).
+
+La importación desde LDAP y la configuración de SSO viven ahora en su propia sección:
+ver [Integraciones](/docs/admin/integraciones).
 
 ## Auditoría de cambios
 

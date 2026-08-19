@@ -16,6 +16,9 @@ export const authApi = {
   disable2fa: (password, code) => api.post('/auth/2fa/disable', { password, code }),
   verify2faChallenge: (data) => api.post('/auth/2fa/challenge', data),
   regenerateBackupCodes: (code) => api.post('/auth/2fa/backup-codes/regenerate', { code }),
+  // SSO: la lista es un fetch normal; el login es una navegación top-level del navegador.
+  ssoProviders: () => api.get('/auth/sso/providers'),
+  ssoLoginUrl: (provider) => `/api/auth/sso/${provider}/login`,
 };
 
 export const usersApi = {
@@ -84,6 +87,11 @@ export const pollsApi = {
   close: (pollId) => api.post(`/polls/${pollId}/close`),
 };
 
+export const gamesApi = {
+  create: (data) => api.post('/games', data),
+  move: (gameId, data) => api.post(`/games/${gameId}/move`, data),
+};
+
 export const callsApi = {
   create: (data) => api.post('/calls', data),
   getById: (id) => api.get(`/calls/${id}`),
@@ -100,9 +108,19 @@ export const storageApi = {
   getById: (id) => api.get(`/storage/${id}`),
   getUrl: (id) => api.get(`/storage/${id}/url`),
   delete: (id) => api.delete(`/storage/${id}`),
-  // Custom stickers (personal collection, derived from uploaded sticker objects)
-  listStickers: () => api.get('/storage/stickers'),
-  deleteSticker: (id) => api.delete(`/storage/stickers/${id}`),
+};
+
+// Personal sticker collection: packs, keywords, favorites, recents.
+export const stickerApi = {
+  list: (search) => api.get('/stickers', search ? { search } : undefined),
+  upload: (file, extra = {}) => api.upload('/stickers/upload', file, extra),
+  save: (objectId) => api.post('/stickers/save', { object_id: objectId }),
+  update: (id, data) => api.patch(`/stickers/${id}`, data),
+  remove: (id) => api.delete(`/stickers/${id}`),
+  use: (id) => api.post(`/stickers/${id}/use`),
+  createPack: (name) => api.post('/stickers/packs', { name }),
+  renamePack: (id, name) => api.patch(`/stickers/packs/${id}`, { name }),
+  deletePack: (id) => api.delete(`/stickers/packs/${id}`),
 };
 
 export const broadcastsApi = {
@@ -110,6 +128,7 @@ export const broadcastsApi = {
   list: () => api.get('/broadcasts'),
   getById: (id) => api.get(`/broadcasts/${id}`),
   getMessages: (listId) => api.get(`/broadcasts/${listId}/messages`),
+  getDeliveries: (listId, messageId) => api.get(`/broadcasts/${listId}/messages/${messageId}/deliveries`),
   addRecipients: (listId, data) => api.post(`/broadcasts/${listId}/recipients`, data),
   removeRecipient: (listId, userId) => api.delete(`/broadcasts/${listId}/recipients/${userId}`),
   sendMessage: (listId, data) => api.post(`/broadcasts/${listId}/messages`, data),
@@ -128,11 +147,15 @@ export const adminApi = {
   listUsers: (params) => api.get('/admin/users', params),
   createUser: (data) => api.post('/admin/users', data),
   updateUser: (userId, data) => api.patch(`/admin/users/${userId}`, data),
+  uploadUserAvatar: (userId, file) => api.upload(`/admin/users/${userId}/avatar`, file),
+  removeUserAvatar: (userId) => api.delete(`/admin/users/${userId}/avatar`),
+  disableUser2fa: (userId) => api.delete(`/admin/users/${userId}/2fa`),
   resetUserPassword: (userId, password) => api.patch(`/admin/users/${userId}/password`, { password }),
   deleteUser: (userId) => api.delete(`/admin/users/${userId}`),
   listRoles: () => api.get('/admin/roles'),
   getLdapStatus: () => api.get('/admin/ldap/status'),
   syncLdap: () => api.post('/admin/ldap/sync'),
+  getIntegrations: () => api.get('/admin/integrations'),
   getSettings: () => api.get('/admin/settings'),
   updateSetting: (key, value) => api.put(`/admin/settings/${key}`, { value }),
   getAuditLog: (params) => api.get('/admin/audit', params),

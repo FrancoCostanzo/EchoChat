@@ -9,7 +9,7 @@ import UserAvatar from '@/components/UserAvatar';
 import SendButton from '@/components/SendButton';
 import MessageBody from '@/components/MessageBody';
 import CodeMessage from '@/components/CodeMessage';
-import FormatToolbar, { handleFormatShortcut } from '@/components/FormatToolbar';
+import { handleFormatShortcut } from '@/components/FormatToolbar';
 import DynamicMessageInput from '@/components/DynamicMessageInput';
 import { detectBodyFormat } from '@/lib/markdown';
 import { formatMessageTime } from '@/lib/dates';
@@ -190,33 +190,26 @@ export default function ThreadPanel({ root, conversationId, onClose }) {
 
       {/* Composer */}
       <div className="border-t border-black/20 p-3">
-        <div className="echo-glass flex min-w-0 flex-col overflow-hidden rounded-xl px-1 transition-shadow focus-within:ring-2 focus-within:ring-accent/55">
-          <FormatToolbar
-            inputRef={inputRef}
-            onChange={setInput}
+        <div className="echo-glass flex min-w-0 items-center gap-1 overflow-hidden rounded-xl px-1 pb-1 pt-1 transition-shadow focus-within:ring-2 focus-within:ring-accent/55 sm:gap-2">
+          <DynamicMessageInput
+            ref={inputRef}
+            size="sm"
+            placeholder={t('chat.threadReplyPlaceholder')}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (handleFormatShortcut(e, inputRef, setInput, t)) return;
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+              if (e.key === 'Escape') onClose();
+            }}
             disabled={sending}
           />
-          <div className="flex min-w-0 items-end gap-1 px-1 pb-1 sm:gap-2">
-            <DynamicMessageInput
-              ref={inputRef}
-              size="sm"
-              placeholder={t('chat.threadReplyPlaceholder')}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (handleFormatShortcut(e, inputRef, setInput, t)) return;
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
-                if (e.key === 'Escape') onClose();
-              }}
-              disabled={sending}
-            />
-            <SendButton
-              onPress={handleSend}
-              isDisabled={!input.trim() || sending}
-              label={t('chat.send')}
-              className="shrink-0"
-            />
-          </div>
+          <SendButton
+            onPress={handleSend}
+            isDisabled={!input.trim() || sending}
+            label={t('chat.send')}
+            className="shrink-0"
+          />
         </div>
       </div>
     </motion.aside>

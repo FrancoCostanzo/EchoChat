@@ -22,6 +22,15 @@ class BroadcastController {
     res.json({ status: 'success', data: messages });
   }
 
+  async getDeliveries(req, res) {
+    const deliveries = await broadcastService.getDeliveries(
+      req.params.listId,
+      req.params.messageId,
+      req.user.id,
+    );
+    res.json({ status: 'success', data: deliveries });
+  }
+
   async sendMessage(req, res) {
     const message = await broadcastService.sendMessage(req.params.listId, req.user.id, req.body);
     res.status(StatusCodes.CREATED).json({ status: 'success', data: message });

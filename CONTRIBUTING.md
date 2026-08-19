@@ -18,14 +18,14 @@ Prerrequisitos: Node.js ≥ 18, PostgreSQL ≥ 15, MinIO (o compatible S3).
 git clone https://github.com/FrancoCostanzo/EchoChat.git
 cd EchoChat
 
-# Esquema de base de datos
-psql -U tu_usuario -d echochat -f backend/docs/messaging_intranet_schema.sql
+# Crear la base vacía (el esquema y las migraciones se aplican solos al arrancar)
+createdb -U tu_usuario echochat
 
 # Backend
 cd backend
-cp .env.example .env    # completar DB_*, JWT_SECRET, MinIO, CORS
+cp .env.example .env    # completar DB_*, JWT_SECRET, MESSAGE_ENC_KEY, ADMIN_*, MinIO, CORS
 npm install
-npm run dev             # http://localhost:3000
+npm run dev             # http://localhost:3000 — aplica schema + migraciones + primer admin
 
 # Frontend (en otra terminal)
 cd frontend

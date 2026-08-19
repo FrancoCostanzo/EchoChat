@@ -1,0 +1,317 @@
+---
+const label = Astro.locals.t('themeSelect.accessibleLabel');
+const options = [
+	{ value: 'dark', label: Astro.locals.t('themeSelect.dark') },
+	{ value: 'light', label: Astro.locals.t('themeSelect.light') },
+	{ value: 'auto', label: Astro.locals.t('themeSelect.auto') },
+] as const;
+---
+
+<starlight-theme-select class="echo-select" data-open="false">
+	<button
+		type="button"
+		class="echo-select__trigger"
+		aria-expanded="false"
+		aria-haspopup="listbox"
+		aria-label={label}
+	>
+		<span class="echo-select__icon" data-icon aria-hidden="true">
+			<svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+			</svg>
+			<svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<circle cx="12" cy="12" r="4"></circle>
+				<path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+			</svg>
+			<svg class="icon-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<rect x="2" y="3" width="20" height="14" rx="2"></rect>
+				<path d="M8 21h8M12 17v4"></path>
+			</svg>
+		</span>
+		<span class="echo-select__value" data-label></span>
+		<svg class="echo-select__caret" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+			<path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+		</svg>
+	</button>
+	<div class="echo-select__menu" role="listbox" aria-label={label} hidden>
+		{
+			options.map((opt) => (
+				<button type="button" class="echo-select__option" role="option" data-value={opt.value} aria-selected="false">
+					{opt.label}
+				</button>
+			))
+		}
+	</div>
+</starlight-theme-select>
+
+<script is:inline>
+	StarlightThemeProvider.updatePickers();
+</script>
+
+<script>
+	type Theme = 'auto' | 'dark' | 'light';
+
+	declare const StarlightThemeProvider: {
+		updatePickers: (theme?: string) => void;
+	};
+
+	const storageKey = 'starlight-theme';
+
+	const parseTheme = (theme: unknown): Theme =>
+		theme === 'auto' || theme === 'dark' || theme === 'light' ? theme : 'auto';
+
+	const loadTheme = (): Theme =>
+		parseTheme(typeof localStorage !== 'undefined' && localStorage.getItem(storageKey));
+
+	function storeTheme(theme: Theme): void {
+		if (typeof localStorage !== 'undefined') {
+			localStorage.setItem(storageKey, theme === 'light' || theme === 'dark' ? theme : '');
+		}
+	}
+
+	const getPreferredColorScheme = (): Theme =>
+		matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+
+	function resolvedTheme(theme: Theme): 'light' | 'dark' {
+		return theme === 'auto' ? getPreferredColorScheme() : theme;
+	}
+
+	function syncPickerUI(picker: HTMLElement, theme: Theme): void {
+		const label = picker.querySelector<HTMLElement>('[data-label]');
+		const options = picker.querySelectorAll<HTMLButtonElement>('.echo-select__option');
+		picker.dataset.theme = theme;
+		for (const opt of options) {
+			const active = opt.dataset.value === theme;
+			opt.setAttribute('aria-selected', String(active));
+			opt.classList.toggle('is-active', active);
+			if (active && label) label.textContent = opt.textContent?.trim() ?? '';
+		}
+	}
+
+	function applyTheme(theme: Theme, origin?: HTMLElement): void {
+		const nextResolved = resolvedTheme(theme);
+		const prevResolved = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+		const commit = () => {
+			document.documentElement.dataset.theme = nextResolved;
+			storeTheme(theme);
+			document.querySelectorAll<HTMLElement>('starlight-theme-select').forEach((picker) => {
+				syncPickerUI(picker, theme);
+			});
+			StarlightThemeProvider.updatePickers(theme);
+		};
+
+		const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+		const sameVisual = nextResolved === prevResolved;
+		if (!document.startViewTransition || reducedMotion || sameVisual || !origin) {
+			commit();
+			return;
+		}
+
+		const rect = origin.getBoundingClientRect();
+		const cx = rect.left + rect.width / 2;
+		const cy = rect.top + rect.height / 2;
+		const radius = Math.hypot(Math.max(cx, innerWidth - cx), Math.max(cy, innerHeight - cy));
+		document.documentElement.classList.add('theme-vt');
+		const vt = document.startViewTransition(commit);
+		vt.ready.then(() => {
+			const toDark = nextResolved === 'dark';
+			document.documentElement.animate(
+				{
+					clipPath: [
+						`circle(0px at ${cx}px ${cy}px)`,
+						`circle(${radius}px at ${cx}px ${cy}px)`,
+					],
+				},
+				{
+					duration: toDark ? 900 : 620,
+					easing: toDark
+						? 'cubic-bezier(0.22, 1, 0.36, 1)'
+						: 'cubic-bezier(0.33, 1, 0.68, 1)',
+					pseudoElement: '::view-transition-new(root)',
+				},
+			);
+		});
+		vt.finished.finally(() => document.documentElement.classList.remove('theme-vt'));
+	}
+
+	matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+		if (loadTheme() === 'auto') applyTheme('auto');
+	});
+
+	class StarlightThemeSelect extends HTMLElement {
+		#trigger: HTMLButtonElement | null = null;
+		#menu: HTMLElement | null = null;
+
+		connectedCallback() {
+			this.#trigger = this.querySelector('.echo-select__trigger');
+			this.#menu = this.querySelector('.echo-select__menu');
+			syncPickerUI(this, loadTheme());
+
+			this.#trigger?.addEventListener('click', (ev) => {
+				ev.stopPropagation();
+				this.#setOpen(this.getAttribute('data-open') !== 'true');
+			});
+
+			this.querySelectorAll<HTMLButtonElement>('.echo-select__option').forEach((btn) => {
+				btn.addEventListener('click', () => {
+					const theme = parseTheme(btn.dataset.value);
+					this.#setOpen(false);
+					applyTheme(theme, this.#trigger ?? undefined);
+				});
+			});
+
+			document.addEventListener('click', this.#onDocClick);
+			document.addEventListener('keydown', this.#onKeyDown);
+		}
+
+		disconnectedCallback() {
+			document.removeEventListener('click', this.#onDocClick);
+			document.removeEventListener('keydown', this.#onKeyDown);
+		}
+
+		#onDocClick = (ev: MouseEvent) => {
+			if (!this.contains(ev.target as Node)) this.#setOpen(false);
+		};
+
+		#onKeyDown = (ev: KeyboardEvent) => {
+			if (ev.key === 'Escape') this.#setOpen(false);
+		};
+
+		#setOpen(open: boolean) {
+			this.dataset.open = String(open);
+			this.#trigger?.setAttribute('aria-expanded', String(open));
+			if (this.#menu) this.#menu.hidden = !open;
+		}
+	}
+
+	if (!customElements.get('starlight-theme-select')) {
+		customElements.define('starlight-theme-select', StarlightThemeSelect);
+	}
+</script>
+
+<style>
+	.echo-select {
+		position: relative;
+		display: inline-flex;
+	}
+	.echo-select__trigger {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		height: 2.15rem;
+		padding: 0 0.55rem 0 0.65rem;
+		border-radius: 999px;
+		border: 1px solid var(--sl-color-hairline);
+		background: color-mix(in oklch, var(--sl-color-gray-6) 70%, transparent);
+		color: var(--sl-color-white);
+		font-family: inherit;
+		font-size: 0.75rem;
+		font-weight: 600;
+		letter-spacing: 0.02em;
+		cursor: pointer;
+		transition:
+			border-color 0.15s ease,
+			background 0.15s ease,
+			color 0.15s ease;
+	}
+	.echo-select__trigger:hover {
+		border-color: color-mix(in oklch, var(--sl-color-accent) 45%, transparent);
+		background: color-mix(in oklch, var(--sl-color-gray-5) 45%, transparent);
+	}
+	.echo-select__icon {
+		display: grid;
+		place-items: center;
+		width: 0.95rem;
+		height: 0.95rem;
+		color: var(--sl-color-accent-high);
+	}
+	.echo-select__icon svg {
+		grid-area: 1 / 1;
+		width: 0.95rem;
+		height: 0.95rem;
+		display: none;
+	}
+	.echo-select[data-theme='dark'] .icon-moon,
+	.echo-select[data-theme='light'] .icon-sun,
+	.echo-select[data-theme='auto'] .icon-auto {
+		display: block;
+	}
+	.echo-select__value {
+		max-width: 5.5rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.echo-select__caret {
+		width: 12px;
+		height: 12px;
+		opacity: 0.65;
+		transition: transform 0.2s var(--echo-ease, cubic-bezier(0.22, 1, 0.36, 1));
+	}
+	.echo-select[data-open='true'] .echo-select__caret {
+		transform: rotate(180deg);
+	}
+	.echo-select__menu {
+		position: absolute;
+		top: calc(100% + 0.4rem);
+		right: 0;
+		z-index: 100;
+		display: flex;
+		flex-direction: column;
+		min-width: 9rem;
+		padding: 0.3rem;
+		border-radius: 0.75rem;
+		border: 1px solid var(--sl-color-hairline);
+		background: color-mix(in oklch, var(--sl-color-black) 88%, transparent);
+		backdrop-filter: blur(16px) saturate(1.2);
+		-webkit-backdrop-filter: blur(16px) saturate(1.2);
+		box-shadow: var(--echo-shadow);
+	}
+	:global(:root[data-theme='light']) .echo-select__menu {
+		background: color-mix(in oklch, white 94%, transparent);
+	}
+	.echo-select__menu[hidden] {
+		display: none;
+	}
+	.echo-select__option {
+		display: flex;
+		align-items: center;
+		width: 100%;
+		padding: 0.5rem 0.7rem;
+		border: 0;
+		border-radius: 0.5rem;
+		background: transparent;
+		color: var(--sl-color-gray-2);
+		font-family: inherit;
+		font-size: 0.8rem;
+		font-weight: 600;
+		text-align: start;
+		cursor: pointer;
+		transition:
+			color 0.15s ease,
+			background 0.15s ease;
+	}
+	.echo-select__option:hover {
+		color: var(--sl-color-white);
+		background: color-mix(in oklch, var(--sl-color-gray-5) 45%, transparent);
+	}
+	.echo-select__option.is-active {
+		color: var(--sl-color-white);
+		background: color-mix(in oklch, var(--sl-color-accent) 18%, transparent);
+	}
+
+	@media (max-width: 49.99rem) {
+		:global(.header-tools) .echo-select__trigger {
+			width: 2.15rem;
+			height: 2.15rem;
+			min-width: 2.15rem;
+			padding: 0;
+			justify-content: center;
+			gap: 0;
+		}
+		:global(.header-tools) .echo-select__value,
+		:global(.header-tools) .echo-select__caret {
+			display: none;
+		}
+	}
+</style>

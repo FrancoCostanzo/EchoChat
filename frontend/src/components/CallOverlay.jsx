@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@heroui/react';
@@ -12,6 +12,8 @@ import {
   MicOff,
   MonitorUp,
   MonitorOff,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCallStore } from '@/stores/callStore';
@@ -19,33 +21,56 @@ import { useAuthStore } from '@/stores/authStore';
 import UserAvatar from '@/components/UserAvatar';
 
 /* Attaches a MediaStream to a <video> element (streams can't be passed as props). */
-function VideoTile({ stream, muted = false, mirror = false, camOff, name, avatar, speakingLabel }) {
-  const ref = useRef(null);
+function VideoTile({
+  camStream, screenStream, muted = false, isSelf = false, camOff, name, avatar, speakingLabel, onClick,
+}) {
+  const mainRef = useRef(null);
+  const bubbleRef = useRef(null);
+  const sharingHere = !!screenStream;
+  const mainStream = sharingHere ? screenStream : camStream;
 
   useEffect(() => {
-    if (ref.current && stream) {
-      ref.current.srcObject = stream;
-    }
-  }, [stream]);
+    if (mainRef.current) mainRef.current.srcObject = mainStream || null;
+  }, [mainStream]);
 
-  const hasVideo = stream && stream.getVideoTracks().length > 0 && !camOff;
+  useEffect(() => {
+    if (bubbleRef.current) bubbleRef.current.srcObject = sharingHere ? camStream || null : null;
+  }, [sharingHere, camStream]);
+
+  const hasMainVideo = mainStream && mainStream.getVideoTracks().length > 0 && (sharingHere || !camOff);
+  const hasBubbleVideo = sharingHere && camStream && camStream.getVideoTracks().length > 0 && !camOff;
 
   return (
-    <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-2xl bg-ink-900 ring-1 ring-white/10">
+    <div
+      onClick={onClick}
+      className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-2xl bg-ink-900 ring-1 ring-white/10 cursor-pointer"
+    >
       <video
-        ref={ref}
+        ref={mainRef}
         autoPlay
         playsInline
         muted={muted}
         className={[
-          'h-full w-full object-cover transition-opacity duration-300',
-          hasVideo ? 'opacity-100' : 'opacity-0',
-          mirror ? '-scale-x-100' : '',
+          'h-full w-full transition-opacity duration-300',
+          hasMainVideo ? 'opacity-100' : 'opacity-0',
+          sharingHere ? 'object-contain bg-black' : 'object-cover',
+          !sharingHere && isSelf ? '-scale-x-100' : '',
         ].join(' ')}
       />
-      {!hasVideo && (
+      {!hasMainVideo && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 echo-grad-brand-soft">
           <UserAvatar user={{ display_name: name, avatar_url: avatar }} size="lg" />
+        </div>
+      )}
+      {hasBubbleVideo && (
+        <div className="absolute bottom-3 right-3 h-16 w-24 overflow-hidden rounded-lg shadow-lg ring-2 ring-white/25 sm:h-20 sm:w-32">
+          <video
+            ref={bubbleRef}
+            autoPlay
+            playsInline
+            muted
+            className={['h-full w-full object-cover', isSelf ? '-scale-x-100' : ''].join(' ')}
+          />
         </div>
       )}
       {/* Name tag */}
@@ -129,16 +154,70 @@ function ActiveCall() {
   const { t } = useTranslation();
   const self = useAuthStore((s) => s.user);
   const {
-    status, call, participants, localStream, micOff, camOff, sharingScreen, elapsed,
+    status, call, participants, localStream, screenStream, micOff, camOff, sharingScreen, elapsed,
     toggleMute, toggleCamera, toggleScreenShare, hangup,
   } = useCallStore();
+
+  const containerRef = useRef(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [pinnedId, setPinnedId] = useState(null);
+  const prevSharerId = useRef(null);
+
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(document.fullscreenElement === containerRef.current);
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else containerRef.current?.requestFullscreen();
+  };
 
   const remote = useMemo(() => Object.values(participants), [participants]);
   const isVideo = call?.type === 'video';
 
+  // Self + remotos como una sola lista de tiles (cada uno con cámara y/o pantalla).
+  const tiles = useMemo(() => ([
+    {
+      id: '__self__',
+      isSelf: true,
+      camStream: localStream,
+      screenStream,
+      camOff,
+      name: `${self?.display_name || ''} (${t('call.you')})`,
+      avatar: self?.avatar_url,
+      speakingLabel: micOff ? <MicOff size={12} className="text-echo-dnd" /> : null,
+    },
+    ...remote.map((p) => ({
+      id: p.id,
+      isSelf: false,
+      camStream: p.stream,
+      screenStream: p.screenStream,
+      camOff: p.camOff,
+      name: p.displayName || t('call.participant'),
+      avatar: p.avatar_url,
+      speakingLabel: p.micOff ? <MicOff size={12} className="text-echo-dnd" /> : null,
+    })),
+  ]), [remote, localStream, screenStream, camOff, micOff, self, t]);
+
   // Grid columns scale with participant count (self + remotes).
-  const tileCount = remote.length + 1;
-  const cols = tileCount <= 1 ? 1 : tileCount <= 4 ? 2 : 3;
+  const cols = tiles.length <= 1 ? 1 : tiles.length <= 4 ? 2 : 3;
+
+  // Foco automático sobre quien empieza a compartir pantalla (sin pelear con un
+  // "despinado" manual mientras esa misma persona sigue compartiendo).
+  const sharerId = tiles.find((tl) => !!tl.screenStream)?.id || null;
+  useEffect(() => {
+    if (sharerId && sharerId !== prevSharerId.current) setPinnedId(sharerId);
+    prevSharerId.current = sharerId;
+  }, [sharerId]);
+
+  // Si el tile pineado se va de la llamada, volver a la grilla.
+  useEffect(() => {
+    if (pinnedId && !tiles.some((tl) => tl.id === pinnedId)) setPinnedId(null);
+  }, [pinnedId, tiles]);
+
+  const pinned = pinnedId ? tiles.find((tl) => tl.id === pinnedId) : null;
 
   const subtitle = status === 'outgoing'
     ? t('call.calling')
@@ -148,11 +227,17 @@ function ActiveCall() {
 
   return (
     <motion.div
+      ref={containerRef}
       initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.98 }}
       transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
-      className="pointer-events-auto flex h-[min(88vh,44rem)] w-[min(92vw,60rem)] flex-col overflow-hidden rounded-3xl border border-white/10 bg-ink-900/95 shadow-2xl backdrop-blur-2xl"
+      className={[
+        'pointer-events-auto flex flex-col overflow-hidden bg-ink-900/95 shadow-2xl backdrop-blur-2xl',
+        isFullscreen
+          ? 'h-screen w-screen rounded-none border-0'
+          : 'h-[min(88vh,44rem)] w-[min(92vw,60rem)] rounded-3xl border border-white/10',
+      ].join(' ')}
     >
       {/* Header */}
       <div className="flex shrink-0 items-center justify-between border-b border-white/8 px-5 py-3">
@@ -165,36 +250,45 @@ function ActiveCall() {
             {subtitle}
           </p>
         </div>
+        <Button
+          isIconOnly
+          variant="light"
+          onPress={toggleFullscreen}
+          aria-label={isFullscreen ? t('call.exitFullscreen') : t('call.fullscreen')}
+          title={isFullscreen ? t('call.exitFullscreen') : t('call.fullscreen')}
+          className="h-9 w-9 shrink-0 rounded-full text-ink-100 hover:bg-white/10"
+        >
+          {isFullscreen ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
+        </Button>
       </div>
 
       {/* Tiles */}
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
-        <div
-          className="grid h-full gap-3"
-          style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
-        >
-          {/* Self */}
-          <VideoTile
-            stream={localStream}
-            muted
-            mirror={!sharingScreen}
-            camOff={camOff}
-            name={`${self?.display_name || ''} (${t('call.you')})`}
-            avatar={self?.avatar_url}
-            speakingLabel={micOff ? <MicOff size={12} className="text-echo-dnd" /> : null}
-          />
-          {/* Remotes */}
-          {remote.map((p) => (
-            <VideoTile
-              key={p.id}
-              stream={p.stream}
-              camOff={p.camOff}
-              name={p.displayName || t('call.participant')}
-              avatar={p.avatar_url}
-              speakingLabel={p.micOff ? <MicOff size={12} className="text-echo-dnd" /> : null}
-            />
-          ))}
-        </div>
+        {pinned ? (
+          <div className="flex h-full flex-col gap-3">
+            <div className="min-h-0 flex-1">
+              <VideoTile {...pinned} muted={pinned.isSelf} onClick={() => setPinnedId(null)} />
+            </div>
+            {tiles.length > 1 && (
+              <div className="flex shrink-0 gap-2 overflow-x-auto">
+                {tiles.filter((tl) => tl.id !== pinnedId).map((tl) => (
+                  <div key={tl.id} className="h-20 w-32 shrink-0">
+                    <VideoTile {...tl} muted={tl.isSelf} onClick={() => setPinnedId(tl.id)} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div
+            className="grid h-full gap-3"
+            style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+          >
+            {tiles.map((tl) => (
+              <VideoTile key={tl.id} {...tl} muted={tl.isSelf} onClick={() => setPinnedId(tl.id)} />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Controls */}
