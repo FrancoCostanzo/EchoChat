@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { Button, Spinner, Modal, Label } from '@heroui/react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { Button, Spinner, Modal, Label, ColorPicker, ColorArea, ColorSlider, ColorSwatch, ColorField, parseColor } from '@heroui/react';
 import { Upload, X, Check, Trash2, Image as ImageIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useWallpaperStore } from '@/stores/wallpaperStore';
@@ -45,6 +45,14 @@ const SOLID_COLORS = [
   '#2d2d44', '#1a2a1a', '#2a1a1a', '#1a1a1a',
 ];
 
+function toColor(hex) {
+  try {
+    return parseColor(hex);
+  } catch {
+    return parseColor(SOLID_COLORS[0]);
+  }
+}
+
 /**
  * WallpaperPicker — modal picker for selecting a chat wallpaper.
  *
@@ -67,6 +75,7 @@ export default function WallpaperPicker({ isOpen, onClose, scope, scopeKey, labe
   const [uploadedPreview, setUploadedPreview] = useState(null); // { objectId, url }
   const [selectedColor, setSelectedColor] = useState(SOLID_COLORS[0]);
   const [selectedPreset, setSelectedPreset] = useState(null);
+  const selectedColorValue = useMemo(() => toColor(selectedColor), [selectedColor]);
 
   const current = wallpapers.find((w) => w.scope === scope && w.scope_key === scopeKey);
   const savedObjectId = current?.wallpaper_type === 'image' ? current.storage_object_id : null;
@@ -279,13 +288,46 @@ export default function WallpaperPicker({ isOpen, onClose, scope, scopeKey, labe
                     ))}
                   </div>
                   <div className="flex items-center gap-3">
-                    <Label className="shrink-0 text-sm text-ink-200">{t('wallpaper.customColor')}</Label>
-                    <input
-                      type="color"
-                      value={selectedColor}
-                      onChange={(e) => setSelectedColor(e.target.value)}
-                      className="h-9 w-16 cursor-pointer rounded-lg border border-white/10 bg-transparent p-0.5"
-                    />
+                    <ColorPicker
+                      value={selectedColorValue}
+                      onChange={(c) => setSelectedColor(c.toString('hex').toLowerCase())}
+                    >
+                      <ColorPicker.Trigger>
+                        <ColorSwatch size="lg" />
+                        <Label>{t('wallpaper.customColor')}</Label>
+                      </ColorPicker.Trigger>
+                      <ColorPicker.Popover className="z-50 gap-2">
+                        <ColorArea
+                          aria-label={t('wallpaper.customColor')}
+                          className="max-w-full"
+                          colorSpace="hsb"
+                          xChannel="saturation"
+                          yChannel="brightness"
+                        >
+                          <ColorArea.Thumb />
+                        </ColorArea>
+                        <ColorSlider
+                          aria-label={t('wallpaper.hue')}
+                          channel="hue"
+                          className="gap-1 px-1"
+                          colorSpace="hsb"
+                        >
+                          <Label>{t('wallpaper.hue')}</Label>
+                          <ColorSlider.Output className="text-muted" />
+                          <ColorSlider.Track>
+                            <ColorSlider.Thumb />
+                          </ColorSlider.Track>
+                        </ColorSlider>
+                        <ColorField aria-label={t('wallpaper.customColor')}>
+                          <ColorField.Group variant="secondary">
+                            <ColorField.Prefix>
+                              <ColorSwatch size="xs" />
+                            </ColorField.Prefix>
+                            <ColorField.Input />
+                          </ColorField.Group>
+                        </ColorField>
+                      </ColorPicker.Popover>
+                    </ColorPicker>
                     <span className="font-mono text-xs text-ink-300">{selectedColor}</span>
                   </div>
                 </div>

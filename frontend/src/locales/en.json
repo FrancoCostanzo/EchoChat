@@ -902,6 +902,7 @@
     "solidColor": "Solid color",
     "image": "Image",
     "customColor": "Custom color",
+    "hue": "Hue",
     "uploadHint": "Click to upload an image",
     "uploading": "Uploading...",
     "preview": "Preview",

@@ -902,6 +902,7 @@
     "solidColor": "Cor sólida",
     "image": "Imagem",
     "customColor": "Cor personalizada",
+    "hue": "Matiz",
     "uploadHint": "Clique para enviar uma imagem",
     "uploading": "Enviando...",
     "preview": "Pré-visualização",

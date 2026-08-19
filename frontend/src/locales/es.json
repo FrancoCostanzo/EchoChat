@@ -902,6 +902,7 @@
     "solidColor": "Color sólido",
     "image": "Imagen",
     "customColor": "Color personalizado",
+    "hue": "Tono",
     "uploadHint": "Hacer clic para subir una imagen",
     "uploading": "Subiendo...",
     "preview": "Vista previa",
