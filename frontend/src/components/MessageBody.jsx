@@ -3,14 +3,28 @@ import remarkGfm from 'remark-gfm';
 
 function buildMarkdownComponents(variant) {
   const isOwn = variant === 'own';
+  // Links sit directly on the own-bubble gradient with no darkening card
+  // behind them, so they need the SAME accent-foreground pairing the bubble
+  // itself uses (echo-on-accent) — not a hardcoded white. --accent-foreground
+  // picks near-black for the three brightest accents (green/orange/cyan)
+  // specifically because white fails there (measured as low as 2.1:1); a
+  // hardcoded white link ignored that and was unreadable for exactly those
+  // three, on every own message that included a link.
   const linkClass = isOwn
-    ? 'underline text-white/95 hover:text-white'
+    ? 'underline echo-on-accent hover:opacity-80'
     : 'underline text-accent hover:opacity-80';
+  // Code chips stay white-on-black regardless of accent (like CodeMessage's
+  // console card) rather than switching to accent-foreground: the near-black
+  // eclipse foreground would sit on this ALSO-near-black chip and disappear.
+  // The overlay is darker than it used to be (25/30% black) because white
+  // text still fell short of AA against the three brightest accents even
+  // with the old overlay (as low as 3.4:1) — 40/45% clears all seven with
+  // margin at the gradient's brightest point.
   const codeClass = isOwn
-    ? 'rounded px-1 py-0.5 font-mono text-[13px] bg-black/25 text-white/95'
+    ? 'rounded px-1 py-0.5 font-mono text-[13px] bg-black/40 text-white/95'
     : 'rounded px-1 py-0.5 font-mono text-[13px] bg-black/20 text-ink-50';
   const preClass = isOwn
-    ? 'my-1 overflow-x-auto rounded-md bg-black/30 p-2 font-mono text-[13px] text-white/95'
+    ? 'my-1 overflow-x-auto rounded-md bg-black/45 p-2 font-mono text-[13px] text-white/95'
     : 'my-1 overflow-x-auto rounded-md bg-black/25 p-2 font-mono text-[13px] text-ink-50';
 
   return {
