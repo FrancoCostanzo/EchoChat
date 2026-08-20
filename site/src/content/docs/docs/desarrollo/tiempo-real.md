@@ -8,7 +8,7 @@ description: Eventos Socket.IO, rooms y autenticación de conexiones.
 Todo lo que ocurre en tiempo real (mensajes, tipeo, presencia, recibos, señalización de
 llamadas, actualizaciones de encuestas, notificaciones) viaja por **Socket.IO** sobre el
 mismo servidor HTTP que expone la API REST. La inicialización vive en
-`backend/src/socket.js`, arrancada desde `server.js`.
+`backend/src/socket.ts`, arrancada desde `server.ts`.
 
 ## Autenticación JWT en sockets
 
@@ -16,7 +16,7 @@ El middleware `io.use(...)` lee el JWT de `socket.handshake.auth.token`, lo vali
 el mismo servicio de auth que usa la API REST, y adjunta `socket.userId`/`socket.user`.
 Sin token válido, la conexión se rechaza con `Authentication required` o `Invalid token`.
 
-```javascript
+```typescript
 import { connectSocket } from '@/lib/socket';
 const socket = connectSocket(token); // token JWT del login
 ```
@@ -114,4 +114,4 @@ abierta.
 - Nomenclatura de eventos: `recurso:acción` (`message:new`, `typing:start`).
 - Nunca emitir datos sensibles (tokens, contraseñas) por un evento de socket.
 - Si agregás un evento nuevo, documentalo en esta página y en el frontend
-  (`lib/socket.js` + el store que lo consume).
+  (`lib/socket.ts` + el store que lo consume).

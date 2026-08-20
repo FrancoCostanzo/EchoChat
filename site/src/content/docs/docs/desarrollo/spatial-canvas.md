@@ -53,7 +53,7 @@ efecto glass.
 
 ## Paneles flotantes
 
-Toda superficie usa la primitiva `<CanvasPanel />` (`frontend/src/components/CanvasPanel.jsx`)
+Toda superficie usa la primitiva `<CanvasPanel />` (`frontend/src/components/CanvasPanel.tsx`)
 — nunca sombras ad-hoc:
 
 ```jsx
@@ -68,7 +68,7 @@ Toda superficie usa la primitiva `<CanvasPanel />` (`frontend/src/components/Can
 
 ## Orbit dock
 
-`<ServerOrbitDock />` (`frontend/src/components/ServerOrbitDock.jsx`) es el dock lateral
+`<ServerOrbitDock />` (`frontend/src/components/ServerOrbitDock.tsx`) es el dock lateral
 flotante estilo macOS. El ítem activo anima de círculo a squircle con un spring, con glow
 del color de marca. En pantallas menores a 1024px se convierte en una barra inferior.
 
@@ -90,9 +90,9 @@ perspectiva de usuario final.
 | Elemento | Archivo |
 |----------|---------|
 | Tokens y utilidades CSS | `frontend/src/index.css` |
-| `CanvasPanel` | `frontend/src/components/CanvasPanel.jsx` |
-| `ServerOrbitDock` | `frontend/src/components/ServerOrbitDock.jsx` |
-| `FloatingComposer` | `frontend/src/components/FloatingComposer.jsx` |
-| `PresenceAvatarStack` | `frontend/src/components/PresenceAvatarStack.jsx` |
-| `CommandPalette` (`Ctrl+K`) | `frontend/src/components/CommandPalette.jsx` |
+| `CanvasPanel` | `frontend/src/components/CanvasPanel.tsx` |
+| `ServerOrbitDock` | `frontend/src/components/ServerOrbitDock.tsx` |
+| `FloatingComposer` | `frontend/src/components/FloatingComposer.tsx` |
+| `PresenceAvatarStack` | `frontend/src/components/PresenceAvatarStack.tsx` |
+| `CommandPalette` (`Ctrl+K`) | `frontend/src/components/CommandPalette.tsx` |
 | Documentación fuente completa | `docs/SPATIAL_CANVAS.md` |
