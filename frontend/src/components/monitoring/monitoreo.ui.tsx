@@ -106,7 +106,7 @@ export const MetricItem = ({ label, value, unit, icon, progress = null, subtext 
             aria-valuenow={progress}
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-label={`${label}: ${progress}%`}
+            aria-label={typeof label === 'string' ? `${label}: ${progress}%` : `${progress}%`}
           />
         </div>
       )}

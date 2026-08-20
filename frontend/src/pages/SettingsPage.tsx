@@ -62,11 +62,9 @@ import { useThemeStore, ACCENT_COLORS, type ThemeMode } from '@/stores/themeStor
 import { useWallpaperStore } from '@/stores/wallpaperStore';
 import WallpaperPicker, { WallpaperPreview } from '@/components/WallpaperPicker';
 import { changeLanguage } from '@/lib/i18n';
-import type { AccentKey } from '@/stores/themeStore';
 import type { SessionResponse, Setup2faResponse } from '@/types/auth';
 import type { NotificationPreferenceResponse, NotificationPrefsRequest } from '@/types/notification';
 
-type TFunc = ReturnType<typeof useTranslation>['t'];
 type WallpaperScope = 'global' | 'type' | 'conversation';
 
 const ENTRY_EASE = [0.34, 1.2, 0.64, 1] as const;

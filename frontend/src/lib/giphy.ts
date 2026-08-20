@@ -99,7 +99,7 @@ async function request(
   }
   const res = await fetch(url.toString(), { signal });
   if (!res.ok) throw new Error(`Giphy ${res.status}`);
-  return res.json();
+  return res.json() as Promise<GiphyApiListResponse>;
 }
 
 /** Trending GIFs or stickers. */

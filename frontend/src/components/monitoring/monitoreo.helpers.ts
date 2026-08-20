@@ -75,7 +75,9 @@ export const sortItems = <T,>(
     if (typeof av === 'number' && typeof bv === 'number') {
       return (av - bv) * factor;
     }
-    return String(av ?? '').localeCompare(String(bv ?? ''), 'es', { numeric: true }) * factor;
+    const as = typeof av === 'string' || typeof av === 'number' ? String(av) : '';
+    const bs = typeof bv === 'string' || typeof bv === 'number' ? String(bv) : '';
+    return as.localeCompare(bs, 'es', { numeric: true }) * factor;
   });
 };
 

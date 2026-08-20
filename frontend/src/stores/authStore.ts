@@ -29,7 +29,13 @@ interface AuthState {
 }
 
 export const useAuthStore = create<AuthState>()((set, get) => ({
-  user: (() => { try { return JSON.parse(localStorage.getItem(USER_KEY) || 'null'); } catch { return null; } })(),
+  user: (() => {
+    try {
+      return JSON.parse(localStorage.getItem(USER_KEY) || 'null') as AuthenticatedUser | null;
+    } catch {
+      return null;
+    }
+  })(),
   token: localStorage.getItem(TOKEN_KEY),
   isAuthenticated: !!localStorage.getItem(TOKEN_KEY),
   loading: true,

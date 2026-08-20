@@ -12,7 +12,7 @@ import './index.css';
 // message in dev until the upstream fix lands; everything else passes through.
 if (import.meta.env.DEV) {
   const warn = console.warn.bind(console);
-  console.warn = (...args) => {
+  console.warn = (...args: unknown[]) => {
     if (typeof args[0] === 'string' && args[0].startsWith('A PressResponder was rendered without a pressable child')) return;
     warn(...args);
   };

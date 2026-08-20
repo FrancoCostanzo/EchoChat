@@ -22,7 +22,7 @@ function applyTheme(mode: ThemeMode): void {
 function loadPreference(): ThemePreference {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) return JSON.parse(saved);
+    if (saved) return JSON.parse(saved) as ThemePreference;
   } catch { /* ignore */ }
   return { mode: 'dark', accent: 'blurple' };
 }

@@ -45,7 +45,6 @@ import type {
 } from '@/types/broadcast';
 
 type TFunc = ReturnType<typeof useTranslation>['t'];
-type BroadcastStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed';
 
 const STATUS_ICONS: Record<string, LucideIcon> = {
   draft: Clock,

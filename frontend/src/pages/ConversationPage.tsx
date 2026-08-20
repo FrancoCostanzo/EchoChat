@@ -1,9 +1,9 @@
 import {
   useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, memo,
-  type ReactNode, type RefObject, type Dispatch, type SetStateAction,
+  type ReactNode, type RefObject,
   type KeyboardEvent as ReactKeyboardEvent, type ClipboardEvent as ReactClipboardEvent,
   type MouseEvent as ReactMouseEvent, type TouchEvent as ReactTouchEvent,
-  type ChangeEvent as ReactChangeEvent, type DragEvent as ReactDragEvent,
+  type DragEvent as ReactDragEvent,
   type CSSProperties,
 } from 'react';
 import { createPortal } from 'react-dom';
@@ -100,7 +100,7 @@ import { EASE_OUT, SPRING_BOUNCY, msgEntryInitial, msgEntryTransition } from '@/
 import { userColor } from '@/lib/userColor';
 import type { ChatMessage } from '@/stores/chatStore';
 import type { ConversationResponse, MemberResponse } from '@/types/conversation';
-import type { MessageAttachment, MessageReaction, SendMessageRequest } from '@/types/message';
+import type { MessageAttachment, SendMessageRequest } from '@/types/message';
 import type { CallType } from '@/types/call';
 import type { AuthenticatedUser } from '@/types/user';
 import type { TextInputHandle } from '@/lib/formatText';
@@ -1124,7 +1124,7 @@ interface CallEventMetadata {
   event?: string;
   call_type?: 'voice' | 'video';
   initiated_by?: string;
-  outcome?: 'missed' | 'declined' | string;
+  outcome?: string;
   duration_seconds?: number;
 }
 
@@ -1204,18 +1204,14 @@ interface MessageRowProps {
   shouldAnimateEntry: boolean;
   onOpenContextMenu: (messageId: string, pos: { x: number; y: number }) => void;
   onScrollToReply: (id: string) => void;
-  onEdit: (message: ChatMessage) => void;
-  onDelete: (message: ChatMessage) => void;
-  onReply: (message: ChatMessage) => void;
   onReact: (messageId: string, emoji: string) => void;
-  onForward: (message: ChatMessage) => void;
   onOpenThread: (message: ChatMessage) => void;
   onRetry: (tempId: string) => void;
   currentUserId?: string;
   currentUser?: AuthenticatedUser | null;
 }
 
-const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstInGroup, isLastInGroup, isContextOpen, shouldAnimateEntry, onOpenContextMenu, onScrollToReply, onEdit, onDelete, onReply, onReact, onForward, onOpenThread, onRetry, currentUserId, currentUser }: MessageRowProps) {
+const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstInGroup, isLastInGroup, isContextOpen, shouldAnimateEntry, onOpenContextMenu, onScrollToReply, onReact, onOpenThread, onRetry, currentUserId, currentUser }: MessageRowProps) {
   const { t } = useTranslation();
   const reducedMotion = useReducedMotion();
   const saved = !!message.is_saved;
@@ -2578,11 +2574,7 @@ export default function ConversationPage() {
           }
           onOpenContextMenu={handleOpenContextMenu}
           onScrollToReply={focusMessageById}
-          onEdit={handleEdit}
-          onDelete={handleDeleteRequest}
-          onReply={handleReply}
           onReact={handleReact}
-          onForward={handleForward}
           onOpenThread={handleOpenThread}
           onRetry={retrySendMessage}
           currentUserId={user?.id}
@@ -2591,7 +2583,7 @@ export default function ConversationPage() {
       );
     });
     return els;
-  }, [messages, user, conversation?.type, contextMenu?.messageId, handleOpenContextMenu, focusMessageById, handleEdit, handleDeleteRequest, handleReply, handleReact, handleForward, handleOpenThread, retrySendMessage]);
+  }, [messages, user, conversation?.type, contextMenu?.messageId, handleOpenContextMenu, focusMessageById, handleReact, handleOpenThread, retrySendMessage]);
 
   if (!conversation) {
     return (

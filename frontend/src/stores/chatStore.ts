@@ -550,7 +550,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
               ...(deleted || {}),
               is_deleted: true,
               body: null,
-              type: 'deleted_placeholder' as MessageResponse['type'],
+              type: 'deleted_placeholder',
               attachments: [],
               reactions: [],
             }

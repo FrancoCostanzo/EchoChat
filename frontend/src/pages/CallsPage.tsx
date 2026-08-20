@@ -19,7 +19,7 @@ import { useCallStore } from '@/stores/callStore';
 import UserAvatar from '@/components/UserAvatar';
 import { formatFullTime } from '@/lib/dates';
 import { listItemEntry, PANEL_FADE } from '@/lib/motion';
-import type { CallHistoryItem, CallType } from '@/types/call';
+import type { CallHistoryItem } from '@/types/call';
 
 type TFunc = (key: string, opts?: Record<string, unknown>) => string;
 
@@ -174,7 +174,7 @@ export default function CallsPage() {
     try {
       await startCall({
         conversationId: call.conversation_id,
-        type: (call.type === 'video' ? 'video' : 'voice') as CallType,
+        type: (call.type === 'video' ? 'video' : 'voice'),
         isGroup: call.conversation_type !== 'direct',
         conversationName: call.display_name,
         self: self ?? undefined,

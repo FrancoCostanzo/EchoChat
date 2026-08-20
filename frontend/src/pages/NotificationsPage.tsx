@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Button } from '@heroui/react';
-import { Bell, BellOff, Check, CheckCheck, ArrowLeft } from 'lucide-react';
+import { Bell, BellOff, CheckCheck, ArrowLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { notificationsApi } from '@/lib/endpoints';
 import { formatRelative } from '@/lib/dates';

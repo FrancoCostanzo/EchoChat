@@ -38,6 +38,12 @@ export class ApiError extends Error {
   }
 }
 
+/** Forma del cuerpo de error que arma errorHandler (ver ApiError arriba). */
+interface ApiErrorBody {
+  message?: string;
+  details?: unknown;
+}
+
 interface RequestOptions {
   body?: unknown;
   params?: ApiParams;
@@ -81,12 +87,12 @@ class ApiClient {
     const res = await fetch(url, { method, headers, body: requestBody });
 
     if (!res.ok) {
-      const error = await res.json().catch(() => ({ message: res.statusText }));
+      const error = await res.json().catch(() => ({ message: res.statusText })) as ApiErrorBody;
       throw new ApiError(error.message || 'Error de red', res.status, error.details);
     }
 
     if (res.status === 204) return null as T;
-    const json = await res.json();
+    const json: unknown = await res.json();
     console.log(`[API] ${method} ${path}`, json);
     return json as T;
   }

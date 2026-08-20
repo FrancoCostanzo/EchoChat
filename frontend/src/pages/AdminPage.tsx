@@ -63,7 +63,7 @@ import { formatMessageTime } from '@/lib/dates';
 import type {
   AdminUserResponse, RoleResponse, SettingResponse, AuditEntryResponse,
   StorageObjectAdminResponse, StorageStatsResponse, IntegrationsResponse, LdapSyncSummary,
-  AdminCreateUserRequest, AdminUpdateUserRequest,
+  AdminCreateUserRequest,
 } from '@/types/admin';
 
 type TFunc = ReturnType<typeof useTranslation>['t'];
@@ -369,7 +369,7 @@ function UsersTab({ t }: { t: TFunc }) {
     if (!editUser) return;
     setBusy(true);
     try {
-      await adminApi.updateUser(editUser.id, form as AdminUpdateUserRequest);
+      await adminApi.updateUser(editUser.id, form);
       setEditUser(null);
       await load();
     } catch (err) {

@@ -22,10 +22,9 @@ import { useChatStore } from '@/stores/chatStore';
 import { useAuthStore } from '@/stores/authStore';
 import UserAvatar from '@/components/UserAvatar';
 import type { UserResponse } from '@/types/user';
-import type { ConversationType, CreateConversationRequest } from '@/types/conversation';
+import type { CreateConversationRequest } from '@/types/conversation';
 import type { ChannelCategory, JoinMode } from '@/types/channel';
 
-type TFunc = ReturnType<typeof useTranslation>['t'];
 type Tab = 'direct' | 'group' | 'channel';
 
 /* ── constants ─────────────────────────────────────────────── */
@@ -258,9 +257,9 @@ export default function NewConversationPage() {
       } else {
         const payload: CreateConversationRequest =
           tab === 'direct'
-            ? { type: 'direct' as ConversationType, member_ids: [selectedIds[0]] }
+            ? { type: 'direct', member_ids: [selectedIds[0]] }
             : {
-                type: 'group' as ConversationType,
+                type: 'group',
                 name: name.trim(),
                 description: description.trim() || undefined,
                 member_ids: selectedIds,

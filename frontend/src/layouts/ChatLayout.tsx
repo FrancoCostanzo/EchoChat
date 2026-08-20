@@ -6,7 +6,6 @@ import type { LucideIcon } from 'lucide-react';
 import {
   MessageSquare,
   Bell,
-  LogOut,
   Search,
   Plus,
   Hash,

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { getSocket } from '@/lib/socket';
 import { callsApi, conversationsApi } from '@/lib/endpoints';
-import type { CallType, CallEndReason, InitiateCallRequest } from '@/types/call';
+import type { CallType, InitiateCallRequest } from '@/types/call';
 
 /*
  * callStore — Llamadas de voz/vídeo 1:1 y grupales sobre WebRTC (malla P2P).
@@ -312,7 +312,10 @@ export const useCallStore = create<CallState>()((set, get) => ({
   },
 
   // ── Colgar / abandonar ───────────────────────────────────────────────
-  hangup: (reason = 'hangup') => {
+  // `_reason` (distingue 'hangup' manual de 'timeout' de ring) no se usa: el
+  // end_reason que se manda al backend ya sale de `answered`, no del motivo
+  // por el que se llamó a hangup. Comportamiento preexistente, sin tocar acá.
+  hangup: (_reason = 'hangup') => {
     const { status, call } = get();
     if (call) {
       if (status === 'outgoing') {
@@ -324,8 +327,8 @@ export const useCallStore = create<CallState>()((set, get) => ({
       // timbrando o expiró) queda como "perdida"; si estaba activa, "finalizada".
       const answered = status === 'active';
       callsApi.updateStatus(call.id, answered
-        ? { status: 'ended', end_reason: 'hangup' as CallEndReason }
-        : { status: 'missed', end_reason: 'no_answer' as CallEndReason }).catch(() => {});
+        ? { status: 'ended', end_reason: 'hangup' }
+        : { status: 'missed', end_reason: 'no_answer' }).catch(() => {});
     }
     get()._cleanup();
     set({ status: 'idle', call: null, incoming: null });
@@ -485,7 +488,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
         // Persistir el resultado para que quede el evento en el chat/historial.
         callsApi.updateStatus(call.id, {
           status: reason === 'busy' ? 'missed' : 'rejected',
-          end_reason: reason === 'busy' ? 'no_answer' as CallEndReason : 'rejected' as CallEndReason,
+          end_reason: reason === 'busy' ? 'no_answer' : 'rejected',
         }).catch(() => {});
         get()._cleanup();
         set({ status: 'idle', call: null, endReason: reason });
