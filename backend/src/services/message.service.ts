@@ -1,5 +1,5 @@
 import logger from '../config/logger';
-import { toConversation } from '../config/eventBus';
+import { toConversation, toUser } from '../config/eventBus';
 import broadcastService from './broadcast.service';
 import {
   messageRepository,
@@ -11,10 +11,13 @@ import {
   pollRepository,
   gameRepository,
   systemSettingsRepository,
+  notificationRepository,
 } from '../repositories';
+import notificationService from './notification.service';
 import { NotFoundError, ForbiddenError, BadRequestError } from '../errors';
 import { toMessageResponse, toSavedMessageResponse, toDraftResponse, toPollResponse, toGameResponse } from '../models';
 import { resolveBodyFormat } from '../utils/markdown.util';
+import { resolverMenciones, destinatariosDeMenciones, type Mencion } from '../utils/mentions.util';
 import { minioClient } from '../config/minio';
 import type { MessageResponse } from '../models/message.model';
 import type { GameRow } from '../models/game.model';
@@ -26,6 +29,8 @@ import type {
 } from '../dtos/message.dto';
 
 const AVATAR_BUCKET = 'messaging-avatars';
+/** Una auto-respuesta de ausencia por interlocutor cada tantas horas, no por mensaje. */
+const AUTO_REPLY_THROTTLE_HOURS = 4;
 const DEFAULT_EDIT_WINDOW_MINUTES = 15;
 const DEFAULT_DELETE_WINDOW_MINUTES = 15;
 
@@ -93,6 +98,15 @@ class MessageService {
       data.metadata = { ...data.metadata, language: lang };
     }
 
+    // ── @Menciones ────────────────────────────────────────────────────────
+    // Se resuelven contra los miembros reales; lo que venga del cliente en
+    // metadata.mentions se descarta (podría inventar destinatarios). Sólo
+    // consultamos los miembros si hay una arroba: en un canal de 500 personas
+    // no queremos una query extra en cada mensaje.
+    const menciones = await this._resolverMenciones(data.conversation_id, data.type, data.body);
+    const { mentions: _delCliente, ...metadataLimpia } = (data.metadata ?? {}) as Record<string, unknown>;
+    data.metadata = menciones.length ? { ...metadataLimpia, mentions: menciones } : metadataLimpia;
+
     const message = await messageRepository.create({
       ...data,
       sender_id: userId,
@@ -123,7 +137,118 @@ class MessageService {
     } catch (err) {
       logger.warn({ err: (err as Error).message }, 'Failed to emit message:new');
     }
+
+    // En segundo plano: que una notificación fallida no tumbe el envío.
+    if (menciones.length > 0) {
+      void this._notificarMenciones(response, menciones, userId);
+    }
+    void this._autoResponderAusencia(response, userId);
     return response;
+  }
+
+  /**
+   * Si el otro lado de un chat directo está ausente con auto-respuesta activa,
+   * contesta con su mensaje de ausencia. Sólo en directos: en un grupo sería una
+   * respuesta por cada ausente en cada mensaje.
+   */
+  async _autoResponderAusencia(mensaje: MessageResponse, autorId: string): Promise<void> {
+    try {
+      // Nunca respondemos una auto-respuesta: dos personas ausentes se
+      // contestarían entre sí indefinidamente.
+      if ((mensaje.metadata as { auto_reply?: boolean } | null)?.auto_reply) return;
+
+      const conversacion = await conversationRepository.findById(mensaje.conversation_id);
+      if (conversacion?.type !== 'direct') return;
+
+      const miembros = await conversationRepository.getMembers(mensaje.conversation_id);
+      for (const miembro of miembros) {
+        if (miembro.user_id === autorId) continue;
+        const ausente = await userRepository.findById(miembro.user_id);
+        if (!ausente?.auto_reply_enabled || !ausente.presence_message) continue;
+        // Vencida pero todavía no barrida por el job.
+        if (ausente.away_until && new Date(ausente.away_until).getTime() <= Date.now()) continue;
+        if (!await userRepository.reservarAutoRespuesta(miembro.user_id, autorId, AUTO_REPLY_THROTTLE_HOURS)) continue;
+
+        await this.send(miembro.user_id, {
+          conversation_id: mensaje.conversation_id,
+          type: 'text',
+          body: ausente.presence_message,
+          body_format: 'plain',
+          metadata: { auto_reply: true },
+        });
+        logger.info({ awayUserId: miembro.user_id, peerId: autorId }, 'Auto-reply sent');
+      }
+    } catch (err) {
+      logger.warn({ err: (err as Error).message, messageId: mensaje.id }, 'Failed to send away auto-reply');
+    }
+  }
+
+  /** Miembros → menciones del body. Vacío si no hay arrobas o el tipo no aplica. */
+  async _resolverMenciones(
+    conversationId: string,
+    type: string | null | undefined,
+    body: string | null | undefined,
+  ): Promise<Mencion[]> {
+    // En un bloque de código las arrobas son código, no menciones.
+    if (type === 'code') return [];
+    if (typeof body !== 'string' || !body.includes('@')) return [];
+    const miembros = await conversationRepository.getMembers(conversationId, { limit: 500 });
+    return resolverMenciones(body, miembros);
+  }
+
+  /**
+   * Notificación in-app a los mencionados, respetando sus preferencias.
+   *
+   * A propósito NO guardamos un extracto del mensaje: `notifications.body` se
+   * almacena en texto plano y el contenido de los mensajes va cifrado en reposo
+   * (ver `utils/crypto.util`), así que copiarlo acá anularía esa protección. El
+   * cliente ya tiene el mensaje y navega por `reference_id`.
+   */
+  async _notificarMenciones(
+    mensaje: MessageResponse,
+    menciones: Mencion[],
+    autorId: string,
+  ): Promise<void> {
+    const destinatarios = destinatariosDeMenciones(menciones, autorId);
+    if (destinatarios.length === 0) return;
+
+    const autor = mensaje.sender_display_name || mensaje.sender_username || 'Alguien';
+    let dondeFue = '';
+    try {
+      const conversacion = await conversationRepository.findById(mensaje.conversation_id);
+      if (conversacion?.name) dondeFue = ` en ${conversacion.name}`;
+    } catch {
+      // El nombre es decorativo: si falla, la notificación igual sale.
+    }
+
+    for (const destinatario of destinatarios) {
+      try {
+        if (!(await notificationService.shouldNotifyInApp(destinatario, 'message.mention'))) continue;
+        await notificationRepository.create({
+          recipient_id: destinatario,
+          type: 'mention',
+          title: `${autor} te mencionó${dondeFue}`,
+          reference_type: 'message',
+          reference_id: mensaje.id,
+          reference_data: {
+            conversation_id: mensaje.conversation_id,
+            thread_id: mensaje.thread_id ?? null,
+          },
+        });
+        toUser(destinatario, 'notification:new', {
+          type: 'mention',
+          message_id: mensaje.id,
+          conversation_id: mensaje.conversation_id,
+          thread_id: mensaje.thread_id ?? null,
+          sender_display_name: autor,
+        });
+      } catch (err) {
+        logger.warn(
+          { err: (err as Error).message, messageId: mensaje.id, destinatario },
+          'Failed to notify mention',
+        );
+      }
+    }
   }
 
   // Root message + ordered replies for the thread side panel
@@ -196,7 +321,19 @@ class MessageService {
     assertWithinWindow(message.sent_at, editWindow, 'edit');
 
     const format = resolveBodyFormat(body, bodyFormat);
-    const updated = await messageRepository.updateBody(messageId, body, userId, format);
+
+    // Al editar hay que recalcular las menciones o el resaltado queda apuntando
+    // al texto viejo. Los que ya estaban mencionados no se vuelven a notificar;
+    // los que se agregan en la edición sí (caso "me olvidé de arrobarte").
+    const menciones = await this._resolverMenciones(message.conversation_id, message.type, body);
+    const yaMencionados = new Set(
+      ((message.metadata as { mentions?: Mencion[] } | null)?.mentions ?? []).map((m) => m.user_id),
+    );
+    const { mentions: _previas, ...metadataLimpia } =
+      (message.metadata ?? {}) as Record<string, unknown>;
+    const metadata = menciones.length ? { ...metadataLimpia, mentions: menciones } : metadataLimpia;
+
+    const updated = await messageRepository.updateBody(messageId, body, userId, format, metadata);
     logger.info({ messageId }, 'Message edited');
 
     const response = toMessageResponse(updated);
@@ -204,6 +341,11 @@ class MessageService {
       toConversation(message.conversation_id, 'message:edited', response);
     } catch (err) {
       logger.warn({ err: (err as Error).message }, 'Failed to emit message:edited');
+    }
+
+    const nuevas = menciones.filter((m) => !yaMencionados.has(m.user_id));
+    if (nuevas.length > 0 && response) {
+      void this._notificarMenciones(response, nuevas, userId);
     }
     return response;
   }

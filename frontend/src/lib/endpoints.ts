@@ -4,7 +4,10 @@ import type {
   ChangePasswordRequest, TotpChallengeRequest, TotpCodeRequest, TotpDisableRequest,
   SessionResponse, Setup2faResponse, BackupCodesResponse,
 } from '@/types/auth';
-import type { UserResponse, UpdateProfileRequest, AuthenticatedUser } from '@/types/user';
+import type { UserResponse, UpdateProfileRequest, AuthenticatedUser, AwayStateRequest } from '@/types/user';
+import type {
+  ScheduledMessageResponse, ScheduleMessageRequest, ReminderResponse, CreateReminderRequest,
+} from '@/types/scheduled';
 import type {
   DashboardData, SystemStatus, DetailedPoolStats, SystemMetricsResponse, SnapshotHistory,
 } from '@/types/monitoring';
@@ -70,8 +73,19 @@ export const usersApi = {
   updateProfile: (data: UpdateProfileRequest) => api.put<ApiEnvelope<UserResponse>>('/users/me', data),
   uploadAvatar: (file: File) => api.upload<ApiEnvelope<UserResponse>>('/users/me/avatar', file),
   updatePresence: (presence: string) => api.put<ApiEnvelope<UserResponse>>('/users/me/presence', { presence }),
+  setAway: (data: AwayStateRequest) => api.put<ApiEnvelope<UserResponse>>('/users/me/away', data),
+  clearAway: () => api.delete<ApiEnvelope<UserResponse>>('/users/me/away'),
   search: (q: string, limit = 20, offset = 0) => api.get<ApiEnvelope<UserResponse[]>>('/users/search', { q, limit, offset }),
   getById: (id: string) => api.get<ApiEnvelope<UserResponse>>(`/users/${id}`),
+};
+
+export const scheduledApi = {
+  schedule: (data: ScheduleMessageRequest) => api.post<ApiEnvelope<ScheduledMessageResponse>>('/scheduled/messages', data),
+  listScheduled: () => api.get<ApiEnvelope<ScheduledMessageResponse[]>>('/scheduled/messages'),
+  cancelScheduled: (id: string) => api.delete<ApiEnvelope<ScheduledMessageResponse>>(`/scheduled/messages/${id}`),
+  remind: (data: CreateReminderRequest) => api.post<ApiEnvelope<ReminderResponse>>('/scheduled/reminders', data),
+  listReminders: () => api.get<ApiEnvelope<ReminderResponse[]>>('/scheduled/reminders'),
+  cancelReminder: (id: string) => api.delete<ApiEnvelope<ReminderResponse>>(`/scheduled/reminders/${id}`),
 };
 
 export const conversationsApi = {

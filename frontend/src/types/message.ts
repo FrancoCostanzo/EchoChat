@@ -38,6 +38,19 @@ export interface MessageAttachment {
   duration_ms: number | null;
 }
 
+/**
+ * Mención resuelta por el backend y guardada en `metadata.mentions`
+ * (backend/src/utils/mentions.util.ts). `offset`/`length` son sobre el body
+ * crudo, antes de renderizar el markdown.
+ */
+export interface MessageMention {
+  user_id: string;
+  /** Texto de la mención sin la arroba ("María García" o "mgarcia"). */
+  label: string;
+  offset: number;
+  length: number;
+}
+
 export interface MessageReaction {
   emoji: string;
   /** COUNT() agregado en SQL. */

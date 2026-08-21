@@ -8,7 +8,7 @@ import { minioClient } from '../config/minio';
 import { NotFoundError, BadRequestError } from '../errors';
 import { toUserResponse } from '../models';
 import type { UserResponse } from '../models/user.model';
-import type { UpdateProfileRequest } from '../dtos/auth.dto';
+import type { UpdateProfileRequest, AwayStateRequest } from '../dtos/auth.dto';
 
 const AVATAR_BUCKET = 'messaging-avatars';
 const AVATAR_ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -162,6 +162,40 @@ class UserService {
     const user = await userRepository.updatePresence(userId, presence);
     if (!user) throw new NotFoundError('User');
     toAll('presence:changed', { userId, presence });
+    return toUserResponse(user);
+  }
+
+  /**
+   * Activa el estado de ausencia. El `presence:changed` lleva también el texto
+   * para que las pantallas abiertas lo muestren sin recargar la conversación.
+   */
+  async setAway(userId: string, data: AwayStateRequest) {
+    // Elegir ausencia a mano supera cualquier away que hubiera puesto el job.
+    await clearAutoAway(userId);
+    const user = await userRepository.setAwayState(userId, {
+      message: data.message,
+      until: data.until ?? null,
+      autoReply: data.auto_reply ?? false,
+    });
+    if (!user) throw new NotFoundError('User');
+    toAll('presence:changed', {
+      userId,
+      presence: user.presence,
+      presence_message: user.presence_message,
+    });
+    logger.info({ userId, until: user.away_until }, 'Away state set');
+    return toUserResponse(user);
+  }
+
+  async clearAway(userId: string) {
+    const user = await userRepository.clearAwayState(userId);
+    if (!user) throw new NotFoundError('User');
+    toAll('presence:changed', {
+      userId,
+      presence: user.presence,
+      presence_message: null,
+    });
+    logger.info({ userId }, 'Away state cleared');
     return toUserResponse(user);
   }
 

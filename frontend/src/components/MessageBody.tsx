@@ -1,10 +1,31 @@
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { MessageBodyFormat } from '@/types/message';
+import { MENTION_HREF_PREFIX, remarkMentions, segmentarMenciones } from '@/lib/mentions';
+import type { MessageBodyFormat, MessageMention } from '@/types/message';
 
 type MessageVariant = 'own' | 'other';
 
-function buildMarkdownComponents(variant: MessageVariant): Components {
+/**
+ * Chip de @mención.
+ *
+ * Todo sólido a propósito: sobre fondos con degradado y wallpaper, un chip
+ * translúcido toma el color de lo que tenga atrás y termina ilegible. La
+ * mención al usuario logueado va con fondo lleno para que salte al barrer un
+ * canal; las demás, sólo texto en color pleno.
+ */
+function mentionClass(esPropia: boolean, isOwn: boolean): string {
+  const base = 'rounded px-1 font-semibold';
+  if (esPropia) {
+    // En la burbuja propia el fondo YA es el degradado accent: un chip accent
+    // ahí desaparecería, así que se invierte a superficie oscura sólida.
+    return `${base} ${isOwn ? 'bg-ink-900 text-white' : 'bg-accent text-accent-foreground'}`;
+  }
+  // En la burbuja propia el texto ya es echo-on-accent: el color no alcanza para
+  // distinguir la mención, así que la marca es un subrayado sólido (sin alpha).
+  return `${base} ${isOwn ? 'echo-on-accent underline decoration-2 underline-offset-2' : 'text-accent'}`;
+}
+
+function buildMarkdownComponents(variant: MessageVariant, currentUserId?: string | null): Components {
   const isOwn = variant === 'own';
   // Links sit directly on the own-bubble gradient with no darkening card
   // behind them, so they need the SAME accent-foreground pairing the bubble
@@ -37,11 +58,23 @@ function buildMarkdownComponents(variant: MessageVariant): Components {
     strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
     em: ({ children }) => <em className="italic">{children}</em>,
     del: ({ children }) => <del className="line-through opacity-85">{children}</del>,
-    a: ({ href, children }) => (
-      <a href={href} target="_blank" rel="noopener noreferrer" className={linkClass}>
-        {children}
-      </a>
-    ),
+    a: ({ href, children }) => {
+      // Las menciones llegan acá como links `mention:<uuid>` que inyecta
+      // remarkMentions — se pintan como chip, no como enlace navegable.
+      if (href?.startsWith(MENTION_HREF_PREFIX)) {
+        const userId = href.slice(MENTION_HREF_PREFIX.length);
+        return (
+          <span className={mentionClass(!!currentUserId && userId === currentUserId, isOwn)}>
+            {children}
+          </span>
+        );
+      }
+      return (
+        <a href={href} target="_blank" rel="noopener noreferrer" className={linkClass}>
+          {children}
+        </a>
+      );
+    },
     code: ({ className, children }) => {
       const isBlock = className?.includes('language-');
       if (isBlock) {
@@ -74,6 +107,10 @@ interface MessageBodyProps {
   variant?: MessageVariant;
   className?: string;
   size?: 'sm' | 'md';
+  /** Menciones resueltas por el backend (metadata.mentions). */
+  mentions?: MessageMention[];
+  /** Para resaltar distinto la mención al propio usuario. */
+  currentUserId?: string | null;
 }
 
 export default function MessageBody({
@@ -82,6 +119,8 @@ export default function MessageBody({
   variant = 'other',
   className = '',
   size = 'md',
+  mentions = [],
+  currentUserId = null,
 }: MessageBodyProps) {
   if (!body) return null;
 
@@ -89,9 +128,21 @@ export default function MessageBody({
   const textSize = size === 'sm' ? 'text-[14px]' : 'text-[15px]';
 
   if (format !== 'markdown') {
+    const segmentos = mentions.length > 0 ? segmentarMenciones(body, mentions) : null;
     return (
       <p className={['wrap-break-word whitespace-pre-wrap leading-[1.4]', textSize, className].filter(Boolean).join(' ')}>
-        {body}
+        {segmentos
+          ? segmentos.map((seg, i) => (seg.mencion ? (
+              <span
+                key={i}
+                className={mentionClass(!!currentUserId && seg.mencion.user_id === currentUserId, variant === 'own')}
+              >
+                {seg.texto}
+              </span>
+            ) : (
+              <span key={i}>{seg.texto}</span>
+            )))
+          : body}
       </p>
     );
   }
@@ -105,10 +156,10 @@ export default function MessageBody({
       ].filter(Boolean).join(' ')}
     >
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={mentions.length > 0 ? [remarkGfm, remarkMentions(mentions)] : [remarkGfm]}
         disallowedElements={['script', 'iframe', 'object', 'embed', 'form', 'input']}
         unwrapDisallowed
-        components={buildMarkdownComponents(variant)}
+        components={buildMarkdownComponents(variant, currentUserId)}
       >
         {body}
       </ReactMarkdown>

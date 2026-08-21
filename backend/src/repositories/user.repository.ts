@@ -232,6 +232,74 @@ class UserRepository extends BaseRepository<UserRow> {
     return rows[0];
   }
 
+  // ── Estado de ausencia ──────────────────────────────────────────────────
+  /**
+   * Activa la ausencia. La presencia pasa a `away` acá mismo: es una elección
+   * manual, así que el heartbeat de actividad no la va a pisar (sólo revierte
+   * las ausencias que puso el job).
+   */
+  async setAwayState(
+    id: string,
+    { message, until, autoReply }: { message: string; until?: Date | string | null; autoReply: boolean },
+  ): Promise<UserRow | undefined> {
+    const { rows } = await this.query(
+      `UPDATE users
+          SET presence = 'away',
+              presence_message = $2,
+              away_until = $3,
+              auto_reply_enabled = $4
+        WHERE id = $1
+        RETURNING *`,
+      [id, message, until || null, autoReply]
+    );
+    return rows[0];
+  }
+
+  /** Vuelve de la ausencia. `presence` sólo se toca si seguía en `away`. */
+  async clearAwayState(id: string): Promise<UserRow | undefined> {
+    const { rows } = await this.query(
+      `UPDATE users
+          SET presence = CASE WHEN presence = 'away' THEN 'online' ELSE presence END,
+              presence_message = NULL,
+              away_until = NULL,
+              auto_reply_enabled = FALSE
+        WHERE id = $1
+        RETURNING *`,
+      [id]
+    );
+    return rows[0];
+  }
+
+  /** Ausencias vencidas, para que el job las levante y las limpie. */
+  async findExpiredAway(limit = 200): Promise<UserRow[]> {
+    const { rows } = await this.query(
+      `SELECT * FROM users WHERE away_until IS NOT NULL AND away_until <= NOW() LIMIT $1`,
+      [limit]
+    );
+    return rows;
+  }
+
+  /**
+   * Reserva el derecho a mandar una auto-respuesta de `awayUserId` a
+   * `peerUserId`: devuelve true sólo si pasaron más de `horas` desde la última.
+   *
+   * El chequeo y la marca van en la misma sentencia a propósito — con dos
+   * mensajes entrando a la vez, un SELECT + INSERT separados dejarían pasar dos
+   * auto-respuestas.
+   */
+  async reservarAutoRespuesta(awayUserId: string, peerUserId: string, horas: number): Promise<boolean> {
+    const { rowCount } = await this.query(
+      `INSERT INTO auto_reply_log (away_user_id, peer_user_id, last_sent_at)
+       VALUES ($1, $2, NOW())
+       ON CONFLICT (away_user_id, peer_user_id) DO UPDATE
+         SET last_sent_at = NOW()
+         WHERE auto_reply_log.last_sent_at < NOW() - ($3 || ' hours')::interval
+       RETURNING away_user_id`,
+      [awayUserId, peerUserId, String(horas)]
+    );
+    return (rowCount ?? 0) > 0;
+  }
+
   async updateAvatar(id: string, bucket: string, objectKey: string): Promise<UserRow> {
     const { rows } = await this.query(
       `UPDATE users SET avatar_bucket = $1, avatar_object_key = $2 WHERE id = $3 RETURNING *`,

@@ -47,6 +47,12 @@ export interface AuditLog {
   user_agent: string | null;
 }
 
+export interface AutoReplyLog {
+  away_user_id: string;
+  last_sent_at: Generated<Timestamp>;
+  peer_user_id: string;
+}
+
 export interface BroadcastDeliveries {
   broadcast_msg_id: string;
   conversation_id: string | null;
@@ -259,6 +265,17 @@ export interface MessageReceipts {
   user_id: string;
 }
 
+export interface MessageReminders {
+  conversation_id: string;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  message_id: string;
+  note: string | null;
+  remind_at: Timestamp;
+  status: Generated<string>;
+  user_id: string;
+}
+
 export interface Messages {
   body: string | null;
   body_format: Generated<string | null>;
@@ -393,6 +410,20 @@ export interface SavedMessages {
   user_id: string;
 }
 
+export interface ScheduledMessages {
+  body: string;
+  body_format: Generated<string | null>;
+  conversation_id: string;
+  created_at: Generated<Timestamp>;
+  error: string | null;
+  id: Generated<string>;
+  scheduled_at: Timestamp;
+  sender_id: string;
+  sent_message_id: string | null;
+  status: Generated<string>;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface SchemaMigrations {
   applied_at: Generated<Timestamp>;
   name: string;
@@ -512,8 +543,16 @@ export interface UserRoles {
 
 export interface Users {
   auth_provider: Generated<string>;
+  /**
+   * TRUE = presence_message se responde automáticamente en chats directos.
+   */
+  auto_reply_enabled: Generated<boolean>;
   avatar_bucket: Generated<string | null>;
   avatar_object_key: string | null;
+  /**
+   * Fin de la ausencia. NULL = sin vencimiento (se limpia a mano).
+   */
+  away_until: Timestamp | null;
   created_at: Generated<Timestamp | null>;
   department: string | null;
   display_name: string;
@@ -572,6 +611,7 @@ export interface UserWallpapers {
 
 export interface DB {
   audit_log: AuditLog;
+  auto_reply_log: AutoReplyLog;
   broadcast_deliveries: BroadcastDeliveries;
   broadcast_lists: BroadcastLists;
   broadcast_messages: BroadcastMessages;
@@ -590,6 +630,7 @@ export interface DB {
   message_edits: MessageEdits;
   message_reactions: MessageReactions;
   message_receipts: MessageReceipts;
+  message_reminders: MessageReminders;
   message_search_tokens: MessageSearchTokens;
   messages: Messages;
   monitoring_snapshots: MonitoringSnapshots;
@@ -603,6 +644,7 @@ export interface DB {
   role_permissions: RolePermissions;
   roles: Roles;
   saved_messages: SavedMessages;
+  scheduled_messages: ScheduledMessages;
   schema_migrations: SchemaMigrations;
   sticker_packs: StickerPacks;
   sticker_usage: StickerUsage;

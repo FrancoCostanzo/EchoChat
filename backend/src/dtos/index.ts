@@ -12,3 +12,4 @@ export * from './notification.dto';
 export * from './relationship.dto';
 export * from './admin.dto';
 export * from './wallpaper.dto';
+export * from './scheduled.dto';

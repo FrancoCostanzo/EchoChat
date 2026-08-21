@@ -1,5 +1,7 @@
 import { create } from 'zustand';
+import { toast } from '@heroui/react';
 import type { Socket } from 'socket.io-client';
+import i18n from '@/lib/i18n';
 import { conversationsApi, messagesApi } from '@/lib/endpoints';
 import { connectSocket, disconnectSocket, getSocket } from '@/lib/socket';
 import { useAuthStore } from '@/stores/authStore';
@@ -103,6 +105,7 @@ interface ChatState {
   fetchConversations: () => Promise<void>;
   setActiveConversation: (conversationId: string | null) => Promise<void>;
   fetchMessages: (conversationId: string, cursor?: string) => Promise<void>;
+  resyncAfterReconnect: () => Promise<void>;
   patchMessage: (messageId: string, patch: Partial<ChatMessage>) => void;
   loadMoreMessages: () => Promise<void>;
   sendMessage: (
@@ -142,6 +145,17 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     const attachCalls = () => useCallStore.getState().attach(userId);
     socket.on('connect', attachCalls);
     if (socket.connected) attachCalls();
+
+    // Mientras el socket está caído no llega ningún `message:new`: los mensajes
+    // de ese hueco quedarían invisibles hasta un F5. Al reconectar reconciliamos
+    // timeline y lista. Sólo tras una caída real, no en el primer `connect`.
+    let huboCorte = false;
+    socket.on('disconnect', () => { huboCorte = true; });
+    socket.on('connect', () => {
+      if (!huboCorte) return;
+      huboCorte = false;
+      void get().resyncAfterReconnect();
+    });
 
     startActivityHeartbeat(socket);
 
@@ -293,17 +307,58 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     });
 
     socket.off('presence:changed');
-    socket.on('presence:changed', ({ userId, presence }: { userId: string; presence: string }) => {
+    // El backend ya persistió la notificación (se ve en /notifications); el
+    // toast es sólo el aviso en el momento.
+    socket.on('notification:new', (notif: {
+      type?: string;
+      conversation_id?: string;
+      sender_display_name?: string;
+      note?: string | null;
+    }) => {
+      if (notif?.type === 'mention') {
+        // Si está mirando esa conversación, el mensaje resaltado ya se lo dice.
+        if (notif.conversation_id && notif.conversation_id === get().activeConversationId) return;
+        toast.info(i18n.t('chat.mentionedYou', { name: notif.sender_display_name || '' }));
+        return;
+      }
+      if (notif?.type === 'reminder') {
+        // Este sí se muestra siempre: el usuario lo pidió explícitamente, y que
+        // esté mirando el chat no significa que se acuerde de por qué.
+        toast.info(notif.note || i18n.t('remind.fired'));
+      }
+    });
+
+    // Mensajes programados: avisamos al autor cuando salieron (o fallaron), que
+    // es el único que sabe que había algo agendado.
+    socket.on('scheduled:sent', () => {
+      toast.success(i18n.t('schedule.sent'));
+      void get().fetchConversations();
+    });
+    socket.on('scheduled:failed', ({ error }: { error?: string }) => {
+      toast.danger(i18n.t('schedule.failed', { error: error || '' }));
+    });
+
+    socket.on('presence:changed', (evento: { userId: string; presence: string; presence_message?: string | null }) => {
+      const { userId, presence } = evento;
+      // El mensaje de ausencia sólo viaja cuando cambia (activar/limpiar/vencer):
+      // los eventos de presencia comunes no lo traen y no deben pisarlo.
+      const cambiaMensaje = 'presence_message' in evento;
       set((state) => ({
         onlineUsers: { ...state.onlineUsers, [userId]: presence },
         conversations: state.conversations.map((c) =>
           c.other_user_id === userId || (c as ConversationResponse & { member_user_id?: string }).member_user_id === userId
-            ? { ...c, member_presence: presence }
+            ? {
+                ...c,
+                member_presence: presence,
+                member_presence_message: cambiaMensaje ? evento.presence_message ?? null : c.member_presence_message,
+              }
             : c,
         ),
       }));
       if (userId === get().activeUserId) {
-        useAuthStore.getState().updateUser({ presence });
+        useAuthStore.getState().updateUser(
+          cambiaMensaje ? { presence, presence_message: evento.presence_message ?? null } : { presence },
+        );
       }
     });
   },
@@ -417,6 +472,68 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     } finally {
       set({ loadingMessages: false });
     }
+  },
+
+  resyncAfterReconnect: async () => {
+    // La lista completa trae unread_count y último mensaje al día para todos los
+    // chats; el timeline abierto se reconcilia aparte porque hay que fusionarlo
+    // con los envíos optimistas que puedan haber quedado en vuelo.
+    await get().fetchConversations().catch(() => {});
+
+    const conversationId = get().activeConversationId;
+    if (!conversationId) return;
+
+    let recientes: MessageResponse[];
+    try {
+      const { data } = await messagesApi.getByConversation(conversationId, { limit: 50 });
+      recientes = data;
+    } catch {
+      return; // la próxima reconexión vuelve a intentar
+    }
+
+    const ordenados = [...recientes].sort(
+      (a, b) => new Date(a.sent_at ?? 0).getTime() - new Date(b.sent_at ?? 0).getTime(),
+    );
+    const nuevosIds: string[] = [];
+
+    set((state) => {
+      // Si el usuario cambió de conversación mientras pedíamos, descartamos.
+      if (state.activeConversationId !== conversationId) return state;
+
+      const enTransito = (m: ChatMessage) => m._status === 'sending' || m._status === 'error';
+      const pendientes = state.messages.filter(enTransito);
+      const asentados = state.messages.filter((m) => !enTransito(m));
+      const conocidos = new Set(asentados.map((m) => m.id));
+      const solapan = asentados.length === 0 || ordenados.some((m) => conocidos.has(m.id));
+
+      if (!solapan) {
+        // El corte fue tan largo que la última página no toca lo que teníamos:
+        // hay un hueco. Nos quedamos con la página fresca y habilitamos scroll
+        // hacia arriba para que el usuario recupere lo del medio.
+        ordenados.forEach((m) => { if (!conocidos.has(m.id)) nuevosIds.push(m.id); });
+        return { messages: [...ordenados, ...pendientes], hasMoreMessages: true };
+      }
+
+      // Refrescamos lo que ya teníamos (ediciones y borrados del hueco) y
+      // agregamos al final lo que llegó mientras estábamos desconectados.
+      const servidor = new Map(ordenados.map((m) => [m.id, m]));
+      const fusionados = asentados.map((m) => {
+        const fresco = servidor.get(m.id);
+        return fresco ? { ...m, ...fresco } : m;
+      });
+      const faltantes = ordenados.filter((m) => !conocidos.has(m.id));
+      faltantes.forEach((m) => nuevosIds.push(m.id));
+
+      return { messages: [...fusionados, ...faltantes, ...pendientes] };
+    });
+
+    // Los que aparecieron durante el corte se leen ahora: el usuario está
+    // mirando esta conversación.
+    const { activeUserId } = get();
+    const porLeer = ordenados
+      .filter((m) => nuevosIds.includes(m.id) && m.sender_id !== activeUserId)
+      .map((m) => m.id);
+    if (porLeer.length > 0) get().markMessagesRead(conversationId, porLeer);
   },
 
   patchMessage: (messageId, patch) => {

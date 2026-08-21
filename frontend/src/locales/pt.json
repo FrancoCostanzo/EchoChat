@@ -198,7 +198,10 @@
     "noMessagesDirect": "Diga oi para {{name}} e quebre o gelo.",
     "noMessagesGroup": "Seja a primeira pessoa a escrever no grupo.",
     "noMessagesChannel": "Seja a primeira pessoa a escrever em #{{name}}.",
-    "sayHi": "Diga oi"
+    "sayHi": "Diga oi",
+    "mentionSuggestions": "Sugestões de menções",
+    "mentionedYou": "{{name}} mencionou você",
+    "autoReply": "Resposta automática"
   },
   "newConversation": {
     "title": "Nova conversa",
@@ -543,6 +546,20 @@
       "es": "Español",
       "en": "English",
       "pt": "Português"
+    },
+    "away": {
+      "title": "Status de ausência",
+      "description": "Aparece ao lado do seu nome e avisa quem te escrever.",
+      "message": "Mensagem",
+      "messagePlaceholder": "De licença até 3/9, urgências com @juan",
+      "until": "Até",
+      "untilHint": "Opcional. Ao vencer, a ausência se limpa sozinha.",
+      "autoReply": "Responder automaticamente em conversas diretas",
+      "autoReplyHint": "Enviado uma vez a cada 4 horas por pessoa, mesmo que escrevam várias vezes.",
+      "save": "Ativar ausência",
+      "clear": "Remover ausência",
+      "saved": "Status de ausência ativado",
+      "cleared": "Status de ausência removido"
     }
   },
   "broadcasts": {
@@ -975,6 +992,41 @@
       "unknownConversation": "Conversa",
       "emptyHint": "Quando você fizer ou receber uma chamada, ela aparecerá aqui.",
       "noMissedHint": "Você não tem chamadas perdidas. Tudo em dia!"
+    }
+  },
+  "schedule": {
+    "action": "Agendar mensagem",
+    "title": "Agendar mensagem",
+    "message": "Mensagem",
+    "messagePlaceholder": "O que deve sair depois",
+    "when": "Quando",
+    "pastDate": "Essa data já passou",
+    "pending": "Agendadas nesta conversa",
+    "submit": "Agendar",
+    "cancel": "Cancelar agendamento",
+    "scheduled": "Mensagem agendada",
+    "cancelled": "Agendamento cancelado",
+    "sent": "Sua mensagem agendada foi enviada",
+    "failed": "Não foi possível enviar a mensagem agendada. {{error}}"
+  },
+  "remind": {
+    "action": "Lembrar-me",
+    "title": "Lembrar-me desta mensagem",
+    "when": "Quando",
+    "note": "Nota (opcional)",
+    "notePlaceholder": "Para que você está guardando",
+    "custom": "Data e hora exatas",
+    "submit": "Criar",
+    "existing": "Você já tem um lembrete",
+    "cancel": "Cancelar lembrete",
+    "created": "Lembrete criado",
+    "cancelled": "Lembrete cancelado",
+    "fired": "Você pediu para lembrar de uma mensagem",
+    "shortcuts": {
+      "inOneHour": "Em uma hora",
+      "thisEvening": "Esta tarde",
+      "tomorrow": "Amanhã",
+      "nextWeek": "Semana que vem"
     }
   }
 }

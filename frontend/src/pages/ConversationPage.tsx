@@ -25,6 +25,9 @@ import {
   Pencil,
   Copy,
   Trash2,
+  Clock,
+  CalendarClock,
+  AlarmClock,
   Hash,
   Users,
   ArrowDown,
@@ -81,10 +84,14 @@ import CreateCodeModal from '@/components/CreateCodeModal';
 import WallpaperPicker from '@/components/WallpaperPicker';
 import { PRESETS } from '@/components/WallpaperPicker';
 import { formatMessageTime, formatFullTime, formatDaySeparator } from '@/lib/dates';
+import { readMentions } from '@/lib/mentions';
 import FloatingComposer from '@/components/FloatingComposer';
 import MessageBody from '@/components/MessageBody';
 import { handleFormatShortcut } from '@/components/FormatToolbar';
 import DynamicMessageInput from '@/components/DynamicMessageInput';
+import MentionAutocomplete, { useMentionAutocomplete } from '@/components/MentionAutocomplete';
+import ScheduleMessageModal from '@/components/ScheduleMessageModal';
+import RemindMeModal from '@/components/RemindMeModal';
 import StickerGifPicker from '@/components/StickerGifPicker';
 import EmojiPicker from '@/components/EmojiPicker';
 import { detectBodyFormat } from '@/lib/markdown';
@@ -138,6 +145,7 @@ function FilePickerMenu({
   onPick,
   onPoll,
   onCode,
+  onSchedule,
   disabled,
   uploading,
   open,
@@ -146,6 +154,7 @@ function FilePickerMenu({
   onPick: (file: File) => void;
   onPoll?: () => void;
   onCode?: () => void;
+  onSchedule?: () => void;
   disabled?: boolean;
   uploading?: boolean;
   open: boolean;
@@ -175,6 +184,7 @@ function FilePickerMenu({
     ...FILE_ITEMS,
     ...(onCode ? [{ icon: Code2, label: t('code.sendTitle'), action: onCode }] : []),
     ...(onPoll ? [{ icon: BarChart3, label: t('poll.create'), action: onPoll }] : []),
+    ...(onSchedule ? [{ icon: CalendarClock, label: t('schedule.action'), action: onSchedule }] : []),
   ];
 
   const updateMenuPosition = useCallback(() => {
@@ -985,7 +995,7 @@ function MessageContextMenu({
 
 function buildMessageMenuItems({
   message, isOwn, saved, pinned, t, closeMenu,
-  onReply, onOpenThread, onForward, onEdit, onDelete, onToggleSave, onTogglePin, onInfo, onSaveSticker,
+  onReply, onOpenThread, onForward, onEdit, onDelete, onToggleSave, onTogglePin, onInfo, onSaveSticker, onRemind,
 }: {
   message: ChatMessage;
   isOwn: boolean;
@@ -1002,6 +1012,7 @@ function buildMessageMenuItems({
   onTogglePin: (message: ChatMessage) => void;
   onInfo: (message: ChatMessage) => void;
   onSaveSticker: (message: ChatMessage) => void;
+  onRemind: (message: ChatMessage) => void;
 }): (MenuAction | false)[] {
   const withinEditWindow = isWithinMessageWindow(message.sent_at, MESSAGE_EDIT_WINDOW_MS);
   const withinDeleteWindow = isWithinMessageWindow(message.sent_at, MESSAGE_DELETE_WINDOW_MS);
@@ -1024,6 +1035,7 @@ function buildMessageMenuItems({
     canCopy && { key: 'copy', icon: Copy, label: t('chat.copyText'), onClick: () => { closeMenu(); navigator.clipboard?.writeText(message.body || ''); } },
     { key: 'pin', icon: pinned ? PinOff : Pin, label: pinned ? t('chat.unpin') : t('chat.pin'), onClick: () => { closeMenu(); onTogglePin(message); } },
     { key: 'save', icon: saved ? BookmarkCheck : Bookmark, label: saved ? t('saved.remove') : t('chat.save'), onClick: () => { closeMenu(); onToggleSave(message); } },
+    !message.is_deleted && { key: 'remind', icon: AlarmClock, label: t('remind.action'), onClick: () => { closeMenu(); onRemind(message); } },
     isOwn && { key: 'info', icon: Info, label: t('chat.messageInfo'), onClick: () => { closeMenu(); onInfo(message); } },
     !!canEdit && { key: 'edit', icon: Pencil, label: t('common.edit'), onClick: () => { closeMenu(); onEdit(message); } },
     canDelete && { key: 'delete', icon: Trash2, label: t('common.delete'), danger: true, onClick: () => { closeMenu(); onDelete(message); } },
@@ -1131,6 +1143,8 @@ interface CallEventMetadata {
 /** Forma combinada de `message.metadata` para las variantes que arma esta página. */
 interface MessageMetadata extends CallEventMetadata {
   sticker?: MessageSticker;
+  /** Lo pone el backend cuando el mensaje es la auto-respuesta de una ausencia. */
+  auto_reply?: boolean;
   broadcast_msg_id?: string;
   broadcast_list_id?: string;
   broadcast_list_name?: string;
@@ -1432,12 +1446,26 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
                 />
               )}
 
+              {/* Auto-respuesta de ausencia: se aclara para que no se lea como
+                  una respuesta escrita en el momento. */}
+              {meta?.auto_reply && (
+                <span className={[
+                  'mb-0.5 inline-flex items-center gap-1 text-[11px] italic',
+                  isOwn ? 'echo-on-accent opacity-80' : 'text-ink-200',
+                ].join(' ')}>
+                  <Clock size={10} className="shrink-0" />
+                  {t('chat.autoReply')}
+                </span>
+              )}
+
               {/* Body */}
               {message.type !== 'media' && message.type !== 'poll' && message.type !== 'code' && message.type !== 'sticker' && message.type !== 'game' && message.body && (
                 <MessageBody
                   body={message.body}
                   bodyFormat={message.body_format ?? undefined}
                   variant={isOwn ? 'own' : 'other'}
+                  mentions={readMentions(message.metadata)}
+                  currentUserId={currentUserId}
                   className={[
                     message._status === 'sending' ? 'opacity-70' : '',
                     message._status === 'error' ? (isOwn ? 'text-red-100' : 'text-echo-dnd') : '',
@@ -1681,6 +1709,8 @@ export default function ConversationPage() {
   const [infoTarget, setInfoTarget] = useState<ChatMessage | null>(null); // message whose info panel is open
   const [threadRoot, setThreadRoot] = useState<ChatMessage | null>(null); // root message of the open thread panel
   const [contextMenu, setContextMenu] = useState<ContextMenuPos | null>(null);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [remindMessageId, setRemindMessageId] = useState<string | null>(null);
   const [sendPulse, setSendPulse] = useState(false);
   const [sendingHi, setSendingHi] = useState(false);
   const sendPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1845,6 +1875,17 @@ export default function ConversationPage() {
   useEffect(() => {
     setMembersOpen(false);
   }, [conversationId]);
+
+  // Autocompletado de @menciones del composer. En DMs `members` queda vacío
+  // (no se piden) y el hook no sugiere nada, que es lo correcto: mencionar en
+  // un chat de a dos no aporta.
+  const mentions = useMentionAutocomplete({
+    value: input,
+    onChange: setInput,
+    inputRef,
+    members,
+    excludeUserId: user?.id,
+  });
 
   // Members are fetched once via REST; overlay live presence from the socket
   // so the member panel doesn't go stale while the conversation stays open.
@@ -2103,6 +2144,9 @@ export default function ConversationPage() {
   };
 
   const handleKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    // Con el popup de menciones abierto, Enter/Tab/flechas son suyas: si no,
+    // Enter enviaría el mensaje en vez de completar el nombre.
+    if (mentions.onKeyDown(e)) return;
     if (handleFormatShortcut(e, inputRef, setInput, t)) return;
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -2538,6 +2582,7 @@ export default function ConversationPage() {
         onTogglePin: handleTogglePin,
         onInfo: handleOpenInfo,
         onSaveSticker: handleSaveSticker,
+        onRemind: (m: ChatMessage) => setRemindMessageId(m.id),
       })
     : [];
 
@@ -2627,6 +2672,25 @@ export default function ConversationPage() {
         onClose={() => setShowPollModal(false)}
       />
 
+      <ScheduleMessageModal
+        isOpen={showScheduleModal}
+        conversationId={conversationId as string}
+        initialBody={input}
+        onClose={() => setShowScheduleModal(false)}
+        // Lo que se programó ya no tiene que quedar en el composer ni en el
+        // borrador: si no, se manda dos veces.
+        onScheduled={() => {
+          setInput('');
+          if (conversationId) messagesApi.deleteDraft(conversationId).catch(() => {});
+        }}
+      />
+
+      <RemindMeModal
+        isOpen={!!remindMessageId}
+        messageId={remindMessageId}
+        onClose={() => setRemindMessageId(null)}
+      />
+
       <CreateCodeModal
         isOpen={showCodeModal}
         conversationId={conversationId as string}
@@ -2684,6 +2748,12 @@ export default function ConversationPage() {
                 {conversation.member_presence && (
                   <span className="hidden md:inline-block shrink-0 border-l border-ink-400/40 pl-3 text-[13px] capitalize text-ink-200">
                     {conversation.member_presence}
+                  </span>
+                )}
+                {/* Estado de ausencia: por qué no está, no sólo que no está. */}
+                {conversation.member_presence_message && (
+                  <span className="hidden truncate text-[13px] italic text-ink-200 lg:inline-block">
+                    {conversation.member_presence_message}
                   </span>
                 )}
               </>
@@ -3050,6 +3120,7 @@ export default function ConversationPage() {
           <div className="flex min-w-0 w-full flex-1 items-center gap-1 sm:gap-2">
             <FilePickerMenu
               onPick={handleFilePick}
+              onSchedule={() => setShowScheduleModal(true)}
               onPoll={() => setShowPollModal(true)}
               onCode={() => {
                 setCodeModalInitial({ body: '', language: 'plaintext' });
@@ -3061,6 +3132,14 @@ export default function ConversationPage() {
               onOpenChange={(next) => setActivePicker(next ? 'file' : null)}
             />
 
+            <div className="relative flex min-w-0 flex-1">
+            <MentionAutocomplete
+              open={mentions.activo}
+              options={mentions.sugerencias}
+              activeIndex={mentions.indice}
+              onSelect={mentions.seleccionar}
+              onHover={mentions.setIndice}
+            />
             <DynamicMessageInput
               ref={inputRef}
               placeholder={isDirect
@@ -3069,6 +3148,7 @@ export default function ConversationPage() {
               value={input}
               onChange={(e: FakeInputChangeEvent) => {
                 setInput(e.target.value);
+                mentions.detectar(e.target.value);
                 if (!conversationId) return;
                 emitTyping(conversationId, true);
                 if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
@@ -3079,6 +3159,7 @@ export default function ConversationPage() {
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
             />
+            </div>
 
             {isDirect && (
               <GamePickerMenu

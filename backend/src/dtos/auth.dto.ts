@@ -62,6 +62,23 @@ export const updateProfileDto = Joi.object<UpdateProfileRequest>({
   locale: Joi.string().max(10),
 }).min(1);
 
+/**
+ * Estado de ausencia: un solo texto que se muestra al lado del nombre y —si
+ * `auto_reply` está activo— se responde solo en los chats directos.
+ */
+export interface AwayStateRequest {
+  message: string;
+  /** Cuándo vence. Sin fecha, la ausencia queda hasta que se limpie a mano. */
+  until?: Date | string | null;
+  auto_reply?: boolean;
+}
+
+export const awayStateDto = Joi.object<AwayStateRequest>({
+  message: Joi.string().max(200).required(),
+  until: Joi.date().iso().greater('now').allow(null),
+  auto_reply: Joi.boolean().default(false),
+});
+
 export interface ChangePasswordRequest {
   current_password: string;
   new_password: string;

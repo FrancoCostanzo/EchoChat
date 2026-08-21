@@ -10,10 +10,13 @@ import UserAvatar from '@/components/UserAvatar';
 import MessageBody from '@/components/MessageBody';
 import CodeMessage from '@/components/CodeMessage';
 import { formatMessageTime } from '@/lib/dates';
+import { readMentions } from '@/lib/mentions';
+import { useAuthStore } from '@/stores/authStore';
 import type { SavedMessageResponse } from '@/types/message';
 
 export default function SavedMessagesPage() {
   const { t } = useTranslation();
+  const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
   const reducedMotion = useReducedMotion();
   const [items, setItems] = useState<SavedMessageResponse[]>([]);
@@ -132,6 +135,8 @@ export default function SavedMessagesPage() {
                     bodyFormat={m.body_format ?? undefined}
                     variant="other"
                     size="sm"
+                    mentions={readMentions(m.metadata)}
+                    currentUserId={user?.id}
                   />
                 ) : null}
 

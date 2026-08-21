@@ -22,6 +22,9 @@ export interface UserResponse {
   status: string | null;
   presence: string | null;
   presence_message: string | null;
+  /** Estado de ausencia: cuándo vence y si el mensaje se auto-responde en DMs. */
+  away_until: string | null;
+  auto_reply_enabled: boolean;
   last_seen_at: string | null;
   timezone: string | null;
   locale: string | null;
@@ -67,3 +70,11 @@ export interface UpdateProfileRequest {
 }
 
 export type Presence = 'online' | 'offline' | 'away' | 'busy' | 'dnd';
+
+/** PUT /users/me/away. Fuente: backend/src/dtos/auth.dto.ts (AwayStateRequest). */
+export interface AwayStateRequest {
+  message: string;
+  /** ISO. Sin fecha, la ausencia dura hasta que se limpie a mano. */
+  until?: string | null;
+  auto_reply?: boolean;
+}

@@ -33,6 +33,8 @@ export interface ConversationResponse {
   display_name: string | null;
   other_username: string | null;
   member_presence: string | null;
+  /** Mensaje de ausencia del otro lado en un chat directo. */
+  member_presence_message: string | null;
   other_avatar_object_key: string | null;
   other_avatar_url: string | null;
   // Preview del último mensaje.

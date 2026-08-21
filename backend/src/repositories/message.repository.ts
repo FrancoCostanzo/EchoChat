@@ -329,6 +329,7 @@ class MessageRepository extends BaseRepository<MessageRow> {
     body: string | null,
     editedBy: string,
     bodyFormat?: string,
+    metadata?: unknown,
   ): Promise<MessageRow> {
     // Save edit history (el body anterior, ya en texto plano vía findById, se
     // vuelve a cifrar antes de guardarlo en el historial).
@@ -340,10 +341,19 @@ class MessageRepository extends BaseRepository<MessageRow> {
       );
     }
 
-    const { rows } = await this.query(
-      `UPDATE messages SET body = $1, body_format = $2, is_edited = TRUE, edited_at = NOW() WHERE id = $3 RETURNING *`,
-      [encrypt(body || null), bodyFormat || 'plain', id]
-    );
+    // `metadata` sólo se pisa si el service lo recalculó (menciones); si no,
+    // la fila conserva la que tenía (idioma de un bloque de código, sticker…).
+    const { rows } = metadata === undefined
+      ? await this.query(
+          `UPDATE messages SET body = $1, body_format = $2, is_edited = TRUE, edited_at = NOW()
+           WHERE id = $3 RETURNING *`,
+          [encrypt(body || null), bodyFormat || 'plain', id]
+        )
+      : await this.query(
+          `UPDATE messages SET body = $1, body_format = $2, metadata = $3, is_edited = TRUE, edited_at = NOW()
+           WHERE id = $4 RETURNING *`,
+          [encrypt(body || null), bodyFormat || 'plain', metadata, id]
+        );
     await this._setSearchTokens(id, body || null);
     return decryptRow(rows[0]);
   }

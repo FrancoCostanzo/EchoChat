@@ -17,6 +17,9 @@ export interface UserResponse {
   status: string | null;
   presence: string | null;
   presence_message: string | null;
+  /** Estado de ausencia: cuándo vence y si el mensaje se auto-responde. */
+  away_until: Date | null;
+  auto_reply_enabled: boolean;
   last_seen_at: Date | null;
   timezone: string | null;
   locale: string | null;
@@ -53,6 +56,8 @@ export function toUserResponse(row: UserRow | null | undefined): UserResponse | 
     status: row.status,
     presence: row.presence,
     presence_message: row.presence_message,
+    away_until: row.away_until,
+    auto_reply_enabled: row.auto_reply_enabled ?? false,
     last_seen_at: row.last_seen_at,
     timezone: row.timezone,
     locale: row.locale,

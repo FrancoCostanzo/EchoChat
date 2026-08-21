@@ -88,6 +88,7 @@ class ConversationRepository extends BaseRepository<ConvRow> {
               other_user.display_name AS other_display_name,
               other_user.username     AS other_username,
               other_user.presence     AS member_presence,
+              other_user.presence_message AS member_presence_message,
               other_user.avatar_object_key AS other_avatar_object_key,
               -- Last message body for sidebar preview
               last_msg.body AS last_message_body,
@@ -96,7 +97,7 @@ class ConversationRepository extends BaseRepository<ConvRow> {
        FROM conversations c
        JOIN conversation_members cm ON cm.conversation_id = c.id
        LEFT JOIN LATERAL (
-         SELECT u.id AS user_id, u.display_name, u.username, u.presence, u.avatar_object_key
+         SELECT u.id AS user_id, u.display_name, u.username, u.presence, u.presence_message, u.avatar_object_key
          FROM conversation_members cm2
          JOIN users u ON u.id = cm2.user_id
          WHERE cm2.conversation_id = c.id

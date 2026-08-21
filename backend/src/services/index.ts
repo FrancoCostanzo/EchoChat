@@ -16,6 +16,7 @@ import wallpaperService from './wallpaper.service';
 import ldapService from './ldap.service';
 import oidcService from './oidc.service';
 import scimService from './scim.service';
+import scheduledService from './scheduled.service';
 
 export {
   authService,
@@ -36,4 +37,5 @@ export {
   ldapService,
   oidcService,
   scimService,
+  scheduledService,
 };

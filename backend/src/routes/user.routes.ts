@@ -2,7 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { userController } from '../controllers';
 import { validate, authenticate } from '../middlewares';
-import { updateProfileDto } from '../dtos';
+import { updateProfileDto, awayStateDto } from '../dtos';
 import { withAuth } from '../types/http';
 
 const avatarUpload = multer({
@@ -21,6 +21,8 @@ router.get('/me', withAuth((req, res) => userController.getProfile(req, res)));
 router.put('/me', validate(updateProfileDto), withAuth((req, res) => userController.updateProfile(req, res)));
 router.post('/me/avatar', avatarUpload.single('file'), withAuth((req, res) => userController.uploadAvatar(req, res)));
 router.put('/me/presence', withAuth((req, res) => userController.updatePresence(req, res)));
+router.put('/me/away', validate(awayStateDto), withAuth((req, res) => userController.setAway(req, res)));
+router.delete('/me/away', withAuth((req, res) => userController.clearAway(req, res)));
 router.get('/search', withAuth((req, res) => userController.search(req, res)));
 router.get('/:userId', withAuth((req, res) => userController.getUserById(req, res)));
 

@@ -14,6 +14,7 @@ import notificationRoutes from './notification.routes';
 import relationshipRoutes from './relationship.routes';
 import adminRoutes from './admin.routes';
 import wallpaperRoutes from './wallpaper.routes';
+import scheduledRoutes from './scheduled.routes';
 import { healthRouter, monitoringRouter } from './monitoring.routes';
 
 const router = Router();
@@ -32,6 +33,7 @@ router.use('/broadcasts', broadcastRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/relationships', relationshipRoutes);
 router.use('/admin', adminRoutes);
+router.use('/scheduled', scheduledRoutes);
 router.use('/preferences/wallpapers', wallpaperRoutes);
 router.use('/health', healthRouter);
 router.use('/monitoring', monitoringRouter);

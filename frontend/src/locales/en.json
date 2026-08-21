@@ -198,7 +198,10 @@
     "noMessagesDirect": "Say hi to {{name}} and break the ice.",
     "noMessagesGroup": "Be the first one to write in the group.",
     "noMessagesChannel": "Be the first one to write in #{{name}}.",
-    "sayHi": "Say hi"
+    "sayHi": "Say hi",
+    "mentionSuggestions": "Mention suggestions",
+    "mentionedYou": "{{name}} mentioned you",
+    "autoReply": "Auto-reply"
   },
   "newConversation": {
     "title": "New conversation",
@@ -543,6 +546,20 @@
       "es": "Español",
       "en": "English",
       "pt": "Português"
+    },
+    "away": {
+      "title": "Away status",
+      "description": "Shown next to your name and sent to whoever writes to you.",
+      "message": "Message",
+      "messagePlaceholder": "On leave until Sep 3, urgent matters to @juan",
+      "until": "Until",
+      "untilHint": "Optional. It clears itself once the time passes.",
+      "autoReply": "Auto-reply in direct chats",
+      "autoReplyHint": "Sent once every 4 hours per person, no matter how many times they write.",
+      "save": "Set away",
+      "clear": "Clear away",
+      "saved": "Away status set",
+      "cleared": "Away status cleared"
     }
   },
   "broadcasts": {
@@ -975,6 +992,41 @@
       "unknownConversation": "Conversation",
       "emptyHint": "When you make or receive a call, it will show up here.",
       "noMissedHint": "You have no missed calls. All caught up!"
+    }
+  },
+  "schedule": {
+    "action": "Schedule message",
+    "title": "Schedule message",
+    "message": "Message",
+    "messagePlaceholder": "What should go out later",
+    "when": "When",
+    "pastDate": "That time has already passed",
+    "pending": "Scheduled in this chat",
+    "submit": "Schedule",
+    "cancel": "Cancel scheduled message",
+    "scheduled": "Message scheduled",
+    "cancelled": "Schedule cancelled",
+    "sent": "Your scheduled message was sent",
+    "failed": "Couldn't send the scheduled message. {{error}}"
+  },
+  "remind": {
+    "action": "Remind me",
+    "title": "Remind me about this",
+    "when": "When",
+    "note": "Note (optional)",
+    "notePlaceholder": "What you are keeping it for",
+    "custom": "Exact date and time",
+    "submit": "Create",
+    "existing": "You already have a reminder",
+    "cancel": "Cancel reminder",
+    "created": "Reminder created",
+    "cancelled": "Reminder cancelled",
+    "fired": "You asked to be reminded about a message",
+    "shortcuts": {
+      "inOneHour": "In an hour",
+      "thisEvening": "This evening",
+      "tomorrow": "Tomorrow",
+      "nextWeek": "Next week"
     }
   }
 }

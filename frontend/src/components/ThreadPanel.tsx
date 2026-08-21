@@ -13,10 +13,13 @@ import { handleFormatShortcut } from '@/components/FormatToolbar';
 import DynamicMessageInput from '@/components/DynamicMessageInput';
 import { detectBodyFormat } from '@/lib/markdown';
 import { formatMessageTime } from '@/lib/dates';
+import { readMentions } from '@/lib/mentions';
+import { useAuthStore } from '@/stores/authStore';
 import type { MessageResponse } from '@/types/message';
 
 function ThreadMessage({ msg, isRoot = false }: { msg: MessageResponse; isRoot?: boolean }) {
   const { t } = useTranslation();
+  const currentUserId = useAuthStore((s) => s.user?.id);
   return (
     <div className={[
       'flex gap-2 px-3 py-1.5',
@@ -40,6 +43,8 @@ function ThreadMessage({ msg, isRoot = false }: { msg: MessageResponse; isRoot?:
             bodyFormat={msg.body_format ?? undefined}
             variant="other"
             size="sm"
+            mentions={readMentions(msg.metadata)}
+            currentUserId={currentUserId}
           />
         ) : null}
         {msg.attachments?.length > 0 && (

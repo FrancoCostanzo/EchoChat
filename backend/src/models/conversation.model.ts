@@ -16,6 +16,7 @@ export type ConversationRow = Row<'conversations'> & {
   other_display_name?: string | null;
   other_username?: string | null;
   member_presence?: string | null;
+  member_presence_message?: string | null;
   other_avatar_object_key?: string | null;
   other_avatar_url?: string | null;
   last_message_body?: string | null;
@@ -58,6 +59,7 @@ export function toConversationResponse(row: ConversationRow | null | undefined) 
     display_name: row.other_display_name ?? null,
     other_username: row.other_username ?? null,
     member_presence: row.member_presence ?? null,
+    member_presence_message: row.member_presence_message ?? null,
     other_avatar_object_key: row.other_avatar_object_key ?? null,
     other_avatar_url: row.other_avatar_url ?? null,
     // Last message preview

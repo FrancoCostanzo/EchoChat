@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, type ReactNode, type ChangeEvent } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Input, Button, Spinner, InputOTP, REGEXP_ONLY_DIGITS, Switch, Tooltip } from '@heroui/react';
+import { Input, Button, Spinner, InputOTP, REGEXP_ONLY_DIGITS, Switch, Tooltip, toast } from '@heroui/react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Monitor,
@@ -1060,6 +1060,7 @@ function PresenceTab() {
   };
 
   return (
+    <div className="flex flex-col gap-4">
     <SettingsCard icon={Wifi} title={t('settings.presenceStatus')}>
       <div className="flex flex-col gap-2">
         {PRESENCE_OPTIONS.map(({ key, dotClass, icon: Icon }) => (
@@ -1076,6 +1077,131 @@ function PresenceTab() {
             </span>
           </SettingsOptionButton>
         ))}
+      </div>
+    </SettingsCard>
+    <AwayCard />
+    </div>
+  );
+}
+
+/**
+ * Estado de ausencia: un texto, hasta cuándo, y si además se responde solo en
+ * los chats directos. Es el mismo `presence_message` que se ve al lado del
+ * nombre — a propósito, para no mantener dos redacciones del mismo aviso.
+ */
+function AwayCard() {
+  const { t } = useTranslation();
+  const user = useAuthStore((s) => s.user);
+  const updateUser = useAuthStore((s) => s.updateUser);
+
+  const activa = !!user?.presence_message;
+  const [mensaje, setMensaje] = useState(user?.presence_message || '');
+  // <input type="datetime-local"> quiere "YYYY-MM-DDTHH:mm" en hora local.
+  const [hasta, setHasta] = useState(() => {
+    if (!user?.away_until) return '';
+    const d = new Date(user.away_until);
+    const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 16);
+  });
+  const [autoReply, setAutoReply] = useState(!!user?.auto_reply_enabled);
+  const [guardando, setGuardando] = useState(false);
+
+  const guardar = async () => {
+    if (!mensaje.trim()) return;
+    setGuardando(true);
+    try {
+      const { data } = await usersApi.setAway({
+        message: mensaje.trim(),
+        until: hasta ? new Date(hasta).toISOString() : null,
+        auto_reply: autoReply,
+      });
+      updateUser({
+        presence: data.presence,
+        presence_message: data.presence_message,
+        away_until: data.away_until,
+        auto_reply_enabled: data.auto_reply_enabled,
+      });
+      toast.success(t('settings.away.saved'));
+    } catch (err) {
+      toast.danger((err instanceof Error && err.message) || t('common.error'));
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const limpiar = async () => {
+    setGuardando(true);
+    try {
+      const { data } = await usersApi.clearAway();
+      setMensaje('');
+      setHasta('');
+      setAutoReply(false);
+      updateUser({
+        presence: data.presence,
+        presence_message: null,
+        away_until: null,
+        auto_reply_enabled: false,
+      });
+      toast.success(t('settings.away.cleared'));
+    } catch (err) {
+      toast.danger((err instanceof Error && err.message) || t('common.error'));
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <SettingsCard icon={Clock} title={t('settings.away.title')}>
+      <p className="mb-4 text-xs text-ink-200">{t('settings.away.description')}</p>
+
+      <div className="flex flex-col gap-3">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-ink-200">
+            {t('settings.away.message')}
+          </label>
+          <Input
+            value={mensaje}
+            maxLength={200}
+            placeholder={t('settings.away.messagePlaceholder')}
+            onChange={(e) => setMensaje(e.target.value)}
+            className="w-full"
+          />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-xs font-medium text-ink-200">
+            {t('settings.away.until')}
+          </label>
+          <Input
+            type="datetime-local"
+            value={hasta}
+            onChange={(e) => setHasta(e.target.value)}
+            className="w-full"
+          />
+          <p className="mt-1 text-xs text-ink-200">{t('settings.away.untilHint')}</p>
+        </div>
+
+        <Switch isSelected={autoReply} isDisabled={guardando} onChange={setAutoReply}>
+          <Switch.Control><Switch.Thumb /></Switch.Control>
+          <Switch.Content>{t('settings.away.autoReply')}</Switch.Content>
+        </Switch>
+        <p className="-mt-1 text-xs text-ink-200">{t('settings.away.autoReplyHint')}</p>
+
+        <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            isPending={guardando}
+            isDisabled={!mensaje.trim()}
+            onPress={guardar}
+          >
+            {t('settings.away.save')}
+          </Button>
+          {activa && (
+            <Button variant="ghost" isDisabled={guardando} onPress={limpiar}>
+              {t('settings.away.clear')}
+            </Button>
+          )}
+        </div>
       </div>
     </SettingsCard>
   );

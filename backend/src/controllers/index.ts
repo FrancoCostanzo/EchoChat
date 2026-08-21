@@ -13,6 +13,7 @@ import notificationController from './notification.controller';
 import relationshipController from './relationship.controller';
 import adminController from './admin.controller';
 import wallpaperController from './wallpaper.controller';
+import scheduledController from './scheduled.controller';
 
 export {
   authController,
@@ -30,4 +31,5 @@ export {
   relationshipController,
   adminController,
   wallpaperController,
+  scheduledController,
 };

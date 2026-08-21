@@ -77,6 +77,15 @@ class NotificationRepository extends BaseRepository<NotificationRow> {
     return parseInt(rows[0].count, 10);
   }
 
+  /** Preferencia de un evento puntual; null si el usuario nunca la tocó. */
+  async findPreference(userId: string, eventType: string): Promise<PreferenceRow | null> {
+    const { rows } = await this.query<PreferenceRow>(
+      `SELECT * FROM notification_preferences WHERE user_id = $1 AND event_type = $2`,
+      [userId, eventType]
+    );
+    return rows[0] || null;
+  }
+
   async getPreferences(userId: string): Promise<PreferenceRow[]> {
     const { rows } = await this.query<PreferenceRow>(
       `SELECT * FROM notification_preferences WHERE user_id = $1`,

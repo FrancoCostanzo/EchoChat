@@ -17,6 +17,7 @@ import auditRepository from './audit.repository';
 import relationshipRepository from './relationship.repository';
 import systemSettingsRepository from './systemSettings.repository';
 import wallpaperRepository from './wallpaper.repository';
+import { scheduledMessageRepository, reminderRepository } from './scheduled.repository';
 
 export {
   userRepository,
@@ -38,4 +39,6 @@ export {
   relationshipRepository,
   systemSettingsRepository,
   wallpaperRepository,
+  scheduledMessageRepository,
+  reminderRepository,
 };

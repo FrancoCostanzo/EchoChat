@@ -33,6 +33,16 @@ class UserController {
     res.json({ status: 'success', data: user });
   }
 
+  async setAway(req: AuthRequest, res: Response) {
+    const user = await userService.setAway(req.user.id, req.body);
+    res.json({ status: 'success', data: user });
+  }
+
+  async clearAway(req: AuthRequest, res: Response) {
+    const user = await userService.clearAway(req.user.id);
+    res.json({ status: 'success', data: user });
+  }
+
   async search(req: AuthRequest, res: Response) {
     const { q, limit, offset } = req.query;
     const users = await userService.search(qStr(q), qInt(limit, 20), qInt(offset, 0));
