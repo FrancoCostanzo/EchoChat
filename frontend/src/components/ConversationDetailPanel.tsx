@@ -549,6 +549,7 @@ function fetchListPage(kind: ListKind, conversationId: string, limit: number, of
 function useDetailList<T>(kind: ListKind, conversationId: string) {
   const [items, setItems] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showSkeleton, setShowSkeleton] = useState(false);
   const [hasMore, setHasMore] = useState(true);
 
   useEffect(() => {
@@ -576,7 +577,15 @@ function useDetailList<T>(kind: ListKind, conversationId: string) {
       .finally(() => setLoading(false));
   }, [kind, conversationId, items.length]);
 
-  return { items, loading, hasMore, loadMore };
+  // Evita el flash del skeleton cuando la carga es casi instantánea: solo se
+  // muestra si la respuesta tarda más de 150ms.
+  useEffect(() => {
+    if (!loading) { setShowSkeleton(false); return; }
+    const timer = setTimeout(() => setShowSkeleton(true), 150);
+    return () => clearTimeout(timer);
+  }, [loading]);
+
+  return { items, loading, showSkeleton, hasMore, loadMore };
 }
 
 function EmptyList({ icon: Icon, label }: { icon: typeof ImageIcon; label: string }) {
@@ -640,18 +649,18 @@ function MediaGridItem({ item }: { item: ConversationAttachmentItem }) {
 
 function MediaTab({ conversationId }: { conversationId: string }) {
   const { t } = useTranslation();
-  const { items, loading, hasMore, loadMore } = useDetailList<ConversationAttachmentItem>('media', conversationId);
+  const { items, loading, showSkeleton, hasMore, loadMore } = useDetailList<ConversationAttachmentItem>('media', conversationId);
 
   return (
     <ScrollShadow className="min-h-0 flex-1 p-2">
-      {loading && items.length === 0 && (
-        <div className="grid grid-cols-3 gap-1.5">
+      {showSkeleton && items.length === 0 && (
+        <div className="echo-fade-in grid grid-cols-3 gap-1.5">
           {Array.from({ length: 9 }).map((_, i) => <div key={i} className="echo-shimmer aspect-square rounded-lg" />)}
         </div>
       )}
       {!loading && items.length === 0 && <EmptyList icon={ImageIcon} label={t('chat.emptyMedia')} />}
       {items.length > 0 && (
-        <div className="grid grid-cols-3 gap-1.5">
+        <div className="echo-fade-in grid grid-cols-3 gap-1.5">
           {items.map((item) => <MediaGridItem key={item.id} item={item} />)}
         </div>
       )}
@@ -694,17 +703,21 @@ function FileRow({ item, onJump }: { item: ConversationAttachmentItem; onJump: (
 
 function FilesTab({ conversationId, onJump }: { conversationId: string; onJump: (id: string) => void }) {
   const { t } = useTranslation();
-  const { items, loading, hasMore, loadMore } = useDetailList<ConversationAttachmentItem>('files', conversationId);
+  const { items, loading, showSkeleton, hasMore, loadMore } = useDetailList<ConversationAttachmentItem>('files', conversationId);
 
   return (
     <ScrollShadow className="min-h-0 flex-1 px-1.5 pb-2 pt-1.5">
-      {loading && items.length === 0 && (
-        <div className="flex flex-col gap-2 px-1">
+      {showSkeleton && items.length === 0 && (
+        <div className="echo-fade-in flex flex-col gap-2 px-1">
           {Array.from({ length: 5 }).map((_, i) => <div key={i} className="echo-shimmer h-12 rounded-xl" />)}
         </div>
       )}
       {!loading && items.length === 0 && <EmptyList icon={FileText} label={t('chat.emptyFiles')} />}
-      {items.map((item) => <FileRow key={item.id} item={item} onJump={onJump} />)}
+      {items.length > 0 && (
+        <div className="echo-fade-in flex flex-col">
+          {items.map((item) => <FileRow key={item.id} item={item} onJump={onJump} />)}
+        </div>
+      )}
       {hasMore && items.length > 0 && <LoadMoreButton loading={loading} onLoadMore={loadMore} />}
     </ScrollShadow>
   );
@@ -741,17 +754,21 @@ function LinkRow({ item, onJump }: { item: ConversationLinkItem; onJump: (id: st
 
 function LinksTab({ conversationId, onJump }: { conversationId: string; onJump: (id: string) => void }) {
   const { t } = useTranslation();
-  const { items, loading, hasMore, loadMore } = useDetailList<ConversationLinkItem>('links', conversationId);
+  const { items, loading, showSkeleton, hasMore, loadMore } = useDetailList<ConversationLinkItem>('links', conversationId);
 
   return (
     <ScrollShadow className="min-h-0 flex-1 px-1.5 pb-2 pt-1.5">
-      {loading && items.length === 0 && (
-        <div className="flex flex-col gap-2 px-1">
+      {showSkeleton && items.length === 0 && (
+        <div className="echo-fade-in flex flex-col gap-2 px-1">
           {Array.from({ length: 5 }).map((_, i) => <div key={i} className="echo-shimmer h-12 rounded-xl" />)}
         </div>
       )}
       {!loading && items.length === 0 && <EmptyList icon={Link2} label={t('chat.emptyLinks')} />}
-      {items.map((item, i) => <LinkRow key={`${item.message_id}-${i}`} item={item} onJump={onJump} />)}
+      {items.length > 0 && (
+        <div className="echo-fade-in flex flex-col">
+          {items.map((item, i) => <LinkRow key={`${item.message_id}-${i}`} item={item} onJump={onJump} />)}
+        </div>
+      )}
       {hasMore && items.length > 0 && <LoadMoreButton loading={loading} onLoadMore={loadMore} />}
     </ScrollShadow>
   );
