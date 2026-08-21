@@ -103,8 +103,9 @@ import {
   MESSAGE_EDIT_WINDOW_MS,
   isWithinMessageWindow,
 } from '@/lib/messageWindow';
-import PresenceAvatarStack from '@/components/PresenceAvatarStack';
+import ConversationDetailPanel, { type DetailTab } from '@/components/ConversationDetailPanel';
 import { storageApi, stickerApi, messagesApi, conversationsApi, relationshipsApi } from '@/lib/endpoints';
+import { useStorageUrl, attachmentUrlCache } from '@/lib/useStorageUrl';
 import { EASE_OUT, SPRING_BOUNCY, msgEntryInitial, msgEntryTransition } from '@/lib/motion';
 import { userColor } from '@/lib/userColor';
 import type { ChatMessage } from '@/stores/chatStore';
@@ -533,36 +534,6 @@ interface MessageSticker {
 }
 
 /* ─────────────────────────── Attachment View ─────────────────────────── */
-// Module-level cache so each attachment URL is only fetched once per session,
-// regardless of React StrictMode remounts or the same attachment appearing
-// in multiple messages.  Values are either a resolved URL string or an
-// in-flight Promise, so concurrent mounts share the same request.
-const _attachmentUrlCache = new Map<string, string | Promise<string | undefined>>();
-
-// Resolve (and cache) a presigned URL for a storage object id. Shared by
-// attachments and custom stickers.
-function useStorageUrl(objectId: string | null) {
-  const [url, setUrl] = useState<string | null>(() => {
-    const c = objectId ? _attachmentUrlCache.get(objectId) : null;
-    return typeof c === 'string' ? c : null;
-  });
-  useEffect(() => {
-    if (!objectId) return;
-    const cached = _attachmentUrlCache.get(objectId);
-    if (typeof cached === 'string') { setUrl(cached); return; }
-    const promise = cached instanceof Promise
-      ? cached
-      : (() => {
-          const p = storageApi.getUrl(objectId)
-            .then((res) => { _attachmentUrlCache.set(objectId, res.data.url); return res.data.url; })
-            .catch(() => { _attachmentUrlCache.delete(objectId); return undefined; });
-          _attachmentUrlCache.set(objectId, p);
-          return p;
-        })();
-    promise.then((u) => { if (u) setUrl(u); }).catch(() => {});
-  }, [objectId]);
-  return url;
-}
 
 /* ─────────────────────────── Sticker / GIF ─────────────────────────── */
 // Bare artwork with no bubble chrome. Custom stickers resolve a signed URL
@@ -615,7 +586,7 @@ function AttachmentView({ attachment }: { attachment: MessageAttachment }) {
   const { t } = useTranslation();
   const reducedMotion = useReducedMotion();
   const [url, setUrl] = useState<string | null>(() => {
-    const c = _attachmentUrlCache.get(attachment.id);
+    const c = attachmentUrlCache.get(attachment.id);
     return typeof c === 'string' ? c : null;
   });
   const [imgLoaded, setImgLoaded] = useState(false);
@@ -631,7 +602,7 @@ function AttachmentView({ attachment }: { attachment: MessageAttachment }) {
   const isPdf = attachment.mime_type === 'application/pdf';
 
   useEffect(() => {
-    const cached = _attachmentUrlCache.get(attachment.id);
+    const cached = attachmentUrlCache.get(attachment.id);
     if (typeof cached === 'string') {
       setUrl(cached);
       return;
@@ -641,13 +612,13 @@ function AttachmentView({ attachment }: { attachment: MessageAttachment }) {
       ? cached
       : (() => {
           const p = storageApi.getUrl(attachment.id).then((res) => {
-            _attachmentUrlCache.set(attachment.id, res.data.url);
+            attachmentUrlCache.set(attachment.id, res.data.url);
             return res.data.url;
           }).catch(() => {
-            _attachmentUrlCache.delete(attachment.id);
+            attachmentUrlCache.delete(attachment.id);
             return undefined;
           });
-          _attachmentUrlCache.set(attachment.id, p);
+          attachmentUrlCache.set(attachment.id, p);
           return p;
         })();
     promise.then((resolvedUrl) => { if (resolvedUrl) setUrl(resolvedUrl); }).catch(() => {});
@@ -1704,6 +1675,7 @@ export default function ConversationPage() {
   const [pinnedOpen, setPinnedOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
+  const [detailTab, setDetailTab] = useState<DetailTab>('info');
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(() => new Set());
   const [forwardTarget, setForwardTarget] = useState<ChatMessage | null>(null); // message being forwarded
   const [infoTarget, setInfoTarget] = useState<ChatMessage | null>(null); // message whose info panel is open
@@ -2189,6 +2161,17 @@ export default function ConversationPage() {
     }
   };
 
+  const handleUpdateGroupInfo = async (patch: { name?: string; description?: string | null }) => {
+    if (!conversationId) return;
+    try {
+      const { data } = await conversationsApi.update(conversationId, patch);
+      patchConversation(conversationId, { name: data.name, description: data.description });
+    } catch (err) {
+      toast.danger((err instanceof Error && err.message) || t('common.error'));
+      throw err;
+    }
+  };
+
   const handleGroupAvatarRemove = async () => {
     if (!conversationId) return;
     try {
@@ -2501,7 +2484,18 @@ export default function ConversationPage() {
   }, []);
 
   const handleOpenMembers = useCallback(() => {
+    setDetailTab('members');
     setMembersOpen((p) => !p);
+    setSearchOpen(false);
+    setPinnedOpen(false);
+    setThreadRoot(null);
+    setHistoryOpen(false);
+  }, []);
+
+  // Click en el nombre/foto del header: abre el mismo panel pero en la pestaña Info.
+  const handleOpenDetailInfo = useCallback(() => {
+    setDetailTab('info');
+    setMembersOpen(true);
     setSearchOpen(false);
     setPinnedOpen(false);
     setThreadRoot(null);
@@ -2795,7 +2789,12 @@ export default function ConversationPage() {
               initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.22, ease: EASE_OUT }}
-              className="flex min-w-0 items-center gap-2 md:gap-3"
+              role="button"
+              tabIndex={0}
+              onClick={handleOpenDetailInfo}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleOpenDetailInfo(); }}
+              title={t('chat.detailTitle')}
+              className="flex min-w-0 cursor-pointer items-center gap-2 rounded-md px-1 -mx-1 py-0.5 transition-colors hover:bg-white/5 md:gap-3"
             >
             {isDirect ? (
               <>
@@ -2969,26 +2968,6 @@ export default function ConversationPage() {
                     <Dropdown.Item id="members" textValue={t('chat.viewMembers')} onAction={handleOpenMembers}>
                       <Users size={15} />
                       <Label>{t('chat.memberPanel')}</Label>
-                    </Dropdown.Item>
-                  )}
-                  {puedeEditarGrupo && (
-                    <Dropdown.Item
-                      id="groupPhoto"
-                      textValue={t('chat.changeGroupPhoto')}
-                      onAction={() => groupAvatarInputRef.current?.click()}
-                    >
-                      <ImageIcon size={15} />
-                      <Label>{t('chat.changeGroupPhoto')}</Label>
-                    </Dropdown.Item>
-                  )}
-                  {puedeEditarGrupo && conversation.avatar_url && (
-                    <Dropdown.Item
-                      id="groupPhotoRemove"
-                      textValue={t('chat.removeGroupPhoto')}
-                      onAction={handleGroupAvatarRemove}
-                    >
-                      <Trash2 size={15} />
-                      <Label>{t('chat.removeGroupPhoto')}</Label>
                     </Dropdown.Item>
                   )}
                   <Dropdown.Item id="wallpaper" textValue={t('chat.changeWallpaper')} onAction={() => setWallpaperPickerOpen(true)}>
@@ -3285,11 +3264,22 @@ export default function ConversationPage() {
         </FloatingComposer>
         </div>
 
-        <PresenceAvatarStack
+        <ConversationDetailPanel
+          key={conversationId}
+          conversation={conversation}
+          conversationId={conversationId as string}
+          isDirect={isDirect}
+          canEditGroup={puedeEditarGrupo}
           members={membersWithPresence}
           loading={loadingMembers}
           open={membersOpen}
           onOpenChange={setMembersOpen}
+          activeTab={detailTab}
+          onTabChange={setDetailTab}
+          onJump={handleJumpToMessage}
+          onPickAvatar={() => groupAvatarInputRef.current?.click()}
+          onRemoveAvatar={handleGroupAvatarRemove}
+          onUpdateInfo={handleUpdateGroupInfo}
         />
 
         {/* ── Message search panel ── */}

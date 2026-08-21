@@ -38,6 +38,20 @@ export interface MessageAttachment {
   duration_ms: number | null;
 }
 
+/** Fila de las pestañas Multimedia/Archivos del panel de detalle de conversación. */
+export interface ConversationAttachmentItem extends MessageAttachment {
+  message_id: string;
+  sent_at: string | null;
+}
+
+/** Fila de la pestaña Links del panel de detalle de conversación. */
+export interface ConversationLinkItem {
+  message_id: string;
+  sent_at: string | null;
+  sender_display_name: string | null;
+  url: string;
+}
+
 /**
  * Mención resuelta por el backend y guardada en `metadata.mentions`
  * (backend/src/utils/mentions.util.ts). `offset`/`length` son sobre el body

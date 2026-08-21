@@ -535,6 +535,40 @@ class MessageService {
     return messages.map(toMessageResponse);
   }
 
+  // ── Panel de detalle de conversación: Multimedia / Archivos / Links ────────
+  async getConversationMedia(conversationId: string, userId: string, { limit, offset }: { limit: number; offset: number }) {
+    const member = await conversationRepository.getMember(conversationId, userId);
+    if (!member) throw new ForbiddenError('Not a member of this conversation');
+    return messageRepository.getConversationAttachments(conversationId, 'media', limit, offset);
+  }
+
+  async getConversationFiles(conversationId: string, userId: string, { limit, offset }: { limit: number; offset: number }) {
+    const member = await conversationRepository.getMember(conversationId, userId);
+    if (!member) throw new ForbiddenError('Not a member of this conversation');
+    return messageRepository.getConversationAttachments(conversationId, 'files', limit, offset);
+  }
+
+  async getConversationLinks(conversationId: string, userId: string, { limit, offset }: { limit: number; offset: number }) {
+    const member = await conversationRepository.getMember(conversationId, userId);
+    if (!member) throw new ForbiddenError('Not a member of this conversation');
+
+    // El candidate set ya viene acotado por el índice ciego (ver el repo), pero
+    // un mensaje puede aportar 0, 1 o varias URLs — la paginación real de
+    // "links" pasa por extraer todas las URLs del candidate set (limitado a un
+    // batch generoso, más reciente primero) y recién ahí paginar en memoria.
+    const CANDIDATE_BATCH = 300;
+    const candidates = await messageRepository.getConversationLinkCandidates(conversationId, CANDIDATE_BATCH);
+    const urlPattern = /https?:\/\/[^\s<>"')\]]+/gi;
+    const links: Array<{ message_id: string; sent_at: Date | string | null; sender_display_name: string | null; url: string }> = [];
+    for (const row of candidates) {
+      const matches = row.body?.match(urlPattern) ?? [];
+      for (const url of matches.slice(0, 5)) {
+        links.push({ message_id: row.message_id, sent_at: row.sent_at, sender_display_name: row.sender_display_name, url });
+      }
+    }
+    return links.slice(offset, offset + limit);
+  }
+
   // ── Saved messages ────────────────────────────────────────────────────────
   async saveMessage(userId: string, messageId: string, note?: string | null) {
     const message = await messageRepository.findById(messageId);

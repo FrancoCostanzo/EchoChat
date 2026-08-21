@@ -30,6 +30,28 @@ export interface ExclusiveAttachment {
   object_id: string;
 }
 
+/** Fila de adjunto para las pestañas Multimedia/Archivos del panel de detalle. */
+export interface ConversationAttachmentRow {
+  id: string;
+  object_type: string;
+  original_filename: string | null;
+  mime_type: string | null;
+  file_size_bytes: number | null;
+  image_width: number | null;
+  image_height: number | null;
+  duration_ms: number | null;
+  message_id: string;
+  sent_at: Date | string | null;
+}
+
+/** Mensaje candidato a contener links (contiene el token "http"/"https"). */
+export interface ConversationLinkCandidateRow {
+  message_id: string;
+  sent_at: Date | string | null;
+  sender_display_name: string | null;
+  body: string | null;
+}
+
 export type ReactionToggleResult = 'added' | 'removed' | 'updated';
 
 // Descifra in-place las columnas con contenido de usuario que puedan venir en una
@@ -615,6 +637,58 @@ class MessageRepository extends BaseRepository<MessageRow> {
        WHERE pm.conversation_id = $1
        ORDER BY pm.pinned_at DESC`,
       [conversationId]
+    );
+    rows.forEach((r) => decryptRow(r));
+    return rows;
+  }
+
+  // Pestaña Multimedia (category='media', imágenes/video) o Archivos
+  // (category='files', el resto) del panel de detalle de conversación.
+  async getConversationAttachments(
+    conversationId: string,
+    category: 'media' | 'files',
+    limit: number,
+    offset: number,
+  ): Promise<ConversationAttachmentRow[]> {
+    const typeFilter = category === 'media'
+      ? `so.object_type IN ('image', 'video')`
+      : `so.object_type NOT IN ('image', 'video')`;
+    const { rows } = await this.query<ConversationAttachmentRow>(
+      `SELECT so.id, so.object_type, so.original_filename, so.mime_type, so.file_size_bytes,
+              so.image_width, so.image_height, so.duration_ms,
+              m.id AS message_id, m.sent_at
+       FROM message_attachments ma
+       JOIN storage_objects so ON so.id = ma.object_id
+       JOIN messages m ON m.id = ma.message_id
+       WHERE m.conversation_id = $1 AND m.is_deleted = FALSE AND ${typeFilter}
+       ORDER BY m.sent_at DESC
+       LIMIT $2 OFFSET $3`,
+      [conversationId, limit, offset]
+    );
+    return rows;
+  }
+
+  // Mensajes candidatos a contener un link para la pestaña Links del panel de
+  // detalle. El body está cifrado en reposo, así que no se puede filtrar por
+  // regex en SQL: se usa el índice ciego de búsqueda (mismo mecanismo que
+  // `search()`) para acotar a mensajes cuyo token "http"/"https" está
+  // indexado, y recién ahí se descifra. La extracción exacta de URLs (regex)
+  // y la paginación final ocurren en el service sobre este set ya acotado.
+  async getConversationLinkCandidates(conversationId: string, limit: number): Promise<ConversationLinkCandidateRow[]> {
+    const tokens = [...new Set([...searchQueryTokens('http'), ...searchQueryTokens('https')])];
+    if (tokens.length === 0) return [];
+    const { rows } = await this.query<ConversationLinkCandidateRow>(
+      `SELECT m.id AS message_id, m.sent_at, m.body, u.display_name AS sender_display_name
+       FROM messages m
+       JOIN message_search_tokens t ON t.message_id = m.id
+       LEFT JOIN users u ON u.id = m.sender_id
+       WHERE m.conversation_id = $1
+         AND m.is_deleted = FALSE
+         AND t.token = ANY($2::text[])
+       GROUP BY m.id, m.sent_at, m.body, u.display_name
+       ORDER BY m.sent_at DESC
+       LIMIT $3`,
+      [conversationId, tokens, limit]
     );
     rows.forEach((r) => decryptRow(r));
     return rows;

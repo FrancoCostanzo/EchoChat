@@ -97,7 +97,22 @@ class ConversationService {
     const conversation = await conversationRepository.update(conversationId, data);
     if (!conversation) throw new NotFoundError('Conversation');
     logger.info({ conversationId }, 'Conversation updated');
-    return toConversationResponse(conversation);
+    const respuesta = toConversationResponse(conversation);
+    // Nombre/descripción se ven en el header y el panel de detalle de todos
+    // los miembros — sin este aviso quedan desactualizados hasta un refresh,
+    // igual que pasaba con la foto antes de _avisarCambioDeAvatar.
+    if (data.name !== undefined || data.description !== undefined) {
+      try {
+        toConversation(conversationId, 'conversation:updated', {
+          id: conversationId,
+          name: respuesta?.name ?? null,
+          description: respuesta?.description ?? null,
+        });
+      } catch (err) {
+        logger.warn({ err: (err as Error).message, conversationId }, 'Failed to emit conversation:updated');
+      }
+    }
+    return respuesta;
   }
 
   async addMembers(conversationId: string, userId: string, memberIds: string[]) {

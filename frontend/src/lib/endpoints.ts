@@ -22,6 +22,7 @@ import type {
 import type {
   MessageResponse, SavedMessageResponse, DraftResponse, MessageReaction, MessageThread,
   SendMessageRequest, UpdateMessageRequest, DraftRequest, PaginationRequest,
+  ConversationAttachmentItem, ConversationLinkItem,
 } from '@/types/message';
 import type { CreatePollRequest, PollResponse } from '@/types/poll';
 import type { CreateGameRequest, GameMoveRequest, GameResponse } from '@/types/game';
@@ -125,6 +126,9 @@ export const messagesApi = {
   getByConversation: (convId: string, params?: PaginationRequest) => api.get<ApiEnvelope<MessageResponse[]>>(`/messages/conversation/${convId}`, params as ApiParams),
   search: (convId: string, q: string, limit = 20) => api.get<ApiEnvelope<MessageResponse[]>>(`/messages/conversation/${convId}/search`, { q, limit }),
   getPinned: (convId: string) => api.get<ApiEnvelope<MessageResponse[]>>(`/messages/conversation/${convId}/pinned`),
+  getMedia: (convId: string, limit = 30, offset = 0) => api.get<ApiEnvelope<ConversationAttachmentItem[]>>(`/messages/conversation/${convId}/media`, { limit, offset }),
+  getFiles: (convId: string, limit = 30, offset = 0) => api.get<ApiEnvelope<ConversationAttachmentItem[]>>(`/messages/conversation/${convId}/files`, { limit, offset }),
+  getLinks: (convId: string, limit = 30, offset = 0) => api.get<ApiEnvelope<ConversationLinkItem[]>>(`/messages/conversation/${convId}/links`, { limit, offset }),
   pin: (convId: string, msgId: string) => api.post<ApiMessageEnvelope>(`/messages/conversation/${convId}/pin/${msgId}`),
   unpin: (convId: string, msgId: string) => api.delete<ApiMessageEnvelope>(`/messages/conversation/${convId}/pin/${msgId}`),
   // Forwarding

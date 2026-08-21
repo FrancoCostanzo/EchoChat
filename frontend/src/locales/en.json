@@ -205,7 +205,22 @@
     "changeGroupPhoto": "Change group photo",
     "removeGroupPhoto": "Remove group photo",
     "groupPhotoUpdated": "Group photo updated",
-    "groupPhotoRemoved": "Group photo removed"
+    "groupPhotoRemoved": "Group photo removed",
+    "detailTitle": "Details",
+    "detailTabInfo": "Info",
+    "detailTabMedia": "Media",
+    "detailTabFiles": "Files",
+    "detailTabLinks": "Links",
+    "descriptionPlaceholder": "Add a description...",
+    "noDescription": "No description",
+    "emptyMedia": "No shared photos or videos",
+    "emptyFiles": "No shared files",
+    "emptyLinks": "No shared links",
+    "loadMoreGeneric": "Load more",
+    "jumpToMessage": "Jump to message",
+    "groupInfoUpdated": "Info updated",
+    "editName": "Edit name",
+    "editDescription": "Edit description"
   },
   "newConversation": {
     "title": "New conversation",

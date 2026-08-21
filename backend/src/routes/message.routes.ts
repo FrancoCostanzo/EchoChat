@@ -37,6 +37,9 @@ router.post('/:messageId/forward', validate(forwardDto), withAuth((req, res) => 
 router.get('/conversation/:conversationId', withAuth((req, res) => messageController.getMessages(req, res)));
 router.get('/conversation/:conversationId/search', withAuth((req, res) => messageController.search(req, res)));
 router.get('/conversation/:conversationId/pinned', withAuth((req, res) => messageController.getPinned(req, res)));
+router.get('/conversation/:conversationId/media', withAuth((req, res) => messageController.getMedia(req, res)));
+router.get('/conversation/:conversationId/files', withAuth((req, res) => messageController.getFiles(req, res)));
+router.get('/conversation/:conversationId/links', withAuth((req, res) => messageController.getLinks(req, res)));
 router.post('/conversation/:conversationId/pin/:messageId', withAuth((req, res) => messageController.pin(req, res)));
 router.delete('/conversation/:conversationId/pin/:messageId', withAuth((req, res) => messageController.unpin(req, res)));
 

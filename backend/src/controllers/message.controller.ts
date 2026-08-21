@@ -90,6 +90,34 @@ class MessageController {
     res.json({ status: 'success', data: messages });
   }
 
+  // ── Panel de detalle de conversación ────────────────────────────────────────
+  async getMedia(req: AuthRequest, res: Response) {
+    const { limit, offset } = req.query;
+    const items = await messageService.getConversationMedia(req.params.conversationId, req.user.id, {
+      limit: qInt(limit, 30),
+      offset: qInt(offset, 0),
+    });
+    res.json({ status: 'success', data: items });
+  }
+
+  async getFiles(req: AuthRequest, res: Response) {
+    const { limit, offset } = req.query;
+    const items = await messageService.getConversationFiles(req.params.conversationId, req.user.id, {
+      limit: qInt(limit, 30),
+      offset: qInt(offset, 0),
+    });
+    res.json({ status: 'success', data: items });
+  }
+
+  async getLinks(req: AuthRequest, res: Response) {
+    const { limit, offset } = req.query;
+    const items = await messageService.getConversationLinks(req.params.conversationId, req.user.id, {
+      limit: qInt(limit, 30),
+      offset: qInt(offset, 0),
+    });
+    res.json({ status: 'success', data: items });
+  }
+
   // ── Saved messages ────────────────────────────────────────────────────────
   async listSaved(req: AuthRequest, res: Response) {
     const { limit, offset } = req.query;
