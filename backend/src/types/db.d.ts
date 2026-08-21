@@ -205,6 +205,7 @@ export interface Conversations {
   max_members: number | null;
   metadata: Generated<Json | null>;
   name: string | null;
+  only_admins_edit_info: Generated<boolean>;
   topic: string | null;
   type: string;
   updated_at: Generated<Timestamp | null>;

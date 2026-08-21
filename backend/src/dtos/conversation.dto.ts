@@ -35,6 +35,7 @@ export interface UpdateConversationRequest {
   is_archived?: boolean;
   is_read_only?: boolean;
   is_discoverable?: boolean;
+  only_admins_edit_info?: boolean;
   max_members?: number | null;
 }
 
@@ -45,6 +46,7 @@ export const updateConversationDto = Joi.object<UpdateConversationRequest>({
   is_archived: Joi.boolean(),
   is_read_only: Joi.boolean(),
   is_discoverable: Joi.boolean(),
+  only_admins_edit_info: Joi.boolean(),
   max_members: Joi.number().integer().positive().allow(null),
 }).min(1);
 

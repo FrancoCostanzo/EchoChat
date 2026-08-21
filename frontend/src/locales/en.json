@@ -220,7 +220,12 @@
     "jumpToMessage": "Jump to message",
     "groupInfoUpdated": "Info updated",
     "editName": "Edit name",
-    "editDescription": "Edit description"
+    "editDescription": "Edit description",
+    "groupPermissions": "Group permissions",
+    "onlyAdminsSendMessages": "Only admins can send messages",
+    "onlyAdminsSendMessagesHint": "When on, other members won't be able to write in this group.",
+    "onlyAdminsEditInfo": "Only admins can edit group info",
+    "onlyAdminsEditInfoHint": "When off, any member can change the name, description and photo."
   },
   "newConversation": {
     "title": "New conversation",

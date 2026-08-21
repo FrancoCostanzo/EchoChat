@@ -45,6 +45,7 @@ export function toConversationResponse(row: ConversationRow | null | undefined) 
     is_archived: row.is_archived,
     is_read_only: row.is_read_only,
     is_discoverable: row.is_discoverable,
+    only_admins_edit_info: row.only_admins_edit_info,
     max_members: row.max_members,
     created_by: row.created_by,
     last_message_at: row.last_message_at,

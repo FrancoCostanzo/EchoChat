@@ -34,7 +34,7 @@ class ConversationRepository extends BaseRepository<ConvRow> {
   }
 
   async update(id: string, fields: UpdateConversationRequest): Promise<ConvRow | null> {
-    const allowed = ['name', 'description', 'topic', 'is_archived', 'is_read_only', 'is_discoverable', 'max_members'] as const;
+    const allowed = ['name', 'description', 'topic', 'is_archived', 'is_read_only', 'is_discoverable', 'only_admins_edit_info', 'max_members'] as const;
     const sets: string[] = [];
     const values: any[] = [];
     let idx = 1;

@@ -5,7 +5,7 @@ import {
   Image as ImageIcon, FileText, Link2, Play, Download, Loader,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Button, Chip, InputGroup, Input, TextArea, ScrollShadow, Tooltip, Tabs, toast } from '@heroui/react';
+import { Button, Chip, InputGroup, Input, TextArea, ScrollShadow, Tooltip, Tabs, Switch, toast } from '@heroui/react';
 import type { ReactNode } from 'react';
 import UserAvatar from '@/components/UserAvatar';
 import ImageViewer from '@/components/ImageViewer';
@@ -427,14 +427,16 @@ function EditableDescription({ value, canEdit, onSave }: { value: string | null;
 }
 
 function InfoTab({
-  conversation, isDirect, canEditGroup, onPickAvatar, onRemoveAvatar, onUpdateInfo,
+  conversation, isDirect, canEditGroup, isGroupAdmin, onPickAvatar, onRemoveAvatar, onUpdateInfo, onUpdatePermissions,
 }: {
   conversation: ConversationResponse;
   isDirect: boolean;
   canEditGroup: boolean;
+  isGroupAdmin: boolean;
   onPickAvatar: () => void;
   onRemoveAvatar: () => void;
   onUpdateInfo: (patch: { name?: string; description?: string | null }) => Promise<void>;
+  onUpdatePermissions: (patch: { is_read_only?: boolean; only_admins_edit_info?: boolean }) => Promise<void>;
 }) {
   const { t } = useTranslation();
   const title = (isDirect ? conversation.display_name : conversation.name) || t('chat.conversation');
@@ -472,7 +474,66 @@ function InfoTab({
           />
         </div>
       )}
+
+      {!isDirect && isGroupAdmin && (
+        <GroupPermissionsSection conversation={conversation} onUpdatePermissions={onUpdatePermissions} />
+      )}
     </ScrollShadow>
+  );
+}
+
+/** Sólo owner/admin la ven: configura quién puede escribir y editar la info del grupo. */
+function GroupPermissionsSection({
+  conversation,
+  onUpdatePermissions,
+}: {
+  conversation: ConversationResponse;
+  onUpdatePermissions: (patch: { is_read_only?: boolean; only_admins_edit_info?: boolean }) => Promise<void>;
+}) {
+  const { t } = useTranslation();
+  const [saving, setSaving] = useState<'read_only' | 'edit_info' | null>(null);
+
+  const toggle = async (field: 'is_read_only' | 'only_admins_edit_info', value: boolean) => {
+    setSaving(field === 'is_read_only' ? 'read_only' : 'edit_info');
+    try {
+      await onUpdatePermissions({ [field]: value });
+    } catch {
+      // El toast de error ya lo muestra el handler del caller.
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-3 border-t border-white/8 px-4 py-3">
+      <h4 className="text-[12px] font-semibold uppercase tracking-wide text-ink-300">
+        {t('chat.groupPermissions')}
+      </h4>
+
+      <div className="flex flex-col gap-1">
+        <Switch
+          isSelected={!!conversation.is_read_only}
+          isDisabled={saving === 'read_only'}
+          onChange={(v) => toggle('is_read_only', v)}
+        >
+          <Switch.Control><Switch.Thumb /></Switch.Control>
+          <Switch.Content>{t('chat.onlyAdminsSendMessages')}</Switch.Content>
+        </Switch>
+        <p className="pl-0.5 text-[12px] text-ink-300">{t('chat.onlyAdminsSendMessagesHint')}</p>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <Switch
+          isSelected={!!conversation.only_admins_edit_info}
+          isDisabled={saving === 'edit_info'}
+          onChange={(v) => toggle('only_admins_edit_info', v)}
+        >
+          <Switch.Control><Switch.Thumb /></Switch.Control>
+          <Switch.Content>{t('chat.onlyAdminsEditInfo')}</Switch.Content>
+        </Switch>
+        <p className="pl-0.5 text-[12px] text-ink-300">{t('chat.onlyAdminsEditInfoHint')}</p>
+      </div>
+    </div>
   );
 }
 
@@ -702,6 +763,7 @@ interface ConversationDetailPanelProps {
   conversationId: string;
   isDirect: boolean;
   canEditGroup: boolean;
+  isGroupAdmin: boolean;
   members?: MemberResponse[];
   loading?: boolean;
   open?: boolean;
@@ -712,6 +774,7 @@ interface ConversationDetailPanelProps {
   onPickAvatar: () => void;
   onRemoveAvatar: () => void;
   onUpdateInfo: (patch: { name?: string; description?: string | null }) => Promise<void>;
+  onUpdatePermissions: (patch: { is_read_only?: boolean; only_admins_edit_info?: boolean }) => Promise<void>;
   className?: string;
 }
 
@@ -720,6 +783,7 @@ export default function ConversationDetailPanel({
   conversationId,
   isDirect,
   canEditGroup,
+  isGroupAdmin,
   members = [],
   loading = false,
   open = false,
@@ -730,6 +794,7 @@ export default function ConversationDetailPanel({
   onPickAvatar,
   onRemoveAvatar,
   onUpdateInfo,
+  onUpdatePermissions,
   className = '',
 }: ConversationDetailPanelProps) {
   const { t } = useTranslation();
@@ -874,12 +939,14 @@ export default function ConversationDetailPanel({
             conversation={conversation}
             isDirect={isDirect}
             canEditGroup={canEditGroup}
+            isGroupAdmin={isGroupAdmin}
             onPickAvatar={onPickAvatar}
             onRemoveAvatar={onRemoveAvatar}
             onUpdateInfo={async (patch) => {
               await onUpdateInfo(patch);
               toast.success(t('chat.groupInfoUpdated'));
             }}
+            onUpdatePermissions={onUpdatePermissions}
           />
         </Tabs.Panel>
         {!isDirect && (

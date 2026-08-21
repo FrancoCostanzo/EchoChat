@@ -18,6 +18,7 @@ export interface ConversationResponse {
   is_archived: boolean;
   is_read_only: boolean;
   is_discoverable: boolean;
+  only_admins_edit_info: boolean;
   max_members: number | null;
   created_by: string | null;
   last_message_at: string | null;
@@ -79,6 +80,7 @@ export interface UpdateConversationRequest {
   is_archived?: boolean;
   is_read_only?: boolean;
   is_discoverable?: boolean;
+  only_admins_edit_info?: boolean;
   max_members?: number | null;
 }
 

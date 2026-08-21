@@ -93,20 +93,39 @@ class ConversationService {
   }
 
   async update(conversationId: string, userId: string, data: UpdateConversationRequest) {
-    await this._requireRole(conversationId, userId, ['owner', 'admin']);
+    // Cambiar los propios interruptores de permisos (is_read_only,
+    // only_admins_edit_info, etc.) siempre requiere owner/admin — si no,
+    // cualquiera con permiso de editar info podría desactivar la restricción.
+    // Editar sólo name/description/topic depende de only_admins_edit_info.
+    const SETTINGS_FIELDS = ['is_archived', 'is_read_only', 'is_discoverable', 'only_admins_edit_info', 'max_members'] as const;
+    const tocaSettings = SETTINGS_FIELDS.some((field) => data[field] !== undefined);
+    if (tocaSettings) {
+      await this._requireRole(conversationId, userId, ['owner', 'admin']);
+    } else {
+      await this._requireEditInfoPermission(conversationId, userId);
+    }
     const conversation = await conversationRepository.update(conversationId, data);
     if (!conversation) throw new NotFoundError('Conversation');
     logger.info({ conversationId }, 'Conversation updated');
     const respuesta = toConversationResponse(conversation);
-    // Nombre/descripción se ven en el header y el panel de detalle de todos
-    // los miembros — sin este aviso quedan desactualizados hasta un refresh,
-    // igual que pasaba con la foto antes de _avisarCambioDeAvatar.
-    if (data.name !== undefined || data.description !== undefined) {
+    // Nombre/descripción/permisos se ven en el header y el panel de detalle de
+    // todos los miembros — sin este aviso quedan desactualizados hasta un
+    // refresh, igual que pasaba con la foto antes de _avisarCambioDeAvatar.
+    if (
+      data.name !== undefined ||
+      data.description !== undefined ||
+      data.is_read_only !== undefined ||
+      data.only_admins_edit_info !== undefined
+    ) {
       try {
         toConversation(conversationId, 'conversation:updated', {
           id: conversationId,
-          name: respuesta?.name ?? null,
-          description: respuesta?.description ?? null,
+          ...(data.name !== undefined ? { name: respuesta?.name ?? null } : {}),
+          ...(data.description !== undefined ? { description: respuesta?.description ?? null } : {}),
+          ...(data.is_read_only !== undefined ? { is_read_only: respuesta?.is_read_only ?? false } : {}),
+          ...(data.only_admins_edit_info !== undefined
+            ? { only_admins_edit_info: respuesta?.only_admins_edit_info ?? true }
+            : {}),
         });
       } catch (err) {
         logger.warn({ err: (err as Error).message, conversationId }, 'Failed to emit conversation:updated');
@@ -192,7 +211,7 @@ class ConversationService {
     userId: string,
     file: { buffer: Buffer; mimetype: string; size: number; originalname: string },
   ) {
-    await this._requireRole(conversationId, userId, ['owner', 'admin']);
+    await this._requireEditInfoPermission(conversationId, userId);
     const conversation = await conversationRepository.findById(conversationId);
     if (!conversation) throw new NotFoundError('Conversation');
     if (conversation.type === 'direct') {
@@ -235,7 +254,7 @@ class ConversationService {
   }
 
   async removeAvatar(conversationId: string, userId: string) {
-    await this._requireRole(conversationId, userId, ['owner', 'admin']);
+    await this._requireEditInfoPermission(conversationId, userId);
     const conversation = await conversationRepository.findById(conversationId);
     if (!conversation) throw new NotFoundError('Conversation');
 
@@ -277,6 +296,22 @@ class ConversationService {
       throw new ForbiddenError('Insufficient role for this action');
     }
     return member;
+  }
+
+  /**
+   * Editar nombre/descripción/foto del grupo: sólo owner/admin, salvo que el
+   * grupo tenga `only_admins_edit_info = false` (lo abrió un admin), en cuyo
+   * caso alcanza con ser miembro.
+   */
+  async _requireEditInfoPermission(conversationId: string, userId: string) {
+    const conversation = await conversationRepository.findById(conversationId);
+    if (!conversation) throw new NotFoundError('Conversation');
+    if (conversation.only_admins_edit_info === false) {
+      const member = await conversationRepository.getMember(conversationId, userId);
+      if (!member) throw new ForbiddenError('Not a member of this conversation');
+      return member;
+    }
+    return this._requireRole(conversationId, userId, ['owner', 'admin']);
   }
 }
 

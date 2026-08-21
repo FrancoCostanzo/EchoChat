@@ -220,7 +220,12 @@
     "jumpToMessage": "Ir para a mensagem",
     "groupInfoUpdated": "Informações atualizadas",
     "editName": "Editar nome",
-    "editDescription": "Editar descrição"
+    "editDescription": "Editar descrição",
+    "groupPermissions": "Permissões do grupo",
+    "onlyAdminsSendMessages": "Somente administradores podem enviar mensagens",
+    "onlyAdminsSendMessagesHint": "Se ativado, os demais membros não vão poder escrever neste grupo.",
+    "onlyAdminsEditInfo": "Somente administradores editam a info do grupo",
+    "onlyAdminsEditInfoHint": "Se desativado, qualquer membro pode alterar o nome, a descrição e a foto."
   },
   "newConversation": {
     "title": "Nova conversa",
