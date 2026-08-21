@@ -3,6 +3,7 @@ import {
   type ReactNode, type RefObject,
   type KeyboardEvent as ReactKeyboardEvent, type ClipboardEvent as ReactClipboardEvent,
   type MouseEvent as ReactMouseEvent, type TouchEvent as ReactTouchEvent,
+  type ChangeEvent,
   type DragEvent as ReactDragEvent,
   type CSSProperties,
 } from 'react';
@@ -90,6 +91,7 @@ import MessageBody from '@/components/MessageBody';
 import { handleFormatShortcut } from '@/components/FormatToolbar';
 import DynamicMessageInput from '@/components/DynamicMessageInput';
 import MentionAutocomplete, { useMentionAutocomplete } from '@/components/MentionAutocomplete';
+import AvatarCropModal from '@/components/AvatarCropModal';
 import ScheduleMessageModal from '@/components/ScheduleMessageModal';
 import RemindMeModal from '@/components/RemindMeModal';
 import StickerGifPicker from '@/components/StickerGifPicker';
@@ -1238,9 +1240,7 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
   const displayName = isOwn
     ? (currentUser?.display_name || message.sender_display_name || t('common.you'))
     : message.sender_display_name;
-  // sender_avatar_url no existe en MessageResponse (solo sender_avatar_key, sin
-  // resolver) — el avatar de otros usuarios siempre cae a las iniciales.
-  const avatarUrl = isOwn ? currentUser?.avatar_url : undefined;
+  const avatarUrl = isOwn ? currentUser?.avatar_url : (message.sender_avatar_url ?? undefined);
 
   const showName = !isOwn && !isDirect && isFirstInGroup;
   const showAvatar = !isOwn && !isDirect;
@@ -1710,6 +1710,12 @@ export default function ConversationPage() {
   const [threadRoot, setThreadRoot] = useState<ChatMessage | null>(null); // root message of the open thread panel
   const [contextMenu, setContextMenu] = useState<ContextMenuPos | null>(null);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  // Foto del grupo: sólo la pueden cambiar owner/admin (el backend lo vuelve a chequear).
+  const [groupAvatarSrc, setGroupAvatarSrc] = useState<string | null>(null);
+  const [groupAvatarName, setGroupAvatarName] = useState('avatar.jpg');
+  const [groupAvatarLoading, setGroupAvatarLoading] = useState(false);
+  const groupAvatarInputRef = useRef<HTMLInputElement>(null);
+  const patchConversation = useChatStore((s) => s.patchConversation);
   const [remindMessageId, setRemindMessageId] = useState<string | null>(null);
   const [sendPulse, setSendPulse] = useState(false);
   const [sendingHi, setSendingHi] = useState(false);
@@ -2154,6 +2160,43 @@ export default function ConversationPage() {
     }
     if (e.key === 'Escape') {
       cancelAction();
+    }
+  };
+
+  // Sólo owner/admin de un grupo o canal; el backend lo vuelve a validar.
+  const puedeEditarGrupo = !isDirect && ['owner', 'admin'].includes(conversation?.member_role ?? '');
+
+  const handleGroupAvatarPick = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // permite volver a elegir el mismo archivo
+    if (!file) return;
+    setGroupAvatarName(file.name);
+    setGroupAvatarSrc(URL.createObjectURL(file));
+  };
+
+  const handleGroupAvatarConfirm = async (file: File) => {
+    if (!conversationId) return;
+    setGroupAvatarLoading(true);
+    try {
+      const { data } = await conversationsApi.uploadAvatar(conversationId, file);
+      patchConversation(conversationId, { avatar_url: data.avatar_url, avatar_object_id: data.avatar_object_id });
+      toast.success(t('chat.groupPhotoUpdated'));
+      setGroupAvatarSrc(null);
+    } catch (err) {
+      toast.danger((err instanceof Error && err.message) || t('common.error'));
+    } finally {
+      setGroupAvatarLoading(false);
+    }
+  };
+
+  const handleGroupAvatarRemove = async () => {
+    if (!conversationId) return;
+    try {
+      await conversationsApi.removeAvatar(conversationId);
+      patchConversation(conversationId, { avatar_url: null, avatar_object_id: null });
+      toast.success(t('chat.groupPhotoRemoved'));
+    } catch (err) {
+      toast.danger((err instanceof Error && err.message) || t('common.error'));
     }
   };
 
@@ -2672,6 +2715,23 @@ export default function ConversationPage() {
         onClose={() => setShowPollModal(false)}
       />
 
+      <input
+        ref={groupAvatarInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        className="hidden"
+        onChange={handleGroupAvatarPick}
+      />
+
+      <AvatarCropModal
+        isOpen={!!groupAvatarSrc}
+        imageSrc={groupAvatarSrc}
+        fileName={groupAvatarName}
+        onClose={() => setGroupAvatarSrc(null)}
+        onConfirm={handleGroupAvatarConfirm}
+        loading={groupAvatarLoading}
+      />
+
       <ScheduleMessageModal
         isOpen={showScheduleModal}
         conversationId={conversationId as string}
@@ -2759,16 +2819,24 @@ export default function ConversationPage() {
               </>
             ) : conversation.type === 'group' ? (
               <>
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink-600">
-                  <Users size={15} strokeWidth={2.5} className="text-ink-100" />
-                </div>
+                {conversation.avatar_url ? (
+                  <img src={conversation.avatar_url} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
+                ) : (
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink-600">
+                    <Users size={15} strokeWidth={2.5} className="text-ink-100" />
+                  </div>
+                )}
                 <h2 className="echo-display truncate text-2xl font-semibold tracking-tight leading-tight">{convName}</h2>
                 {/* member_count no existe en ConversationResponse (solo en ChannelResponse) —
                     este contador nunca se mostró; se documenta en vez de simularlo. */}
               </>
             ) : (
               <>
-                <Hash size={22} strokeWidth={2.5} className="shrink-0 text-ink-200" />
+                {conversation.avatar_url ? (
+                  <img src={conversation.avatar_url} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
+                ) : (
+                  <Hash size={22} strokeWidth={2.5} className="shrink-0 text-ink-200" />
+                )}
                 <h2 className="echo-display truncate text-2xl font-semibold tracking-tight leading-tight">{convName}</h2>
                 {/* member_count no existe en ConversationResponse (solo en ChannelResponse) —
                     este contador nunca se mostró; se documenta en vez de simularlo. */}
@@ -2901,6 +2969,26 @@ export default function ConversationPage() {
                     <Dropdown.Item id="members" textValue={t('chat.viewMembers')} onAction={handleOpenMembers}>
                       <Users size={15} />
                       <Label>{t('chat.memberPanel')}</Label>
+                    </Dropdown.Item>
+                  )}
+                  {puedeEditarGrupo && (
+                    <Dropdown.Item
+                      id="groupPhoto"
+                      textValue={t('chat.changeGroupPhoto')}
+                      onAction={() => groupAvatarInputRef.current?.click()}
+                    >
+                      <ImageIcon size={15} />
+                      <Label>{t('chat.changeGroupPhoto')}</Label>
+                    </Dropdown.Item>
+                  )}
+                  {puedeEditarGrupo && conversation.avatar_url && (
+                    <Dropdown.Item
+                      id="groupPhotoRemove"
+                      textValue={t('chat.removeGroupPhoto')}
+                      onAction={handleGroupAvatarRemove}
+                    >
+                      <Trash2 size={15} />
+                      <Label>{t('chat.removeGroupPhoto')}</Label>
                     </Dropdown.Item>
                   )}
                   <Dropdown.Item id="wallpaper" textValue={t('chat.changeWallpaper')} onAction={() => setWallpaperPickerOpen(true)}>

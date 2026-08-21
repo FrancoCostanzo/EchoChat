@@ -57,10 +57,8 @@ function MemberRow({ member, isMe }: { member: MemberResponse; isMe: boolean }) 
         isMe ? 'bg-accent/10' : 'hover:bg-ink-750',
       ].join(' ')}
     >
-      {/* MemberResponse no trae una URL de avatar resuelta (sólo
-          avatar_object_key) — igual que antes, cae siempre a las iniciales. */}
       <UserAvatar
-        user={{ display_name: name, presence }}
+        user={{ display_name: name, presence, avatar_url: member.avatar_url }}
         size="sm"
         showStatus
         className="shrink-0"
@@ -181,7 +179,7 @@ export default function PresenceAvatarStack({
                   aria-label={name}
                 >
                   <UserAvatar
-                    user={{ display_name: name, presence }}
+                    user={{ display_name: name, presence, avatar_url: member.avatar_url }}
                     size="sm"
                     showStatus
                   />

@@ -12,6 +12,8 @@ export interface ConversationResponse {
   name: string | null;
   description: string | null;
   avatar_object_id: string | null;
+  /** Foto del grupo/canal ya firmada por el backend. Los directos usan other_avatar_url. */
+  avatar_url: string | null;
   topic: string | null;
   is_archived: boolean;
   is_read_only: boolean;
@@ -54,6 +56,8 @@ export interface MemberResponse {
   username?: string | null;
   display_name?: string | null;
   avatar_object_key?: string | null;
+  /** URL prefirmada que resuelve el backend a partir de `avatar_object_key`. */
+  avatar_url?: string | null;
   presence?: string | null;
 }
 

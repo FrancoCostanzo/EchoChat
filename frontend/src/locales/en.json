@@ -201,7 +201,11 @@
     "sayHi": "Say hi",
     "mentionSuggestions": "Mention suggestions",
     "mentionedYou": "{{name}} mentioned you",
-    "autoReply": "Auto-reply"
+    "autoReply": "Auto-reply",
+    "changeGroupPhoto": "Change group photo",
+    "removeGroupPhoto": "Remove group photo",
+    "groupPhotoUpdated": "Group photo updated",
+    "groupPhotoRemoved": "Group photo removed"
   },
   "newConversation": {
     "title": "New conversation",

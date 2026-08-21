@@ -103,7 +103,7 @@ export default function SavedMessagesPage() {
                       (sólo sender_avatar_key, un object key sin presignar) — igual que
                       antes, este avatar cae siempre a las iniciales. */}
                   <UserAvatar
-                    user={{ display_name: m.sender_display_name }}
+                    user={{ display_name: m.sender_display_name, avatar_url: m.sender_avatar_url }}
                     size="sm"
                   />
                   <div className="min-w-0 flex-1">

@@ -107,6 +107,7 @@ interface ChatState {
   fetchMessages: (conversationId: string, cursor?: string) => Promise<void>;
   resyncAfterReconnect: () => Promise<void>;
   patchMessage: (messageId: string, patch: Partial<ChatMessage>) => void;
+  patchConversation: (conversationId: string, patch: Partial<ConversationResponse>) => void;
   loadMoreMessages: () => Promise<void>;
   sendMessage: (
     data: SendMessageRequest & { _filename?: string | null },
@@ -328,6 +329,12 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       }
     });
 
+    // Cambios de la conversación que otro miembro hizo (hoy: la foto del grupo).
+    socket.on('conversation:updated', (patch: { id?: string } & Partial<ConversationResponse>) => {
+      const { id, ...campos } = patch;
+      if (id) get().patchConversation(id, campos);
+    });
+
     // Mensajes programados: avisamos al autor cuando salieron (o fallaron), que
     // es el único que sabe que había algo agendado.
     socket.on('scheduled:sent', () => {
@@ -534,6 +541,14 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       .filter((m) => nuevosIds.includes(m.id) && m.sender_id !== activeUserId)
       .map((m) => m.id);
     if (porLeer.length > 0) get().markMessagesRead(conversationId, porLeer);
+  },
+
+  patchConversation: (conversationId, patch) => {
+    set((state) => ({
+      conversations: state.conversations.map((c) =>
+        c.id === conversationId ? { ...c, ...patch } : c,
+      ),
+    }));
   },
 
   patchMessage: (messageId, patch) => {

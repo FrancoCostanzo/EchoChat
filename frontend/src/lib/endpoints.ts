@@ -98,6 +98,8 @@ export const conversationsApi = {
   updateMember: (convId: string, userId: string, data: UpdateMemberRequest) => api.put<ApiEnvelope<MemberResponse>>(`/conversations/${convId}/members/${userId}`, data),
   removeMember: (convId: string, userId: string) => api.delete<ApiMessageEnvelope>(`/conversations/${convId}/members/${userId}`),
   markAsRead: (id: string, messageId?: string) => api.post<ApiMessageEnvelope>(`/conversations/${id}/read`, messageId ? { message_id: messageId } : {}),
+  uploadAvatar: (id: string, file: File) => api.upload<ApiEnvelope<ConversationResponse>>(`/conversations/${id}/avatar`, file),
+  removeAvatar: (id: string) => api.delete<ApiEnvelope<ConversationResponse>>(`/conversations/${id}/avatar`),
 };
 
 export const channelsApi = {

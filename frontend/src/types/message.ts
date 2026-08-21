@@ -82,6 +82,8 @@ export interface MessageResponse {
   sender_username?: string | null;
   sender_display_name?: string | null;
   sender_avatar_key?: string | null;
+  /** URL prefirmada que resuelve el backend a partir de `sender_avatar_key`. */
+  sender_avatar_url?: string | null;
   attachments: MessageAttachment[];
   reactions: MessageReaction[];
   // Acuses de recibo: enviado → entregado → leído.

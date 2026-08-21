@@ -39,6 +39,8 @@ export function toConversationResponse(row: ConversationRow | null | undefined) 
     name: row.name,
     description: row.description,
     avatar_object_id: row.avatar_object_id,
+    // Foto del grupo/canal ya firmada; la resuelve conversationService.
+    avatar_url: null as string | null,
     topic: row.topic,
     is_archived: row.is_archived,
     is_read_only: row.is_read_only,
@@ -82,6 +84,9 @@ export function toMemberResponse(row: MemberRow | null | undefined) {
     username: row.username,
     display_name: row.display_name,
     avatar_object_key: row.avatar_object_key,
+    // La URL prefirmada la resuelve `conversationService` (enrichMemberAvatarUrl);
+    // declararla acá es lo que hace que el cliente sepa que existe.
+    avatar_url: null as string | null,
     presence: row.presence,
   };
 }

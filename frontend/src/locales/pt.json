@@ -201,7 +201,11 @@
     "sayHi": "Diga oi",
     "mentionSuggestions": "Sugestões de menções",
     "mentionedYou": "{{name}} mencionou você",
-    "autoReply": "Resposta automática"
+    "autoReply": "Resposta automática",
+    "changeGroupPhoto": "Alterar foto do grupo",
+    "removeGroupPhoto": "Remover foto do grupo",
+    "groupPhotoUpdated": "Foto do grupo atualizada",
+    "groupPhotoRemoved": "Foto do grupo removida"
   },
   "newConversation": {
     "title": "Nova conversa",

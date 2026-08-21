@@ -1,6 +1,8 @@
 import logger from '../config/logger';
 import { conversationRepository, auditRepository } from '../repositories';
-import { minioClient } from '../config/minio';
+import { toConversation } from '../config/eventBus';
+import storageService from './storage.service';
+import { urlDeAvatar } from '../utils/avatarUrl.util';
 import { NotFoundError, ForbiddenError, BadRequestError } from '../errors';
 import { toConversationResponse, toMemberResponse } from '../models';
 import type { ConversationResponse, MemberResponse } from '../models/conversation.model';
@@ -10,29 +12,40 @@ import type {
   UpdateMemberRequest,
 } from '../dtos/conversation.dto';
 
-const AVATAR_BUCKET = 'messaging-avatars';
+const AVATAR_ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const AVATAR_MAX_SIZE = 5 * 1024 * 1024; // 5 MB
 
-/** Las URLs prefirmadas se resuelven acá: el repositorio sólo trae las claves. */
+/**
+ * Las URLs prefirmadas se resuelven acá: el repositorio sólo trae las claves.
+ *
+ * Son dos caminos porque los avatares se guardan distinto: el de un usuario vive
+ * como bucket+clave en su propia fila (`urlDeAvatar`, con caché en memoria), y el
+ * de un grupo es un objeto de `storage_objects` — por eso pasa por
+ * `storageService`, que tiene su caché de prefirmadas en la BD.
+ */
 async function enrichAvatarUrl(conv: ConversationResponse | null) {
-  if (!conv || !conv.other_avatar_object_key) return conv;
-  try {
-    const url = await minioClient.presignedGetObject(AVATAR_BUCKET, conv.other_avatar_object_key, 60 * 60 * 24);
-    return { ...conv, other_avatar_url: url };
-  } catch (err) {
-    logger.warn({ err }, 'Failed to generate other_avatar presigned URL');
-    return conv;
+  if (!conv) return conv;
+  let salida = conv;
+
+  if (conv.other_avatar_object_key) {
+    const url = await urlDeAvatar(conv.other_avatar_object_key);
+    if (url) salida = { ...salida, other_avatar_url: url };
   }
+
+  if (conv.avatar_object_id) {
+    try {
+      salida = { ...salida, avatar_url: await storageService.getPresignedUrl(conv.avatar_object_id, null) };
+    } catch (err) {
+      logger.warn({ err: (err as Error).message, conversationId: conv.id }, 'Failed to resolve group avatar URL');
+    }
+  }
+  return salida;
 }
 
 async function enrichMemberAvatarUrl(member: MemberResponse | null) {
   if (!member || !member.avatar_object_key) return member;
-  try {
-    const url = await minioClient.presignedGetObject(AVATAR_BUCKET, member.avatar_object_key, 60 * 60 * 24);
-    return { ...member, avatar_url: url };
-  } catch (err) {
-    logger.warn({ err, userId: member.user_id }, 'Failed to generate member avatar presigned URL');
-    return member;
-  }
+  const url = await urlDeAvatar(member.avatar_object_key);
+  return url ? { ...member, avatar_url: url } : member;
 }
 
 class ConversationService {
@@ -152,6 +165,94 @@ class ConversationService {
 
   async markAsRead(conversationId: string, userId: string, messageId: string) {
     return conversationRepository.markAsRead(conversationId, userId, messageId);
+  }
+
+  /**
+   * Foto de un grupo o canal. A diferencia del avatar de usuario (bucket+clave en
+   * la fila del usuario), va como objeto de `storage_objects`: es a lo que apunta
+   * `conversations.avatar_object_id` en el esquema.
+   */
+  async uploadAvatar(
+    conversationId: string,
+    userId: string,
+    file: { buffer: Buffer; mimetype: string; size: number; originalname: string },
+  ) {
+    await this._requireRole(conversationId, userId, ['owner', 'admin']);
+    const conversation = await conversationRepository.findById(conversationId);
+    if (!conversation) throw new NotFoundError('Conversation');
+    if (conversation.type === 'direct') {
+      // En un chat de a dos la foto es la del otro: no hay una del "chat".
+      throw new BadRequestError('Direct conversations cannot have their own avatar');
+    }
+    if (!AVATAR_ALLOWED_TYPES.includes(file.mimetype)) {
+      throw new BadRequestError('Invalid file type. Allowed: JPEG, PNG, WebP, GIF');
+    }
+    if (file.size > AVATAR_MAX_SIZE) {
+      throw new BadRequestError('File too large. Maximum size is 5 MB');
+    }
+
+    const objeto = (await storageService.upload(userId, file.buffer, {
+      object_type: 'avatar',
+      original_filename: file.originalname,
+      mime_type: file.mimetype,
+      file_size_bytes: file.size,
+    }))!;
+
+    const anterior = conversation.avatar_object_id;
+    const actualizada = await conversationRepository.updateAvatar(conversationId, objeto.id);
+    // La foto vieja sólo se borra si ninguna otra fila la referencia.
+    if (anterior) await storageService.deleteIfUnreferenced(anterior);
+
+    await auditRepository.log({
+      actor_id: userId,
+      action: 'conversation.avatar_update',
+      resource_type: 'conversation',
+      resource_id: conversationId,
+      severity: 'info',
+      category: 'content',
+      metadata: { mime_type: file.mimetype, size_bytes: file.size },
+    });
+    logger.info({ conversationId, objectId: objeto.id }, 'Conversation avatar updated');
+
+    const respuesta = await enrichAvatarUrl(toConversationResponse(actualizada));
+    this._avisarCambioDeAvatar(conversationId, respuesta);
+    return respuesta;
+  }
+
+  async removeAvatar(conversationId: string, userId: string) {
+    await this._requireRole(conversationId, userId, ['owner', 'admin']);
+    const conversation = await conversationRepository.findById(conversationId);
+    if (!conversation) throw new NotFoundError('Conversation');
+
+    const actualizada = await conversationRepository.updateAvatar(conversationId, null);
+    if (conversation.avatar_object_id) {
+      await storageService.deleteIfUnreferenced(conversation.avatar_object_id);
+    }
+    await auditRepository.log({
+      actor_id: userId,
+      action: 'conversation.avatar_remove',
+      resource_type: 'conversation',
+      resource_id: conversationId,
+      severity: 'info',
+      category: 'content',
+    });
+
+    const respuesta = toConversationResponse(actualizada);
+    this._avisarCambioDeAvatar(conversationId, respuesta);
+    return respuesta;
+  }
+
+  /** Los demás miembros tienen la conversación abierta: que no vean la foto vieja. */
+  _avisarCambioDeAvatar(conversationId: string, respuesta: ConversationResponse | null) {
+    try {
+      toConversation(conversationId, 'conversation:updated', {
+        id: conversationId,
+        avatar_url: respuesta?.avatar_url ?? null,
+        avatar_object_id: respuesta?.avatar_object_id ?? null,
+      });
+    } catch (err) {
+      logger.warn({ err: (err as Error).message, conversationId }, 'Failed to emit conversation:updated');
+    }
   }
 
   async _requireRole(conversationId: string, userId: string, allowedRoles: string[]) {

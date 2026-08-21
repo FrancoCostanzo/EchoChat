@@ -56,6 +56,9 @@ function buildMessageResponse(row: MessageRow) {
     sender_username: row.sender_username,
     sender_display_name: row.sender_display_name,
     sender_avatar_key: row.sender_avatar_key,
+    // La firma la resuelve messageService (_adjuntarAvatares); declararla acá es
+    // lo que hace que el cliente sepa que existe.
+    sender_avatar_url: null as string | null,
     // Attachments array if joined
     attachments: row.attachments ?? [],
     // Reactions summary if joined

@@ -190,6 +190,13 @@ function ConversationItem({
             size="sm"
             showStatus
           />
+        ) : conversation.avatar_url ? (
+          // Grupo o canal con foto propia.
+          <img
+            src={conversation.avatar_url}
+            alt=""
+            className="h-8 w-8 shrink-0 rounded-full object-cover"
+          />
         ) : conversation.type === 'group' ? (
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-ink-700 text-ink-100 group-hover:bg-ink-600">
             <Users size={15} strokeWidth={2.5} />

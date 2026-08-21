@@ -42,6 +42,23 @@ class ConversationController {
     res.json({ status: 'success', message: 'Member removed' });
   }
 
+  async uploadAvatar(req: AuthRequest, res: Response) {
+    if (!req.file) {
+      return res.status(StatusCodes.BAD_REQUEST).json({ status: 'error', message: 'No file provided' });
+    }
+    const conversation = await conversationService.uploadAvatar(
+      req.params.conversationId,
+      req.user.id,
+      req.file,
+    );
+    res.json({ status: 'success', data: conversation });
+  }
+
+  async removeAvatar(req: AuthRequest, res: Response) {
+    const conversation = await conversationService.removeAvatar(req.params.conversationId, req.user.id);
+    res.json({ status: 'success', data: conversation });
+  }
+
   async getMembers(req: AuthRequest, res: Response) {
     const { limit, offset } = req.query;
     const members = await conversationService.getMembers(

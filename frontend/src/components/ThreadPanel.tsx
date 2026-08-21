@@ -26,7 +26,7 @@ function ThreadMessage({ msg, isRoot = false }: { msg: MessageResponse; isRoot?:
       isRoot ? 'rounded-lg bg-ink-900/60 py-2.5 ring-1 ring-white/8' : 'rounded-md hover:bg-white/2.5',
     ].join(' ')}>
       <div className="shrink-0 pt-0.5">
-        <UserAvatar user={{ display_name: msg.sender_display_name }} size="sm" />
+        <UserAvatar user={{ display_name: msg.sender_display_name, avatar_url: msg.sender_avatar_url }} size="sm" />
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">

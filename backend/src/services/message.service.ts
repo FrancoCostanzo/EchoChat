@@ -18,6 +18,7 @@ import { NotFoundError, ForbiddenError, BadRequestError } from '../errors';
 import { toMessageResponse, toSavedMessageResponse, toDraftResponse, toPollResponse, toGameResponse } from '../models';
 import { resolveBodyFormat } from '../utils/markdown.util';
 import { resolverMenciones, destinatariosDeMenciones, type Mencion } from '../utils/mentions.util';
+import { urlesDeAvatares } from '../utils/avatarUrl.util';
 import { minioClient } from '../config/minio';
 import type { MessageResponse } from '../models/message.model';
 import type { GameRow } from '../models/game.model';
@@ -124,6 +125,7 @@ class MessageService {
     logger.info({ messageId: message.id, conversationId: data.conversation_id }, 'Message sent');
 
     const response = toMessageResponse(full)!;
+    await this._adjuntarAvatares([response]);
     try {
       toConversation(data.conversation_id, 'message:new', response);
       // Let open timelines refresh the root's reply counter without refetching
@@ -263,6 +265,7 @@ class MessageService {
     const replyResponses = replies.map((r) => toMessageResponse(r)!);
     await this._attachPolls([rootResponse, ...replyResponses], userId);
     await this._attachGames([rootResponse, ...replyResponses], userId);
+    await this._adjuntarAvatares([rootResponse, ...replyResponses]);
     return { root: rootResponse, replies: replyResponses };
   }
 
@@ -277,7 +280,21 @@ class MessageService {
     const responses = messages.map((m) => toMessageResponse(m)!);
     await this._attachPolls(responses, userId);
     await this._attachGames(responses, userId);
+    await this._adjuntarAvatares(responses);
     return responses;
+  }
+
+  /**
+   * Resuelve la foto del remitente de cada mensaje. Sin esto el cliente sólo
+   * recibe `sender_avatar_key` (una clave de MinIO, no una URL) y todas las
+   * burbujas ajenas caen a las iniciales.
+   */
+  async _adjuntarAvatares(responses: MessageResponse[]) {
+    const urls = await urlesDeAvatares(responses.map((m) => m.sender_avatar_key));
+    if (urls.size === 0) return;
+    for (const m of responses) {
+      if (m.sender_avatar_key) m.sender_avatar_url = urls.get(m.sender_avatar_key) ?? null;
+    }
   }
 
   // Attach poll data (options + the user's votes) to any 'poll' type messages.
@@ -533,7 +550,9 @@ class MessageService {
 
   async listSaved(userId: string, pagination?: { limit?: number; offset?: number }) {
     const rows = await savedMessageRepository.list(userId, pagination);
-    return rows.map(toSavedMessageResponse);
+    const responses = rows.map((r) => toSavedMessageResponse(r)!);
+    await this._adjuntarAvatares(responses);
+    return responses;
   }
 
   // ── Drafts ──────────────────────────────────────────────────────────────

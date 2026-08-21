@@ -118,6 +118,16 @@ class ConversationRepository extends BaseRepository<ConvRow> {
     return rows;
   }
 
+  /** Apunta la conversación a un objeto de storage como foto (o lo saca con null). */
+  async updateAvatar(conversationId: string, objectId: string | null): Promise<Row<'conversations'> | undefined> {
+    const { rows } = await this.query<Row<'conversations'>>(
+      `UPDATE conversations SET avatar_object_id = $2, updated_at = NOW()
+        WHERE id = $1 RETURNING *`,
+      [conversationId, objectId]
+    );
+    return rows[0];
+  }
+
   async addMember(
     conversationId: string,
     userId: string,
