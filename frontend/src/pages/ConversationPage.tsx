@@ -72,7 +72,7 @@ import VideoViewer from '@/components/VideoViewer';
 import PdfPreview from '@/components/PdfPreview';
 import SendButton from '@/components/SendButton';
 import MessageSearchPanel from '@/components/MessageSearchPanel';
-import PinnedMessagesPanel from '@/components/PinnedMessagesPanel';
+import PinnedMessageBar from '@/components/PinnedMessageBar';
 import CallHistoryPanel from '@/components/CallHistoryPanel';
 import ThreadPanel from '@/components/ThreadPanel';
 import PollMessage from '@/components/PollMessage';
@@ -110,7 +110,7 @@ import { EASE_OUT, SPRING_BOUNCY, msgEntryInitial, msgEntryTransition } from '@/
 import { userColor } from '@/lib/userColor';
 import type { ChatMessage } from '@/stores/chatStore';
 import type { ConversationResponse, MemberResponse } from '@/types/conversation';
-import type { MessageAttachment, SendMessageRequest } from '@/types/message';
+import type { MessageAttachment, MessageResponse, SendMessageRequest } from '@/types/message';
 import type { CallType } from '@/types/call';
 import type { AuthenticatedUser } from '@/types/user';
 import type { TextInputHandle } from '@/lib/formatText';
@@ -1672,11 +1672,11 @@ export default function ConversationPage() {
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [sendingFile, setSendingFile] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [pinnedOpen, setPinnedOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
   const [detailTab, setDetailTab] = useState<DetailTab>('info');
-  const [pinnedIds, setPinnedIds] = useState<Set<string>>(() => new Set());
+  // Un chat sólo puede tener un mensaje fijado a la vez (para todos los miembros).
+  const [pinnedMessage, setPinnedMessage] = useState<MessageResponse | null>(null);
   const [forwardTarget, setForwardTarget] = useState<ChatMessage | null>(null); // message being forwarded
   const [infoTarget, setInfoTarget] = useState<ChatMessage | null>(null); // message whose info panel is open
   const [threadRoot, setThreadRoot] = useState<ChatMessage | null>(null); // root message of the open thread panel
@@ -1889,15 +1889,15 @@ export default function ConversationPage() {
     return () => clearActiveConversation();
   }, [clearActiveConversation]);
 
-  // Track pinned message ids so the context menu can offer pin/unpin.
-  // The panel itself stays open across switches (it reloads per conversation).
+  // Load the conversation's single pinned message (if any) so the bar below
+  // the header and the context menu's pin/unpin state stay in sync.
   useEffect(() => {
-    setPinnedIds(new Set());
+    setPinnedMessage(null);
     if (!conversationId) return undefined;
     let active = true;
     messagesApi.getPinned(conversationId)
       .then(({ data }) => {
-        if (active) setPinnedIds(new Set((Array.isArray(data) ? data : []).map((m) => m.id)));
+        if (active) setPinnedMessage(data ?? null);
       })
       .catch(() => {});
     return () => { active = false; };
@@ -2086,7 +2086,7 @@ export default function ConversationPage() {
 
   const handleSend = async () => {
     const body = (input ?? '').trim();
-    if (!body || !conversationId) return;
+    if (!body || !conversationId || soloAdminsEnvianMensajes) return;
 
     emitTyping(conversationId, false);
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
@@ -2136,7 +2136,11 @@ export default function ConversationPage() {
   };
 
   // Sólo owner/admin de un grupo o canal; el backend lo vuelve a validar.
-  const puedeEditarGrupo = !isDirect && ['owner', 'admin'].includes(conversation?.member_role ?? '');
+  const esAdminDeGrupo = !isDirect && ['owner', 'admin'].includes(conversation?.member_role ?? '');
+  // Si el admin desactivó only_admins_edit_info, cualquier miembro puede editar.
+  const puedeEditarGrupo = esAdminDeGrupo || (!isDirect && conversation?.only_admins_edit_info === false);
+  // is_read_only: el admin restringió el envío de mensajes a sólo admins.
+  const soloAdminsEnvianMensajes = !isDirect && !!conversation?.is_read_only && !esAdminDeGrupo;
 
   const handleGroupAvatarPick = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -2166,6 +2170,20 @@ export default function ConversationPage() {
     try {
       const { data } = await conversationsApi.update(conversationId, patch);
       patchConversation(conversationId, { name: data.name, description: data.description });
+    } catch (err) {
+      toast.danger((err instanceof Error && err.message) || t('common.error'));
+      throw err;
+    }
+  };
+
+  const handleUpdateGroupPermissions = async (patch: { is_read_only?: boolean; only_admins_edit_info?: boolean }) => {
+    if (!conversationId) return;
+    try {
+      const { data } = await conversationsApi.update(conversationId, patch);
+      patchConversation(conversationId, {
+        is_read_only: data.is_read_only,
+        only_admins_edit_info: data.only_admins_edit_info,
+      });
     } catch (err) {
       toast.danger((err instanceof Error && err.message) || t('common.error'));
       throw err;
@@ -2343,7 +2361,6 @@ export default function ConversationPage() {
 
     if (closeSearch && window.innerWidth < 768) {
       setSearchOpen(false);
-      setPinnedOpen(false);
       setMembersOpen(false);
     }
   }, []);
@@ -2451,25 +2468,15 @@ export default function ConversationPage() {
     }
   }, [conversationId, sendMessage, user]);
 
-  // Thread, search, pinned and members panels share the right column — only one open at a time
+  // Thread, search and members panels share the right column — only one open at a time
   const handleOpenThread = useCallback((msg: ChatMessage) => {
     setThreadRoot(msg);
     setSearchOpen(false);
-    setPinnedOpen(false);
     setMembersOpen(false);
   }, []);
 
   const handleOpenSearch = useCallback(() => {
     setSearchOpen((p) => !p);
-    setThreadRoot(null);
-    setPinnedOpen(false);
-    setHistoryOpen(false);
-    setMembersOpen(false);
-  }, []);
-
-  const handleOpenPinned = useCallback(() => {
-    setPinnedOpen((p) => !p);
-    setSearchOpen(false);
     setThreadRoot(null);
     setHistoryOpen(false);
     setMembersOpen(false);
@@ -2478,7 +2485,6 @@ export default function ConversationPage() {
   const handleOpenHistory = useCallback(() => {
     setHistoryOpen((p) => !p);
     setSearchOpen(false);
-    setPinnedOpen(false);
     setThreadRoot(null);
     setMembersOpen(false);
   }, []);
@@ -2487,7 +2493,6 @@ export default function ConversationPage() {
     setDetailTab('members');
     setMembersOpen((p) => !p);
     setSearchOpen(false);
-    setPinnedOpen(false);
     setThreadRoot(null);
     setHistoryOpen(false);
   }, []);
@@ -2497,7 +2502,6 @@ export default function ConversationPage() {
     setDetailTab('info');
     setMembersOpen(true);
     setSearchOpen(false);
-    setPinnedOpen(false);
     setThreadRoot(null);
     setHistoryOpen(false);
   }, []);
@@ -2526,15 +2530,13 @@ export default function ConversationPage() {
     }
   }, [callStatus, startCall, conversationId, conversation, user, t]);
 
+  // Fijar un mensaje reemplaza al que estuviera fijado antes — un chat sólo
+  // puede tener uno a la vez, para todos los miembros.
   const handleTogglePin = useCallback(async (message: ChatMessage) => {
     if (!conversationId) return;
-    const isPinned = pinnedIds.has(message.id);
-    setPinnedIds((prev) => {
-      const next = new Set(prev);
-      if (isPinned) next.delete(message.id);
-      else next.add(message.id);
-      return next;
-    });
+    const isPinned = pinnedMessage?.id === message.id;
+    const previous = pinnedMessage;
+    setPinnedMessage(isPinned ? null : message);
     try {
       if (isPinned) {
         await messagesApi.unpin(conversationId, message.id);
@@ -2544,23 +2546,21 @@ export default function ConversationPage() {
         toast.success(t('chat.pinnedToast'));
       }
     } catch {
-      // revert on failure
-      setPinnedIds((prev) => {
-        const next = new Set(prev);
-        if (isPinned) next.add(message.id);
-        else next.delete(message.id);
-        return next;
-      });
+      setPinnedMessage(previous); // revert on failure
     }
-  }, [conversationId, pinnedIds, t]);
+  }, [conversationId, pinnedMessage, t]);
 
-  const handleUnpinnedFromPanel = useCallback((msgId: string) => {
-    setPinnedIds((prev) => {
-      const next = new Set(prev);
-      next.delete(msgId);
-      return next;
-    });
-  }, []);
+  const handleUnpinBar = useCallback(async () => {
+    if (!conversationId || !pinnedMessage) return;
+    const previous = pinnedMessage;
+    setPinnedMessage(null);
+    try {
+      await messagesApi.unpin(conversationId, previous.id);
+      toast.success(t('chat.unpinnedToast'));
+    } catch {
+      setPinnedMessage(previous); // revert on failure
+    }
+  }, [conversationId, pinnedMessage, t]);
 
   const handleSavedChange = useCallback((messageId: string, isSaved: boolean) => {
     patchMessage(messageId, { is_saved: isSaved });
@@ -2607,7 +2607,7 @@ export default function ConversationPage() {
         message: contextMenuMessage,
         isOwn: contextMenuMessage.sender_id === user?.id,
         saved: !!contextMenuMessage.is_saved,
-        pinned: pinnedIds.has(contextMenuMessage.id),
+        pinned: pinnedMessage?.id === contextMenuMessage.id,
         t,
         closeMenu: handleCloseContextMenu,
         onReply: handleReply,
@@ -2896,16 +2896,11 @@ export default function ConversationPage() {
                 isIconOnly
                 size="sm"
                 variant="ghost"
-                onPress={handleOpenPinned}
-                className={[
-                  'relative hidden h-8 w-8 min-w-0 rounded-md hover:bg-ink-600 hover:text-foreground sm:flex',
-                  pinnedOpen ? 'bg-ink-600 text-foreground' : 'text-ink-100',
-                ].join(' ')}
+                onPress={() => pinnedMessage && focusMessageById(pinnedMessage.id)}
+                isDisabled={!pinnedMessage}
+                className="relative hidden h-8 w-8 min-w-0 rounded-md text-ink-100 hover:bg-ink-600 hover:text-foreground disabled:opacity-40 sm:flex"
               >
                 <Pin size={18} />
-                {pinnedIds.size > 0 && (
-                  <span className="pointer-events-none absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-accent" />
-                )}
               </Button>
               <Tooltip.Content placement="bottom">{t('chat.pinnedMessages')}</Tooltip.Content>
             </Tooltip>
@@ -2954,10 +2949,12 @@ export default function ConversationPage() {
                       <Label>{t('contacts.addFromChat')}</Label>
                     </Dropdown.Item>
                   )}
-                  <Dropdown.Item id="pinned" textValue={t('chat.pinnedMessages')} onAction={handleOpenPinned}>
-                    <Pin size={15} />
-                    <Label>{t('chat.pinnedMessages')}</Label>
-                  </Dropdown.Item>
+                  {pinnedMessage && (
+                    <Dropdown.Item id="pinned" textValue={t('chat.pinnedMessages')} onAction={() => focusMessageById(pinnedMessage.id)}>
+                      <Pin size={15} />
+                      <Label>{t('chat.pinnedMessages')}</Label>
+                    </Dropdown.Item>
+                  )}
                   {conversation.type !== 'channel' && (
                     <Dropdown.Item id="callHistory" textValue={t('call.history.title')} onAction={handleOpenHistory}>
                       <Phone size={15} />
@@ -2979,6 +2976,13 @@ export default function ConversationPage() {
             </Dropdown>
           </div>
         </div>
+
+        {/* ── Mensaje fijado — debajo de la info del chat, igual para directos y grupos ── */}
+        <PinnedMessageBar
+          message={pinnedMessage}
+          onJump={focusMessageById}
+          onUnpin={handleUnpinBar}
+        />
 
         {/* ── Messages — keyed by conversation: fresh scroll container plus a
             soft crossfade instead of the old full-page remount jump ── */}
@@ -3193,7 +3197,7 @@ export default function ConversationPage() {
                 setCodeModalInitial({ body: '', language: 'plaintext' });
                 setShowCodeModal(true);
               }}
-              disabled={!!previewFile || sendingFile}
+              disabled={!!previewFile || sendingFile || soloAdminsEnvianMensajes}
               uploading={sendingFile}
               open={activePicker === 'file'}
               onOpenChange={(next) => setActivePicker(next ? 'file' : null)}
@@ -3209,7 +3213,9 @@ export default function ConversationPage() {
             />
             <DynamicMessageInput
               ref={inputRef}
-              placeholder={isDirect
+              placeholder={soloAdminsEnvianMensajes
+                ? t('chat.onlyAdminsSendMessages')
+                : isDirect
                 ? t('chat.writeMessage') + ` @${convName}`
                 : t('chat.writeMessage') + ` #${convName}`}
               value={input}
@@ -3225,6 +3231,7 @@ export default function ConversationPage() {
               }}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
+              disabled={soloAdminsEnvianMensajes}
             />
             </div>
 
@@ -3239,7 +3246,7 @@ export default function ConversationPage() {
 
             <StickerGifPicker
               onPick={handleStickerSend}
-              disabled={!!previewFile || sendingFile}
+              disabled={!!previewFile || sendingFile || soloAdminsEnvianMensajes}
               open={activePicker === 'sticker'}
               onOpenChange={(next) => setActivePicker(next ? 'sticker' : null)}
             />
@@ -3255,7 +3262,7 @@ export default function ConversationPage() {
 
             <SendButton
               onPress={handleSend}
-              isDisabled={!(input ?? '').trim()}
+              isDisabled={!(input ?? '').trim() || soloAdminsEnvianMensajes}
               label={t('chat.send')}
               pulse={sendPulse}
               className="shrink-0"
@@ -3270,6 +3277,7 @@ export default function ConversationPage() {
           conversationId={conversationId as string}
           isDirect={isDirect}
           canEditGroup={puedeEditarGrupo}
+          isGroupAdmin={esAdminDeGrupo}
           members={membersWithPresence}
           loading={loadingMembers}
           open={membersOpen}
@@ -3280,6 +3288,7 @@ export default function ConversationPage() {
           onPickAvatar={() => groupAvatarInputRef.current?.click()}
           onRemoveAvatar={handleGroupAvatarRemove}
           onUpdateInfo={handleUpdateGroupInfo}
+          onUpdatePermissions={handleUpdateGroupPermissions}
         />
 
         {/* ── Message search panel ── */}
@@ -3289,18 +3298,6 @@ export default function ConversationPage() {
               conversationId={conversationId as string}
               onClose={() => setSearchOpen(false)}
               onJump={handleJumpToMessage}
-            />
-          )}
-        </AnimatePresence>
-
-        {/* ── Pinned messages panel ── */}
-        <AnimatePresence>
-          {pinnedOpen && (
-            <PinnedMessagesPanel
-              conversationId={conversationId as string}
-              onClose={() => setPinnedOpen(false)}
-              onJump={handleJumpToMessage}
-              onUnpinned={handleUnpinnedFromPanel}
             />
           )}
         </AnimatePresence>

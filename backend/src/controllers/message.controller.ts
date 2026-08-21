@@ -86,8 +86,8 @@ class MessageController {
   }
 
   async getPinned(req: AuthRequest, res: Response) {
-    const messages = await messageService.getPinnedMessages(req.params.conversationId, req.user.id);
-    res.json({ status: 'success', data: messages });
+    const message = await messageService.getPinnedMessage(req.params.conversationId, req.user.id);
+    res.json({ status: 'success', data: message });
   }
 
   // ── Panel de detalle de conversación ────────────────────────────────────────

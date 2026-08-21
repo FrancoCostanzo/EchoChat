@@ -189,8 +189,6 @@
     "startOfChannel": "Este es el comienzo del canal #{{name}}.",
     "pin": "Fijar mensaje",
     "unpin": "Desfijar mensaje",
-    "noPinned": "No hay mensajes fijados todavía",
-    "noPinnedHint": "Fijá mensajes importantes desde el menú contextual para encontrarlos rápido.",
     "pinnedToast": "Mensaje fijado",
     "unpinnedToast": "Mensaje desfijado",
     "emptyHint": "Abrí la paleta de comandos con",

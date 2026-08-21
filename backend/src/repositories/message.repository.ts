@@ -604,6 +604,11 @@ class MessageRepository extends BaseRepository<MessageRow> {
     return rows;
   }
 
+  // Un chat sólo puede tener un mensaje fijado a la vez: fijar uno nuevo
+  // reemplaza atómicamente al que hubiera antes (UPSERT sobre el índice único
+  // sólo por conversation_id — un DELETE + INSERT separados en el mismo
+  // statement puede chocar contra ese mismo índice, según el orden en que
+  // Postgres evalúe la sentencia).
   async pinMessage(
     conversationId: string,
     messageId: string,
@@ -612,7 +617,10 @@ class MessageRepository extends BaseRepository<MessageRow> {
     const { rows } = await this.query<Row<'pinned_messages'>>(
       `INSERT INTO pinned_messages (conversation_id, message_id, pinned_by)
        VALUES ($1, $2, $3)
-       ON CONFLICT (conversation_id, message_id) DO NOTHING
+       ON CONFLICT (conversation_id) DO UPDATE
+         SET message_id = EXCLUDED.message_id,
+             pinned_by = EXCLUDED.pinned_by,
+             pinned_at = NOW()
        RETURNING *`,
       [conversationId, messageId, pinnedBy]
     );
@@ -627,19 +635,18 @@ class MessageRepository extends BaseRepository<MessageRow> {
     return (rowCount ?? 0) > 0;
   }
 
-  async getPinnedMessages(conversationId: string): Promise<MessageRow[]> {
+  async getPinnedMessage(conversationId: string): Promise<MessageRow | undefined> {
     const { rows } = await this.query(
       `SELECT m.*, pm.pinned_by, pm.pinned_at,
               u.username AS sender_username, u.display_name AS sender_display_name
        FROM pinned_messages pm
        JOIN messages m ON m.id = pm.message_id
        LEFT JOIN users u ON u.id = m.sender_id
-       WHERE pm.conversation_id = $1
-       ORDER BY pm.pinned_at DESC`,
+       WHERE pm.conversation_id = $1`,
       [conversationId]
     );
     rows.forEach((r) => decryptRow(r));
-    return rows;
+    return rows[0];
   }
 
   // Pestaña Multimedia (category='media', imágenes/video) o Archivos

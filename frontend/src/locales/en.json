@@ -189,8 +189,6 @@
     "startOfChannel": "This is the beginning of the #{{name}} channel.",
     "pin": "Pin message",
     "unpin": "Unpin message",
-    "noPinned": "No pinned messages yet",
-    "noPinnedHint": "Pin important messages from the context menu to find them quickly.",
     "pinnedToast": "Message pinned",
     "unpinnedToast": "Message unpinned",
     "emptyHint": "Open the command palette with",

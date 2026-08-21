@@ -83,6 +83,12 @@ class MessageService {
     const member = await conversationRepository.getMember(data.conversation_id, userId);
     if (!member) throw new ForbiddenError('Not a member of this conversation');
 
+    // Grupo/canal restringido por un admin a "sólo admins escriben".
+    const conversation = await conversationRepository.findById(data.conversation_id);
+    if (conversation?.is_read_only && !['owner', 'admin'].includes(member.role as string)) {
+      throw new ForbiddenError('Only admins can send messages in this conversation');
+    }
+
     // Thread replies must point at a root message of the same conversation.
     // Replying to a reply gets flattened onto the original root (Slack-style).
     if (data.thread_id) {
@@ -527,12 +533,12 @@ class MessageService {
     return messageRepository.unpinMessage(conversationId, messageId);
   }
 
-  async getPinnedMessages(conversationId: string, userId: string) {
+  async getPinnedMessage(conversationId: string, userId: string) {
     const member = await conversationRepository.getMember(conversationId, userId);
     if (!member) throw new ForbiddenError('Not a member of this conversation');
 
-    const messages = await messageRepository.getPinnedMessages(conversationId);
-    return messages.map(toMessageResponse);
+    const message = await messageRepository.getPinnedMessage(conversationId);
+    return message ? toMessageResponse(message) : null;
   }
 
   // ── Panel de detalle de conversación: Multimedia / Archivos / Links ────────
@@ -624,6 +630,9 @@ class MessageService {
     for (const convId of conversationIds) {
       const member = await conversationRepository.getMember(convId, userId);
       if (!member) continue; // silently skip conversations the user isn't part of
+
+      const targetConv = await conversationRepository.findById(convId);
+      if (targetConv?.is_read_only && !['owner', 'admin'].includes(member.role as string)) continue;
 
       const created = await messageRepository.create({
         conversation_id: convId,

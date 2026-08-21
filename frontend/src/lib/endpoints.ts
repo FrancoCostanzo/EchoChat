@@ -125,7 +125,7 @@ export const messagesApi = {
   addReceipt: (id: string) => api.post<ApiEnvelope<unknown>>(`/messages/${id}/receipts`),
   getByConversation: (convId: string, params?: PaginationRequest) => api.get<ApiEnvelope<MessageResponse[]>>(`/messages/conversation/${convId}`, params as ApiParams),
   search: (convId: string, q: string, limit = 20) => api.get<ApiEnvelope<MessageResponse[]>>(`/messages/conversation/${convId}/search`, { q, limit }),
-  getPinned: (convId: string) => api.get<ApiEnvelope<MessageResponse[]>>(`/messages/conversation/${convId}/pinned`),
+  getPinned: (convId: string) => api.get<ApiEnvelope<MessageResponse | null>>(`/messages/conversation/${convId}/pinned`),
   getMedia: (convId: string, limit = 30, offset = 0) => api.get<ApiEnvelope<ConversationAttachmentItem[]>>(`/messages/conversation/${convId}/media`, { limit, offset }),
   getFiles: (convId: string, limit = 30, offset = 0) => api.get<ApiEnvelope<ConversationAttachmentItem[]>>(`/messages/conversation/${convId}/files`, { limit, offset }),
   getLinks: (convId: string, limit = 30, offset = 0) => api.get<ApiEnvelope<ConversationLinkItem[]>>(`/messages/conversation/${convId}/links`, { limit, offset }),
