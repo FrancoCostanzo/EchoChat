@@ -99,7 +99,7 @@ Ver [Panel de administración](/docs/admin/panel).
 
 | Plataforma | Tecnología | Estado |
 |------------|-----------|--------|
-| **Web** | React 19 + Vite | En desarrollo (`v1.0.0-alpha.4`) |
+| **Web** | React 19 + Vite | En desarrollo (`v1.0.0-alpha.5`) |
 | **Desktop** (Windows, macOS, Linux) | Electron | Planificado |
 | **Mobile** (iOS, Android) | React Native + Expo | Planificado |
 
