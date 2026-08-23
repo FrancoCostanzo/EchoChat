@@ -7,7 +7,7 @@ description: Requisitos de hardware, software y dimensionamiento para desplegar 
 
 | Componente | Versión mínima | Notas |
 |------------|-----------------|-------|
-| **Node.js** | 18 LTS | Requerido para correr backend y frontend en modo desarrollo |
+| **Node.js** | 22 LTS | Requerido para correr backend y frontend en modo desarrollo |
 | **PostgreSQL** | 15+ | Usa extensiones `uuid-ossp`, `pg_trgm` y `btree_gin` |
 | **MinIO** | Cualquier versión reciente | O cualquier almacenamiento compatible con S3 |
 | **Docker + Docker Compose** | Docker ≥ 20, Compose ≥ 2.20 | Solo si desplegás con contenedores (ver [Despliegue con Docker](/docs/despliegue)) |

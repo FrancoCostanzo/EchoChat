@@ -2,16 +2,21 @@
   "name": "echochat-backend",
   "version": "1.0.0-alpha.4",
   "description": "",
-  "main": "src/server.js",
+  "main": "dist/server.js",
   "directories": {
     "doc": "docs"
   },
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js | pino-pretty",
-    "migrate": "node src/cli/setup.js",
-    "setup": "node src/cli/setup.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node dist/server.js",
+    "build": "tsc",
+    "dev": "tsx watch src/server.ts | pino-pretty",
+    "db:types": "node scripts/generate-db-types.js",
+    "typecheck": "tsc --noEmit",
+    "typecheck:all": "tsc --noEmit --checkJs",
+    "typecheck:tests": "tsc -p tsconfig.tests.json",
+    "migrate": "tsx src/cli/setup.ts",
+    "setup": "tsx src/cli/setup.ts",
+    "test": "tsx --require ./tests/entorno.ts --test --test-concurrency=1 \"tests/*.test.ts\""
   },
   "repository": {
     "type": "git",
@@ -25,6 +30,7 @@
   },
   "homepage": "https://github.com/FrancoCostanzo/EchoChat-Backend#readme",
   "dependencies": {
+    "@socket.io/redis-adapter": "^8.3.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
@@ -45,11 +51,26 @@
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
     "qrcode": "^1.5.4",
+    "rate-limit-redis": "^6.0.0",
+    "redis": "^6.1.0",
     "socket.io": "^4.8.3",
     "uuid": "^14.0.0"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.25",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.2.0",
+    "@types/node": "^26.1.2",
+    "@types/pg": "^8.20.4",
+    "@types/qrcode": "^1.5.6",
+    "kysely": "^0.29.4",
+    "kysely-codegen": "^0.20.0",
     "nodemon": "^3.1.14",
-    "pino-pretty": "^13.1.3"
+    "pino-pretty": "^13.1.3",
+    "socket.io-client": "^4.8.3",
+    "tsx": "^4.23.9",
+    "typescript": "^7.0.2"
   }
 }

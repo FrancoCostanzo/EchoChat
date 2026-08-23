@@ -2,11 +2,14 @@ services:
   # ── Backend API + WebSocket ──────────────────────────────────────────────
   backend:
     build: ./backend
-    container_name: echochat-backend
+    # Sin container_name: un nombre fijo impide levantar más de una réplica.
+    # Para escalar: BACKEND_REPLICAS=3 (requiere REDIS_URL, ver docs/SCALING.md).
     restart: unless-stopped
     env_file: .env
     expose:
       - "${PORT:-3000}"
+    deploy:
+      replicas: ${BACKEND_REPLICAS:-1}
     networks:
       - echochat
     healthcheck:
@@ -86,6 +89,29 @@ services:
       retries: 3
       start_period: 20s
 
+  # ── Redis (perfil: redis) ────────────────────────────────────────────────
+  # Estado compartido entre instancias del backend (salas de Socket.IO, y más
+  # adelante presencia y rate limit). Sólo hace falta si va a correr más de una
+  # instancia del backend. Ver docs/SCALING.md.
+  redis:
+    image: redis:7-alpine
+    container_name: echochat-redis
+    profiles: ["redis"]
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    expose:
+      - "6379"
+    networks:
+      - echochat
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
 networks:
   echochat:
     driver: bridge
@@ -93,3 +119,4 @@ networks:
 volumes:
   postgres_data:
   minio_data:
+  redis_data:

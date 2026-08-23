@@ -1,0 +1,26 @@
+{
+	"version": "0.0.1",
+	"configurations": [
+		{
+			"name": "site",
+			"runtimeExecutable": "npm",
+			"runtimeArgs": ["run", "dev"],
+			"cwd": "site",
+			"port": 4321
+		},
+		{
+			"name": "frontend",
+			"runtimeExecutable": "npm",
+			"runtimeArgs": ["run", "dev"],
+			"cwd": "frontend",
+			"port": 5173
+		},
+		{
+			"name": "backend",
+			"runtimeExecutable": "npm",
+			"runtimeArgs": ["run", "dev"],
+			"cwd": "backend",
+			"port": 3000
+		}
+	]
+}

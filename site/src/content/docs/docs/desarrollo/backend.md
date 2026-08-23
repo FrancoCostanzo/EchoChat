@@ -7,6 +7,7 @@ description: Capas del backend, convenciones y flujo de una petición HTTP.
 
 | Tecnología | Uso |
 |------------|-----|
+| **TypeScript** (estricto) | Todo `src/` — `strict: true`, compila a `dist/` con `tsc` |
 | **Express 4** | API REST bajo `/api` |
 | **Socket.IO 4** | Mensajería, presencia, tipeo, llamadas en tiempo real |
 | **PostgreSQL** (`pg`) | Persistencia relacional |
@@ -20,20 +21,24 @@ description: Capas del backend, convenciones y flujo de una petición HTTP.
 
 ```
 backend/src/
-├── app.js              # Middlewares globales y montaje de rutas bajo /api
-├── server.js           # Arranque HTTP, jobs cron, shutdown graceful
-├── socket.js           # Autenticación JWT en sockets y eventos realtime
-├── config/             # Pool de PostgreSQL, cliente MinIO, logger
+├── app.ts               # Middlewares globales y montaje de rutas bajo /api
+├── server.ts            # Arranque HTTP, jobs cron, shutdown graceful
+├── socket.ts            # Autenticación JWT en sockets y eventos realtime
+├── config/              # Pool de PostgreSQL, cliente MinIO, logger
 ├── routes/              # Definición de endpoints
 ├── controllers/         # req/res HTTP, sin lógica de negocio
 ├── services/            # Reglas de negocio
 ├── repositories/        # Queries SQL parametrizadas
-├── models/              # Transformadores toXxxResponse()
-├── dtos/                # Esquemas Joi por operación
+├── models/              # Transformadores toXxxResponse() + tipos *Response
+├── dtos/                # Esquemas Joi por operación + tipos *Request
+├── types/               # db.d.ts (tipos de las tablas) y tipos compartidos
 ├── middlewares/         # authenticate, authorize, validate, rate limit
 ├── errors/              # AppError y jerarquía de errores
 └── jobs/                # Tareas programadas (node-cron)
 ```
+
+Las columnas de PostgreSQL se tipan en `types/db.d.ts`, generado con `npm run db:types`
+(`backend/scripts/generate-db-types.js`) a partir del schema real — no se escribe a mano.
 
 ## Flujo Route → Repository
 
@@ -50,10 +55,10 @@ correspondiente.
 
 ## DTOs y validación
 
-Cada módulo tiene un archivo `*.dto.js` con los esquemas Joi de sus operaciones,
+Cada módulo tiene un archivo `*.dto.ts` con los esquemas Joi de sus operaciones,
 aplicados por el middleware `validate(dto)` antes de llegar al controller:
 
-```javascript
+```typescript
 const registerDto = Joi.object({
   username: Joi.string().pattern(/^[a-zA-Z0-9._]+$/).min(3).max(50).required(),
   email: Joi.string().email().required(),
@@ -82,8 +87,8 @@ const registerDto = Joi.object({
 
 ## Jobs programados
 
-Registrados en `backend/src/jobs/index.js` con `node-cron`, arrancan y se detienen junto
-al servidor HTTP (`server.js`):
+Registrados en `backend/src/jobs/index.ts` con `node-cron`, arrancan y se detienen junto
+al servidor HTTP (`server.ts`):
 
 | Job | Frecuencia | Qué hace |
 |-----|------------|----------|
@@ -97,9 +102,9 @@ El estado de ejecución de cada job es visible en tiempo real en
 
 ## Convenciones de código
 
-- Archivos: `camelCase.tipo.js` (`message.service.js`, `user.repository.js`).
-- Código JS en `camelCase`; columnas de BD en `snake_case`.
-- CommonJS (`require`/`module.exports`); servicios y repositorios se exportan como
+- Archivos: `camelCase.tipo.ts` (`message.service.ts`, `user.repository.ts`).
+- Código en `camelCase`; columnas de BD en `snake_case`.
+- Módulos ES (`import`/`export`), no CommonJS; servicios y repositorios se exportan como
   singleton.
 - Repositorios extienden `BaseRepository`; queries parametrizadas (`$1, $2, ...`), nunca
   interpolación de strings.
@@ -114,7 +119,7 @@ repositorio.
 cd backend
 cp .env.example .env    # Ajustar DB_*, JWT_SECRET, MinIO, CORS
 npm install
-npm run dev              # nodemon + pino-pretty en :3000
+npm run dev              # tsx watch + pino-pretty en :3000
 ```
 
 Health check: `GET http://localhost:3000/api/health`. Probar endpoints con la colección

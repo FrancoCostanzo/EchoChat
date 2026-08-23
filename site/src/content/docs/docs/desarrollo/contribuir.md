@@ -50,7 +50,7 @@ Ver la guía extendida (con más tipos y ejemplos completos) en `docs/STYLE_GUID
 
 ## Convenciones de código
 
-- Backend: `camelCase.tipo.js`, capas Route → Controller → Service → Repository, sin
+- Backend: `camelCase.tipo.ts`, capas Route → Controller → Service → Repository, sin
   saltarse capas. Ver [Backend](/docs/desarrollo/backend).
 - Frontend: componentes funcionales, alias `@/`, un store Zustand por dominio, i18n
   obligatorio en es/en/pt. Ver [Frontend](/docs/desarrollo/frontend).

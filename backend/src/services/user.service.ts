@@ -1,0 +1,214 @@
+import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
+import logger from '../config/logger';
+import { userRepository, credentialRepository, auditRepository } from '../repositories';
+import { clearAutoAway } from '../config/presenceStore';
+import { toAll } from '../config/eventBus';
+import { minioClient } from '../config/minio';
+import { NotFoundError, BadRequestError } from '../errors';
+import { toUserResponse } from '../models';
+import type { UserResponse } from '../models/user.model';
+import type { UpdateProfileRequest, AwayStateRequest } from '../dtos/auth.dto';
+
+const AVATAR_BUCKET = 'messaging-avatars';
+const AVATAR_ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const AVATAR_MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+
+/**
+ * Contexto de auditoría cuando la acción la dispara un admin sobre otro
+ * usuario: sin esto, la entrada quedaría atribuida al propio afectado.
+ */
+export interface AuditOpts {
+  actorId?: string;
+  action?: string;
+  severity?: string;
+  category?: string;
+  ip?: string | null;
+  userAgent?: string | null;
+}
+
+async function withAvatarUrl(user: UserResponse | null) {
+  if (!user || !user.avatar_object_key) return user;
+  try {
+    const url = await minioClient.presignedGetObject(
+      user.avatar_bucket || AVATAR_BUCKET,
+      user.avatar_object_key,
+      60 * 60 * 24, // 24 h
+    );
+    return { ...user, avatar_url: url };
+  } catch (err) {
+    logger.warn({ err }, 'Failed to generate avatar presigned URL');
+    return user;
+  }
+}
+
+class UserService {
+  async getProfile(userId: string) {
+    const user = await userRepository.findById(userId);
+    if (!user) throw new NotFoundError('User');
+    const creds = await credentialRepository.findByUserId(userId);
+    const [permissions, roles] = await Promise.all([
+      userRepository.getPermissionCodes(userId),
+      userRepository.getRoleNames(userId),
+    ]);
+    const profile = await withAvatarUrl(toUserResponse(user));
+    return { ...profile, totp_enabled: creds?.totp_enabled ?? false, roles, permissions };
+  }
+
+  async updateProfile(userId: string, data: UpdateProfileRequest) {
+    const before = await userRepository.findById(userId);
+    const user = await userRepository.updateProfile(userId, data);
+    if (!user) throw new NotFoundError('User');
+    await auditRepository.log({
+      actor_id: userId,
+      action: 'user.profile_update',
+      resource_type: 'user',
+      resource_id: userId,
+      severity: 'info',
+      category: 'content',
+      data_before: { display_name: before?.display_name, email: before?.email, department: before?.department, job_title: before?.job_title },
+      data_after: data,
+    });
+    logger.info({ userId }, 'Profile updated');
+    return withAvatarUrl(toUserResponse(user));
+  }
+
+  async uploadAvatar(
+    userId: string,
+    fileBuffer: Buffer,
+    mimeType: string,
+    fileSize: number,
+    originalFilename: string,
+    opts: AuditOpts = {},
+  ) {
+    if (!AVATAR_ALLOWED_TYPES.includes(mimeType)) {
+      throw new BadRequestError('Invalid file type. Allowed: JPEG, PNG, WebP, GIF');
+    }
+    if (fileSize > AVATAR_MAX_SIZE) {
+      throw new BadRequestError('File too large. Maximum size is 5 MB');
+    }
+
+    // Delete previous avatar from MinIO if it exists
+    const current = await userRepository.findById(userId);
+    if (!current || current.status === 'deleted') throw new NotFoundError('User');
+
+    if (current.avatar_object_key) {
+      try {
+        await minioClient.removeObject(
+          current.avatar_bucket || AVATAR_BUCKET,
+          current.avatar_object_key,
+        );
+      } catch (err) {
+        logger.warn({ err }, 'Failed to remove old avatar from MinIO');
+      }
+    }
+
+    const ext = path.extname(originalFilename) || '.jpg';
+    const objectKey = `avatars/${uuidv4()}${ext}`;
+
+    await minioClient.putObject(AVATAR_BUCKET, objectKey, fileBuffer, fileSize, {
+      'Content-Type': mimeType,
+    });
+
+    const user = await userRepository.updateAvatar(userId, AVATAR_BUCKET, objectKey);
+    await auditRepository.log({
+      actor_id: opts.actorId || userId,
+      action: opts.action || 'user.avatar_update',
+      resource_type: 'user',
+      resource_id: userId,
+      severity: opts.severity || 'info',
+      category: opts.category || 'content',
+      metadata: { mime_type: mimeType, size_bytes: fileSize },
+      ip_address: opts.ip || null,
+      user_agent: opts.userAgent || null,
+    });
+    logger.info({ userId, objectKey, actorId: opts.actorId || userId }, 'Avatar uploaded');
+    return withAvatarUrl(toUserResponse(user));
+  }
+
+  async removeAvatar(userId: string, opts: AuditOpts = {}) {
+    const current = await userRepository.findById(userId);
+    if (!current || current.status === 'deleted') throw new NotFoundError('User');
+
+    if (current.avatar_object_key) {
+      try {
+        await minioClient.removeObject(
+          current.avatar_bucket || AVATAR_BUCKET,
+          current.avatar_object_key,
+        );
+      } catch (err) {
+        logger.warn({ err }, 'Failed to remove avatar from MinIO');
+      }
+    }
+
+    const user = await userRepository.clearAvatar(userId);
+    await auditRepository.log({
+      actor_id: opts.actorId || userId,
+      action: opts.action || 'user.avatar_remove',
+      resource_type: 'user',
+      resource_id: userId,
+      severity: opts.severity || 'info',
+      category: opts.category || 'content',
+      ip_address: opts.ip || null,
+      user_agent: opts.userAgent || null,
+    });
+    logger.info({ userId, actorId: opts.actorId || userId }, 'Avatar removed');
+    return withAvatarUrl(toUserResponse(user));
+  }
+
+  async updatePresence(userId: string, presence: string) {
+    // A manual choice supersedes a job-set away.
+    await clearAutoAway(userId);
+    const user = await userRepository.updatePresence(userId, presence);
+    if (!user) throw new NotFoundError('User');
+    toAll('presence:changed', { userId, presence });
+    return toUserResponse(user);
+  }
+
+  /**
+   * Activa el estado de ausencia. El `presence:changed` lleva también el texto
+   * para que las pantallas abiertas lo muestren sin recargar la conversación.
+   */
+  async setAway(userId: string, data: AwayStateRequest) {
+    // Elegir ausencia a mano supera cualquier away que hubiera puesto el job.
+    await clearAutoAway(userId);
+    const user = await userRepository.setAwayState(userId, {
+      message: data.message,
+      until: data.until ?? null,
+      autoReply: data.auto_reply ?? false,
+    });
+    if (!user) throw new NotFoundError('User');
+    toAll('presence:changed', {
+      userId,
+      presence: user.presence,
+      presence_message: user.presence_message,
+    });
+    logger.info({ userId, until: user.away_until }, 'Away state set');
+    return toUserResponse(user);
+  }
+
+  async clearAway(userId: string) {
+    const user = await userRepository.clearAwayState(userId);
+    if (!user) throw new NotFoundError('User');
+    toAll('presence:changed', {
+      userId,
+      presence: user.presence,
+      presence_message: null,
+    });
+    logger.info({ userId }, 'Away state cleared');
+    return toUserResponse(user);
+  }
+
+  async search(term: string | null | undefined, limit?: number, offset?: number) {
+    const users = await userRepository.search(term, limit, offset);
+    return Promise.all(users.map((u) => withAvatarUrl(toUserResponse(u))));
+  }
+
+  async getUserById(id: string) {
+    const user = await userRepository.findById(id);
+    if (!user) throw new NotFoundError('User');
+    return toUserResponse(user);
+  }
+}
+
+export default new UserService();

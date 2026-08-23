@@ -169,6 +169,12 @@
     "membersActive": "Activos",
     "membersOffline": "Desconectados",
     "membersOnlineCount": "{{count}} en línea",
+    "searchMembers": "Buscar miembros...",
+    "noMemberResults": "Ningún miembro coincide",
+    "emptyMembers": "Todavía no hay miembros",
+    "roleOwner": "Propietario",
+    "roleAdmin": "Admin",
+    "roleModerator": "Mod",
     "changeWallpaper": "Cambiar fondo",
     "formatToolbar": "Formato de texto",
     "format": {
@@ -183,8 +189,6 @@
     "startOfChannel": "Este es el comienzo del canal #{{name}}.",
     "pin": "Fijar mensaje",
     "unpin": "Desfijar mensaje",
-    "noPinned": "No hay mensajes fijados todavía",
-    "noPinnedHint": "Fijá mensajes importantes desde el menú contextual para encontrarlos rápido.",
     "pinnedToast": "Mensaje fijado",
     "unpinnedToast": "Mensaje desfijado",
     "emptyHint": "Abrí la paleta de comandos con",
@@ -192,7 +196,34 @@
     "noMessagesDirect": "Saludá a {{name}} y rompé el hielo.",
     "noMessagesGroup": "Sé la primera persona en escribir en el grupo.",
     "noMessagesChannel": "Sé la primera persona en escribir en #{{name}}.",
-    "sayHi": "Decí hola"
+    "sayHi": "Decí hola",
+    "mentionSuggestions": "Sugerencias de menciones",
+    "mentionedYou": "{{name}} te mencionó",
+    "autoReply": "Respuesta automática",
+    "changeGroupPhoto": "Cambiar foto del grupo",
+    "removeGroupPhoto": "Quitar foto del grupo",
+    "groupPhotoUpdated": "Foto del grupo actualizada",
+    "groupPhotoRemoved": "Foto del grupo quitada",
+    "detailTitle": "Detalles",
+    "detailTabInfo": "Info",
+    "detailTabMedia": "Multimedia",
+    "detailTabFiles": "Archivos",
+    "detailTabLinks": "Links",
+    "descriptionPlaceholder": "Agregá una descripción...",
+    "noDescription": "Sin descripción",
+    "emptyMedia": "No hay fotos ni videos compartidos",
+    "emptyFiles": "No hay archivos compartidos",
+    "emptyLinks": "No hay links compartidos",
+    "loadMoreGeneric": "Cargar más",
+    "jumpToMessage": "Ir al mensaje",
+    "groupInfoUpdated": "Información actualizada",
+    "editName": "Editar nombre",
+    "editDescription": "Editar descripción",
+    "groupPermissions": "Permisos del grupo",
+    "onlyAdminsSendMessages": "Solo los administradores pueden enviar mensajes",
+    "onlyAdminsSendMessagesHint": "Si está activo, los demás miembros no van a poder escribir en este grupo.",
+    "onlyAdminsEditInfo": "Solo los administradores editan la info del grupo",
+    "onlyAdminsEditInfoHint": "Si está desactivado, cualquier miembro puede cambiar el nombre, la descripción y la foto."
   },
   "newConversation": {
     "title": "Nueva conversación",
@@ -537,6 +568,20 @@
       "es": "Español",
       "en": "English",
       "pt": "Português"
+    },
+    "away": {
+      "title": "Estado de ausencia",
+      "description": "Se muestra al lado de tu nombre y avisa a quien te escriba.",
+      "message": "Mensaje",
+      "messagePlaceholder": "De licencia hasta el 3/9, urgencias a @juan",
+      "until": "Hasta",
+      "untilHint": "Opcional. Al cumplirse, la ausencia se limpia sola.",
+      "autoReply": "Responder automáticamente en chats directos",
+      "autoReplyHint": "Se envía una sola vez cada 4 horas por persona, aunque te escriban varias veces.",
+      "save": "Activar ausencia",
+      "clear": "Quitar ausencia",
+      "saved": "Estado de ausencia activado",
+      "cleared": "Estado de ausencia quitado"
     }
   },
   "broadcasts": {
@@ -896,6 +941,7 @@
     "solidColor": "Color sólido",
     "image": "Imagen",
     "customColor": "Color personalizado",
+    "hue": "Tono",
     "uploadHint": "Hacer clic para subir una imagen",
     "uploading": "Subiendo...",
     "preview": "Vista previa",
@@ -968,6 +1014,41 @@
       "unknownConversation": "Conversación",
       "emptyHint": "Cuando hagas o recibas una llamada, aparecerá aquí.",
       "noMissedHint": "No tenés llamadas perdidas. ¡Estás al día!"
+    }
+  },
+  "schedule": {
+    "action": "Programar mensaje",
+    "title": "Programar mensaje",
+    "message": "Mensaje",
+    "messagePlaceholder": "Lo que querés que salga después",
+    "when": "Cuándo",
+    "pastDate": "La fecha ya pasó",
+    "pending": "Programados en este chat",
+    "submit": "Programar",
+    "cancel": "Cancelar programado",
+    "scheduled": "Mensaje programado",
+    "cancelled": "Programación cancelada",
+    "sent": "Se envió tu mensaje programado",
+    "failed": "No se pudo enviar el mensaje programado. {{error}}"
+  },
+  "remind": {
+    "action": "Recordarme",
+    "title": "Recordarme este mensaje",
+    "when": "Cuándo",
+    "note": "Nota (opcional)",
+    "notePlaceholder": "Para qué te lo estás guardando",
+    "custom": "Fecha y hora exactas",
+    "submit": "Crear",
+    "existing": "Ya tenés un recordatorio",
+    "cancel": "Cancelar recordatorio",
+    "created": "Recordatorio creado",
+    "cancelled": "Recordatorio cancelado",
+    "fired": "Te recordabas de un mensaje",
+    "shortcuts": {
+      "inOneHour": "En una hora",
+      "thisEvening": "Esta tarde",
+      "tomorrow": "Mañana",
+      "nextWeek": "La semana que viene"
     }
   }
 }

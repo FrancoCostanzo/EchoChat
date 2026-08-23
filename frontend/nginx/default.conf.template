@@ -5,6 +5,15 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
+    # ── Reparto entre réplicas del backend ──────────────────────────────────
+    # Con `proxy_pass http://backend:3000` nginx resuelve el DNS UNA sola vez al
+    # arrancar y se queda pegado a esa IP: al escalar, las réplicas nuevas no
+    # reciben nada. Pasando el destino por una variable, nginx vuelve a resolver
+    # (127.0.0.11 es el DNS interno de Docker) y reparte entre todas.
+    # Con una sola instancia el comportamiento es idéntico al de antes.
+    resolver 127.0.0.11 valid=10s ipv6=off;
+    set $echochat_backend "${BACKEND_HOST}:${BACKEND_PORT}";
+
     # Compresión gzip
     gzip on;
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml text/javascript image/svg+xml;
@@ -12,7 +21,7 @@ server {
 
     # Proxy API al backend
     location /api {
-        proxy_pass http://${BACKEND_HOST}:${BACKEND_PORT};
+        proxy_pass http://$echochat_backend;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -23,8 +32,11 @@ server {
     }
 
     # Proxy WebSocket (Socket.IO)
+    # El cliente pide WebSocket primero: una vez establecida, la conexión es una
+    # sola y persistente, así que no hacen falta sticky sessions. El fallback a
+    # long-polling SÍ las necesitaría (ver docs/SCALING.md).
     location /socket.io {
-        proxy_pass http://${BACKEND_HOST}:${BACKEND_PORT};
+        proxy_pass http://$echochat_backend;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
