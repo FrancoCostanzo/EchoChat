@@ -1,0 +1,34 @@
+{
+  // Config de build (ver docs/TYPESCRIPT_MIGRATION.md). Compila src/ a dist/.
+  //
+  // Ya no queda ningún .js en src/: `allowJs` se conserva sólo para que uno que
+  // se cuele igual se compile a dist/ en vez de quedar afuera y romper recién en
+  // runtime. Con `strict` activo (fase 8) el chequeo es el mismo por las dos
+  // vías, así que `typecheck` y `typecheck:all` dan lo mismo.
+  //
+  // IMPORTANTE: rootDir/outDir hacen que dist/ replique la estructura de src/.
+  // Cinco rutas se resuelven con __dirname relativo ('../../docs', '../../.env',
+  // '../../package.json'); si dist/ aplanara la estructura, se romperían en
+  // runtime y no al compilar.
+  "compilerOptions": {
+    "target": "ES2022",
+    // nodenext + package.json sin "type": "module" = CommonJS, que es lo que
+    // usa todo el proyecto. TypeScript 7 quitó el viejo moduleResolution "node".
+    "module": "nodenext",
+    "lib": ["ES2022"],
+
+    "allowJs": true,
+    "checkJs": false,
+
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "strict": true,
+
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src/**/*"]
+}

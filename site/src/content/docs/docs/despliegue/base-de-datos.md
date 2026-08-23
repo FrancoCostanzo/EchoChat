@@ -7,7 +7,7 @@ description: Esquema PostgreSQL, migraciones y seed de RBAC para EchoChat.
 
 Desde `v1.0.0-alpha.5` **no hay que ejecutar ningún `psql` ni seed a mano**. Al
 arrancar, el backend prepara la base de datos solo (código en
-`backend/src/config/migrate.js`), en este orden:
+`backend/src/config/migrate.ts`), en este orden:
 
 1. **Espera** a que PostgreSQL acepte conexiones (reintenta, tolera que el backend
    arranque antes que la BD).

@@ -1,0 +1,33 @@
+{
+  // Migración completa: ya no queda ningún .js/.jsx en src/, así que
+  // allowJs quedó en false y strict en true (ver docs/TYPESCRIPT_MIGRATION.md
+  // del backend para el precedente de las fases previas).
+  //
+  // A diferencia del tsconfig del backend: acá Vite/esbuild hacen el build
+  // real (transpilan sin chequear tipos), tsc solo tipa (noEmit). Por eso
+  // module/moduleResolution son "bundler", no "nodenext".
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+
+    "allowJs": false,
+    "checkJs": false,
+
+    "strict": true,
+
+    "noEmit": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src", "vite.config.ts"]
+}

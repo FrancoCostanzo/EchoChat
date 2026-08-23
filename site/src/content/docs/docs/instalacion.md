@@ -8,7 +8,7 @@ Guía para correr EchoChat en tu máquina para desarrollo. Para producción, mir
 
 ## Prerrequisitos
 
-- **Node.js** >= 18
+- **Node.js** >= 22
 - **PostgreSQL** >= 15
 - **MinIO** (o cualquier almacenamiento compatible con S3)
 

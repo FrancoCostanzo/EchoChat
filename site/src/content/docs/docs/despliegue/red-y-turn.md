@@ -57,7 +57,7 @@ rango de puertos UDP para el relay de medios.
 
 El listado de servidores ICE (STUN/TURN) se pasa a `RTCPeerConnection` al crear la
 conexión. Para agregar un servidor TURN propio, hay que sumarlo a esa configuración en
-el código del cliente (`frontend/src/stores/callStore.js`) — hoy es un cambio de código,
+el código del cliente (`frontend/src/stores/callStore.ts`) — hoy es un cambio de código,
 no una variable de entorno.
 
 ## Firewall y NAT

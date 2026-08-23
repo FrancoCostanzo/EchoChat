@@ -235,7 +235,7 @@ Orden recomendado dentro de la fase:
 | 8.1 | **Renderizado Markdown** en burbujas (`body_format: markdown`). | S (1-2d) | — | ✅ |
 | 8.2 | **Barra de formato inline** en el composer: negrita, cursiva, tachado, código inline. | S (2d) | 8.1 | ✅ |
 | 8.3 | **Bloques de código**: mensaje tipo código + syntax highlight + copiar. | M (2-3d) | 8.1 | ✅ |
-| 8.4 | **@Menciones**: autocompletado, resaltado, notificación `message.mention`. | S (2d) | 8.1 | ⬜ |
+| 8.4 | **@Menciones**: autocompletado, resaltado, notificación `message.mention`. | S (2d) | 8.1 | ✅ |
 | 8.5 | **Preview de links** (job async → `link_preview` JSONB). | S–M (2d) | 0.3, 8.1 | ⬜ |
 | 8.6 | **Mensajes de ubicación** (tipo `location` + mapa estático). | S (1-2d) | — | ⬜ |
 | 8.7 | **Mensajes de contacto** (tipo `contact` + tarjeta vCard). | S (1-2d) | — | ⬜ |
@@ -252,6 +252,14 @@ Orden recomendado dentro de la fase:
 - **8.2 Barra de formato** ✅ — `FormatToolbar` en composer principal y panel de hilos: botones
   negrita/cursiva/tachado/código inline; atajos Ctrl+B / Ctrl+I / Ctrl+E; textarea multilínea
   (Enter envía, Shift+Enter nueva línea). i18n es/en/pt.
+- **8.4 @Menciones** ✅ — el backend resuelve el texto contra los miembros reales de la
+  conversación (`utils/mentions.util.ts`; lo que mande el cliente en `metadata.mentions` se
+  descarta) y guarda `{user_id, label, offset, length}` en `metadata`. Notificación in-app tipo
+  `mention` respetando `notification_preferences` y horario de silencio (`notificationService
+  .shouldNotifyInApp`), + socket `notification:new`. La notificación **no** guarda un extracto del
+  mensaje: `notifications.body` es texto plano y el contenido va cifrado en reposo. Frontend:
+  autocompletado en el composer (`MentionAutocomplete`), resaltado en `MessageBody` (plano y
+  markdown, vía plugin remark), toast al ser mencionado. i18n es/en/pt.
 - **8.3 Bloques de código** ✅ — tipo `code` en BD (migración `005_add_message_type_code.sql`);
   DTO/service con `metadata.language` y límite 20k chars; `CodeMessage` con syntax highlight
   (`react-syntax-highlighter`) y botón copiar; `CreateCodeModal` desde menú adjuntar; detección
@@ -473,3 +481,34 @@ pendiente en `backend/src/jobs/index.js`.
 - Link preview job: protección SSRF obligatoria.
 - Menciones: solo miembros de la conversación; ignorar `@` en bloques de código.
 - Markdown: desactivar HTML embebido en el parser (`skipHtml` / sin `rehype-raw`).
+
+---
+
+## FASE 9 — Ausencias y agenda
+
+> No estaba en el plan original: salieron de revisar qué le falta a la app para uso real de
+> intranet. Las dos reusan infraestructura que ya existía (presencia y jobs).
+
+| # | Funcionalidad | Estado |
+|---|---|---|
+| 9.1 | **Estado de ausencia con auto-respuesta** | ✅ |
+| 9.2 | **Mensajes programados y recordatorios** | ✅ |
+| 9.3 | **Resync del timeline al reconectar el socket** | ✅ |
+
+### Detalle
+
+- **9.1 Ausencia** — migración `017`: `users.away_until`, `users.auto_reply_enabled` (el texto
+  visible sigue siendo `presence_message`, que ya existía) + tabla `auto_reply_log`.
+  `PUT/DELETE /api/users/me/away`, tab Estado en Ajustes, mensaje de ausencia del otro lado en el
+  header del chat. En chats directos, la auto-respuesta sale una vez cada 4 h por interlocutor
+  (reserva atómica en `auto_reply_log`) y nunca responde a otra auto-respuesta. Job `away-expiry`
+  (cada 5 min) limpia las ausencias vencidas.
+- **9.2 Programados y recordatorios** — migración `018`: `scheduled_messages` y
+  `message_reminders` (el body va cifrado igual que `messages.body`). Módulo `/api/scheduled`
+  (6 endpoints) + job `scheduled-messages` (cada minuto) que despacha por `messageService.send`,
+  así que un programado hereda menciones, acuses y tiempo real. UI: "Programar mensaje" en el
+  menú del composer y "Recordarme" en el menú contextual del mensaje.
+- **9.3 Resync** — `chatStore.resyncAfterReconnect()`: al volver el socket se refresca la lista y
+  se reconcilia el timeline abierto (fusiona ediciones/borrados, agrega lo que llegó durante el
+  corte y, si el hueco es mayor a una página, habilita el scroll hacia arriba). Antes, todo lo
+  recibido mientras el socket estaba caído quedaba invisible hasta un F5.

@@ -16,7 +16,7 @@
 | 2 | Estado compartido (presencia, rate limit, métricas) | M (2-3d) | ✅ Hecho |
 | 3 | Jobs y migraciones seguras en cluster | S (1-2d) | ✅ Hecho |
 | 4 | Despliegue horizontal (compose + nginx) | M (2-3d) | ✅ Hecho |
-| 5 | TypeScript incremental (opcional) | XL (semanas) | ⬜ Pendiente |
+| 5 | TypeScript incremental (opcional) | XL (semanas) | ✅ Hecho |
 
 Orden obligatorio: **1 → 2 → 3 → 4**. Escalar a N instancias antes de cerrar la
 Fase 3 provoca **difusiones programadas enviadas N veces**.
@@ -265,13 +265,14 @@ entrando por nginx como lo haría un navegador:
 
 ---
 
-## FASE 5 — TypeScript incremental (opcional)
+## FASE 5 — TypeScript incremental (opcional) ✅
 
 No aporta capacidad de escala: aporta mantenibilidad en un backend de 12.131
 líneas. Se puede hacer en cualquier momento, después de las fases 1-4.
 
-**Plan detallado: [docs/TYPESCRIPT_MIGRATION.md](TYPESCRIPT_MIGRATION.md)**
-(9 fases, 22-31 días-dev, con las trampas propias de este código).
+**Hecha**: `backend/src` está entero en TypeScript (148 archivos `.ts`, ningún
+`.js`) y compila con `strict`. El detalle de cómo se hizo, y lo que se encontró
+en el camino, en **[docs/TYPESCRIPT_MIGRATION.md](TYPESCRIPT_MIGRATION.md)**.
 
 > El orden que se sugería acá quedó corregido en ese documento. Decía dejar
 > `repositories/` para el final "porque hay poco tipo que ganar"; con los tipos

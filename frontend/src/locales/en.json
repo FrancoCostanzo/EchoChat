@@ -169,6 +169,12 @@
     "membersActive": "Active",
     "membersOffline": "Offline",
     "membersOnlineCount": "{{count}} online",
+    "searchMembers": "Search members...",
+    "noMemberResults": "No members match",
+    "emptyMembers": "No members yet",
+    "roleOwner": "Owner",
+    "roleAdmin": "Admin",
+    "roleModerator": "Mod",
     "changeWallpaper": "Change wallpaper",
     "formatToolbar": "Text formatting",
     "format": {
@@ -183,8 +189,6 @@
     "startOfChannel": "This is the beginning of the #{{name}} channel.",
     "pin": "Pin message",
     "unpin": "Unpin message",
-    "noPinned": "No pinned messages yet",
-    "noPinnedHint": "Pin important messages from the context menu to find them quickly.",
     "pinnedToast": "Message pinned",
     "unpinnedToast": "Message unpinned",
     "emptyHint": "Open the command palette with",
@@ -192,7 +196,34 @@
     "noMessagesDirect": "Say hi to {{name}} and break the ice.",
     "noMessagesGroup": "Be the first one to write in the group.",
     "noMessagesChannel": "Be the first one to write in #{{name}}.",
-    "sayHi": "Say hi"
+    "sayHi": "Say hi",
+    "mentionSuggestions": "Mention suggestions",
+    "mentionedYou": "{{name}} mentioned you",
+    "autoReply": "Auto-reply",
+    "changeGroupPhoto": "Change group photo",
+    "removeGroupPhoto": "Remove group photo",
+    "groupPhotoUpdated": "Group photo updated",
+    "groupPhotoRemoved": "Group photo removed",
+    "detailTitle": "Details",
+    "detailTabInfo": "Info",
+    "detailTabMedia": "Media",
+    "detailTabFiles": "Files",
+    "detailTabLinks": "Links",
+    "descriptionPlaceholder": "Add a description...",
+    "noDescription": "No description",
+    "emptyMedia": "No shared photos or videos",
+    "emptyFiles": "No shared files",
+    "emptyLinks": "No shared links",
+    "loadMoreGeneric": "Load more",
+    "jumpToMessage": "Jump to message",
+    "groupInfoUpdated": "Info updated",
+    "editName": "Edit name",
+    "editDescription": "Edit description",
+    "groupPermissions": "Group permissions",
+    "onlyAdminsSendMessages": "Only admins can send messages",
+    "onlyAdminsSendMessagesHint": "When on, other members won't be able to write in this group.",
+    "onlyAdminsEditInfo": "Only admins can edit group info",
+    "onlyAdminsEditInfoHint": "When off, any member can change the name, description and photo."
   },
   "newConversation": {
     "title": "New conversation",
@@ -537,6 +568,20 @@
       "es": "Español",
       "en": "English",
       "pt": "Português"
+    },
+    "away": {
+      "title": "Away status",
+      "description": "Shown next to your name and sent to whoever writes to you.",
+      "message": "Message",
+      "messagePlaceholder": "On leave until Sep 3, urgent matters to @juan",
+      "until": "Until",
+      "untilHint": "Optional. It clears itself once the time passes.",
+      "autoReply": "Auto-reply in direct chats",
+      "autoReplyHint": "Sent once every 4 hours per person, no matter how many times they write.",
+      "save": "Set away",
+      "clear": "Clear away",
+      "saved": "Away status set",
+      "cleared": "Away status cleared"
     }
   },
   "broadcasts": {
@@ -896,6 +941,7 @@
     "solidColor": "Solid color",
     "image": "Image",
     "customColor": "Custom color",
+    "hue": "Hue",
     "uploadHint": "Click to upload an image",
     "uploading": "Uploading...",
     "preview": "Preview",
@@ -968,6 +1014,41 @@
       "unknownConversation": "Conversation",
       "emptyHint": "When you make or receive a call, it will show up here.",
       "noMissedHint": "You have no missed calls. All caught up!"
+    }
+  },
+  "schedule": {
+    "action": "Schedule message",
+    "title": "Schedule message",
+    "message": "Message",
+    "messagePlaceholder": "What should go out later",
+    "when": "When",
+    "pastDate": "That time has already passed",
+    "pending": "Scheduled in this chat",
+    "submit": "Schedule",
+    "cancel": "Cancel scheduled message",
+    "scheduled": "Message scheduled",
+    "cancelled": "Schedule cancelled",
+    "sent": "Your scheduled message was sent",
+    "failed": "Couldn't send the scheduled message. {{error}}"
+  },
+  "remind": {
+    "action": "Remind me",
+    "title": "Remind me about this",
+    "when": "When",
+    "note": "Note (optional)",
+    "notePlaceholder": "What you are keeping it for",
+    "custom": "Exact date and time",
+    "submit": "Create",
+    "existing": "You already have a reminder",
+    "cancel": "Cancel reminder",
+    "created": "Reminder created",
+    "cancelled": "Reminder cancelled",
+    "fired": "You asked to be reminded about a message",
+    "shortcuts": {
+      "inOneHour": "In an hour",
+      "thisEvening": "This evening",
+      "tomorrow": "Tomorrow",
+      "nextWeek": "Next week"
     }
   }
 }

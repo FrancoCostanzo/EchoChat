@@ -35,6 +35,16 @@
   --color-ink-50:  #e2e4ef;   /* hi-contrast text */
   --color-ink-0:   #f5f6fb;   /* primary text */
 
+  /* "Console" surfaces — deliberately NOT part of the ink-* scale above and
+     NEVER redefined in html:not(.dark) (see that block for why the ink-*
+     tokens flip to light values there). Some message content — code blocks,
+     mini-game boards — needs to always read as a dark "terminal", the same
+     way it would in any chat app: syntax-highlighter themes, game marks and
+     their paired text are tuned once against a fixed-dark backdrop and break
+     if that backdrop turns light under them in light mode. */
+  --color-console-900: #171823; /* card */
+  --color-console-800: #20222f; /* tile/cell inside a console card */
+
   /* Brand blurple */
   --color-blurple-50:  #eef0fe;
   --color-blurple-100: #dbe0fd;
@@ -347,6 +357,24 @@
   /* Text on top of an accent fill (respects --accent-foreground for light palettes) */
   .echo-on-accent { color: var(--accent-foreground); }
   .echo-on-accent-muted { color: color-mix(in oklch, var(--accent-foreground), transparent 32%); }
+
+  /* Accent used as a small glyph/icon foreground (a checkmark, a game mark)
+     instead of a fill — `--accent` is tuned as a BACKGROUND color, paired
+     with `--accent-foreground` for text that sits ON it. Used directly as a
+     foreground against a neutral surface it fails AA for most of the 7
+     accent choices (measured as low as 1.1:1) — darker accents (violet) are
+     too dark on a dark tile, brighter ones (orange, cyan) are too dark on a
+     light tile. Push it toward whichever end actually contrasts instead.
+     `-fg` follows a surface that flips with the site theme (the ink-* scale);
+     `-on-dark` is for a surface that's deliberately fixed-dark regardless of
+     theme (`--color-console-*` above) and must never flip. */
+  .echo-accent-fg,
+  .echo-accent-on-dark {
+    color: color-mix(in oklch, var(--accent), white 40%);
+  }
+  html:not(.dark) .echo-accent-fg {
+    color: color-mix(in oklch, var(--accent), black 40%);
+  }
 
   /* Press feedback (spring scale) */
   .echo-press { transition: transform 140ms var(--ease-spring), background-color 140ms var(--ease-echo), box-shadow 140ms var(--ease-echo); }
