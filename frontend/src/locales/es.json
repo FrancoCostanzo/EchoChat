@@ -96,6 +96,39 @@
     "registrationDisabledTitle": "Registro deshabilitado",
     "registrationDisabled": "El registro de nuevos usuarios está deshabilitado. Pedile una cuenta a un administrador."
   },
+  "server": {
+    "title": "Conectate a tu servidor",
+    "prompt": "Ingresá la dirección del servidor de EchoChat de tu organización.",
+    "urlLabel": "Dirección del servidor",
+    "urlPlaceholder": "chat.miempresa.com",
+    "connect": "Conectar",
+    "hint": "Si no la sabés, pedísela a quien administra EchoChat.",
+    "errors": {
+      "invalidUrl": "Esa dirección no es válida. Probá con algo como chat.miempresa.com.",
+      "unreachable": "No se pudo contactar al servidor. Revisá la dirección y tu conexión.",
+      "notEchochat": "Hay un servidor en esa dirección, pero no es un servidor de EchoChat.",
+      "degraded": "El servidor respondió, pero está con problemas. Probá de nuevo en un rato."
+    }
+  },
+  "desktop": {
+    "newMessage": "Nuevo mensaje",
+    "someone": "Alguien",
+    "attachment": "Envió un archivo adjunto",
+    "unreadBadge": "{{count}} sin leer",
+    "tray": {
+      "open": "Abrir EchoChat",
+      "mute": "Silenciar notificaciones",
+      "autoLaunch": "Iniciar con el sistema",
+      "changeServer": "Cambiar de servidor…",
+      "quit": "Salir",
+      "tooltip": "EchoChat"
+    },
+    "update": {
+      "ready": "Hay una versión nueva lista",
+      "version": "Se instalará la versión {{version}} cuando reinicies.",
+      "restart": "Reiniciar ahora"
+    }
+  },
   "chat": {
     "empty": "Seleccioná una conversación o creá una nueva",
     "noConversations": "Sin conversaciones",
@@ -987,6 +1020,12 @@
     "alreadyInCall": "Ya estás en una llamada",
     "permissionDenied": "Permiso de micrófono o cámara denegado",
     "startFailed": "No se pudo iniciar la llamada",
+    "screenPicker": {
+      "title": "Elegí qué compartir",
+      "subtitle": "Los demás participantes van a ver lo que selecciones.",
+      "screens": "Pantallas",
+      "windows": "Ventanas"
+    },
     "timeline": {
       "voiceCall": "Llamada de voz",
       "videoCall": "Videollamada",

@@ -8,9 +8,21 @@ import { setTransaction, readAndClearTransaction } from '../utils/ssoTransaction
 import type { AuthRequest } from '../types/http';
 
 // Base del frontend a la que vuelve el navegador tras el SSO.
+//
+// Sale sólo de OIDC_FRONTEND_URL y ya no cae a CORS_ORIGIN: desde que este
+// último es una lista (con la web, la app de escritorio y lo que agregue cada
+// despliegue), su primer elemento no es una respuesta razonable a "¿a qué URL
+// mando el navegador?". Sin OIDC_FRONTEND_URL el redirect queda relativo.
 function frontendBase(): string {
-  return (config.oidc.frontendUrl || config.cors.origin || '').replace(/\/$/, '');
+  return (config.oidc.frontendUrl || '').replace(/\/$/, '');
 }
+
+/**
+ * Deep link por el que vuelve el SSO cuando lo inició la app de escritorio.
+ * El esquema lo registra el proceso principal de Electron
+ * (ver desktop/src/main/deepLink.ts); tiene que coincidir con esta constante.
+ */
+const DESKTOP_CALLBACK = 'echochat://auth/callback';
 
 class AuthController {
   async register(req: Request, res: Response) {
@@ -55,9 +67,17 @@ class AuthController {
   }
 
   // Inicia el login: genera la transacción, la guarda en cookie y redirige al IdP.
+  //
+  // `?client=desktop&dstate=...` lo agrega la app de escritorio al abrir el
+  // navegador del sistema; queda en la cookie para que el callback sepa por
+  // dónde volver (ver ssoCallback).
   async ssoLogin(req: Request, res: Response) {
     const { url, transaction } = await oidcService.buildAuthRequest(req.params.provider, req);
-    setTransaction(res, transaction);
+
+    const isDesktop = req.query.client === 'desktop';
+    const dstate = typeof req.query.dstate === 'string' ? req.query.dstate.slice(0, 128) : undefined;
+
+    setTransaction(res, isDesktop ? { ...transaction, client: 'desktop', dstate } : transaction);
     res.redirect(url);
   }
 
@@ -66,23 +86,34 @@ class AuthController {
   async ssoCallback(req: Request, res: Response) {
     const provider = req.params.provider;
     const base = frontendBase();
+    // Se lee antes del try para poder mandar el error por el mismo canal por el
+    // que vino el login: si la app de escritorio abrió el navegador, tirarla de
+    // vuelta al frontend web la dejaría esperando para siempre.
+    const transaction = readAndClearTransaction(req, res);
+    const isDesktop = transaction?.client === 'desktop';
+
     try {
-      const transaction = readAndClearTransaction(req, res);
       if (!transaction || transaction.provider !== provider) {
         throw new Error('SSO transaction missing or mismatched');
       }
       const claims = await oidcService.handleCallback(provider, req, transaction);
       const result = await authService.loginWithClaims(
-        claims, provider, { device_type: 'web' }, req.ip, req.get('user-agent')
+        claims,
+        provider,
+        { device_type: isDesktop ? 'desktop' : 'web' },
+        req.ip,
+        req.get('user-agent'),
       );
       const fragment = new URLSearchParams({
         token: result.token,
         expires_at: new Date(result.expires_at).toISOString(),
+        ...(transaction.dstate ? { dstate: transaction.dstate } : {}),
       }).toString();
-      res.redirect(`${base}/auth/callback#${fragment}`);
+
+      res.redirect(isDesktop ? `${DESKTOP_CALLBACK}#${fragment}` : `${base}/auth/callback#${fragment}`);
     } catch (err) {
       logger.warn({ err: (err as Error).message, provider }, 'SSO login failed');
-      res.redirect(`${base}/login?sso_error=1`);
+      res.redirect(isDesktop ? `${DESKTOP_CALLBACK}#sso_error=1` : `${base}/login?sso_error=1`);
     }
   }
 

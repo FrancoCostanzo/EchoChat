@@ -1,3 +1,5 @@
+import { getServerUrl } from './runtimeConfig';
+
 const API_BASE = '/api';
 
 export type ApiParams = Record<string, string | number | boolean | undefined | null>;
@@ -62,7 +64,11 @@ class ApiClient {
   }
 
   async #request<T>(method: string, path: string, { body, params, formData }: RequestOptions = {}): Promise<T> {
-    const url = new URL(`${API_BASE}${path}`, window.location.origin);
+    // En la web `serverUrl` es '' y esto queda igual que siempre (relativo al
+    // origin, resuelto por el proxy). En Electron es la URL absoluta del
+    // servidor configurado, porque ahí no hay proxy ni origin compartido.
+    const serverUrl = getServerUrl();
+    const url = new URL(`${serverUrl}${API_BASE}${path}`, serverUrl || window.location.origin);
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
@@ -93,7 +99,10 @@ class ApiClient {
 
     if (res.status === 204) return null as T;
     const json: unknown = await res.json();
-    console.log(`[API] ${method} ${path}`, json);
+    // Sólo en desarrollo: este log incluye el cuerpo completo de la respuesta
+    // (mensajes privados, datos de usuario). En la app de escritorio, además,
+    // las DevTools son accesibles desde el menú.
+    if (import.meta.env.DEV) console.log(`[API] ${method} ${path}`, json);
     return json as T;
   }
 

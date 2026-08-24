@@ -96,6 +96,39 @@
     "verifying": "Verifying...",
     "backToLogin": "Back to sign in"
   },
+  "server": {
+    "title": "Connect to your server",
+    "prompt": "Enter the address of your organization's EchoChat server.",
+    "urlLabel": "Server address",
+    "urlPlaceholder": "chat.mycompany.com",
+    "connect": "Connect",
+    "hint": "If you don't know it, ask whoever administers EchoChat.",
+    "errors": {
+      "invalidUrl": "That address isn't valid. Try something like chat.mycompany.com.",
+      "unreachable": "Couldn't reach the server. Check the address and your connection.",
+      "notEchochat": "There's a server at that address, but it isn't an EchoChat server.",
+      "degraded": "The server responded but is having problems. Try again in a bit."
+    }
+  },
+  "desktop": {
+    "newMessage": "New message",
+    "someone": "Someone",
+    "attachment": "Sent an attachment",
+    "unreadBadge": "{{count}} unread",
+    "tray": {
+      "open": "Open EchoChat",
+      "mute": "Mute notifications",
+      "autoLaunch": "Start with the system",
+      "changeServer": "Change server…",
+      "quit": "Quit",
+      "tooltip": "EchoChat"
+    },
+    "update": {
+      "ready": "A new version is ready",
+      "version": "Version {{version}} will be installed when you restart.",
+      "restart": "Restart now"
+    }
+  },
   "chat": {
     "empty": "Select a conversation or create a new one",
     "noConversations": "No conversations",
@@ -987,6 +1020,12 @@
     "alreadyInCall": "You are already in a call",
     "permissionDenied": "Microphone or camera permission denied",
     "startFailed": "Could not start the call",
+    "screenPicker": {
+      "title": "Choose what to share",
+      "subtitle": "The other participants will see whatever you select.",
+      "screens": "Screens",
+      "windows": "Windows"
+    },
     "timeline": {
       "voiceCall": "Voice call",
       "videoCall": "Video call",

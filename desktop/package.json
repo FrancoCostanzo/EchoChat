@@ -1,0 +1,34 @@
+{
+  "name": "echochat-desktop",
+  "version": "1.0.0-alpha.5",
+  "description": "Cliente de escritorio de EchoChat (Windows, macOS y Linux)",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "author": "Franco Sebastián Costanzo <cosfranco1@gmail.com>",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev --watch",
+    "build": "npm run typecheck && electron-vite build",
+    "typecheck": "tsc --noEmit",
+    "start": "electron-vite preview",
+    "pack": "npm run build && electron-builder --dir",
+    "build:win": "npm run build && electron-builder --win --publish never",
+    "build:mac": "npm run build && electron-builder --mac --publish never",
+    "build:linux": "npm run build && electron-builder --linux --publish never",
+    "release:win": "npm run build && electron-builder --win --publish always",
+    "release:mac": "npm run build && electron-builder --mac --publish always",
+    "release:linux": "npm run build && electron-builder --linux --publish always"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "electron": "^43.4.1",
+    "electron-builder": "^26.15.3",
+    "electron-store": "^11.0.2",
+    "electron-vite": "^5.0.0",
+    "typescript": "^6.0.3",
+    "vite": "^7.3.6"
+  }
+}

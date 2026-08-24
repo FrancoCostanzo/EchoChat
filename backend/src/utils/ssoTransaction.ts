@@ -28,6 +28,20 @@ export interface SsoTransaction {
   state: string;
   nonce: string;
   codeVerifier: string;
+  /**
+   * Marca que el login lo inició la app de escritorio, para que el callback
+   * vuelva por el deep link `echochat://` en vez de a la URL del frontend web.
+   * Se guarda acá (dentro de la cookie firmada) y no como query param del
+   * callback porque el IdP no reenvía parámetros propios.
+   */
+  client?: 'desktop';
+  /**
+   * Nonce que genera la app de escritorio y que se le devuelve tal cual en el
+   * deep link. Sirve para que la app descarte un `echochat://auth/callback`
+   * que no haya pedido ella — si no, cualquier programa local podría inyectarle
+   * un token de una cuenta ajena.
+   */
+  dstate?: string;
 }
 
 export function setTransaction(res: Response, transaction: SsoTransaction): void {

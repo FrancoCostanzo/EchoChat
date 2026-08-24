@@ -8,6 +8,7 @@ import { useThemeStore } from '@/stores/themeStore';
 import { useWallpaperStore } from '@/stores/wallpaperStore';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { ConfirmProvider } from '@/components/ConfirmProvider';
+import DesktopIntegration from '@/components/DesktopIntegration';
 import { AnimatedLogoMark } from '@/components/AppLogo';
 import { SPRING_SOFT } from '@/lib/motion';
 
@@ -82,6 +83,7 @@ export default function App() {
   return (
     <ConfirmProvider>
       <Toast.Provider placement="bottom end" maxVisibleToasts={4} width={360} />
+      <DesktopIntegration />
       <Suspense fallback={<PageLoader />}>
       <RouteFade>
       <Routes>

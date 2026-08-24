@@ -71,7 +71,7 @@ async function initSocket(httpServer: HttpServer): Promise<Server> {
 
   const servidor = new Server(httpServer, {
     cors: {
-      origin: config.cors.origin,
+      origin: config.cors.origins,
       credentials: true,
     },
   });
