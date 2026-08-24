@@ -6,6 +6,7 @@
   "private": true,
   "license": "AGPL-3.0-or-later",
   "author": "Franco Sebastián Costanzo <cosfranco1@gmail.com>",
+  "homepage": "https://github.com/FrancoCostanzo/EchoChat#readme",
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev --watch",
