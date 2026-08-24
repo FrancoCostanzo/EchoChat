@@ -5,6 +5,7 @@ import { Button, Tooltip } from '@heroui/react';
 import { X, ZoomIn, ZoomOut, RotateCcw, Download, Maximize2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { EASE_OUT, SPRING_SOFT } from '@/lib/motion';
+import { downloadFile } from '@/lib/download';
 
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 5;
@@ -93,20 +94,7 @@ export default function ImageViewer({ src, filename, onClose, layoutId }: ImageV
     dragStart.current = null;
   };
 
-  const handleDownload = async () => {
-    try {
-      const res = await fetch(src);
-      const blob = await res.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = filename || 'image';
-      a.click();
-      URL.revokeObjectURL(blobUrl);
-    } catch {
-      window.open(src, '_blank');
-    }
-  };
+  const handleDownload = () => downloadFile(src, filename, 'image');
 
   const handleOpenNew = () => {
     window.open(src, '_blank', 'noopener,noreferrer');

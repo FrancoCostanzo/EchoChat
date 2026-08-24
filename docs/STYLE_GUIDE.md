@@ -844,25 +844,36 @@ Resumen para implementadores:
 
 ## 🖥 Guía de Estilos — Desktop (Electron)
 
+Todo el módulo está en **TypeScript**, igual que backend y frontend. `electron-vite`
+compila `main` y `preload`; `tsc --noEmit` sólo tipa.
+
 ### Estructura de Carpetas
 
 ```
 desktop/
 ├── package.json
-├── electron.vite.config.js    # Build config (electron-vite)
+├── electron.vite.config.ts     # Build de main + preload (electron-vite)
+├── electron-builder.yml        # Empaquetado e instaladores
 ├── src/
 │   ├── main/                   # Proceso principal (Node.js)
-│   │   ├── index.js            # Punto de entrada del main process
-│   │   ├── window.js           # Creación y gestión de BrowserWindows
-│   │   ├── ipc/                # Handlers IPC (main-side)
-│   │   └── tray.js             # System tray (icono y menú)
-│   ├── preload/                # Scripts de preload (puente seguro)
-│   │   └── index.js
-│   └── renderer/               # El frontend React (misma base que web)
-│       └── (apunta a frontend/src)
+│   │   ├── index.ts            # Punto de entrada: ciclo de vida y wiring
+│   │   ├── window.ts           # BrowserWindow, bounds, foco, ocultar a bandeja
+│   │   ├── protocol.ts         # Esquema app:// que sirve el frontend
+│   │   ├── security.ts         # CSP, permisos, links externos
+│   │   ├── tray.ts             # Ícono de bandeja y su menú
+│   │   ├── menu.ts             # Menú de aplicación (Edit + macOS app/window menu)
+│   │   ├── config.ts           # Persistencia (electron-store)
+│   │   ├── deepLink.ts         # echochat://
+│   │   ├── updater.ts          # Auto-update
+│   │   └── ipc/                # Handlers IPC, uno por feature
+│   │       └── notification.ipc.ts
+│   └── preload/                # Puente seguro
+│       └── index.ts
 └── resources/
-    └── icon.png                # Ícono de la app
+    └── icon.png                # Ícono de la app y de la bandeja
 ```
+
+No hay carpeta `renderer/`: el renderer **es** `frontend/`, sin copia ni fork.
 
 ### Proceso Principal vs Renderer
 
@@ -870,63 +881,135 @@ desktop/
 |---------|------------|--------|
 | **Main** | Node.js puro. Crea ventanas, maneja IPC, accede al SO | APIs de Electron + Node |
 | **Preload** | Puente entre main y renderer. Expone APIs seguras vía `contextBridge` | Subconjunto de Electron + DOM |
-| **Renderer** | El frontend React. Idéntico a la versión web | Solo APIs expuestas por preload |
+| **Renderer** | El frontend React. Idéntico a la versión web | Sólo lo que expone el preload |
+
+### Cómo se sirve el renderer
+
+| Entorno | Origen |
+|---------|--------|
+| Desarrollo | El dev server de Vite de `frontend/` (HMR igual que en la web) |
+| Producción | `frontend/dist` empaquetado, servido por el esquema propio `app://echochat` |
+
+Se usa `app://` y no `file://` porque es un origin real: mantiene `BrowserRouter`
+funcionando (el handler devuelve `index.html` para las rutas que no son archivos),
+deja `base: '/'` intacto en el build de Vite, y —al declararse `secure`— habilita el
+secure context que `navigator.clipboard` y `localStorage` necesitan.
 
 ### IPC (Comunicación entre Procesos)
 
-- Canales con nomenclatura `recurso:accion`: `app:minimize`, `notification:show`, `file:save`
-- El renderer **nunca** usa `ipcRenderer` directamente — solo a través de `contextBridge`
+- Canales con nomenclatura `recurso:accion`: `notification:show`, `server:set-url`
+- El renderer **nunca** usa `ipcRenderer` directamente — sólo a través de `contextBridge`
 - Handlers en `src/main/ipc/` organizados por feature
+- Los `on*` devuelven su función de desuscripción, para poder usarlos como cleanup de un `useEffect`
 
-```javascript
-// preload/index.js
-const { contextBridge, ipcRenderer } = require('electron');
+```typescript
+// preload/index.ts
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 
-contextBridge.exposeInMainWorld('electronAPI', {
-  minimize: () => ipcRenderer.send('app:minimize'),
-  maximize: () => ipcRenderer.send('app:maximize'),
-  close: () => ipcRenderer.send('app:close'),
-  showNotification: (opts) => ipcRenderer.send('notification:show', opts),
-  onDeepLink: (cb) => ipcRenderer.on('app:deep-link', (_, url) => cb(url)),
-});
+/** Suscribe y devuelve la función para desuscribirse. No expone el IpcRendererEvent. */
+function subscribe<T>(channel: string, callback: (value: T) => void): () => void {
+  const listener = (_event: IpcRendererEvent, value: T) => callback(value);
+  ipcRenderer.on(channel, listener);
+  return () => { ipcRenderer.removeListener(channel, listener); };
+}
 
-// renderer (React)
-window.electronAPI.minimize();
+const electronAPI = {
+  platform: process.platform,
+  showNotification: (options: NotificationOptions) => ipcRenderer.send('notification:show', options),
+  onOpenConversation: (cb: (id: string) => void) => subscribe<string>('app:open-conversation', cb),
+};
+
+contextBridge.exposeInMainWorld('electronAPI', electronAPI);
 ```
+
+El frontend no puede importar tipos desde `desktop/` (son paquetes npm separados y la
+web se buildea sin el módulo de escritorio). La forma de `electronAPI` se declara a mano
+en `frontend/src/types/electron.ts`: **si cambia una, hay que cambiar la otra**.
 
 ### Nomenclatura
 
 | Elemento | Convención | Ejemplo |
 |----------|-----------|--------|
-| Archivos del main process | `camelCase.js` | `window.js`, `tray.js` |
-| Handlers IPC | `camelCase.ipc.js` | `notification.ipc.js` |
-| Canales IPC | `recurso:accion` | `app:minimize`, `file:save` |
-| Variables de entorno | `ELECTRON_` prefijo | `ELECTRON_IS_DEV` |
+| Archivos del main process | `camelCase.ts` | `window.ts`, `tray.ts` |
+| Handlers IPC | `camelCase.ipc.ts` | `notification.ipc.ts` |
+| Canales IPC | `recurso:accion` | `notification:show`, `server:set-url` |
+| Variables de entorno | `ELECTRON_` prefijo | `ELECTRON_RENDERER_URL` |
 
 ### Seguridad
 
-- `nodeIntegration: false` y `contextIsolation: true` siempre
+Lo que en un navegador cubre el navegador, en Electron hay que ponerlo a mano:
+
+- `nodeIntegration: false`, `contextIsolation: true`, `sandbox: true` y `webSecurity: true` siempre
 - Nunca exponer APIs de Node.js directamente al renderer
-- Validar todos los argumentos recibidos vía IPC en el main process
-- `webSecurity: true` (no deshabilitar nunca en producción)
+- **Validar todos los argumentos que llegan por IPC** en el main: el renderer nunca es una
+  fuente confiable, aunque sea nuestro propio frontend
+- Las credenciales (el JWT de sesión) van cifradas con `safeStorage` —el llavero del SO—, no en
+  `localStorage`: ahí serían un archivo en claro dentro del userData, legible por cualquier
+  programa que corra como el mismo usuario
+- `setWindowOpenHandler` + `shell.openExternal`: cualquier link que un usuario mande por chat
+  abriría, si no, una ventana de Electron con el contexto de la app cargado
+- Guard de `will-navigate`: sin él, soltar un archivo fuera de una zona de drop hace que la
+  ventana navegue al archivo y la app desaparezca
+- CSP como cabecera de la respuesta de `app://`, no como `<meta>`: el `index.html` se comparte
+  con la web y no puede saber a qué servidor apunta cada instalación
 
 ### Reutilización de Código
 
-- El renderer apunta directamente a `frontend/src` — misma base de código
-- Detectar entorno con `window.electronAPI !== undefined`
-- Features exclusivas de desktop (notificaciones nativas, tray, shortcuts) se inyectan solo en Electron
+- El renderer es `frontend/` sin fork: lo específico de escritorio se inyecta, no se duplica
+- Detectar entorno con `window.electronAPI !== undefined` (`lib/runtimeConfig.ts`)
+- Las llamadas al escritorio pasan por la fachada `lib/desktop.ts`, cuyas funciones son
+  **no-op en la web**: así el código común las llama sin preguntar por el entorno
 
-```javascript
-// Detectar si estamos en Electron
-export const isElectron = () => typeof window !== 'undefined' && !!window.electronAPI;
+```typescript
+// lib/runtimeConfig.ts — para decidir QUÉ renderizar
+export function isElectron(): boolean {
+  return typeof window !== 'undefined' && !!window.electronAPI;
+}
 
-// Usar en componentes
-if (isElectron()) {
-  window.electronAPI.showNotification({ title: 'Nuevo mensaje', body: text });
-} else {
-  // fallback web (Notification API o toast)
+// lib/desktop.ts — para HACER algo; en la web no hace nada
+export function showDesktopNotification(options: NotificationOptions): void {
+  window.electronAPI?.showNotification(options);
 }
 ```
+
+> **i18n**: el main process no tiene i18n y los menús de bandeja/aplicación o las
+> notificaciones son texto visible al usuario. Las etiquetas se mandan **ya traducidas**
+> desde el renderer (`tray:set-labels`, `menu:set-labels`), y se vuelven a mandar cuando
+> cambia el idioma. Del main al renderer viajan códigos de error, no mensajes.
+
+### Recuperación ante crash del renderer
+
+`window.ts` escucha `webContents.on('render-process-gone', ...)`: sin esto, si el renderer
+muere (OOM, un bug de GPU, etc.) la ventana queda en blanco para siempre, sin ningún
+mecanismo de recuperación. Como `webContents` sobrevive al renderer que murió, alcanza con
+`reload()`. Para no entrar en loop si lo que crashea es la propia carga de la página, se
+corta el auto-reintento después de unos pocos crashes seguidos en poco tiempo.
+
+### Ejecutar, buildear y publicar
+
+Requiere `backend/` y `frontend/` corriendo (ver comandos arriba) — en dev el main carga el
+dev server de Vite, no un build:
+
+```bash
+cd desktop && npm install && npm run dev
+```
+
+| Comando | Qué hace |
+|---------|----------|
+| `npm run dev` | Levanta la app contra `frontend` en modo dev (HMR incluido) |
+| `npm run build:win` / `:mac` / `:linux` | Build local sin publicar — instaladores en `desktop/release/` |
+| `npm run release:win` / `:mac` / `:linux` | Igual, pero sube los instaladores a GitHub Releases (`--publish always`) |
+
+Antes de un `release:*`, la versión de `desktop/package.json` tiene que coincidir con el tag
+`vX.Y.Z` que dispara `.github/workflows/desktop-release.yml` — si no coinciden, el workflow
+corta. `GH_TOKEN` (con permiso sobre el repo) tiene que estar seteado para publicar.
+
+**Auto-update**: `electron-updater` chequea el feed de GitHub Releases al arrancar y cada
+6 horas, descarga en segundo plano y recién ahí avisa al renderer (`update:ready`) — nunca
+reinicia por su cuenta, eso lo dispara el usuario desde el aviso. Sólo corre en la app
+empaquetada (`app.isPackaged`); en dev no hace nada. **Salvedad**: sin firma de código,
+macOS no auto-actualiza (electron-updater se niega a instalar sobre una app sin firmar) y
+Windows muestra la advertencia de SmartScreen en cada instalación manual.
 
 <br/>
 

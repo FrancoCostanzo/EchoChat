@@ -1,0 +1,96 @@
+# Genera los instaladores de escritorio y los publica en GitHub Releases.
+#
+# Se dispara al pushear un tag `v*`. Cada SO se buildea en su propio runner
+# porque electron-builder no puede hacer cross-build de DMG ni de NSIS firmado.
+#
+# La versión del release sale de `desktop/package.json`, NO del tag: si no
+# coinciden, electron-updater no va a encontrar la actualización. Ver el paso
+# "Verificar que la versión coincida con el tag", que corta el build si divergen.
+name: Desktop Release
+
+on:
+  push:
+    tags: ['v*']
+  # Para probar el pipeline sin publicar nada.
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      # Que falle macOS no debería impedir publicar Windows y Linux.
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win
+          - os: macos-latest
+            platform: mac
+          - os: ubuntu-latest
+            platform: linux
+
+    runs-on: ${{ matrix.os }}
+    permissions:
+      # electron-builder necesita poder crear el release y subir los artefactos.
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            desktop/package-lock.json
+
+      - name: Verificar que la versión coincida con el tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg=$(node -p "require('./desktop/package.json').version")
+          if [ "$tag" != "$pkg" ]; then
+            echo "El tag ($tag) y desktop/package.json ($pkg) no coinciden."
+            echo "electron-updater usa la versión del package.json: corregila antes de taggear."
+            exit 1
+          fi
+
+      # El renderer se buildea con el Vite del frontend; electron-builder sólo
+      # lo copia como recurso (ver extraResources en electron-builder.yml).
+      - name: Build del frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npx vite build
+
+      # Con tag se publica al release; a mano sólo se buildea (no hay release
+      # al que subir, y `--publish always` fallaría).
+      - name: Build de los instaladores
+        working-directory: desktop
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npm ci
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            npm run build:${{ matrix.platform }}
+          else
+            npm run release:${{ matrix.platform }}
+          fi
+
+      # En workflow_dispatch no hay release al que subir, así que los binarios
+      # quedan como artefacto del run para poder probarlos.
+      - name: Guardar instaladores (sólo en ejecuciones manuales)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: echochat-desktop-${{ matrix.os }}
+          path: |
+            desktop/release/*.exe
+            desktop/release/*.dmg
+            desktop/release/*.AppImage
+            desktop/release/*.deb
+          if-no-files-found: ignore

@@ -1,0 +1,89 @@
+# Empaquetado de la app de escritorio.
+#
+#   cd frontend && npm run build     # el renderer NO se buildea acá
+#   cd desktop  && npm run build:win # o build:mac / build:linux
+#
+# El `author` de package.json es el maintainer del .deb y el publisher del
+# instalador de Windows: si los artefactos publicados tienen que salir a nombre
+# de otra persona u organización, cambiarlo ahí.
+appId: com.echochat.desktop
+productName: EchoChat
+copyright: Copyright © EchoChat
+
+directories:
+  output: release
+  buildResources: resources
+
+# Sólo el bundle de main/preload y el package.json. El código fuente y las
+# devDependencies quedan afuera; lo único que se instala como módulo real es
+# electron-updater (única entrada de `dependencies`).
+files:
+  - out/**/*
+  - package.json
+
+extraResources:
+  # protocol.ts lo busca en `process.resourcesPath/renderer`.
+  - from: ../frontend/dist
+    to: renderer
+  # tray.ts lo busca en `process.resourcesPath/icon.png`.
+  - from: resources/icon.png
+    to: icon.png
+
+publish:
+  provider: github
+  owner: FrancoCostanzo
+  repo: EchoChat
+
+# ── Windows ───────────────────────────────────────────────────────────────
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    # Portable para entornos donde el usuario no puede instalar software.
+    - target: portable
+      arch: [x64]
+  icon: resources/icon.png
+
+nsis:
+  # Instalador con pasos, no de un solo click: en despliegues corporativos hace
+  # falta poder elegir el directorio.
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  # Por usuario, para no exigir permisos de administrador.
+  perMachine: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: EchoChat
+
+# ── macOS ─────────────────────────────────────────────────────────────────
+mac:
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+  category: public.app-category.social-networking
+  icon: resources/icon.png
+  # Textos que muestra macOS al pedir permiso. Van en español (idioma por
+  # defecto del proyecto); traducirlos requiere InfoPlist.strings por idioma.
+  extendInfo:
+    NSCameraUsageDescription: EchoChat necesita la cámara para las videollamadas.
+    NSMicrophoneUsageDescription: EchoChat necesita el micrófono para las llamadas.
+    # macOS pide además el permiso de Grabación de Pantalla desde Preferencias
+    # del Sistema la primera vez que se comparte pantalla; esto sólo explica
+    # para qué se usa.
+    NSScreenCaptureUsageDescription: EchoChat necesita capturar la pantalla para compartirla en una llamada.
+  # Registra `echochat://` para que el SSO pueda volver a la app (ver deepLink.ts).
+  protocols:
+    - name: EchoChat
+      schemes: [echochat]
+
+# ── Linux ─────────────────────────────────────────────────────────────────
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Network
+  icon: resources/icon.png
+  synopsis: Mensajería empresarial en tiempo real
+  desktop:
+    entry:
+      Categories: Network;InstantMessaging;

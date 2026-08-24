@@ -5,6 +5,7 @@ import { Button, Tooltip } from '@heroui/react';
 import { X, Download, Maximize2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { EASE_OUT, SPRING_SOFT } from '@/lib/motion';
+import { downloadFile } from '@/lib/download';
 
 interface VideoViewerProps {
   src: string;
@@ -49,20 +50,7 @@ export default function VideoViewer({ src, filename, onClose, layoutId }: VideoV
     return () => { v.pause(); };
   }, [src]);
 
-  const handleDownload = async () => {
-    try {
-      const res = await fetch(src);
-      const blob = await res.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = filename || 'video';
-      a.click();
-      URL.revokeObjectURL(blobUrl);
-    } catch {
-      window.open(src, '_blank');
-    }
-  };
+  const handleDownload = () => downloadFile(src, filename, 'video');
 
   const backdropTransition = reducedMotion ? { duration: 0.01 } : { duration: 0.22, ease: EASE_OUT };
   const panelTransition = reducedMotion ? { duration: 0.01 } : SPRING_SOFT;

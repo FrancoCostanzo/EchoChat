@@ -76,3 +76,19 @@ npm run dev
 ```
 
 La aplicación estará disponible en **http://localhost:5173** 🚀
+
+## 7. App de escritorio (opcional)
+
+Con el backend y el frontend ya corriendo (paso 6):
+
+```bash
+cd desktop
+npm install
+npm run dev
+```
+
+Abre una ventana de Electron cargando el frontend en modo dev — mismo HMR que en el
+navegador. Buildear instaladores y publicar releases está en
+[App de escritorio](/docs/uso/escritorio) y en
+[`docs/STYLE_GUIDE.md`](https://github.com/FrancoCostanzo/EchoChat/blob/main/docs/STYLE_GUIDE.md#-guía-de-estilos--desktop-electron)
+dentro del repositorio.

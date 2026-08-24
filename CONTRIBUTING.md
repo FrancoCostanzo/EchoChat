@@ -35,6 +35,19 @@ npm run dev             # http://localhost:5173
 
 Más detalle sobre variables de entorno, buckets de MinIO y modos de despliegue con Docker está en el [README](./README.md).
 
+### App de escritorio (Electron)
+
+Con backend y frontend ya corriendo (arriba):
+
+```bash
+cd desktop
+npm install
+npm run dev             # abre la ventana contra el frontend en modo dev (HMR incluido)
+```
+
+Buildear instaladores, publicar releases y cómo funciona el auto-update: ver
+[docs/STYLE_GUIDE.md § Desktop](./docs/STYLE_GUIDE.md#-guía-de-estilos--desktop-electron).
+
 ## 🌿 Flujo de ramas
 
 - Las ramas de trabajo salen de **`develop`**, no de `main`.

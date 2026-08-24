@@ -13,6 +13,10 @@ dist/
 build/
 coverage/
 
+# Electron (desktop/): out/ = bundle de main+preload, release/ = instaladores
+out/
+release/
+
 # Logs
 *.log
 npm-debug.log*

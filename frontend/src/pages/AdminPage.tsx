@@ -60,6 +60,7 @@ import { useConfirm } from '@/components/ConfirmProvider';
 import UserAvatar from '@/components/UserAvatar';
 import AvatarCropModal from '@/components/AvatarCropModal';
 import { formatMessageTime } from '@/lib/dates';
+import { getServerUrl } from '@/lib/runtimeConfig';
 import type {
   AdminUserResponse, RoleResponse, SettingResponse, AuditEntryResponse,
   StorageObjectAdminResponse, StorageStatsResponse, IntegrationsResponse, LdapSyncSummary,
@@ -1732,7 +1733,7 @@ function IntegrationsTab({ t }: { t: TFunc }) {
               {t('admin.integrations.scim.endpoint')}
             </p>
             <code className="w-fit max-w-full truncate rounded-lg bg-white/[0.03] px-3 py-1.5 text-xs text-muted">
-              {`${window.location.origin}/scim/v2`}
+              {`${getServerUrl() || window.location.origin}/scim/v2`}
             </code>
           </div>
         ) : (

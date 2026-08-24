@@ -20,9 +20,14 @@ const app = express();
 
 // ── Security ────────────────────────────────────────────────────────────
 app.set('trust proxy', 1);
-app.use(helmet());
+// `crossOriginResourcePolicy` por defecto es 'same-origin', que bloquearía que
+// el cliente de escritorio (origin `app://echochat`) cargue recursos servidos
+// por el backend.
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 app.use(cors({
-  origin: config.cors.origin,
+  origin: config.cors.origins,
   credentials: true,
 }));
 

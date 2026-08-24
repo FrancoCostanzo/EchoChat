@@ -95,12 +95,20 @@ servidor, base de datos, HTTP y jobs en tiempo real.
 
 Ver [Panel de administración](/docs/admin/panel).
 
+## App de escritorio
+
+Cliente nativo para Windows, macOS y Linux: bandeja del sistema, notificaciones nativas,
+contador de no leídos, arranque con el sistema, auto-actualización y sesión cifrada con el
+llavero del sistema operativo. Apunta a tu servidor EchoChat igual que la web.
+
+Ver [App de escritorio](/docs/uso/escritorio).
+
 ## Plataformas
 
 | Plataforma | Tecnología | Estado |
 |------------|-----------|--------|
 | **Web** | React 19 + Vite | En desarrollo (`v1.0.0-alpha.5`) |
-| **Desktop** (Windows, macOS, Linux) | Electron | Planificado |
+| **Desktop** (Windows, macOS, Linux) | Electron | Disponible |
 | **Mobile** (iOS, Android) | React Native + Expo | Planificado |
 
 Las tres plataformas comparten el mismo backend y la mayor parte de la lógica de negocio

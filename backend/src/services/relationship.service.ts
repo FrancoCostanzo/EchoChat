@@ -1,5 +1,5 @@
 import { relationshipRepository } from '../repositories';
-import { minioClient } from '../config/minio';
+import { publicMinioClient } from '../config/minio';
 import { BadRequestError } from '../errors';
 import logger from '../config/logger';
 import type { RelationshipWithUser } from '../repositories/relationship.repository';
@@ -11,7 +11,7 @@ const AVATAR_BUCKET = 'messaging-avatars';
 async function withAvatarUrl(row: RelationshipWithUser) {
   if (!row?.avatar_object_key) return row;
   try {
-    const url = await minioClient.presignedGetObject(
+    const url = await publicMinioClient.presignedGetObject(
       row.avatar_bucket || AVATAR_BUCKET,
       row.avatar_object_key,
       60 * 60 * 24,
