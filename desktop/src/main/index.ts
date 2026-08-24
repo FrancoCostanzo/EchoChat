@@ -11,6 +11,7 @@ import { registerNotificationIpc } from './ipc/notification.ipc';
 import { registerAppIpc } from './ipc/app.ipc';
 import { registerUpdateIpc } from './ipc/update.ipc';
 import { registerSsoIpc } from './ipc/sso.ipc';
+import { registerAuthIpc } from './ipc/auth.ipc';
 
 // Tiene que correr antes de `whenReady`: los esquemas privilegiados se declaran
 // en el arranque del proceso, no después.
@@ -31,6 +32,7 @@ if (!initDeepLinks()) {
     registerAppIpc();
     registerUpdateIpc();
     registerSsoIpc();
+    registerAuthIpc();
 
     createMainWindow();
     consumeLaunchDeepLink();

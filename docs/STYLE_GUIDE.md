@@ -942,6 +942,9 @@ Lo que en un navegador cubre el navegador, en Electron hay que ponerlo a mano:
 - Nunca exponer APIs de Node.js directamente al renderer
 - **Validar todos los argumentos que llegan por IPC** en el main: el renderer nunca es una
   fuente confiable, aunque sea nuestro propio frontend
+- Las credenciales (el JWT de sesión) van cifradas con `safeStorage` —el llavero del SO—, no en
+  `localStorage`: ahí serían un archivo en claro dentro del userData, legible por cualquier
+  programa que corra como el mismo usuario
 - `setWindowOpenHandler` + `shell.openExternal`: cualquier link que un usuario mande por chat
   abriría, si no, una ventana de Electron con el contexto de la app cargado
 - Guard de `will-navigate`: sin él, soltar un archivo fuera de una zona de drop hace que la

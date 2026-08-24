@@ -3,8 +3,10 @@ import { api, ApiError } from '@/lib/api';
 import { authApi } from '@/lib/endpoints';
 import type { UserResponse, AuthenticatedUser } from '@/types/user';
 import type { LoginRequest, RegisterRequest, DeviceType, AuthSuccessResponse } from '@/types/auth';
+import { clearStoredToken, getStoredToken, setStoredToken } from '@/lib/tokenStorage';
 
-const TOKEN_KEY = 'echochat_token';
+// El token va por `tokenStorage` (cifrado con el llavero del SO en Electron);
+// el perfil, que no es una credencial, se queda en localStorage.
 const USER_KEY = 'echochat_user';
 
 let initPromise: Promise<void> | null = null;
@@ -36,15 +38,15 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       return null;
     }
   })(),
-  token: localStorage.getItem(TOKEN_KEY),
-  isAuthenticated: !!localStorage.getItem(TOKEN_KEY),
+  token: getStoredToken(),
+  isAuthenticated: !!getStoredToken(),
   loading: true,
   pending2fa: null,
 
   init: () => {
     if (initPromise) return initPromise;
     initPromise = (async () => {
-      const token = localStorage.getItem(TOKEN_KEY);
+      const token = getStoredToken();
       if (!token) {
         set({ loading: false });
         return;
@@ -71,7 +73,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       return { requires2fa: true };
     }
     const { token, user } = data;
-    localStorage.setItem(TOKEN_KEY, token);
+    setStoredToken(token);
     localStorage.setItem(USER_KEY, JSON.stringify(user));
     api.setToken(token);
     set({ user, token, isAuthenticated: true, pending2fa: null });
@@ -87,7 +89,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       device_type: deviceType,
     });
     const { token, user } = data;
-    localStorage.setItem(TOKEN_KEY, token);
+    setStoredToken(token);
     localStorage.setItem(USER_KEY, JSON.stringify(user));
     api.setToken(token);
     set({ user, token, isAuthenticated: true, pending2fa: null });
@@ -97,7 +99,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   // Login por SSO: el token llega ya emitido (en el fragmento del callback), sólo
   // resta persistirlo y traer el perfil. Reutiliza el mismo estado que el login local.
   loginWithToken: async (token) => {
-    localStorage.setItem(TOKEN_KEY, token);
+    setStoredToken(token);
     api.setToken(token);
     const { data } = await authApi.me();
     localStorage.setItem(USER_KEY, JSON.stringify(data));
@@ -122,7 +124,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   },
 
   clearAuth: () => {
-    localStorage.removeItem(TOKEN_KEY);
+    clearStoredToken();
     localStorage.removeItem(USER_KEY);
     api.clearToken();
     set({ user: null, token: null, isAuthenticated: false, pending2fa: null });

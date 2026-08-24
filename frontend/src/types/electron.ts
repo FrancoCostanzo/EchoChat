@@ -35,6 +35,13 @@ export interface TrayLabels {
   tooltip: string;
 }
 
+/** Lectura del JWT guardado con el llavero del SO. */
+export interface StoredToken {
+  /** false = el SO no ofrece cifrado; hay que seguir con localStorage. */
+  available: boolean;
+  token: string | null;
+}
+
 /** Resultado del SSO, que llega por el deep link `echochat://`. */
 export interface SsoResult {
   token?: string;
@@ -76,6 +83,10 @@ export interface ElectronAPI {
   /** Se dispara cuando ya se descargó una versión nueva. Devuelve la función para desuscribirse. */
   onUpdateReady: (callback: (version: string) => void) => () => void;
   restartToUpdate: () => void;
+
+  /** Lectura **síncrona** del JWT: `authStore` arma su estado inicial sin await. */
+  getAuthToken: () => StoredToken;
+  setAuthToken: (token: string | null) => void;
 
   /** Abre el login del proveedor en el navegador del sistema. */
   openSsoLogin: (provider: string) => Promise<boolean>;

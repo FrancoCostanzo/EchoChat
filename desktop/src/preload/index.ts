@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import type { ShareSource } from '../main/screenShare';
+import type { StoredToken } from '../main/ipc/auth.ipc';
 
 /**
  * Puente entre el main y el frontend React. El renderer nunca toca
@@ -60,6 +61,14 @@ const electronAPI = {
     subscribe<boolean>('window:focus-changed', callback),
   onOpenConversation: (callback: (conversationId: string) => void) =>
     subscribe<string>('app:open-conversation', callback),
+
+  // ── Token de sesión ─────────────────────────────────────────────────────
+  /**
+   * Lectura **síncrona** del JWT cifrado con el llavero del SO. Lo necesita
+   * `authStore`, que arma su estado inicial sin await (ver ipc/auth.ipc.ts).
+   */
+  getAuthToken: (): StoredToken => ipcRenderer.sendSync('auth:get-token'),
+  setAuthToken: (token: string | null) => ipcRenderer.send('auth:set-token', token),
 
   // ── SSO ─────────────────────────────────────────────────────────────────
   /** Abre el login del proveedor en el navegador del sistema. */

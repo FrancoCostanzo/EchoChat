@@ -17,11 +17,18 @@ export interface DesktopConfig {
    */
   serverUrl: string;
   bounds: WindowBounds;
+  /**
+   * JWT de sesión cifrado con `safeStorage` y guardado en base64. Nunca en
+   * claro: ver authToken.ts. `null` cuando no hay sesión o cuando el SO no
+   * ofrece cifrado (ahí el token se queda en el localStorage del renderer).
+   */
+  authToken: string | null;
 }
 
 const DEFAULTS: DesktopConfig = {
   serverUrl: '',
   bounds: { width: 1280, height: 800, maximized: false },
+  authToken: null,
 };
 
 const store = new Store<DesktopConfig>({ name: 'echochat', defaults: DEFAULTS });
@@ -32,6 +39,14 @@ export function getServerUrl(): string {
 
 export function setServerUrl(url: string): void {
   store.set('serverUrl', url);
+}
+
+export function getEncryptedToken(): string | null {
+  return store.get('authToken');
+}
+
+export function setEncryptedToken(value: string | null): void {
+  store.set('authToken', value);
 }
 
 export function getBounds(): WindowBounds {
