@@ -89,7 +89,7 @@ interface AppConfig {
   };
   scim: { enabled: boolean; token: string; defaultRole: string };
   messageEnc: { key: string | undefined; keyId: string };
-  cors: { origin: string };
+  cors: { origins: string[] };
   rateLimit: { windowMs: number; max: number };
   log: { level: string };
 }
@@ -97,6 +97,31 @@ interface AppConfig {
 /** Convierte una variable de entorno numérica, cayendo al default si no es válida. */
 function num(raw: string | undefined, fallback: number): number {
   return parseInt(raw ?? '', 10) || fallback;
+}
+
+/**
+ * Origin del cliente de escritorio (Electron). El renderer se sirve por un
+ * esquema propio `app://` en vez de http, así que su `Origin` es fijo y no
+ * depende de dónde esté instalado — ver desktop/src/main/protocol.ts.
+ *
+ * Va siempre en la allowlist en vez de pedirle a cada admin que lo agregue a
+ * mano: el instalador es el mismo para todas las organizaciones. No debilita
+ * nada, porque quien autoriza de verdad es el JWT, no el origin.
+ */
+export const DESKTOP_ORIGIN = 'app://echochat';
+
+/**
+ * `CORS_ORIGIN` acepta varios origins separados por comas — hacen falta al
+ * menos dos en cuanto convive la web con la app de escritorio, y suele haber
+ * más (dominio viejo y nuevo durante una migración, staging, etc.).
+ */
+function parseCorsOrigins(raw: string | undefined): string[] {
+  const configured = String(raw || 'http://localhost:5173')
+    .split(',')
+    .map((s) => s.trim().replace(/\/$/, ''))
+    .filter(Boolean);
+
+  return [...new Set([...configured, DESKTOP_ORIGIN])];
 }
 
 // Parsea "CN=Admins,OU=x=admin; CN=Staff,OU=y=user" → { 'cn=admins,ou=x': 'admin', ... }.
@@ -251,7 +276,7 @@ const config: AppConfig = {
   },
 
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    origins: parseCorsOrigins(process.env.CORS_ORIGIN),
   },
 
   rateLimit: {

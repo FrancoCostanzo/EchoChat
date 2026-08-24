@@ -4,7 +4,9 @@ import logger from '../config/logger';
 import { userRepository, credentialRepository, auditRepository } from '../repositories';
 import { clearAutoAway } from '../config/presenceStore';
 import { toAll } from '../config/eventBus';
-import { minioClient } from '../config/minio';
+// `minioClient` para subir y borrar avatares y `publicMinioClient` para firmar
+// URLs que resuelve el cliente del usuario.
+import { minioClient, publicMinioClient } from '../config/minio';
 import { NotFoundError, BadRequestError } from '../errors';
 import { toUserResponse } from '../models';
 import type { UserResponse } from '../models/user.model';
@@ -30,7 +32,7 @@ export interface AuditOpts {
 async function withAvatarUrl(user: UserResponse | null) {
   if (!user || !user.avatar_object_key) return user;
   try {
-    const url = await minioClient.presignedGetObject(
+    const url = await publicMinioClient.presignedGetObject(
       user.avatar_bucket || AVATAR_BUCKET,
       user.avatar_object_key,
       60 * 60 * 24, // 24 h

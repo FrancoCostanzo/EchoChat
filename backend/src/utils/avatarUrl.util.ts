@@ -1,4 +1,4 @@
-import { minioClient } from '../config/minio';
+import { publicMinioClient } from '../config/minio';
 import logger from '../config/logger';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -11,6 +11,10 @@ import logger from '../config/logger';
 //
 // La firma dura 24 h y la entrada se guarda 12 h: siempre se entrega una URL con
 // al menos medio día de vida por delante.
+//
+// Se firma con `publicMinioClient` (MINIO_PUBLIC_ENDPOINT), no con el interno:
+// la URL la resuelve el navegador o la app de escritorio del usuario, que no
+// tienen forma de resolver el host interno del contenedor de MinIO.
 // ──────────────────────────────────────────────────────────────────────────────
 
 const BUCKET_POR_DEFECTO = 'messaging-avatars';
@@ -32,7 +36,7 @@ export async function urlDeAvatar(
   if (enCache && enCache.expira > Date.now()) return enCache.url;
 
   try {
-    const url = await minioClient.presignedGetObject(balde, objectKey, TTL_FIRMA_SEGUNDOS);
+    const url = await publicMinioClient.presignedGetObject(balde, objectKey, TTL_FIRMA_SEGUNDOS);
     cache.set(clave, { url, expira: Date.now() + TTL_CACHE_MS });
     return url;
   } catch (err) {

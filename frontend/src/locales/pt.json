@@ -96,6 +96,55 @@
     "verifying": "Verificando...",
     "backToLogin": "Voltar ao login"
   },
+  "server": {
+    "title": "Conecte-se ao seu servidor",
+    "prompt": "Informe o endereço do servidor EchoChat da sua organização.",
+    "urlLabel": "Endereço do servidor",
+    "urlPlaceholder": "chat.minhaempresa.com",
+    "connect": "Conectar",
+    "hint": "Se não souber, peça a quem administra o EchoChat.",
+    "errors": {
+      "invalidUrl": "Esse endereço não é válido. Tente algo como chat.minhaempresa.com.",
+      "unreachable": "Não foi possível contatar o servidor. Verifique o endereço e sua conexão.",
+      "notEchochat": "Há um servidor nesse endereço, mas ele não é um servidor EchoChat.",
+      "degraded": "O servidor respondeu, mas está com problemas. Tente novamente mais tarde."
+    }
+  },
+  "desktop": {
+    "newMessage": "Nova mensagem",
+    "someone": "Alguém",
+    "attachment": "Enviou um anexo",
+    "unreadBadge": "{{count}} não lidas",
+    "tray": {
+      "open": "Abrir o EchoChat",
+      "mute": "Silenciar notificações",
+      "autoLaunch": "Iniciar com o sistema",
+      "changeServer": "Mudar de servidor…",
+      "quit": "Sair",
+      "tooltip": "EchoChat"
+    },
+    "menu": {
+      "edit": "Editar",
+      "undo": "Desfazer",
+      "redo": "Refazer",
+      "cut": "Recortar",
+      "copy": "Copiar",
+      "paste": "Colar",
+      "selectAll": "Selecionar tudo",
+      "hide": "Ocultar o EchoChat",
+      "hideOthers": "Ocultar outros",
+      "unhide": "Mostrar todos",
+      "quit": "Sair",
+      "window": "Janela",
+      "minimize": "Minimizar",
+      "close": "Fechar"
+    },
+    "update": {
+      "ready": "Há uma nova versão pronta",
+      "version": "A versão {{version}} será instalada quando você reiniciar.",
+      "restart": "Reiniciar agora"
+    }
+  },
   "chat": {
     "empty": "Selecione uma conversa ou crie uma nova",
     "noConversations": "Sem conversas",
@@ -987,6 +1036,12 @@
     "alreadyInCall": "Você já está em uma chamada",
     "permissionDenied": "Permissão de microfone ou câmera negada",
     "startFailed": "Não foi possível iniciar a chamada",
+    "screenPicker": {
+      "title": "Escolha o que compartilhar",
+      "subtitle": "Os outros participantes verão o que você selecionar.",
+      "screens": "Telas",
+      "windows": "Janelas"
+    },
     "timeline": {
       "voiceCall": "Chamada de voz",
       "videoCall": "Videochamada",

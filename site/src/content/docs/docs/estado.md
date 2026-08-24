@@ -28,6 +28,11 @@ Listas y en uso en producción interna:
 - Panel de administración: usuarios (con import LDAP), settings, auditoría, storage.
 - Autenticación JWT + 2FA TOTP, sesiones multi-dispositivo.
 - Dashboard de monitoreo del servidor, base de datos, HTTP y cron/socket.
+- **App de escritorio** (Windows, macOS, Linux) con Electron: bandeja del sistema,
+  notificaciones nativas, deep links para SSO, selector de pantalla para compartir en
+  llamadas, arranque con el sistema, auto-actualización y sesión cifrada con el llavero
+  del SO. Sin firma de código todavía — Windows muestra la advertencia de SmartScreen y
+  macOS no auto-actualiza sin firma. Ver [App de escritorio](/docs/uso/escritorio).
 
 ## En progreso
 
@@ -44,8 +49,8 @@ Listas y en uso en producción interna:
 - **Llamadas WebRTC en producción**: señalización ya funciona; falta un SFU para
   llamadas grupales a mayor escala y grabación con consentimiento.
 - **Retención de mensajes**: job de purga automática según `message_retention_days`.
-- **Apps de escritorio (Electron) y móvil (React Native + Expo)**: comparten el mismo
-  backend, pero todavía no se desarrollaron.
+- **App móvil (React Native + Expo)**: comparte el mismo backend que la web y el
+  escritorio, pero todavía no se desarrolló.
 
 ## Cómo contribuir al roadmap
 

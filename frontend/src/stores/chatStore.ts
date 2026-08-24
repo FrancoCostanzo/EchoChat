@@ -4,6 +4,7 @@ import type { Socket } from 'socket.io-client';
 import i18n from '@/lib/i18n';
 import { conversationsApi, messagesApi } from '@/lib/endpoints';
 import { connectSocket, disconnectSocket, getSocket } from '@/lib/socket';
+import { isAppFocused, showDesktopNotification } from '@/lib/desktop';
 import { useAuthStore } from '@/stores/authStore';
 import { useCallStore } from '@/stores/callStore';
 import type { ConversationResponse, CreateConversationRequest } from '@/types/conversation';
@@ -58,6 +59,27 @@ function startActivityHeartbeat(socket: Socket): void {
     document.removeEventListener('visibilitychange', onVisible);
     _activityCleanup = null;
   };
+}
+
+/**
+ * Arma y dispara la notificación nativa de un mensaje entrante (no-op en la
+ * web). En un grupo el título es el grupo y el remitente va en el cuerpo; en un
+ * directo el título ya es la persona, así que repetirlo sobraría.
+ */
+function notifyIncomingMessage(message: ChatMessage, conversations: ConversationResponse[]): void {
+  const conversation = conversations.find((c) => c.id === message.conversation_id);
+  const sender = message.sender_display_name || message.sender_username || i18n.t('desktop.someone');
+  const body = message.type === 'media' || !message.body
+    ? i18n.t('desktop.attachment')
+    : message.body;
+
+  const isGroup = conversation ? conversation.type !== 'direct' : false;
+
+  showDesktopNotification({
+    title: isGroup ? (conversation?.name || i18n.t('desktop.newMessage')) : sender,
+    body: isGroup ? `${sender}: ${body}` : body,
+    conversationId: message.conversation_id,
+  });
 }
 
 // Last rendered timeline per conversation. Switching back to a recently
@@ -165,6 +187,14 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       // Thread replies don't enter the main timeline — the ThreadPanel has its
       // own listener and the root's counter updates via message:thread_count.
       if (message.thread_id) return;
+
+      // Notificación nativa: sólo si el mensaje no es mío y el usuario no lo
+      // está viendo — o la ventana no tiene foco, o está en otra conversación.
+      const isOwn = message.sender_id === state.activeUserId;
+      const isWatchingIt = isAppFocused() && message.conversation_id === state.activeConversationId;
+      if (!isOwn && !isWatchingIt) {
+        notifyIncomingMessage(message, state.conversations);
+      }
 
       const knownConversation = state.conversations.some((c) => c.id === message.conversation_id);
       // Broadcast (and any new DM) may create a conversation the client hasn't

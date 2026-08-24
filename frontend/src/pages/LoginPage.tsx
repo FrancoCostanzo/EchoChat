@@ -8,6 +8,8 @@ import { EASE_OUT } from '@/lib/motion';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
 import { authApi } from '@/lib/endpoints';
+import { isElectron } from '@/lib/runtimeConfig';
+import { openSsoLogin } from '@/lib/desktop';
 
 /** Sin model.ts propio en el backend (ver la nota en types/broadcast.ts) — inferido de oidcService.listProviders(). */
 interface SsoProvider {
@@ -221,6 +223,23 @@ export default function LoginPage() {
     setStep('credentials');
   };
 
+  /**
+   * En la web el SSO es una navegación de página completa. En Electron eso
+   * destruiría el renderer, así que el login se abre en el navegador del
+   * sistema —donde el usuario ya tiene su sesión corporativa— y el token
+   * vuelve por el deep link `echochat://` (lo escucha DesktopIntegration).
+   */
+  const startSsoLogin = async (provider: string) => {
+    if (isElectron() && await openSsoLogin(provider)) {
+      setServerError('');
+      return;
+    }
+    // `assign` en vez de `location.href = …`: es equivalente, pero al ser una
+    // llamada y no una asignación a algo externo al componente no dispara la
+    // regla del compilador de React.
+    window.location.assign(authApi.ssoLoginUrl(provider));
+  };
+
   const stepMotion = reducedMotion
     ? { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } }
     : {
@@ -326,7 +345,7 @@ export default function LoginPage() {
                           type="button"
                           variant="secondary"
                           className="w-full"
-                          onPress={() => { window.location.href = authApi.ssoLoginUrl(p.name); }}
+                          onPress={() => void startSsoLogin(p.name)}
                         >
                           {t('auth.continueWithProvider', { defaultValue: 'Continuar con {{provider}}', provider: p.label })}
                         </Button>

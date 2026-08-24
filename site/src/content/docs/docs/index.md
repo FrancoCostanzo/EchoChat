@@ -31,7 +31,7 @@ pensado para **autohospedarse**.
 | Plataforma | Tecnología | Estado |
 |------------|-----------|--------|
 | **Web** | React 19 + Vite | ✅ En desarrollo (`v1.0.0-alpha.5`) |
-| **Desktop** (Windows, macOS, Linux) | Electron | 🔧 Planificado |
+| **Desktop** (Windows, macOS, Linux) | Electron | ✅ Disponible |
 | **Mobile** (iOS, Android) | React Native + Expo | 🔧 Planificado |
 
 Las tres plataformas comparten el mismo backend y reutilizan la mayor parte de la lógica de
@@ -39,6 +39,7 @@ negocio del frontend.
 
 ## Por dónde seguir
 
+- [App de escritorio](/docs/uso/escritorio) — descargar el cliente para Windows, macOS y Linux.
 - [Instalación (desarrollo)](/docs/instalacion) — levantarlo localmente sin Docker.
 - [Despliegue con Docker](/docs/despliegue) — poner EchoChat en producción.
 - [Arquitectura](/docs/arquitectura) — cómo se conectan las piezas.

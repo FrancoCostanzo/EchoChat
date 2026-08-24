@@ -194,7 +194,7 @@ export const strings = {
 			subtitle: 'Las tres comparten el mismo backend y la mayor parte de la lógica de negocio.',
 			items: [
 				{ icon: 'web', name: 'Web', tech: 'React 19 + Vite', status: 'En desarrollo', ok: true },
-				{ icon: 'desktop', name: 'Desktop', tech: 'Electron', status: 'Planificado', ok: false },
+				{ icon: 'desktop', name: 'Desktop', tech: 'Electron', status: 'Disponible', ok: true },
 				{ icon: 'mobile', name: 'Mobile', tech: 'React Native + Expo', status: 'Planificado', ok: false },
 			],
 		},
@@ -270,11 +270,11 @@ export const strings = {
 				},
 				{
 					q: '¿Está listo para producción?',
-					a: 'La plataforma web está en desarrollo activo (v1.0.0-alpha). El backend, la mensajería en tiempo real, canales, autenticación con 2FA y el almacenamiento de archivos ya funcionan. Algunas funciones (thumbnails automáticos, antivirus, apps de escritorio y móvil) están planificadas en el roadmap.',
+					a: 'La plataforma web está en desarrollo activo (v1.0.0-alpha). El backend, la mensajería en tiempo real, canales, autenticación con 2FA, el almacenamiento de archivos y la app de escritorio ya funcionan. Algunas funciones (thumbnails automáticos, antivirus, app móvil) están planificadas en el roadmap.',
 				},
 				{
 					q: '¿En qué plataformas corre?',
-					a: 'Hoy funciona la app web (React 19 + Vite). Las versiones de escritorio (Electron) y móvil (React Native + Expo) están planificadas y reutilizarán el mismo backend y gran parte de la lógica del frontend.',
+					a: 'Hoy funciona la app web (React 19 + Vite) y la app de escritorio (Electron) para Windows, macOS y Linux. La versión móvil (React Native + Expo) está planificada y reutilizará el mismo backend y gran parte de la lógica del frontend.',
 				},
 				{
 					q: '¿Soporta varios idiomas?',
@@ -457,7 +457,7 @@ export const strings = {
 			subtitle: 'All three share the same backend and most of the business logic.',
 			items: [
 				{ icon: 'web', name: 'Web', tech: 'React 19 + Vite', status: 'In development', ok: true },
-				{ icon: 'desktop', name: 'Desktop', tech: 'Electron', status: 'Planned', ok: false },
+				{ icon: 'desktop', name: 'Desktop', tech: 'Electron', status: 'Available', ok: true },
 				{ icon: 'mobile', name: 'Mobile', tech: 'React Native + Expo', status: 'Planned', ok: false },
 			],
 		},
@@ -533,11 +533,11 @@ export const strings = {
 				},
 				{
 					q: 'Is it production-ready?',
-					a: 'The web platform is in active development (v1.0.0-alpha). The backend, real-time messaging, channels, 2FA authentication, and file storage already work. Some features (automatic thumbnails, antivirus, desktop and mobile apps) are planned on the roadmap.',
+					a: 'The web platform is in active development (v1.0.0-alpha). The backend, real-time messaging, channels, 2FA authentication, file storage, and the desktop app already work. Some features (automatic thumbnails, antivirus, mobile app) are planned on the roadmap.',
 				},
 				{
 					q: 'Which platforms does it run on?',
-					a: 'The web app (React 19 + Vite) works today. Desktop (Electron) and mobile (React Native + Expo) versions are planned and will reuse the same backend and much of the frontend logic.',
+					a: 'The web app (React 19 + Vite) and the desktop app (Electron) for Windows, macOS, and Linux work today. The mobile version (React Native + Expo) is planned and will reuse the same backend and much of the frontend logic.',
 				},
 				{
 					q: 'Does it support multiple languages?',
@@ -720,7 +720,7 @@ export const strings = {
 			subtitle: 'As três compartilham o mesmo backend e a maior parte da lógica de negócio.',
 			items: [
 				{ icon: 'web', name: 'Web', tech: 'React 19 + Vite', status: 'Em desenvolvimento', ok: true },
-				{ icon: 'desktop', name: 'Desktop', tech: 'Electron', status: 'Planejado', ok: false },
+				{ icon: 'desktop', name: 'Desktop', tech: 'Electron', status: 'Disponível', ok: true },
 				{ icon: 'mobile', name: 'Mobile', tech: 'React Native + Expo', status: 'Planejado', ok: false },
 			],
 		},
@@ -796,11 +796,11 @@ export const strings = {
 				},
 				{
 					q: 'Está pronto para produção?',
-					a: 'A plataforma web está em desenvolvimento ativo (v1.0.0-alpha). O backend, mensagens em tempo real, canais, autenticação com 2FA e armazenamento de arquivos já funcionam. Algumas funcionalidades (thumbnails automáticos, antivírus, apps desktop e mobile) estão planejadas no roadmap.',
+					a: 'A plataforma web está em desenvolvimento ativo (v1.0.0-alpha). O backend, mensagens em tempo real, canais, autenticação com 2FA, armazenamento de arquivos e o app desktop já funcionam. Algumas funcionalidades (thumbnails automáticos, antivírus, app mobile) estão planejadas no roadmap.',
 				},
 				{
 					q: 'Em quais plataformas roda?',
-					a: 'Hoje funciona o app web (React 19 + Vite). As versões desktop (Electron) e mobile (React Native + Expo) estão planejadas e reutilizarão o mesmo backend e grande parte da lógica do frontend.',
+					a: 'Hoje funciona o app web (React 19 + Vite) e o app desktop (Electron) para Windows, macOS e Linux. A versão mobile (React Native + Expo) está planejada e reutilizará o mesmo backend e grande parte da lógica do frontend.',
 				},
 				{
 					q: 'Suporta vários idiomas?',

@@ -14,6 +14,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useStorageUrl } from '@/lib/useStorageUrl';
 import { messagesApi } from '@/lib/endpoints';
 import { formatMessageTime } from '@/lib/dates';
+import { downloadFile } from '@/lib/download';
 import type { MemberResponse, ConversationResponse } from '@/types/conversation';
 import type { ConversationAttachmentItem, ConversationLinkItem } from '@/types/message';
 
@@ -52,20 +53,6 @@ function formatSize(bytes: number | null): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function downloadBlob(url: string, filename: string | null | undefined) {
-  fetch(url)
-    .then((r) => r.blob())
-    .then((blob) => {
-      const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = filename || 'file';
-      a.click();
-      URL.revokeObjectURL(blobUrl);
-    })
-    .catch(() => window.open(url, '_blank'));
 }
 
 function domainOf(url: string): string {
@@ -689,7 +676,7 @@ function FileRow({ item, onJump }: { item: ConversationAttachmentItem; onJump: (
           <Button
             isIconOnly
             variant="ghost"
-            onPress={() => downloadBlob(url, item.original_filename)}
+            onPress={() => void downloadFile(url, item.original_filename)}
             className="h-8 w-8 min-w-0 shrink-0 text-ink-200 hover:text-foreground"
           >
             <Download size={14} />
