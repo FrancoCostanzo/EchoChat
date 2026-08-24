@@ -30,7 +30,7 @@ pensado para **autohospedarse**.
 
 | Plataforma | Tecnología | Estado |
 |------------|-----------|--------|
-| **Web** | React 19 + Vite | ✅ En desarrollo (`v1.0.0-alpha.5`) |
+| **Web** | React 19 + Vite | ✅ En desarrollo (`v1.0.0-alpha.6`) |
 | **Desktop** (Windows, macOS, Linux) | Electron | ✅ Disponible |
 | **Mobile** (iOS, Android) | React Native + Expo | 🔧 Planificado |
 
