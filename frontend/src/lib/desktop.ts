@@ -1,4 +1,4 @@
-import type { NotificationOptions, ShareSource, SsoResult, TrayLabels } from '@/types/electron';
+import type { MenuLabels, NotificationOptions, ShareSource, SsoResult, TrayLabels } from '@/types/electron';
 
 /**
  * Fachada de las funciones exclusivas de escritorio.
@@ -20,6 +20,10 @@ export function setDesktopBadge(count: number, description: string): void {
 
 export function setDesktopTrayLabels(labels: TrayLabels): void {
   window.electronAPI?.setTrayLabels(labels);
+}
+
+export function setDesktopMenuLabels(labels: MenuLabels): void {
+  window.electronAPI?.setMenuLabels(labels);
 }
 
 /**

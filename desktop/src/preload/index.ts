@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import type { ShareSource } from '../main/screenShare';
 import type { StoredToken } from '../main/ipc/auth.ipc';
+import type { MenuLabels } from '../main/menu';
 
 /**
  * Puente entre el main y el frontend React. El renderer nunca toca
@@ -101,6 +102,10 @@ const electronAPI = {
     quit: string;
     tooltip: string;
   }) => ipcRenderer.send('tray:set-labels', labels),
+
+  // ── Menú de aplicación ──────────────────────────────────────────────────
+  /** El main no tiene i18n: las etiquetas llegan ya traducidas del renderer. */
+  setMenuLabels: (labels: MenuLabels) => ipcRenderer.send('menu:set-labels', labels),
 };
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);

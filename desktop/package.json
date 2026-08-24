@@ -1,5 +1,6 @@
 {
   "name": "echochat-desktop",
+  "productName": "EchoChat",
   "version": "1.0.0-alpha.5",
   "description": "Cliente de escritorio de EchoChat (Windows, macOS y Linux)",
   "private": true,

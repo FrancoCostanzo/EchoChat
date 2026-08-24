@@ -5,6 +5,7 @@ import { applyScreenShareHandler } from './screenShare';
 import { consumeLaunchDeepLink, initDeepLinks } from './deepLink';
 import { createMainWindow, isRecreatingWindow, markQuitting, showMainWindow } from './window';
 import { destroyTray } from './tray';
+import { setApplicationMenu } from './menu';
 import { initAutoUpdater } from './updater';
 import { registerServerIpc } from './ipc/server.ipc';
 import { registerNotificationIpc } from './ipc/notification.ipc';
@@ -26,6 +27,7 @@ if (!initDeepLinks()) {
     handleAppProtocol();
     applySessionPermissions(session.defaultSession);
     applyScreenShareHandler(session.defaultSession);
+    setApplicationMenu(null);
 
     registerServerIpc();
     registerNotificationIpc();

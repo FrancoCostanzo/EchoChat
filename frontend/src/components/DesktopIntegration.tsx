@@ -11,6 +11,7 @@ import {
   onUpdateReady,
   restartToUpdate,
   setDesktopBadge,
+  setDesktopMenuLabels,
   setDesktopTrayLabels,
   watchWindowFocus,
 } from '@/lib/desktop';
@@ -31,8 +32,8 @@ export default function DesktopIntegration() {
     s.conversations.reduce((total, c) => total + (c.unread_count || 0), 0),
   );
 
-  // El main no tiene i18n: las etiquetas del tray se le mandan desde acá, y se
-  // vuelven a mandar cuando el usuario cambia de idioma.
+  // El main no tiene i18n: las etiquetas del tray y del menú se le mandan
+  // desde acá, y se vuelven a mandar cuando el usuario cambia de idioma.
   useEffect(() => {
     setDesktopTrayLabels({
       open: t('desktop.tray.open'),
@@ -41,6 +42,23 @@ export default function DesktopIntegration() {
       changeServer: t('desktop.tray.changeServer'),
       quit: t('desktop.tray.quit'),
       tooltip: t('desktop.tray.tooltip'),
+    });
+
+    setDesktopMenuLabels({
+      edit: t('desktop.menu.edit'),
+      undo: t('desktop.menu.undo'),
+      redo: t('desktop.menu.redo'),
+      cut: t('desktop.menu.cut'),
+      copy: t('desktop.menu.copy'),
+      paste: t('desktop.menu.paste'),
+      selectAll: t('desktop.menu.selectAll'),
+      hide: t('desktop.menu.hide'),
+      hideOthers: t('desktop.menu.hideOthers'),
+      unhide: t('desktop.menu.unhide'),
+      quit: t('desktop.menu.quit'),
+      window: t('desktop.menu.window'),
+      minimize: t('desktop.menu.minimize'),
+      close: t('desktop.menu.close'),
     });
   }, [t, i18n.language]);
 

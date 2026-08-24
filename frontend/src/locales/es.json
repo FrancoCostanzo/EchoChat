@@ -123,6 +123,22 @@
       "quit": "Salir",
       "tooltip": "EchoChat"
     },
+    "menu": {
+      "edit": "Editar",
+      "undo": "Deshacer",
+      "redo": "Rehacer",
+      "cut": "Cortar",
+      "copy": "Copiar",
+      "paste": "Pegar",
+      "selectAll": "Seleccionar todo",
+      "hide": "Ocultar EchoChat",
+      "hideOthers": "Ocultar los demás",
+      "unhide": "Mostrar todo",
+      "quit": "Salir",
+      "window": "Ventana",
+      "minimize": "Minimizar",
+      "close": "Cerrar"
+    },
     "update": {
       "ready": "Hay una versión nueva lista",
       "version": "Se instalará la versión {{version}} cuando reinicies.",

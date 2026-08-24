@@ -35,6 +35,24 @@ export interface TrayLabels {
   tooltip: string;
 }
 
+/** Etiquetas del menú de aplicación (Edit + macOS app/window menu), ya traducidas. */
+export interface MenuLabels {
+  edit: string;
+  undo: string;
+  redo: string;
+  cut: string;
+  copy: string;
+  paste: string;
+  selectAll: string;
+  hide: string;
+  hideOthers: string;
+  unhide: string;
+  quit: string;
+  window: string;
+  minimize: string;
+  close: string;
+}
+
 /** Lectura del JWT guardado con el llavero del SO. */
 export interface StoredToken {
   /** false = el SO no ofrece cifrado; hay que seguir con localStorage. */
@@ -79,6 +97,7 @@ export interface ElectronAPI {
   onOpenConversation: (callback: (conversationId: string) => void) => () => void;
 
   setTrayLabels: (labels: TrayLabels) => void;
+  setMenuLabels: (labels: MenuLabels) => void;
 
   /** Se dispara cuando ya se descargó una versión nueva. Devuelve la función para desuscribirse. */
   onUpdateReady: (callback: (version: string) => void) => () => void;
