@@ -26,6 +26,14 @@ function useAppProtocol(): boolean {
 const MIN_WIDTH = 940;
 const MIN_HEIGHT = 600;
 
+/**
+ * Si el renderer crashea (OOM, un bug de GPU, lo que sea) más de esta cantidad
+ * de veces en esta ventana de tiempo, se deja de reintentar recargar — evita
+ * un loop infinito cuando lo que crashea es la propia carga de la página.
+ */
+const MAX_CRASH_RELOADS = 3;
+const CRASH_RELOAD_WINDOW_MS = 30_000;
+
 let mainWindow: BrowserWindow | null = null;
 let recreating = false;
 let hideOnClose = false;
@@ -140,6 +148,28 @@ export function createMainWindow(): BrowserWindow {
 
   win.on('closed', () => {
     if (mainWindow === win) mainWindow = null;
+  });
+
+  // Sin esto, un renderer muerto deja la ventana en blanco para siempre: no
+  // hay ningún otro mecanismo de recuperación. `webContents` sobrevive al
+  // renderer que murió, así que recargar alcanza para levantarlo de nuevo.
+  const crashTimestamps: number[] = [];
+  win.webContents.on('render-process-gone', (_event, details) => {
+    if (details.reason === 'clean-exit' || win.isDestroyed()) return;
+
+    console.error(`[window] render process gone: ${details.reason}`);
+
+    const now = Date.now();
+    crashTimestamps.push(now);
+    while (crashTimestamps.length && now - crashTimestamps[0] > CRASH_RELOAD_WINDOW_MS) {
+      crashTimestamps.shift();
+    }
+    if (crashTimestamps.length > MAX_CRASH_RELOADS) {
+      console.error('[window] demasiados crashes seguidos, no se reintenta más');
+      return;
+    }
+
+    win.webContents.reload();
   });
 
   // La presencia del usuario depende de si está mirando la app. En Electron
