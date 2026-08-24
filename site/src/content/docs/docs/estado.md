@@ -9,7 +9,7 @@ antes de desplegarlo.
 
 ## Versión actual
 
-`v1.0.0-alpha.6` — licencia [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0). El proyecto
+`v1.0.0-alpha.7` — licencia [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0). El proyecto
 todavía no llegó a una versión estable 1.0; puede haber cambios de esquema de base de
 datos entre versiones alpha (ver [Actualización](/docs/despliegue/actualizacion)).
 

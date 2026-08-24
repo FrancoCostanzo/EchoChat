@@ -12,7 +12,7 @@ Antes de nada, dale una leída al [Código de Conducta](./CODE_OF_CONDUCT.md) �
 
 ## 🧰 Levantar el entorno de desarrollo
 
-Prerrequisitos: Node.js ≥ 18, PostgreSQL ≥ 15, MinIO (o compatible S3).
+Prerrequisitos: Node.js ≥ 22, PostgreSQL ≥ 15, MinIO (o compatible S3).
 
 ```bash
 git clone https://github.com/FrancoCostanzo/EchoChat.git

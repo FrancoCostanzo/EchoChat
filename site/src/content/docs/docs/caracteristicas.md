@@ -107,7 +107,7 @@ Ver [App de escritorio](/docs/uso/escritorio).
 
 | Plataforma | Tecnología | Estado |
 |------------|-----------|--------|
-| **Web** | React 19 + Vite | En desarrollo (`v1.0.0-alpha.6`) |
+| **Web** | React 19 + Vite | En desarrollo (`v1.0.0-alpha.7`) |
 | **Desktop** (Windows, macOS, Linux) | Electron | Disponible |
 | **Mobile** (iOS, Android) | React Native + Expo | Planificado |
 

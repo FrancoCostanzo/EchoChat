@@ -87,7 +87,7 @@ cd backend && npm install && npm run dev
 cd frontend && npm install && npm run dev
 ```
 
-Requiere **Node.js ≥ 18**, **PostgreSQL ≥ 15** y **MinIO**. Guía completa (variables de
+Requiere **Node.js ≥ 22**, **PostgreSQL ≥ 15** y **MinIO**. Guía completa (variables de
 entorno, convenciones de código, flujo de ramas) en
 **[CONTRIBUTING.md](./CONTRIBUTING.md)** y en
 **[Instalación (desarrollo)](https://echochat.netlify.app/docs/instalacion)**.
