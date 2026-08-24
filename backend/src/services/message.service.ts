@@ -19,7 +19,9 @@ import { toMessageResponse, toSavedMessageResponse, toDraftResponse, toPollRespo
 import { resolveBodyFormat } from '../utils/markdown.util';
 import { resolverMenciones, destinatariosDeMenciones, type Mencion } from '../utils/mentions.util';
 import { urlesDeAvatares } from '../utils/avatarUrl.util';
-import { minioClient } from '../config/minio';
+// `minioClient` para operar sobre el bucket (borrar objetos) y
+// `publicMinioClient` para firmar URLs que resuelve el cliente del usuario.
+import { minioClient, publicMinioClient } from '../config/minio';
 import type { MessageResponse } from '../models/message.model';
 import type { GameRow } from '../models/game.model';
 import type { ReceiptDetail } from '../repositories/message.repository';
@@ -66,7 +68,7 @@ function assertWithinWindow(sentAt: Date | string | null, minutes: number, actio
 async function withAvatarUrl<T extends { avatar_object_key?: string | null; avatar_bucket?: string | null }>(user: T) {
   if (!user?.avatar_object_key) return user;
   try {
-    const url = await minioClient.presignedGetObject(
+    const url = await publicMinioClient.presignedGetObject(
       user.avatar_bucket || AVATAR_BUCKET,
       user.avatar_object_key,
       60 * 60,

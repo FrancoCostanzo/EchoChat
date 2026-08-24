@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt';
 import config from '../config';
 import logger from '../config/logger';
 import userService from './user.service';
-import { minioClient } from '../config/minio';
+import { publicMinioClient } from '../config/minio';
 // Require directo (no vía ../services) para evitar dependencia circular.
 import ldapService from './ldap.service';
 import oidcService from './oidc.service';
@@ -78,7 +78,7 @@ export interface AdminStorageFilters {
 async function withAvatarUrl(user: AdminUserResponse | null) {
   if (!user || !user.avatar_object_key) return user;
   try {
-    const url = await minioClient.presignedGetObject(
+    const url = await publicMinioClient.presignedGetObject(
       user.avatar_bucket || AVATAR_BUCKET,
       user.avatar_object_key,
       60 * 60 * 24, // 24 h

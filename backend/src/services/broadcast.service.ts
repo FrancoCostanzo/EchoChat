@@ -5,7 +5,7 @@ import {
   messageRepository,
   notificationRepository,
 } from '../repositories';
-import { minioClient } from '../config/minio';
+import { publicMinioClient } from '../config/minio';
 import { NotFoundError, ForbiddenError } from '../errors';
 import { toMessageResponse } from '../models';
 import { toConversation, toUser } from '../config/eventBus';
@@ -29,7 +29,7 @@ type ConAvatar = { avatar_object_key?: string | null; avatar_bucket?: string | n
 async function withRecipientAvatar<T extends ConAvatar>(recipient: T) {
   if (!recipient?.avatar_object_key) return recipient;
   try {
-    const url = await minioClient.presignedGetObject(
+    const url = await publicMinioClient.presignedGetObject(
       recipient.avatar_bucket || AVATAR_BUCKET,
       recipient.avatar_object_key,
       60 * 60 * 24,
@@ -48,7 +48,7 @@ async function enrichRecipients<T extends ConAvatar>(recipients: T[]) {
 async function withSenderAvatar(message: BroadcastMessageWithStats) {
   if (!message?.sender_avatar_object_key) return message;
   try {
-    const url = await minioClient.presignedGetObject(
+    const url = await publicMinioClient.presignedGetObject(
       message.sender_avatar_bucket || AVATAR_BUCKET,
       message.sender_avatar_object_key,
       60 * 60 * 24,

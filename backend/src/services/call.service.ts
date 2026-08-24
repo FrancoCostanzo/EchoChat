@@ -2,7 +2,7 @@ import logger from '../config/logger';
 import { callRepository, messageRepository } from '../repositories';
 import { NotFoundError } from '../errors';
 import { toCallResponse, toMessageResponse, toCallHistoryItem } from '../models';
-import { minioClient } from '../config/minio';
+import { publicMinioClient } from '../config/minio';
 import { toConversation } from '../config/eventBus';
 import type { CallRow } from '../models/call.model';
 import type { CallHistoryItem } from '../models/call.model';
@@ -14,7 +14,7 @@ const AVATAR_BUCKET = 'messaging-avatars';
 async function withAvatarUrl(item: CallHistoryItem | null) {
   if (!item?.avatar_key) return item;
   try {
-    const url = await minioClient.presignedGetObject(AVATAR_BUCKET, item.avatar_key, 60 * 60 * 24);
+    const url = await publicMinioClient.presignedGetObject(AVATAR_BUCKET, item.avatar_key, 60 * 60 * 24);
     return { ...item, avatar_url: url };
   } catch {
     return item;
