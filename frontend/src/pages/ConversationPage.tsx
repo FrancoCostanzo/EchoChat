@@ -85,6 +85,7 @@ import CreateCodeModal from '@/components/CreateCodeModal';
 import WallpaperPicker from '@/components/WallpaperPicker';
 import { PRESETS } from '@/components/WallpaperPicker';
 import { formatMessageTime, formatFullTime, formatDaySeparator } from '@/lib/dates';
+import { downloadFile } from '@/lib/download';
 import { readMentions } from '@/lib/mentions';
 import FloatingComposer from '@/components/FloatingComposer';
 import MessageBody from '@/components/MessageBody';
@@ -118,20 +119,6 @@ import type { PickedItem } from '@/components/StickerGifPicker';
 import type { FakeInputChangeEvent } from '@/components/DynamicMessageInput';
 
 type TFunc = ReturnType<typeof useTranslation>['t'];
-
-function downloadBlob(url: string, filename: string | null | undefined) {
-  fetch(url)
-    .then((r) => r.blob())
-    .then((blob) => {
-      const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = filename || 'file';
-      a.click();
-      URL.revokeObjectURL(blobUrl);
-    })
-    .catch(() => window.open(url, '_blank'));
-}
 
 const SPRING_OUT = [0.34, 1.56, 0.64, 1] as const;
 
@@ -663,7 +650,7 @@ function AttachmentView({ attachment }: { attachment: MessageAttachment }) {
               <Button
                 isIconOnly
                 variant="ghost"
-                onPress={() => downloadBlob(url, attachment.original_filename)}
+                onPress={() => void downloadFile(url, attachment.original_filename)}
                 className="h-auto w-auto min-w-0 rounded-md bg-black/70 p-1.5 text-white backdrop-blur-sm transition-colors hover:bg-black/90"
               >
                 <Download size={13} />
@@ -726,7 +713,7 @@ function AttachmentView({ attachment }: { attachment: MessageAttachment }) {
                 <Button
                   isIconOnly
                   variant="ghost"
-                  onPress={() => downloadBlob(url, attachment.original_filename)}
+                  onPress={() => void downloadFile(url, attachment.original_filename)}
                   className="h-auto w-auto min-w-0 rounded-md bg-black/70 p-1.5 text-white backdrop-blur-sm transition-colors hover:bg-black/90"
                 >
                   <Download size={13} />
@@ -759,7 +746,7 @@ function AttachmentView({ attachment }: { attachment: MessageAttachment }) {
       <PdfPreview
         url={url}
         filename={attachment.original_filename ?? undefined}
-        onDownload={() => downloadBlob(url, attachment.original_filename)}
+        onDownload={() => void downloadFile(url, attachment.original_filename)}
       />
     );
   }
