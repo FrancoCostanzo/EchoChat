@@ -861,6 +861,7 @@ desktop/
 │   │   ├── protocol.ts         # Esquema app:// que sirve el frontend
 │   │   ├── security.ts         # CSP, permisos, links externos
 │   │   ├── tray.ts             # Ícono de bandeja y su menú
+│   │   ├── menu.ts             # Menú de aplicación (Edit + macOS app/window menu)
 │   │   ├── config.ts           # Persistencia (electron-store)
 │   │   ├── deepLink.ts         # echochat://
 │   │   ├── updater.ts          # Auto-update
@@ -971,10 +972,44 @@ export function showDesktopNotification(options: NotificationOptions): void {
 }
 ```
 
-> **i18n**: el main process no tiene i18n y los menús de bandeja o notificaciones son texto
-> visible al usuario. Las etiquetas se mandan **ya traducidas** desde el renderer
-> (`tray:set-labels`), y se vuelven a mandar cuando cambia el idioma. Del main al renderer
-> viajan códigos de error, no mensajes.
+> **i18n**: el main process no tiene i18n y los menús de bandeja/aplicación o las
+> notificaciones son texto visible al usuario. Las etiquetas se mandan **ya traducidas**
+> desde el renderer (`tray:set-labels`, `menu:set-labels`), y se vuelven a mandar cuando
+> cambia el idioma. Del main al renderer viajan códigos de error, no mensajes.
+
+### Recuperación ante crash del renderer
+
+`window.ts` escucha `webContents.on('render-process-gone', ...)`: sin esto, si el renderer
+muere (OOM, un bug de GPU, etc.) la ventana queda en blanco para siempre, sin ningún
+mecanismo de recuperación. Como `webContents` sobrevive al renderer que murió, alcanza con
+`reload()`. Para no entrar en loop si lo que crashea es la propia carga de la página, se
+corta el auto-reintento después de unos pocos crashes seguidos en poco tiempo.
+
+### Ejecutar, buildear y publicar
+
+Requiere `backend/` y `frontend/` corriendo (ver comandos arriba) — en dev el main carga el
+dev server de Vite, no un build:
+
+```bash
+cd desktop && npm install && npm run dev
+```
+
+| Comando | Qué hace |
+|---------|----------|
+| `npm run dev` | Levanta la app contra `frontend` en modo dev (HMR incluido) |
+| `npm run build:win` / `:mac` / `:linux` | Build local sin publicar — instaladores en `desktop/release/` |
+| `npm run release:win` / `:mac` / `:linux` | Igual, pero sube los instaladores a GitHub Releases (`--publish always`) |
+
+Antes de un `release:*`, la versión de `desktop/package.json` tiene que coincidir con el tag
+`vX.Y.Z` que dispara `.github/workflows/desktop-release.yml` — si no coinciden, el workflow
+corta. `GH_TOKEN` (con permiso sobre el repo) tiene que estar seteado para publicar.
+
+**Auto-update**: `electron-updater` chequea el feed de GitHub Releases al arrancar y cada
+6 horas, descarga en segundo plano y recién ahí avisa al renderer (`update:ready`) — nunca
+reinicia por su cuenta, eso lo dispara el usuario desde el aviso. Sólo corre en la app
+empaquetada (`app.isPackaged`); en dev no hace nada. **Salvedad**: sin firma de código,
+macOS no auto-actualiza (electron-updater se niega a instalar sobre una app sin firmar) y
+Windows muestra la advertencia de SmartScreen en cada instalación manual.
 
 <br/>
 
