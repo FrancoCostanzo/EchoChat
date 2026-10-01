@@ -99,6 +99,31 @@ class CallRepository extends BaseRepository<CallRow> {
     return rows[0];
   }
 
+  /**
+   * Calidad medida por un participante al colgar. Queda en su fila y se
+   * recalcula el resumen de la llamada (`calls.quality_stats`).
+   */
+  async recordQuality(
+    callId: string,
+    userId: string,
+    { rttMs, jitterMs, packetLossPct }: { rttMs: number | null; jitterMs: number | null; packetLossPct: number | null },
+  ): Promise<void> {
+    await this.query(
+      `UPDATE call_participants SET avg_latency_ms = $3, avg_packet_loss = $4
+       WHERE call_id = $1 AND user_id = $2`,
+      [callId, userId, rttMs === null ? null : Math.round(rttMs), packetLossPct]
+    );
+    await this.query(
+      `UPDATE calls c SET quality_stats = COALESCE(c.quality_stats, '{}'::jsonb) || jsonb_build_object(
+         'avg_rtt_ms', (SELECT ROUND(AVG(avg_latency_ms)) FROM call_participants WHERE call_id = c.id),
+         'avg_packet_loss_pct', (SELECT ROUND(AVG(avg_packet_loss), 2) FROM call_participants WHERE call_id = c.id),
+         'max_jitter_ms', GREATEST(COALESCE((c.quality_stats->>'max_jitter_ms')::numeric, 0), COALESCE($2::numeric, 0))
+       )
+       WHERE c.id = $1`,
+      [callId, jitterMs === null ? null : Math.round(jitterMs)]
+    );
+  }
+
   /** Llamadas que todavía le están sonando a `userId` (no atendió ni rechazó). */
   async findRingingForUser(userId: string, maxAgeSeconds: number): Promise<CallRow[]> {
     const { rows } = await this.query<CallRow>(

@@ -229,8 +229,8 @@ Resolución de preferencias de lo más específico a lo más general:
 | 5.2 | SFU para grupales (mediasoup/LiveKit/Janus), usando `server_host`/`room_id`. | L (8-10d) | 5.1 | ⬜ |
 | 5.3 | UI de llamada: mute/cámara/screen-share, controles de host. | L (6-8d) | 5.1 | ✅ base |
 | 5.4 | Grabación con consentimiento (`call_recordings`, `consented_by`). | M (3d) | 5.2, Fase 4 | ⬜ |
-| 5.5 | **TURN propio (coturn)** con credenciales efímeras servidas por el backend. | S–M (2d) | 5.1 | ⬜ |
-| 5.6 | **Preferencias de llamadas** + cambio de dispositivo en llamada. | M (3-4d) | 2.0 | ⬜ |
+| 5.5 | **TURN propio (coturn)** con credenciales efímeras servidas por el backend. | S–M (2d) | 5.1 | ✅ |
+| 5.6 | **Preferencias de llamadas** + cambio de dispositivo en llamada. | M (3-4d) | 2.0 | ✅ |
 
 ### Estado actual y plan
 
@@ -258,7 +258,23 @@ Resolución de preferencias de lo más específico a lo más general:
   grupales, llamada perdida vía el despachador (2.0) y push con timbre (2.1), y guardar
   `quality_stats`.
 
-**Orden:** 5.1b → 2.0 → 2.1 → 2.2 → 5.5 → 5.6.
+- ✅ **5.5 Hecho** — `GET /calls/ice-servers` (STUN de `ICE_STUN_URLS` + TURN de `TURN_URLS` con
+  usuario `vencimiento:userId` y clave HMAC-SHA1 de `TURN_SECRET`, esquema `use-auth-secret` de
+  coturn); el cliente lo pide al llamar/atender y lo reusa hasta la mitad de su vigencia (si falla,
+  vuelve al STUN público). Servicio `coturn` en `docker-compose.yml` bajo el perfil `turn`.
+- ✅ **5.6 Hecho** — migración `024_call_preferences.sql`; pestaña Ajustes → Llamadas: quién puede
+  llamarme (se aplica en `POST /calls`, y un bloqueo siempre corta), no molestar (rechazar como
+  ocupado en el servidor, o timbre `silent`), tono y volumen (sintetizados en `lib/sounds.ts`),
+  entrar silenciado / sin cámara, dispositivos con prueba de micrófono y cámara (guardados en el
+  navegador, `lib/mediaPrefs.ts`) y procesamiento de audio. En llamada: menú para cambiar
+  micrófono/cámara (`replaceTrack`) y parlante (`setSinkId`), estado inicial de micro/cámara
+  avisado a los pares, y calidad (RTT, jitter, pérdida) muestreada cada 5 s y reportada al colgar
+  (`POST /calls/:id/quality` → `calls.quality_stats`). Tests en
+  `backend/tests/llamadasPreferencias.test.ts`.
+- ⬜ **Pendiente de 5.6:** vista previa antes de entrar a una llamada grupal (hoy se aplican
+  "entrar silenciado / sin cámara", que cubren el caso más común).
+
+**Orden:** 5.1b → 2.0 → 2.1 → 2.2 → 5.5 → 5.6 (hecho), luego 5.2 (SFU) y 5.4 (grabación).
 
 ## FASE 6 — Mensajería ya modelada (quick wins)
 

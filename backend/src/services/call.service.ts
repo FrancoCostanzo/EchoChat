@@ -1,5 +1,13 @@
 import logger from '../config/logger';
-import { callRepository, conversationRepository, messageRepository, userRepository } from '../repositories';
+import crypto from 'crypto';
+import config from '../config';
+import {
+  callRepository,
+  conversationRepository,
+  messageRepository,
+  relationshipRepository,
+  userRepository,
+} from '../repositories';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../errors';
 import { toCallResponse, toMessageResponse, toCallHistoryItem } from '../models';
 import { publicMinioClient } from '../config/minio';
@@ -55,18 +63,26 @@ class CallService {
       throw new ForbiddenError(`Missing required permission: ${permission}`);
     }
 
-    const invitees = [...new Set(data.participant_ids)].filter((id) => id !== userId);
-    if (invitees.length === 0) throw new BadRequestError('A call needs at least one other participant');
+    const requested = [...new Set(data.participant_ids)].filter((id) => id !== userId);
+    if (requested.length === 0) throw new BadRequestError('A call needs at least one other participant');
 
     // En una conversación sólo se puede llamar a sus miembros, y sólo si uno lo es.
     if (data.conversation_id) {
       const [member] = await conversationRepository.filterActiveMemberIds(data.conversation_id, [userId]);
       if (!member) throw new ForbiddenError('Not a member of this conversation');
-      const members = await conversationRepository.filterActiveMemberIds(data.conversation_id, invitees);
-      if (members.length !== invitees.length) {
+      const members = await conversationRepository.filterActiveMemberIds(data.conversation_id, requested);
+      if (members.length !== requested.length) {
         throw new BadRequestError('All participants must be members of the conversation');
       }
     }
+
+    // "Quién puede llamarme" de cada invitado. En un grupo se sigue con los que
+    // aceptan; si no queda nadie (o es un directo), no se llama.
+    const invitees: string[] = [];
+    for (const id of requested) {
+      if (await this.acceptsCallsFrom(id, userId)) invitees.push(id);
+    }
+    if (invitees.length === 0) throw new ForbiddenError('This user does not accept calls from you');
 
     const call: CallRow = await callRepository.create({
       conversation_id: data.conversation_id,
@@ -295,6 +311,7 @@ class CallService {
         type: call.type,
         from: caller ? await this.describeCaller(caller) : { id: call.initiated_by, display_name: '', avatar_url: null },
         participantIds: ids,
+        silent: (await this.ringModeFor(userId)) !== 'ring',
       };
     }));
   }
@@ -305,6 +322,56 @@ class CallService {
     toCall(callId, 'call:rejected', { callId, userId, reason });
     // Que deje de sonar en las demás pestañas/dispositivos del mismo usuario.
     toUser(userId, 'call:cancelled', { callId });
+  }
+
+  /** ¿`calleeId` acepta llamadas de `callerId`? Bloqueos y su preferencia de privacidad. */
+  async acceptsCallsFrom(calleeId: string, callerId: string): Promise<boolean> {
+    if (await relationshipRepository.isBlocked(calleeId, callerId)) return false;
+    const { call_privacy: privacy } = await notificationService.getSettings(calleeId);
+    if (privacy === 'nobody') return false;
+    if (privacy === 'contacts') return relationshipRepository.hasContact(calleeId, callerId);
+    return true;
+  }
+
+  /**
+   * Cómo le suena el timbre a `calleeId` ahora: normal, sin sonido (no molestar
+   * con "sonar en silencio") o directamente rechazada como ocupado.
+   */
+  async ringModeFor(calleeId: string): Promise<'ring' | 'silent' | 'reject'> {
+    if (!(await notificationService.isQuietNow(calleeId))) return 'ring';
+    const { call_dnd_behavior: behavior } = await notificationService.getSettings(calleeId);
+    return behavior === 'reject' ? 'reject' : 'silent';
+  }
+
+  /**
+   * Servidores ICE para el navegador. Las credenciales TURN siguen el esquema
+   * "REST API" de coturn (`use-auth-secret`): usuario = vencimiento + id, clave
+   * = HMAC-SHA1 del usuario con el secreto compartido. Vencen solas, así que
+   * filtrarlas no sirve por mucho tiempo.
+   */
+  getIceServers(userId: string) {
+    const { stunUrls, turnUrls, turnSecret, turnTtlSeconds } = config.ice;
+    const iceServers: { urls: string[]; username?: string; credential?: string }[] = [];
+    if (stunUrls.length) iceServers.push({ urls: stunUrls });
+    if (turnUrls.length && turnSecret) {
+      const username = `${Math.floor(Date.now() / 1000) + turnTtlSeconds}:${userId}`;
+      const credential = crypto.createHmac('sha1', turnSecret).update(username).digest('base64');
+      iceServers.push({ urls: turnUrls, username, credential });
+    }
+    return { ice_servers: iceServers, ttl_seconds: turnTtlSeconds };
+  }
+
+  async recordQuality(
+    callId: string,
+    userId: string,
+    stats: { rtt_ms?: number | null; jitter_ms?: number | null; packet_loss_pct?: number | null },
+  ) {
+    await this._findAsParticipant(callId, userId);
+    await callRepository.recordQuality(callId, userId, {
+      rttMs: stats.rtt_ms ?? null,
+      jitterMs: stats.jitter_ms ?? null,
+      packetLossPct: stats.packet_loss_pct ?? null,
+    });
   }
 
   /** Quién llama, armado en el servidor: el cliente no puede hacerse pasar por otro. */

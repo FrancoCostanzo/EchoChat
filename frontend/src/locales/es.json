@@ -567,7 +567,8 @@
       "language": "Idioma",
       "notifications": "Notificaciones",
       "security": "Seguridad",
-      "presence": "Estado"
+      "presence": "Estado",
+      "calls": "Llamadas"
     },
     "descriptions": {
       "profile": "Administrá tu información personal y foto de perfil",
@@ -575,7 +576,8 @@
       "language": "Elegí el idioma de la interfaz",
       "notifications": "Configurá alertas por canal y horario de silencio",
       "security": "Contraseña, verificación en dos pasos y sesiones activas",
-      "presence": "Definí cómo te ven los demás"
+      "presence": "Definí cómo te ven los demás",
+      "calls": "Quién te puede llamar, tono, dispositivos y audio"
     },
     "profile": "Perfil",
     "appearance": "Apariencia",
@@ -807,6 +809,52 @@
       "clear": "Quitar ausencia",
       "saved": "Estado de ausencia activado",
       "cleared": "Estado de ausencia quitado"
+    },
+    "calls": {
+      "incoming": {
+        "title": "Llamadas entrantes",
+        "privacy": "Quién puede llamarme",
+        "privacyOptions": {
+          "everyone": "Todos",
+          "contacts": "Mis contactos",
+          "nobody": "Nadie"
+        },
+        "privacyHint": "Las personas que bloqueaste nunca pueden llamarte.",
+        "dnd": "Si estoy en no molestar o en horario de silencio",
+        "dndOptions": {
+          "silent": "Mostrar sin sonar",
+          "reject": "Rechazar como ocupado"
+        },
+        "ringtone": "Tono de llamada (tocá uno para escucharlo)",
+        "ringtones": {
+          "classic": "Clásico",
+          "soft": "Suave",
+          "digital": "Digital"
+        },
+        "ringtoneVolume": "Volumen del tono"
+      },
+      "joining": {
+        "title": "Al entrar a una llamada",
+        "muted": "Entrar con el micrófono silenciado",
+        "cameraOff": "Entrar con la cámara apagada"
+      },
+      "devices": {
+        "title": "Dispositivos",
+        "desc": "Se recuerdan en este navegador. En plena llamada también los podés cambiar desde el botón de ajustes.",
+        "allow": "Permitir acceso a micrófono y cámara",
+        "permissionDenied": "El navegador no dio acceso al micrófono o la cámara",
+        "test": "Probar",
+        "stopTest": "Terminar prueba",
+        "testing": "Hablá: la barra se mueve con tu voz.",
+        "testHint": "Probá el micrófono y la cámara antes de una llamada."
+      },
+      "audio": {
+        "title": "Procesamiento de audio",
+        "desc": "Lo aplica el navegador a tu micrófono. Si tu voz se escucha cortada o metálica, probá apagar alguno.",
+        "noise_suppression": "Supresión de ruido de fondo",
+        "echo_cancellation": "Cancelación de eco",
+        "auto_gain_control": "Control automático de volumen"
+      }
     }
   },
   "broadcasts": {
@@ -1291,6 +1339,12 @@
       "unknownConversation": "Conversación",
       "emptyHint": "Cuando hagas o recibas una llamada, aparecerá aquí.",
       "noMissedHint": "No tenés llamadas perdidas. ¡Estás al día!"
+    },
+    "devices": {
+      "title": "Dispositivos",
+      "microphone": "Micrófono",
+      "camera": "Cámara",
+      "speaker": "Parlante"
     }
   },
   "schedule": {

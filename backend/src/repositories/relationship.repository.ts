@@ -60,6 +60,17 @@ class RelationshipRepository extends BaseRepository<RelationshipRow> {
     return rows;
   }
 
+  /** ¿`userId` tiene a `targetUserId` entre sus contactos o favoritos? */
+  async hasContact(userId: string, targetUserId: string): Promise<boolean> {
+    const { rows } = await this.query(
+      `SELECT 1 FROM user_relationships
+       WHERE user_id = $1 AND target_user_id = $2 AND type IN ('contact', 'favorite')
+       LIMIT 1`,
+      [userId, targetUserId]
+    );
+    return rows.length > 0;
+  }
+
   async isBlocked(userId: string, targetUserId: string): Promise<boolean> {
     const { rows } = await this.query(
       `SELECT 1 FROM user_relationships

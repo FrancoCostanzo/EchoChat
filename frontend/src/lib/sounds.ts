@@ -72,3 +72,49 @@ export function playTones(tones: Tone[], volume: number): void {
 export function playMessageSound(name: string, volume: number): void {
   playTones(MESSAGE_SOUNDS[name] ?? MESSAGE_SOUNDS.ping, volume);
 }
+
+// ── Tonos de llamada ───────────────────────────────────────────────────
+
+/** Un ciclo del tono; se repite cada `period` segundos mientras suena. */
+export const RINGTONES: Record<string, { period: number; tones: Tone[] }> = {
+  classic: {
+    period: 3,
+    tones: [
+      { freq: 440, start: 0, duration: 0.4 },
+      { freq: 480, start: 0, duration: 0.4 },
+      { freq: 440, start: 0.6, duration: 0.4 },
+      { freq: 480, start: 0.6, duration: 0.4 },
+    ],
+  },
+  soft: {
+    period: 2.6,
+    tones: [
+      { freq: 523, start: 0, duration: 0.35, type: 'triangle' },
+      { freq: 659, start: 0.25, duration: 0.35, type: 'triangle' },
+      { freq: 784, start: 0.5, duration: 0.55, type: 'triangle' },
+    ],
+  },
+  digital: {
+    period: 2,
+    tones: [
+      { freq: 1046, start: 0, duration: 0.09, type: 'square' },
+      { freq: 1046, start: 0.15, duration: 0.09, type: 'square' },
+      { freq: 1046, start: 0.3, duration: 0.09, type: 'square' },
+    ],
+  },
+};
+
+export const RINGTONE_NAMES = Object.keys(RINGTONES);
+
+/** Toca un ciclo del tono (para la vista previa en Ajustes). */
+export function previewRingtone(name: string, volume: number): void {
+  playTones((RINGTONES[name] ?? RINGTONES.classic).tones, volume);
+}
+
+/** Hace sonar el tono en bucle; devuelve la función que lo corta. */
+export function startRingtone(name: string, volume: number): () => void {
+  const ringtone = RINGTONES[name] ?? RINGTONES.classic;
+  playTones(ringtone.tones, volume);
+  const timer = setInterval(() => playTones(ringtone.tones, volume), ringtone.period * 1000);
+  return () => clearInterval(timer);
+}

@@ -567,7 +567,8 @@
       "language": "Language",
       "notifications": "Notifications",
       "security": "Security",
-      "presence": "Status"
+      "presence": "Status",
+      "calls": "Calls"
     },
     "descriptions": {
       "profile": "Manage your personal info and profile photo",
@@ -575,7 +576,8 @@
       "language": "Choose the interface language",
       "notifications": "Configure alerts per channel and quiet hours",
       "security": "Password, two-factor authentication and active sessions",
-      "presence": "Set how others see you"
+      "presence": "Set how others see you",
+      "calls": "Who can call you, ringtone, devices and audio"
     },
     "profile": "Profile",
     "appearance": "Appearance",
@@ -807,6 +809,52 @@
       "clear": "Clear away",
       "saved": "Away status set",
       "cleared": "Away status cleared"
+    },
+    "calls": {
+      "incoming": {
+        "title": "Incoming calls",
+        "privacy": "Who can call me",
+        "privacyOptions": {
+          "everyone": "Everyone",
+          "contacts": "My contacts",
+          "nobody": "Nobody"
+        },
+        "privacyHint": "People you blocked can never call you.",
+        "dnd": "When I'm in do not disturb or quiet hours",
+        "dndOptions": {
+          "silent": "Show without ringing",
+          "reject": "Decline as busy"
+        },
+        "ringtone": "Ringtone (tap one to hear it)",
+        "ringtones": {
+          "classic": "Classic",
+          "soft": "Soft",
+          "digital": "Digital"
+        },
+        "ringtoneVolume": "Ringtone volume"
+      },
+      "joining": {
+        "title": "When joining a call",
+        "muted": "Join with the microphone muted",
+        "cameraOff": "Join with the camera off"
+      },
+      "devices": {
+        "title": "Devices",
+        "desc": "Remembered in this browser. You can also switch them during a call from the settings button.",
+        "allow": "Allow microphone and camera access",
+        "permissionDenied": "The browser didn't grant access to the microphone or camera",
+        "test": "Test",
+        "stopTest": "Stop test",
+        "testing": "Talk: the bar moves with your voice.",
+        "testHint": "Test your microphone and camera before a call."
+      },
+      "audio": {
+        "title": "Audio processing",
+        "desc": "Applied by the browser to your microphone. If your voice sounds choppy or robotic, try turning one off.",
+        "noise_suppression": "Background noise suppression",
+        "echo_cancellation": "Echo cancellation",
+        "auto_gain_control": "Automatic volume control"
+      }
     }
   },
   "broadcasts": {
@@ -1291,6 +1339,12 @@
       "unknownConversation": "Conversation",
       "emptyHint": "When you make or receive a call, it will show up here.",
       "noMissedHint": "You have no missed calls. All caught up!"
+    },
+    "devices": {
+      "title": "Devices",
+      "microphone": "Microphone",
+      "camera": "Camera",
+      "speaker": "Speaker"
     }
   },
   "schedule": {

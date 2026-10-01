@@ -49,6 +49,11 @@ process.env.SMTP_HOST = process.env.SMTP_HOST || 'smtp.test.invalid';
 process.env.APP_URL = 'http://echochat.test';
 process.env.PASSWORD_RESET_RATE_MAX = '1000';
 
+// TURN con un secreto fijo para poder verificar la credencial que se firma.
+process.env.ICE_STUN_URLS = 'stun:stun.test:3478';
+process.env.TURN_URLS = 'turn:turn.test:3478?transport=udp';
+process.env.TURN_SECRET = 'secreto-turn-de-la-suite';
+
 // SCIM se prueba entero, así que va habilitado con un token fijo.
 process.env.SCIM_ENABLED = 'true';
 process.env.SCIM_TOKEN = 'token-scim-de-la-suite-de-tests';

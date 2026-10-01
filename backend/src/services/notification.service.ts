@@ -121,6 +121,14 @@ const SETTINGS_DEFAULTS: Omit<NotificationSettingsRow, 'user_id' | 'updated_at' 
   email_digest_hour: 9,
   email_unread_delay_minutes: 30,
   email_locale: null,
+  call_privacy: 'everyone',
+  call_dnd_behavior: 'silent',
+  ringtone_volume: 80,
+  join_muted: false,
+  join_camera_off: false,
+  noise_suppression: true,
+  echo_cancellation: true,
+  auto_gain_control: true,
 };
 
 export type NotificationSettings = typeof SETTINGS_DEFAULTS;
