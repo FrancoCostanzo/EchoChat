@@ -7,6 +7,7 @@ import {
   adminUpdateUserDto,
   adminUpdateSettingDto,
   adminResetPasswordDto,
+  adminEmailTestDto,
 } from '../dtos';
 import { withAuth } from '../types/http';
 
@@ -31,6 +32,11 @@ router.delete('/users/:userId/avatar', requirePermission('admin.users'), withAut
 router.delete('/users/:userId/2fa', requirePermission('admin.users'), withAuth((req, res) => adminController.disableUser2fa(req, res)));
 router.patch('/users/:userId/password', requirePermission('admin.users'), validate(adminResetPasswordDto), withAuth((req, res) => adminController.resetUserPassword(req, res)));
 router.delete('/users/:userId', requirePermission('admin.users'), withAuth((req, res) => adminController.deleteUser(req, res)));
+router.post('/users/:userId/invite', requirePermission('admin.users'), withAuth((req, res) => adminController.resendInvite(req, res)));
+
+// Email (SMTP): prueba de envío y registro de la cola
+router.post('/email/test', requirePermission('admin.settings'), validate(adminEmailTestDto), withAuth((req, res) => adminController.sendTestEmail(req, res)));
+router.get('/email/log', requirePermission('admin.settings'), withAuth((req, res) => adminController.getEmailLog(req, res)));
 router.get('/roles', requirePermission('admin.users'), withAuth((req, res) => adminController.listRoles(req, res)));
 
 // LDAP — importación manual de usuarios

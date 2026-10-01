@@ -13,6 +13,8 @@ import {
   Label,
   ToggleButton,
   ToggleButtonGroup,
+  Select,
+  ListBox,
 } from '@heroui/react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -47,6 +49,7 @@ import {
   Play,
   Download,
   Trash2,
+  Mail,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -104,6 +107,7 @@ import type {
   PushDevice,
   PushPreview,
   PushWhen,
+  EmailDigest,
 } from '@/types/notification';
 
 type WallpaperScope = 'global' | 'type' | 'conversation';
@@ -1500,6 +1504,137 @@ function PushSettingsCard({
   );
 }
 
+/** Preferencias de los emails: resumen periódico, espera para avisar pendientes e idioma. */
+function EmailSettingsCard({
+  settings,
+  save,
+}: {
+  settings: NotificationSettings;
+  save: (patch: NotificationSettingsRequest) => Promise<void>;
+}) {
+  const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
+  const channels = useNotificationStore((s) => s.channels);
+  const email = useAuthStore((s) => s.user?.email);
+
+  if (!channels.email) return null;
+
+  const hourLabel = (hour: number) =>
+    new Intl.DateTimeFormat(i18n.language, { hour: '2-digit', minute: '2-digit' }).format(new Date(2024, 0, 1, hour));
+
+  return (
+    <SettingsCard icon={Mail} title={t('settings.notifications.emailCard.title')}>
+      <p className="mb-4 text-xs text-ink-200">
+        {email
+          ? t('settings.notifications.emailCard.desc', { email })
+          : t('settings.notifications.emailCard.noEmail')}
+      </p>
+      {!email && (
+        <Button size="sm" variant="secondary" className="mb-4" onPress={() => navigate('/settings/profile')}>
+          {t('settings.notifications.emailCard.addEmail')}
+        </Button>
+      )}
+
+      <div className={email ? '' : 'pointer-events-none opacity-50'}>
+        <p className="mb-2 text-xs font-medium text-ink-200">{t('settings.notifications.emailCard.delay')}</p>
+        <ToggleButtonGroup
+          aria-label={t('settings.notifications.emailCard.delay')}
+          selectionMode="single"
+          disallowEmptySelection
+          isDetached
+          size="sm"
+          className="flex-wrap"
+          selectedKeys={new Set([String(settings.email_unread_delay_minutes)])}
+          onSelectionChange={(keys) => {
+            const value = Number([...keys][0]) as NotificationSettings['email_unread_delay_minutes'];
+            if (value && value !== settings.email_unread_delay_minutes) void save({ email_unread_delay_minutes: value });
+          }}
+        >
+          {[15, 30, 60, 120].map((minutes) => (
+            <ToggleButton key={minutes} id={String(minutes)}>
+              {minutes < 60
+                ? t('settings.notifications.emailCard.minutes', { count: minutes })
+                : t('settings.notifications.emailCard.hours', { count: minutes / 60 })}
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
+        <p className="mt-2 text-xs text-ink-300">{t('settings.notifications.emailCard.delayHint')}</p>
+
+        <p className="mt-5 mb-2 text-xs font-medium text-ink-200">{t('settings.notifications.emailCard.digest')}</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <ToggleButtonGroup
+            aria-label={t('settings.notifications.emailCard.digest')}
+            selectionMode="single"
+            disallowEmptySelection
+            isDetached
+            size="sm"
+            className="flex-wrap"
+            selectedKeys={new Set([settings.email_digest])}
+            onSelectionChange={(keys) => {
+              const value = [...keys][0] as EmailDigest | undefined;
+              if (value && value !== settings.email_digest) void save({ email_digest: value });
+            }}
+          >
+            {(['off', 'hourly', 'daily', 'weekly'] as const).map((value) => (
+              <ToggleButton key={value} id={value}>
+                {t(`settings.notifications.emailCard.digestOptions.${value}`)}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+          {(settings.email_digest === 'daily' || settings.email_digest === 'weekly') && (
+            <Select
+              aria-label={t('settings.notifications.emailCard.digestHour')}
+              className="w-36"
+              value={String(settings.email_digest_hour)}
+              onChange={(value) => void save({ email_digest_hour: Number(value) })}
+            >
+              <Select.Trigger>
+                <Select.Value />
+                <Select.Indicator />
+              </Select.Trigger>
+              <Select.Popover>
+                <ListBox>
+                  {Array.from({ length: 24 }, (_, hour) => (
+                    <ListBox.Item key={hour} id={String(hour)} textValue={hourLabel(hour)}>
+                      {hourLabel(hour)}
+                      <ListBox.ItemIndicator />
+                    </ListBox.Item>
+                  ))}
+                </ListBox>
+              </Select.Popover>
+            </Select>
+          )}
+        </div>
+        {settings.email_digest === 'weekly' && (
+          <p className="mt-2 text-xs text-ink-300">{t('settings.notifications.emailCard.weeklyHint')}</p>
+        )}
+
+        <p className="mt-5 mb-2 text-xs font-medium text-ink-200">{t('settings.notifications.emailCard.language')}</p>
+        <ToggleButtonGroup
+          aria-label={t('settings.notifications.emailCard.language')}
+          selectionMode="single"
+          disallowEmptySelection
+          isDetached
+          size="sm"
+          className="flex-wrap"
+          selectedKeys={new Set([settings.email_locale ?? 'auto'])}
+          onSelectionChange={(keys) => {
+            const value = String([...keys][0] ?? 'auto');
+            const locale = value === 'auto' ? null : value;
+            if (locale !== settings.email_locale) void save({ email_locale: locale });
+          }}
+        >
+          {['auto', 'es', 'en', 'pt'].map((value) => (
+            <ToggleButton key={value} id={value}>
+              {t(`settings.notifications.emailCard.languages.${value}`)}
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
+      </div>
+    </SettingsCard>
+  );
+}
+
 function NotificationsTab() {
   const { t, i18n } = useTranslation();
   const settings = useNotificationStore((s) => s.settings);
@@ -1729,6 +1864,8 @@ function NotificationsTab() {
       </SettingsCard>
 
       <PushSettingsCard settings={settings} save={save} />
+
+      <EmailSettingsCard settings={settings} save={save} />
 
       {/* ── Sonidos ── */}
       <SettingsCard icon={Volume2} title={t('settings.notifications.sound.title')}>

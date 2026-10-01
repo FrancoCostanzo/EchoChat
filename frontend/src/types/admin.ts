@@ -62,7 +62,9 @@ export interface AdminCreateUserRequest {
   username: string;
   display_name: string;
   email?: string | null;
-  password: string;
+  /** Obligatoria salvo con `send_invite`: ahí la elige el usuario desde el email. */
+  password?: string;
+  send_invite?: boolean;
   department?: string | null;
   job_title?: string | null;
   role_names?: string[];
@@ -164,4 +166,20 @@ export interface StorageStatsResponse {
   summary: StorageStatsSummary;
   by_bucket: StorageBucketStat[];
   by_type: StorageTypeStat[];
+}
+
+/** GET /admin/email/log. Fuente: emailRepository.listRecent. */
+export interface EmailLogEntry {
+  id: string;
+  user_id: string | null;
+  username: string | null;
+  to_address: string;
+  template: string;
+  locale: string;
+  status: 'pending' | 'sent' | 'failed';
+  attempts: number;
+  send_after: string;
+  sent_at: string | null;
+  last_error: string | null;
+  created_at: string;
 }

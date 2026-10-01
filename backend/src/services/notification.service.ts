@@ -2,6 +2,7 @@ import logger from '../config/logger';
 import { toUser } from '../config/eventBus';
 import {
   conversationRepository,
+  emailRepository,
   notificationRepository,
   systemSettingsRepository,
   userRepository,
@@ -17,6 +18,8 @@ import {
   type NotificationEvent,
 } from '../utils/notificationEvents';
 import pushService, { type PushMessage } from './push.service';
+import mailService from './mail.service';
+import type { EmailTemplate, TemplateData } from '../emails/templates';
 import { idiomaDe } from '../i18n';
 
 /**
@@ -101,7 +104,7 @@ function mergeDefaults(raw: unknown): Record<NotificationEvent, ChannelFlags> {
 }
 
 /** Valores de user_notification_settings cuando el usuario no tiene fila. */
-const SETTINGS_DEFAULTS: Omit<NotificationSettingsRow, 'user_id' | 'updated_at'> = {
+const SETTINGS_DEFAULTS: Omit<NotificationSettingsRow, 'user_id' | 'updated_at' | 'last_digest_at'> = {
   dnd_enabled: false,
   dnd_until: null,
   quiet_hours_start: null,
@@ -148,6 +151,11 @@ export interface NotifyInput {
   persist?: boolean;
   /** Contenido del push; sin esto el evento no manda push aunque esté activo. */
   push?: PushMessage;
+  /**
+   * Email inmediato (alertas de seguridad). Sin esto, un evento con email
+   * activo se avisa por correo sólo si sigue sin leer tras la espera elegida.
+   */
+  email?: { template: EmailTemplate; data: Omit<TemplateData, 'appUrl' | 'name' | 'unsubscribeUrl'> };
 }
 
 /** "Activo" = con la app abierta y tocándola en los últimos minutos. */
@@ -224,7 +232,10 @@ class NotificationService {
     });
     return {
       events,
-      channels: { push: policy.push_enabled && pushService.isConfigured(), email: policy.email_enabled },
+      channels: {
+        push: policy.push_enabled && pushService.isConfigured(),
+        email: policy.email_enabled && mailService.isConfigured(),
+      },
       // Los defaults de la instancia: para "volver al default" y para el editor del admin.
       defaults: policy.defaults,
     };
@@ -243,7 +254,7 @@ class NotificationService {
   async getSettings(userId: string): Promise<NotificationSettings> {
     const row = await notificationRepository.findSettings(userId);
     if (!row) return { ...SETTINGS_DEFAULTS };
-    const { user_id: _u, updated_at: _a, ...settings } = row;
+    const { user_id: _u, updated_at: _a, last_digest_at: _d, ...settings } = row;
     return settings;
   }
 
@@ -251,7 +262,7 @@ class NotificationService {
     // Apagar el no molestar borra también su vencimiento, así no queda uno viejo
     // esperando a la próxima vez que se active "hasta desactivarlo".
     const normalized = patch.dnd_enabled === false ? { ...patch, dnd_until: null } : patch;
-    const { user_id: _u, updated_at: _a, ...settings } =
+    const { user_id: _u, updated_at: _a, last_digest_at: _d, ...settings } =
       await notificationRepository.upsertSettings(userId, normalized);
     return settings;
   }
@@ -302,7 +313,7 @@ class NotificationService {
     }
 
     if (!policy.push_enabled || !pushService.isConfigured()) flags.push = false;
-    if (!policy.email_enabled) flags.email = false;
+    if (!policy.email_enabled || !mailService.isConfigured()) flags.email = false;
 
     return { ...flags, quiet: locked ? false : await this.isQuietNow(userId) };
   }
@@ -344,7 +355,10 @@ class NotificationService {
     try {
       const decision = await this.resolve(userId, input.event, { conversationId: input.conversationId });
 
-      if (decision.in_app && input.persist !== false) {
+      // El email "si sigue sin leer" necesita la fila para saber si se leyó:
+      // se guarda aunque el aviso in-app esté apagado, pero entonces sin toast.
+      const emailLater = decision.email && !input.email;
+      if (input.persist !== false && (decision.in_app || emailLater)) {
         const notification = await notificationRepository.create({
           recipient_id: userId,
           type: input.type,
@@ -352,16 +366,28 @@ class NotificationService {
           body: input.body ?? null,
           reference_type: input.reference_type ?? null,
           reference_id: input.reference_id ?? null,
-          reference_data: input.reference_data ?? {},
+          // `notice` permite traducir el aviso al idioma del email.
+          reference_data: input.push
+            ? { ...input.reference_data, notice: { kind: input.push.kind, params: input.push.params ?? {} } }
+            : input.reference_data ?? {},
         });
-        toUser(userId, 'notification:new', {
-          id: notification.id,
-          type: input.type,
-          event: input.event,
-          title: input.title,
-          silent: decision.quiet,
-          ...input.realtime,
-        });
+        if (decision.in_app) {
+          toUser(userId, 'notification:new', {
+            id: notification.id,
+            type: input.type,
+            event: input.event,
+            title: input.title,
+            silent: decision.quiet,
+            ...input.realtime,
+          });
+        }
+        if (emailLater) {
+          const settings = await this.getSettings(userId);
+          await emailRepository.setNotificationEmailDue(notification.id, settings.email_unread_delay_minutes);
+        }
+      }
+      if (decision.email && input.email) {
+        await mailService.enqueueForUser(userId, input.email.template, input.email.data);
       }
       if (decision.push && !decision.quiet && input.push) {
         await this._sendPush(userId, input.push);

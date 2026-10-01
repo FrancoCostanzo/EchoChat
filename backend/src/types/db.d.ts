@@ -192,6 +192,7 @@ export interface ConversationMembers {
    */
   notification_level: Generated<string>;
   role: Generated<string | null>;
+  unread_email_at: Timestamp | null;
   user_id: string;
 }
 
@@ -225,6 +226,21 @@ export interface Drafts {
   reply_to_id: string | null;
   updated_at: Generated<Timestamp | null>;
   user_id: string;
+}
+
+export interface EmailOutbox {
+  attempts: Generated<number>;
+  created_at: Generated<Timestamp>;
+  data: Generated<Json>;
+  id: Generated<string>;
+  last_error: string | null;
+  locale: Generated<string>;
+  send_after: Generated<Timestamp>;
+  sent_at: Timestamp | null;
+  status: Generated<string>;
+  template: string;
+  to_address: string;
+  user_id: string | null;
 }
 
 export interface Games {
@@ -341,6 +357,8 @@ export interface Notifications {
   channel: Generated<string | null>;
   created_at: Generated<Timestamp | null>;
   delivered_at: Timestamp | null;
+  email_due_at: Timestamp | null;
+  emailed_at: Timestamp | null;
   id: Generated<string>;
   is_read: Generated<boolean | null>;
   read_at: Timestamp | null;
@@ -350,6 +368,16 @@ export interface Notifications {
   reference_type: string | null;
   title: string | null;
   type: string;
+}
+
+export interface PasswordTokens {
+  created_at: Generated<Timestamp>;
+  expires_at: Timestamp;
+  id: Generated<string>;
+  purpose: string;
+  token_hash: string;
+  used_at: Timestamp | null;
+  user_id: string;
 }
 
 export interface Permissions {
@@ -549,6 +577,7 @@ export interface UserNotificationSettings {
   email_digest_hour: Generated<number>;
   email_locale: string | null;
   email_unread_delay_minutes: Generated<number>;
+  last_digest_at: Timestamp | null;
   push_preview: Generated<string>;
   push_when: Generated<string>;
   quiet_days: Generated<number[]>;
@@ -663,6 +692,7 @@ export interface DB {
   conversation_members: ConversationMembers;
   conversations: Conversations;
   drafts: Drafts;
+  email_outbox: EmailOutbox;
   games: Games;
   message_attachments: MessageAttachments;
   message_edits: MessageEdits;
@@ -674,6 +704,7 @@ export interface DB {
   monitoring_snapshots: MonitoringSnapshots;
   notification_preferences: NotificationPreferences;
   notifications: Notifications;
+  password_tokens: PasswordTokens;
   permissions: Permissions;
   pinned_messages: PinnedMessages;
   poll_options: PollOptions;

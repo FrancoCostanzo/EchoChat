@@ -94,7 +94,34 @@
     "useBackupCode": "Usar código de backup",
     "verify": "Verificar",
     "verifying": "Verificando...",
-    "backToLogin": "Voltar ao login"
+    "backToLogin": "Voltar ao login",
+    "forgot": {
+      "link": "Esqueceu sua senha?",
+      "title": "Recuperar senha",
+      "desc": "Informe seu usuário ou email e enviaremos um link para você escolher uma nova senha.",
+      "identifier": "Usuário ou email",
+      "identifierPlaceholder": "joao.silva ou joao@empresa.com",
+      "submit": "Enviar link",
+      "sent": "Se a conta existir e tiver um email cadastrado, enviamos um link para escolher uma nova senha.",
+      "sentHint": "Confira também a pasta de spam. O link expira em 30 minutos.",
+      "unavailable": "Nesta instalação não é possível recuperar a senha por email. Peça a um administrador para redefini-la.",
+      "error": "Não foi possível enviar a solicitação",
+      "backToLogin": "Voltar para o login"
+    },
+    "reset": {
+      "title": "Escolher nova senha",
+      "inviteTitle": "Ativar sua conta",
+      "desc": "Escolha uma nova senha para {{username}}. As sessões abertas serão encerradas.",
+      "inviteDesc": "Seu usuário é {{username}}. Escolha uma senha para começar a usar o EchoChat.",
+      "newPassword": "Nova senha",
+      "submit": "Salvar senha",
+      "inviteSubmit": "Ativar conta",
+      "done": "Pronto: você já pode entrar com sua nova senha.",
+      "inviteDone": "Sua conta está ativa: você já pode entrar.",
+      "invalid": "O link é inválido ou expirou. Os links só podem ser usados uma vez.",
+      "requestAnother": "Pedir um novo link",
+      "error": "Não foi possível salvar a senha"
+    }
   },
   "server": {
     "title": "Conecte-se ao seu servidor",
@@ -734,6 +761,32 @@
           "always": "Sempre"
         },
         "badge": "Mostrar o contador de não lidas no ícone do app"
+      },
+      "emailCard": {
+        "title": "Email",
+        "desc": "Os avisos por email chegam em {{email}}. Escolha na tabela acima quais eventos são enviados por email.",
+        "noEmail": "Seu perfil não tem email, então não podemos enviar avisos por correio.",
+        "addEmail": "Adicionar email no perfil",
+        "delay": "Avisar por email se algo continuar sem ler depois de",
+        "minutes": "{{count}} min",
+        "hours": "{{count}} h",
+        "delayHint": "Se você ler antes no app, nenhum email é enviado.",
+        "digest": "Resumo de mensagens não lidas",
+        "digestOptions": {
+          "off": "Nunca",
+          "hourly": "A cada hora",
+          "daily": "Diário",
+          "weekly": "Semanal"
+        },
+        "digestHour": "Horário do resumo",
+        "weeklyHint": "O resumo semanal sai às segundas-feiras no horário escolhido.",
+        "language": "Idioma dos emails",
+        "languages": {
+          "auto": "O do meu perfil",
+          "es": "Español",
+          "en": "English",
+          "pt": "Português"
+        }
       }
     },
     "languages": {
@@ -902,7 +955,13 @@
       "disable2faError": "Não foi possível desativar o 2FA",
       "oidc": "SSO",
       "saml": "SAML",
-      "scim": "SCIM"
+      "scim": "SCIM",
+      "sendInvite": "Enviar convite por email",
+      "sendInviteHint": "O usuário recebe um link para escolher a senha e ativar a conta (expira em 72 horas).",
+      "resendInvite": "Reenviar convite",
+      "resendInviteHint": "Envia um novo link para escolher a senha. O anterior deixa de funcionar.",
+      "inviteSent": "Convite enviado para {{email}}",
+      "inviteError": "Não foi possível enviar o convite"
     },
     "settings": {
       "categories": "Categorias",
@@ -1032,6 +1091,34 @@
       "saved": "Política salva",
       "saveError": "Não foi possível salvar a política",
       "loadError": "Não foi possível carregar a política"
+    },
+    "email": {
+      "title": "Email (SMTP)",
+      "configured": "O servidor tem SMTP configurado. Envie um teste para confirmar que chega.",
+      "notConfigured": "Não há SMTP configurado (SMTP_HOST no .env): nenhum email é enviado.",
+      "testTo": "Enviar teste para",
+      "testToPlaceholder": "Vazio = seu email",
+      "sendTest": "Enviar teste",
+      "testSent": "Email de teste enviado para {{to}}",
+      "testError": "Não foi possível enviar o email de teste",
+      "colDate": "Data",
+      "colTo": "Para",
+      "colType": "Tipo",
+      "colStatus": "Status",
+      "templates": {
+        "passwordReset": "Recuperar senha",
+        "invite": "Convite",
+        "security": "Alerta de segurança",
+        "pending": "Avisos não vistos",
+        "unread": "Mensagens não lidas",
+        "digest": "Resumo",
+        "test": "Teste"
+      },
+      "status": {
+        "pending": "Pendente",
+        "sent": "Enviado",
+        "failed": "Falhou"
+      }
     }
   },
   "monitoring": {
@@ -1240,5 +1327,11 @@
       "tomorrow": "Amanhã",
       "nextWeek": "Semana que vem"
     }
+  },
+  "unsubscribe": {
+    "title": "Emails de avisos",
+    "done": "Pronto: paramos de enviar emails de avisos e resumos. Os alertas de segurança continuam chegando.",
+    "error": "O link é inválido ou expirou. Você pode alterar suas preferências nas configurações.",
+    "manage": "Configurar notificações"
   }
 }

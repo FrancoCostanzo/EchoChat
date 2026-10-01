@@ -16,6 +16,11 @@ const router = Router();
 // llama el service worker, que no tiene la sesión: autoriza el token firmado.
 router.post('/push/action', validate(pushActionDto), (req, res) => notificationController.runPushAction(req, res));
 
+// Baja de los emails de avisos con el link firmado del correo. El token va en
+// la query para que funcione también el "Darse de baja" del cliente de correo
+// (RFC 8058, que hace un POST a la URL tal cual).
+router.post('/email/unsubscribe', (req, res) => notificationController.unsubscribeEmail(req, res));
+
 router.use(authenticate);
 
 router.get('/', withAuth((req, res) => notificationController.getNotifications(req, res)));

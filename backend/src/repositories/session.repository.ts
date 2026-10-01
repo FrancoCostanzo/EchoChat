@@ -53,6 +53,22 @@ class SessionRepository extends BaseRepository<SessionRow> {
     return rows;
   }
 
+  /**
+   * Para la alerta de "inicio de sesión desde un dispositivo nuevo": si el
+   * usuario ya tuvo sesiones, y si alguna (de los últimos 90 días) fue con este
+   * mismo navegador.
+   */
+  async deviceHistory(userId: string, userAgent: string | null): Promise<{ hasAny: boolean; known: boolean }> {
+    const { rows } = await this.query<{ has_any: boolean; known: boolean }>(
+      `SELECT EXISTS (SELECT 1 FROM user_sessions WHERE user_id = $1) AS has_any,
+              EXISTS (SELECT 1 FROM user_sessions
+                      WHERE user_id = $1 AND user_agent IS NOT DISTINCT FROM $2
+                        AND created_at > NOW() - INTERVAL '90 days') AS known`,
+      [userId, userAgent]
+    );
+    return { hasAny: rows[0].has_any, known: rows[0].known };
+  }
+
   async deactivate(id: string): Promise<void> {
     await this.query(
       'UPDATE user_sessions SET is_active = FALSE WHERE id = $1',

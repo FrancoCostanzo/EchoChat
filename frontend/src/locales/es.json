@@ -94,7 +94,34 @@
       "strong": "Fuerte"
     },
     "registrationDisabledTitle": "Registro deshabilitado",
-    "registrationDisabled": "El registro de nuevos usuarios está deshabilitado. Pedile una cuenta a un administrador."
+    "registrationDisabled": "El registro de nuevos usuarios está deshabilitado. Pedile una cuenta a un administrador.",
+    "forgot": {
+      "link": "¿Olvidaste tu contraseña?",
+      "title": "Recuperar contraseña",
+      "desc": "Ingresá tu usuario o tu email y te mandamos un link para elegir una contraseña nueva.",
+      "identifier": "Usuario o email",
+      "identifierPlaceholder": "juan.perez o juan@empresa.com",
+      "submit": "Enviar link",
+      "sent": "Si la cuenta existe y tiene un email cargado, te mandamos un link para elegir una contraseña nueva.",
+      "sentHint": "Revisá también la carpeta de spam. El link vence en 30 minutos.",
+      "unavailable": "En esta instalación no se puede recuperar la contraseña por email. Pedile a un administrador que te la restablezca.",
+      "error": "No se pudo enviar el pedido",
+      "backToLogin": "Volver a iniciar sesión"
+    },
+    "reset": {
+      "title": "Elegir contraseña nueva",
+      "inviteTitle": "Activar tu cuenta",
+      "desc": "Elegí una contraseña nueva para {{username}}. Se van a cerrar las sesiones abiertas.",
+      "inviteDesc": "Tu usuario es {{username}}. Elegí una contraseña para empezar a usar EchoChat.",
+      "newPassword": "Contraseña nueva",
+      "submit": "Guardar contraseña",
+      "inviteSubmit": "Activar cuenta",
+      "done": "Listo: ya podés iniciar sesión con tu contraseña nueva.",
+      "inviteDone": "Tu cuenta está activa: ya podés iniciar sesión.",
+      "invalid": "El link no es válido o ya venció. Los links sirven una sola vez.",
+      "requestAnother": "Pedir un link nuevo",
+      "error": "No se pudo guardar la contraseña"
+    }
   },
   "server": {
     "title": "Conectate a tu servidor",
@@ -734,6 +761,32 @@
           "always": "Siempre"
         },
         "badge": "Mostrar el contador de no leídos en el ícono de la app"
+      },
+      "emailCard": {
+        "title": "Email",
+        "desc": "Los avisos por email llegan a {{email}}. Elegí en la tabla de arriba qué eventos se mandan por email.",
+        "noEmail": "No tenés un email en tu perfil, así que no te podemos mandar avisos por correo.",
+        "addEmail": "Agregar email en el perfil",
+        "delay": "Avisarme por email si algo sigue sin leer después de",
+        "minutes": "{{count}} min",
+        "hours": "{{count}} h",
+        "delayHint": "Si lo leés antes en la app, no llega ningún email.",
+        "digest": "Resumen de mensajes sin leer",
+        "digestOptions": {
+          "off": "Nunca",
+          "hourly": "Cada hora",
+          "daily": "Diario",
+          "weekly": "Semanal"
+        },
+        "digestHour": "Hora del resumen",
+        "weeklyHint": "El resumen semanal sale los lunes a la hora elegida.",
+        "language": "Idioma de los emails",
+        "languages": {
+          "auto": "El de mi perfil",
+          "es": "Español",
+          "en": "English",
+          "pt": "Português"
+        }
       }
     },
     "languages": {
@@ -902,7 +955,13 @@
       "disable2faError": "No se pudo desactivar el 2FA",
       "oidc": "SSO",
       "saml": "SAML",
-      "scim": "SCIM"
+      "scim": "SCIM",
+      "sendInvite": "Enviar invitación por email",
+      "sendInviteHint": "El usuario recibe un link para elegir su contraseña y activar la cuenta (vence en 72 horas).",
+      "resendInvite": "Reenviar invitación",
+      "resendInviteHint": "Manda un link nuevo para elegir contraseña. El anterior deja de servir.",
+      "inviteSent": "Invitación enviada a {{email}}",
+      "inviteError": "No se pudo enviar la invitación"
     },
     "settings": {
       "categories": "Categorías",
@@ -1032,6 +1091,34 @@
       "saved": "Política guardada",
       "saveError": "No se pudo guardar la política",
       "loadError": "No se pudo cargar la política"
+    },
+    "email": {
+      "title": "Email (SMTP)",
+      "configured": "El servidor tiene SMTP configurado. Mandá una prueba para confirmar que llega.",
+      "notConfigured": "No hay SMTP configurado (SMTP_HOST en el .env): no se mandan emails.",
+      "testTo": "Enviar prueba a",
+      "testToPlaceholder": "Vacío = tu email",
+      "sendTest": "Enviar prueba",
+      "testSent": "Email de prueba enviado a {{to}}",
+      "testError": "No se pudo enviar el email de prueba",
+      "colDate": "Fecha",
+      "colTo": "Para",
+      "colType": "Tipo",
+      "colStatus": "Estado",
+      "templates": {
+        "passwordReset": "Recuperar contraseña",
+        "invite": "Invitación",
+        "security": "Alerta de seguridad",
+        "pending": "Avisos sin ver",
+        "unread": "Mensajes sin leer",
+        "digest": "Resumen",
+        "test": "Prueba"
+      },
+      "status": {
+        "pending": "Pendiente",
+        "sent": "Enviado",
+        "failed": "Falló"
+      }
     }
   },
   "monitoring": {
@@ -1240,5 +1327,11 @@
       "tomorrow": "Mañana",
       "nextWeek": "La semana que viene"
     }
+  },
+  "unsubscribe": {
+    "title": "Emails de avisos",
+    "done": "Listo: dejamos de mandarte emails de avisos y resúmenes. Las alertas de seguridad siguen llegando.",
+    "error": "El link no es válido o ya venció. Podés cambiar tus preferencias desde la configuración.",
+    "manage": "Configurar notificaciones"
   }
 }

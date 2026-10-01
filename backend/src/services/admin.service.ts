@@ -7,6 +7,9 @@ import { publicMinioClient } from '../config/minio';
 import ldapService from './ldap.service';
 import oidcService from './oidc.service';
 import notificationService from './notification.service';
+import authService from './auth.service';
+import mailService from './mail.service';
+import { idiomaDe } from '../i18n';
 import {
   userRepository,
   credentialRepository,
@@ -124,9 +127,16 @@ class AdminService {
       if (emailExists) throw new ConflictError('Email already registered');
     }
 
+    if (data.send_invite && !mailService.isConfigured()) {
+      throw new BadRequestError('Email is not configured: set a password instead of sending an invite');
+    }
+
     const user = await userRepository.create(data);
-    const passwordHash = await bcrypt.hash(data.password, SALT_ROUNDS);
-    await credentialRepository.create(user.id, passwordHash);
+    // Con invitación no hay contraseña todavía: la elige el usuario desde el email.
+    if (data.password) {
+      const passwordHash = await bcrypt.hash(data.password, SALT_ROUNDS);
+      await credentialRepository.create(user.id, passwordHash);
+    }
 
     const roleNames = data.role_names?.length ? data.role_names : ['user'];
     await userRepository.setUserRoles(user.id, roleNames, actorId);
@@ -140,8 +150,10 @@ class AdminService {
       user_agent: userAgent,
       severity: 'info',
       category: 'admin',
-      data_after: { username: user.username, roles: roleNames },
+      data_after: { username: user.username, roles: roleNames, invited: Boolean(data.send_invite) },
     });
+
+    if (data.send_invite) await authService.sendInvite(user.id, actorId);
 
     logger.info({ userId: user.id, actorId }, 'Admin created user');
     const roles = await userRepository.getUserRoles(user.id);
@@ -512,6 +524,39 @@ class AdminService {
         throw new BadRequestError('Cannot remove the last super_admin');
       }
     }
+  }
+
+  /** Reenvía la invitación (por ejemplo, si venció el link). */
+  async resendInvite(actorId: string, userId: string, ip?: string | null, userAgent?: string | null) {
+    await authService.sendInvite(userId, actorId);
+    await auditRepository.log({
+      actor_id: actorId,
+      action: 'admin.user_invite',
+      resource_type: 'user',
+      resource_id: userId,
+      ip_address: ip,
+      user_agent: userAgent,
+      severity: 'info',
+      category: 'admin',
+    });
+  }
+
+  // ── Email ───────────────────────────────────────────────────────────────
+
+  /** "Probar SMTP": manda en el momento a `to` (o al email del admin) y devuelve el error si falla. */
+  async sendTestEmail(actorId: string, to?: string) {
+    const actor = await userRepository.findById(actorId);
+    const destination = to || actor?.email;
+    if (!destination) throw new BadRequestError('No destination: add an email to your profile or enter one');
+    await mailService.sendTest(destination, idiomaDe(actor?.locale));
+    return { to: destination };
+  }
+
+  async getEmailLog() {
+    return {
+      configured: mailService.isConfigured(),
+      entries: await mailService.listRecent(50),
+    };
   }
 
   // ── Settings (7.2) ──────────────────────────────────────────────────────

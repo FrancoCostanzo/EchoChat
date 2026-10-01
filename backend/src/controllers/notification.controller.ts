@@ -3,9 +3,10 @@ import { StatusCodes } from 'http-status-codes';
 import { notificationService } from '../services';
 import pushService from '../services/push.service';
 import pushActionService from '../services/pushAction.service';
+import mailService from '../services/mail.service';
 import { userRepository } from '../repositories';
 import { idiomaDe } from '../i18n';
-import { qInt, type AuthRequest } from '../types/http';
+import { qInt, qStr, type AuthRequest } from '../types/http';
 
 class NotificationController {
   async getNotifications(req: AuthRequest, res: Response) {
@@ -79,6 +80,13 @@ class NotificationController {
   async runPushAction(req: Request, res: Response) {
     await pushActionService.run(req.body.token);
     res.json({ status: 'success', message: 'Done' });
+  }
+
+  /** Sin sesión: el token firmado del link del email identifica al usuario. */
+  async unsubscribeEmail(req: Request, res: Response) {
+    const token = qStr(req.query.token) || (typeof req.body?.token === 'string' ? req.body.token : '');
+    await mailService.unsubscribe(token);
+    res.json({ status: 'success', message: 'Unsubscribed' });
   }
 
   async getSettings(req: AuthRequest, res: Response) {

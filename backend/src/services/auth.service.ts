@@ -4,7 +4,16 @@ import crypto from 'crypto';
 import QRCode from 'qrcode';
 import config from '../config';
 import logger from '../config/logger';
-import { userRepository, credentialRepository, sessionRepository, auditRepository, systemSettingsRepository } from '../repositories';
+import {
+  userRepository,
+  credentialRepository,
+  sessionRepository,
+  auditRepository,
+  systemSettingsRepository,
+  emailRepository,
+} from '../repositories';
+import notificationService from './notification.service';
+import mailService from './mail.service';
 import { UnauthorizedError, ConflictError, BadRequestError, ForbiddenError, NotFoundError } from '../errors';
 // Require directo para evitar el ciclo services/index → auth.service.
 import ldapService from './ldap.service';
@@ -53,6 +62,42 @@ function verifyJwt(token: string): jwt.JwtPayload {
     throw new UnauthorizedError('Invalid token');
   }
   return payload;
+}
+
+/** Vigencia del link de recuperación de contraseña. */
+const RESET_TOKEN_MINUTES = 30;
+/** Vigencia del link de invitación de una cuenta nueva. */
+const INVITE_TOKEN_HOURS = 72;
+
+type SecurityAlertKind = 'newLogin' | 'passwordChanged' | 'passwordReset' | '2faDisabled';
+
+// Título de la notificación in-app (como el resto de la bandeja, en español);
+// el email y el push se traducen al idioma del usuario.
+const SECURITY_TITLES: Record<SecurityAlertKind, string> = {
+  newLogin: 'Nuevo inicio de sesión en tu cuenta',
+  passwordChanged: 'Se cambió tu contraseña',
+  passwordReset: 'Se restableció tu contraseña',
+  '2faDisabled': 'Se desactivó la verificación en dos pasos',
+};
+
+/** "Chrome en Windows (190.1.2.3)" a partir del user-agent, para la alerta de login. */
+function describeDevice(userAgent: string | null | undefined, ip: string | null | undefined): string {
+  const ua = userAgent ?? '';
+  const browser = /Edg\//.test(ua) ? 'Edge'
+    : /OPR\/|Opera/.test(ua) ? 'Opera'
+    : /Chrome\//.test(ua) ? 'Chrome'
+    : /Firefox\//.test(ua) ? 'Firefox'
+    : /Safari\//.test(ua) ? 'Safari'
+    : /Electron\//.test(ua) ? 'EchoChat Desktop'
+    : null;
+  const os = /Windows/.test(ua) ? 'Windows'
+    : /iPhone|iPad/.test(ua) ? 'iOS'
+    : /Mac OS X|Macintosh/.test(ua) ? 'macOS'
+    : /Android/.test(ua) ? 'Android'
+    : /Linux/.test(ua) ? 'Linux'
+    : null;
+  const what = [browser, os].filter(Boolean).join(' / ') || ua.slice(0, 80) || '?';
+  return ip ? `${what} (${ip})` : what;
 }
 
 class AuthService {
@@ -234,6 +279,8 @@ class AuthService {
     const token = this._generateToken(user);
     const tokenHash = this._hashToken(token);
     const expiresAt = this._getTokenExpiry();
+    // Antes de crear la sesión: si no, el dispositivo nuevo ya figuraría como conocido.
+    const history = await sessionRepository.deviceHistory(user.id, userAgent ?? null);
 
     await sessionRepository.create({
       userId: user.id,
@@ -259,8 +306,139 @@ class AuthService {
       metadata: { provider: user.auth_provider || 'local' },
     });
 
+    // El primer inicio de sesión de la cuenta no alerta: todo dispositivo es nuevo.
+    if (history.hasAny && !history.known) {
+      void this._securityAlert(user.id, 'newLogin', describeDevice(userAgent, ip));
+    }
+
     logger.info({ userId: user.id, provider: user.auth_provider || 'local' }, 'User logged in');
     return { user, token, expires_at: expiresAt };
+  }
+
+  // ── Recuperar contraseña e invitaciones ─────────────────────────────────
+
+  /** ¿Se puede recuperar la contraseña por email? Sólo si hay SMTP. */
+  isPasswordResetAvailable(): boolean {
+    return mailService.isConfigured();
+  }
+
+  /**
+   * Manda el link para elegir una contraseña nueva. Responde igual exista o no
+   * la cuenta (no se puede usar para averiguar qué usuarios hay). Sólo cuentas
+   * locales con contraseña: las de LDAP/SSO se recuperan en su directorio.
+   */
+  async requestPasswordReset(identifier: string, ip?: string | null, userAgent?: string | null): Promise<void> {
+    if (!mailService.isConfigured()) throw new BadRequestError('Password recovery by email is not available');
+    const value = identifier.trim();
+    const user = value.includes('@')
+      ? await userRepository.findByEmailInsensitive(value)
+      : await userRepository.findByUsername(value);
+    if (!user || user.status !== 'active' || user.auth_provider !== 'local' || !user.email) return;
+    if (!(await credentialRepository.findByUserId(user.id))) return;
+
+    const token = await this._createPasswordToken(user.id, 'reset', RESET_TOKEN_MINUTES);
+    await mailService.enqueueForUser(user.id, 'passwordReset', {
+      url: `${config.appUrl}/reset-password?token=${encodeURIComponent(token)}`,
+      minutes: RESET_TOKEN_MINUTES,
+    });
+    await auditRepository.log({
+      actor_id: user.id,
+      action: 'user.password_reset_requested',
+      resource_type: 'user',
+      resource_id: user.id,
+      ip_address: ip,
+      user_agent: userAgent,
+      severity: 'info',
+      category: 'security',
+    });
+  }
+
+  /** Para la pantalla de "elegir contraseña": si el link sirve, de qué tipo es y de quién. */
+  async inspectPasswordToken(token: string): Promise<{ purpose: 'reset' | 'invite'; username: string }> {
+    const row = await emailRepository.findValidPasswordToken(this._hashToken(token));
+    const user = row ? await userRepository.findById(row.user_id) : null;
+    if (!row || !user || user.status !== 'active') throw new BadRequestError('Invalid or expired link');
+    return { purpose: row.purpose as 'reset' | 'invite', username: user.username };
+  }
+
+  /**
+   * Fija la contraseña con un link de recuperación o de invitación. El token
+   * se consume de forma atómica (no sirve dos veces). Al recuperar se cierran
+   * todas las sesiones: si alguien más tenía la cuenta, la pierde.
+   */
+  async completePasswordToken(
+    token: string,
+    newPassword: string,
+    ip?: string | null,
+    userAgent?: string | null,
+  ): Promise<{ purpose: 'reset' | 'invite' }> {
+    const row = await emailRepository.consumePasswordToken(this._hashToken(token));
+    const user = row ? await userRepository.findById(row.user_id) : null;
+    if (!row || !user || user.status !== 'active') throw new BadRequestError('Invalid or expired link');
+
+    const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+    if (await credentialRepository.findByUserId(user.id)) {
+      await credentialRepository.updatePassword(user.id, passwordHash);
+    } else {
+      await credentialRepository.create(user.id, passwordHash);
+    }
+    await sessionRepository.deactivateAllForUser(user.id);
+
+    const purpose = row.purpose as 'reset' | 'invite';
+    await auditRepository.log({
+      actor_id: user.id,
+      action: purpose === 'reset' ? 'user.password_reset' : 'user.invite_accepted',
+      resource_type: 'user',
+      resource_id: user.id,
+      ip_address: ip,
+      user_agent: userAgent,
+      severity: 'warning',
+      category: 'security',
+    });
+    if (purpose === 'reset') void this._securityAlert(user.id, 'passwordReset');
+    logger.info({ userId: user.id, purpose }, 'Password set with token');
+    return { purpose };
+  }
+
+  /**
+   * Invitación a una cuenta creada por el admin: link para elegir la
+   * contraseña y activarla. Reenviarla invalida el link anterior.
+   */
+  async sendInvite(userId: string, inviterId: string): Promise<void> {
+    if (!mailService.isConfigured()) throw new BadRequestError('Email is not configured on this server');
+    const [user, inviter] = await Promise.all([userRepository.findById(userId), userRepository.findById(inviterId)]);
+    if (!user) throw new NotFoundError('User');
+    if (!user.email) throw new BadRequestError('The user has no email address');
+    if (user.auth_provider !== 'local') throw new BadRequestError('Directory accounts sign in with their corporate password');
+
+    const token = await this._createPasswordToken(user.id, 'invite', INVITE_TOKEN_HOURS * 60);
+    await mailService.enqueueForUser(user.id, 'invite', {
+      url: `${config.appUrl}/reset-password?token=${encodeURIComponent(token)}`,
+      inviter: inviter?.display_name || 'EchoChat',
+      username: user.username,
+      hours: INVITE_TOKEN_HOURS,
+    });
+  }
+
+  /** Genera el token, guarda su hash y devuelve el token en claro (va sólo en el email). */
+  async _createPasswordToken(userId: string, purpose: 'reset' | 'invite', minutes: number): Promise<string> {
+    const token = crypto.randomBytes(32).toString('base64url');
+    await emailRepository.createPasswordToken(userId, this._hashToken(token), purpose, minutes);
+    return token;
+  }
+
+  /** Alerta de seguridad: obligatoria por defecto (evento bloqueado), sale también por email. */
+  async _securityAlert(userId: string, kind: SecurityAlertKind, device?: string): Promise<void> {
+    await notificationService.notify(userId, {
+      event: 'security.alert',
+      type: 'security',
+      title: SECURITY_TITLES[kind],
+      body: device ?? null,
+      reference_type: 'user',
+      reference_id: userId,
+      push: { kind: 'security', preview: device ?? null, url: '/settings/security', tag: `security-${kind}` },
+      email: { template: 'security', data: { kind, device } },
+    });
   }
 
   // Lee el toggle `allow_registration` (system_settings). Default permisivo si falta.
@@ -348,6 +526,7 @@ class AuthService {
       category: 'security',
     });
 
+    void this._securityAlert(userId, 'passwordChanged');
     logger.info({ userId }, 'Password changed');
   }
 
@@ -433,6 +612,7 @@ class AuthService {
       severity: 'warning',
       category: 'security',
     });
+    void this._securityAlert(userId, '2faDisabled');
     logger.info({ userId }, '2FA disabled');
   }
 

@@ -18,6 +18,9 @@ const ChatLayout = lazy(() => import('@/layouts/ChatLayout'));
 const LoginPage = lazy(() => import('@/pages/LoginPage'));
 const AuthCallbackPage = lazy(() => import('@/pages/AuthCallbackPage'));
 const RegisterPage = lazy(() => import('@/pages/RegisterPage'));
+const ForgotPasswordPage = lazy(() => import('@/pages/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('@/pages/ResetPasswordPage'));
+const UnsubscribePage = lazy(() => import('@/pages/UnsubscribePage'));
 const EmptyChat = lazy(() => import('@/pages/EmptyChat'));
 const ConversationPage = lazy(() => import('@/pages/ConversationPage'));
 const NewConversationPage = lazy(() => import('@/pages/NewConversationPage'));
@@ -95,6 +98,9 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/unsubscribe" element={<UnsubscribePage />} />
 
         <Route
           element={

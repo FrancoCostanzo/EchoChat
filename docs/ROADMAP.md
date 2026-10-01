@@ -86,7 +86,7 @@ Fase 0 → Fase 1 → Fase 2 → Fase 3 → (Fase 6 en paralelo) → Fase 8 → 
 |---|---|---|---|---|
 | 2.0 | **Preferencias en 3 niveles + despachador único** (ver detalle abajo). | M (4-5d) | — | ✅ |
 | 2.1 | Web Push (VAPID) + PWA: suscripción por dispositivo, envío respetando preferencias. | M (4-5d) | 2.0 | ✅ |
-| 2.2 | Email (nodemailer + SMTP): reset de contraseña, invitaciones, alertas, digest. | M (5-6d) | 2.0, 0.3 | ⬜ |
+| 2.2 | Email (nodemailer + SMTP): reset de contraseña, invitaciones, alertas, digest. | M (5-6d) | 2.0, 0.3 | ✅ |
 | 2.3 | UI de preferencias granular por evento + horario de silencio. | S (2d) | 2.1 | ✅ |
 
 ### Plan detallado (2.0–2.2)
@@ -166,6 +166,17 @@ Resolución de preferencias de lo más específico a lo más general:
   (menciones/DM/llamadas perdidas tras X min) y **digest** periódico sin contenido por defecto
   (los mensajes están cifrados en reposo).
 - Admin: "Probar SMTP" y registro de envíos.
+- ✅ **Hecho** — `nodemailer` + migración `023_email.sql` (`email_outbox`, `password_tokens`,
+  marcas `notifications.email_due_at/emailed_at`, `conversation_members.unread_email_at`,
+  `last_digest_at`). `mail.service` (cola con reintentos y backoff, `data` se vacía al enviar,
+  `List-Unsubscribe` one-click), plantillas HTML+texto en `src/emails/templates.ts` con textos
+  es/en/pt en `src/i18n`. Jobs `email-outbox` (cada minuto) y `email-notices` (cada 5 min:
+  avisos sin leer, chats sin leer; resúmenes al minuto 0). Recuperar contraseña
+  (`/auth/password-reset/*`, rate limit propio, respuesta igual exista o no la cuenta, cierra
+  sesiones), invitación desde Admin (alta sin contraseña + reenvío), alertas de seguridad (login
+  desde dispositivo nuevo, contraseña cambiada/restablecida, 2FA desactivado). Frontend:
+  `/forgot-password`, `/reset-password`, `/unsubscribe`, link en el login, tarjeta Email en
+  Ajustes, invitación y tarjeta SMTP en Admin. Tests en `backend/tests/emails.test.ts`.
 
 ### Detalle de lo implementado en Fase 2 (parcial)
 

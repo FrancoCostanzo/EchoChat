@@ -94,7 +94,34 @@
     "useBackupCode": "Use a backup code",
     "verify": "Verify",
     "verifying": "Verifying...",
-    "backToLogin": "Back to sign in"
+    "backToLogin": "Back to sign in",
+    "forgot": {
+      "link": "Forgot your password?",
+      "title": "Recover password",
+      "desc": "Enter your username or email and we'll send you a link to choose a new password.",
+      "identifier": "Username or email",
+      "identifierPlaceholder": "john.doe or john@company.com",
+      "submit": "Send link",
+      "sent": "If the account exists and has an email, we sent you a link to choose a new password.",
+      "sentHint": "Check your spam folder too. The link expires in 30 minutes.",
+      "unavailable": "Password recovery by email isn't available on this server. Ask an administrator to reset it.",
+      "error": "Couldn't send the request",
+      "backToLogin": "Back to sign in"
+    },
+    "reset": {
+      "title": "Choose a new password",
+      "inviteTitle": "Activate your account",
+      "desc": "Choose a new password for {{username}}. Open sessions will be signed out.",
+      "inviteDesc": "Your username is {{username}}. Choose a password to start using EchoChat.",
+      "newPassword": "New password",
+      "submit": "Save password",
+      "inviteSubmit": "Activate account",
+      "done": "Done: you can now sign in with your new password.",
+      "inviteDone": "Your account is active: you can now sign in.",
+      "invalid": "The link is invalid or has expired. Links work only once.",
+      "requestAnother": "Request a new link",
+      "error": "Couldn't save the password"
+    }
   },
   "server": {
     "title": "Connect to your server",
@@ -734,6 +761,32 @@
           "always": "Always"
         },
         "badge": "Show the unread count on the app icon"
+      },
+      "emailCard": {
+        "title": "Email",
+        "desc": "Email notifications go to {{email}}. Choose which events are emailed in the table above.",
+        "noEmail": "There's no email on your profile, so we can't email you notifications.",
+        "addEmail": "Add an email to your profile",
+        "delay": "Email me if something is still unread after",
+        "minutes": "{{count}} min",
+        "hours": "{{count}} h",
+        "delayHint": "If you read it in the app first, no email is sent.",
+        "digest": "Summary of unread messages",
+        "digestOptions": {
+          "off": "Never",
+          "hourly": "Hourly",
+          "daily": "Daily",
+          "weekly": "Weekly"
+        },
+        "digestHour": "Summary time",
+        "weeklyHint": "The weekly summary goes out on Mondays at the chosen time.",
+        "language": "Email language",
+        "languages": {
+          "auto": "My profile's",
+          "es": "Español",
+          "en": "English",
+          "pt": "Português"
+        }
       }
     },
     "languages": {
@@ -902,7 +955,13 @@
       "disable2faError": "Could not disable 2FA",
       "oidc": "SSO",
       "saml": "SAML",
-      "scim": "SCIM"
+      "scim": "SCIM",
+      "sendInvite": "Send an invitation by email",
+      "sendInviteHint": "The user gets a link to choose their password and activate the account (expires in 72 hours).",
+      "resendInvite": "Resend invitation",
+      "resendInviteHint": "Sends a new link to choose a password. The previous one stops working.",
+      "inviteSent": "Invitation sent to {{email}}",
+      "inviteError": "Couldn't send the invitation"
     },
     "settings": {
       "categories": "Categories",
@@ -1032,6 +1091,34 @@
       "saved": "Policy saved",
       "saveError": "Couldn't save the policy",
       "loadError": "Couldn't load the policy"
+    },
+    "email": {
+      "title": "Email (SMTP)",
+      "configured": "SMTP is configured on the server. Send a test to confirm it arrives.",
+      "notConfigured": "SMTP isn't configured (SMTP_HOST in .env): no emails are sent.",
+      "testTo": "Send test to",
+      "testToPlaceholder": "Empty = your email",
+      "sendTest": "Send test",
+      "testSent": "Test email sent to {{to}}",
+      "testError": "Couldn't send the test email",
+      "colDate": "Date",
+      "colTo": "To",
+      "colType": "Type",
+      "colStatus": "Status",
+      "templates": {
+        "passwordReset": "Password recovery",
+        "invite": "Invitation",
+        "security": "Security alert",
+        "pending": "Unseen notifications",
+        "unread": "Unread messages",
+        "digest": "Summary",
+        "test": "Test"
+      },
+      "status": {
+        "pending": "Pending",
+        "sent": "Sent",
+        "failed": "Failed"
+      }
     }
   },
   "monitoring": {
@@ -1240,5 +1327,11 @@
       "tomorrow": "Tomorrow",
       "nextWeek": "Next week"
     }
+  },
+  "unsubscribe": {
+    "title": "Notification emails",
+    "done": "Done: we stopped sending you notification and summary emails. Security alerts still arrive.",
+    "error": "The link is invalid or has expired. You can change your preferences in settings.",
+    "manage": "Notification settings"
   }
 }
