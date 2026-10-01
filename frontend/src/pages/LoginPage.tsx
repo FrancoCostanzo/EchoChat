@@ -168,6 +168,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [registrationAllowed, setRegistrationAllowed] = useState(true);
   const [ssoProviders, setSsoProviders] = useState<SsoProvider[]>([]);
+  const [canResetPassword, setCanResetPassword] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -176,6 +177,10 @@ export default function LoginPage() {
       .catch(() => {});
     authApi.ssoProviders()
       .then((res) => { if (alive) setSsoProviders((res.data?.providers as SsoProvider[]) || []); })
+      .catch(() => {});
+    // Sin SMTP no hay a dónde mandar el link: el enlace ni se muestra.
+    authApi.passwordResetStatus()
+      .then((res) => { if (alive) setCanResetPassword(res.data.available); })
       .catch(() => {});
     return () => { alive = false; };
   }, []);
@@ -318,6 +323,12 @@ export default function LoginPage() {
                     </InputGroup>
                     {touched.password && <FieldError>{errors.password}</FieldError>}
                   </TextField>
+
+                  {canResetPassword && (
+                    <Link to="/forgot-password" className="-mt-2 self-end text-xs font-medium text-accent hover:underline">
+                      {t('auth.forgot.link')}
+                    </Link>
+                  )}
 
                   <motion.div whileTap={{ scale: 0.97 }} transition={{ duration: 0.1 }} className="mt-1">
                     <Button type="submit" isPending={loading} className="w-full">

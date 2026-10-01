@@ -256,6 +256,60 @@ describe('llamadas', () => {
       method: 'PUT', token: ana.token, body: { status: 'ended', end_reason: 'hangup' },
     })).status, 200);
   });
+
+  test('alguien ajeno no puede ver, terminar ni tocar una llamada', async () => {
+    const intruso = await crearUsuario(pedir, 'intruso');
+    const conv = await conversacionDirecta();
+    const llamada = await pedir('/api/calls', {
+      method: 'POST', token: ana.token, body: { conversation_id: conv, type: 'voice', participant_ids: [beto.id] },
+    });
+    const id = llamada.datos.id;
+
+    assert.equal((await pedir(`/api/calls/${id}`, { token: intruso.token })).status, 403);
+    assert.equal((await pedir(`/api/calls/conversation/${conv}`, { token: intruso.token })).status, 403);
+    assert.equal((await pedir(`/api/calls/${id}/status`, {
+      method: 'PUT', token: intruso.token, body: { status: 'ended', end_reason: 'hangup' },
+    })).status, 403);
+    assert.equal((await pedir(`/api/calls/${id}/participants/${beto.id}`, {
+      method: 'PUT', token: intruso.token, body: { is_muted_by_host: true },
+    })).status, 403);
+  });
+
+  test('sólo se puede llamar a miembros de la conversación', async () => {
+    const intruso = await crearUsuario(pedir, 'intruso');
+    const conv = await conversacionDirecta();
+
+    // Ana no puede sumar a alguien de afuera…
+    assert.equal((await pedir('/api/calls', {
+      method: 'POST', token: ana.token, body: { conversation_id: conv, type: 'voice', participant_ids: [intruso.id] },
+    })).status, 400);
+    // …ni alguien de afuera iniciar una llamada en esa conversación.
+    assert.equal((await pedir('/api/calls', {
+      method: 'POST', token: intruso.token, body: { conversation_id: conv, type: 'voice', participant_ids: [beto.id] },
+    })).status, 403);
+  });
+
+  test('sólo quien inició la llamada cambia los permisos de los participantes', async () => {
+    const conv = await conversacionDirecta();
+    const llamada = await pedir('/api/calls', {
+      method: 'POST', token: ana.token, body: { conversation_id: conv, type: 'voice', participant_ids: [beto.id] },
+    });
+    const id = llamada.datos.id;
+
+    assert.equal((await pedir(`/api/calls/${id}/participants/${ana.id}`, {
+      method: 'PUT', token: beto.token, body: { is_muted_by_host: true },
+    })).status, 403);
+    assert.equal((await pedir(`/api/calls/${id}/participants/${beto.id}`, {
+      method: 'PUT', token: beto.token, body: { can_speak: true },
+    })).status, 403);
+    // Su propio estado sí lo actualiza.
+    assert.equal((await pedir(`/api/calls/${id}/participants/${beto.id}`, {
+      method: 'PUT', token: beto.token, body: { status: 'left' },
+    })).status, 200);
+    assert.equal((await pedir(`/api/calls/${id}/participants/${beto.id}`, {
+      method: 'PUT', token: ana.token, body: { is_muted_by_host: true },
+    })).status, 200);
+  });
 });
 
 describe('canales', () => {

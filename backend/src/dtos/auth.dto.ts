@@ -128,3 +128,26 @@ export const totpRegenerateDto = Joi.object<TotpCodeRequest>({
   code: Joi.string().length(6).pattern(/^\d{6}$/).required()
     .messages({ 'string.pattern.base': 'Code must be 6 digits' }),
 });
+
+export interface PasswordResetRequest {
+  /** Usuario o email. */
+  identifier: string;
+}
+
+export const passwordResetRequestDto = Joi.object<PasswordResetRequest>({
+  identifier: Joi.string().trim().min(1).max(255).required(),
+});
+
+export const passwordTokenDto = Joi.object<{ token: string }>({
+  token: Joi.string().max(200).required(),
+});
+
+export interface PasswordResetCompleteRequest {
+  token: string;
+  password: string;
+}
+
+export const passwordResetCompleteDto = Joi.object<PasswordResetCompleteRequest>({
+  token: Joi.string().max(200).required(),
+  password: Joi.string().min(8).max(128).required(),
+});

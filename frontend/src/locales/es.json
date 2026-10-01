@@ -94,7 +94,34 @@
       "strong": "Fuerte"
     },
     "registrationDisabledTitle": "Registro deshabilitado",
-    "registrationDisabled": "El registro de nuevos usuarios está deshabilitado. Pedile una cuenta a un administrador."
+    "registrationDisabled": "El registro de nuevos usuarios está deshabilitado. Pedile una cuenta a un administrador.",
+    "forgot": {
+      "link": "¿Olvidaste tu contraseña?",
+      "title": "Recuperar contraseña",
+      "desc": "Ingresá tu usuario o tu email y te mandamos un link para elegir una contraseña nueva.",
+      "identifier": "Usuario o email",
+      "identifierPlaceholder": "juan.perez o juan@empresa.com",
+      "submit": "Enviar link",
+      "sent": "Si la cuenta existe y tiene un email cargado, te mandamos un link para elegir una contraseña nueva.",
+      "sentHint": "Revisá también la carpeta de spam. El link vence en 30 minutos.",
+      "unavailable": "En esta instalación no se puede recuperar la contraseña por email. Pedile a un administrador que te la restablezca.",
+      "error": "No se pudo enviar el pedido",
+      "backToLogin": "Volver a iniciar sesión"
+    },
+    "reset": {
+      "title": "Elegir contraseña nueva",
+      "inviteTitle": "Activar tu cuenta",
+      "desc": "Elegí una contraseña nueva para {{username}}. Se van a cerrar las sesiones abiertas.",
+      "inviteDesc": "Tu usuario es {{username}}. Elegí una contraseña para empezar a usar EchoChat.",
+      "newPassword": "Contraseña nueva",
+      "submit": "Guardar contraseña",
+      "inviteSubmit": "Activar cuenta",
+      "done": "Listo: ya podés iniciar sesión con tu contraseña nueva.",
+      "inviteDone": "Tu cuenta está activa: ya podés iniciar sesión.",
+      "invalid": "El link no es válido o ya venció. Los links sirven una sola vez.",
+      "requestAnother": "Pedir un link nuevo",
+      "error": "No se pudo guardar la contraseña"
+    }
   },
   "server": {
     "title": "Conectate a tu servidor",
@@ -272,7 +299,37 @@
     "onlyAdminsSendMessages": "Solo los administradores pueden enviar mensajes",
     "onlyAdminsSendMessagesHint": "Si está activo, los demás miembros no van a poder escribir en este grupo.",
     "onlyAdminsEditInfo": "Solo los administradores editan la info del grupo",
-    "onlyAdminsEditInfoHint": "Si está desactivado, cualquier miembro puede cambiar el nombre, la descripción y la foto."
+    "onlyAdminsEditInfoHint": "Si está desactivado, cualquier miembro puede cambiar el nombre, la descripción y la foto.",
+    "notif": {
+      "threadReply": "{{name}} respondió en un hilo",
+      "reaction": "{{name}} reaccionó {{emoji}} a tu mensaje",
+      "missedCall": "Llamada perdida de {{name}}"
+    },
+    "notifications": {
+      "title": "Notificaciones",
+      "level": "Nivel de aviso",
+      "levels": {
+        "all": "Todo",
+        "mentions": "Menciones",
+        "none": "Nada"
+      },
+      "levelHints": {
+        "all": "Te avisamos de cada mensaje de este chat.",
+        "mentions": "Sólo te avisamos cuando te mencionan.",
+        "none": "No te avisamos de nada de este chat, ni de las menciones."
+      },
+      "mutedUntil": "Silenciado hasta el {{time}}",
+      "mutedForever": "Silenciado",
+      "unmute": "Reactivar",
+      "muteFor": "Silenciar (las menciones siguen avisando)",
+      "muteOptions": {
+        "1h": "1 h",
+        "8h": "8 h",
+        "1w": "1 semana",
+        "always": "Siempre"
+      },
+      "mutedBadge": "Chat silenciado"
+    }
   },
   "newConversation": {
     "title": "Nueva conversación",
@@ -594,13 +651,13 @@
     },
     "languageSelector": "Idioma de la aplicación",
     "notifications": {
-      "title": "Preferencias de notificaciones",
-      "subtitle": "Elegí cómo recibir cada tipo de evento. Push y email se activarán cuando estén disponibles.",
+      "title": "Qué te avisamos",
+      "subtitle": "Elegí por dónde recibir cada tipo de aviso.",
       "inApp": "En la app",
       "push": "Push",
       "email": "Email",
       "quietHours": "Horario de silencio",
-      "quietHoursDesc": "Durante este intervalo no se enviarán notificaciones push ni email.",
+      "quietHoursDesc": "En esta franja no suena nada ni llegan avisos al celular. Todo queda guardado en Notificaciones.",
       "quietStart": "Desde",
       "quietEnd": "Hasta",
       "saveQuietHours": "Guardar horario",
@@ -610,7 +667,126 @@
         "message.mention": "Menciones",
         "channel.join_request": "Solicitudes de canal",
         "broadcast": "Difusiones",
-        "call.incoming": "Llamadas entrantes"
+        "call.incoming": "Llamadas entrantes",
+        "thread.reply": "Respuestas en hilos",
+        "message.reaction": "Reacciones",
+        "call.missed": "Llamadas perdidas",
+        "reminder": "Recordatorios",
+        "security.alert": "Alertas de seguridad"
+      },
+      "quietDays": "Días sin avisos",
+      "quietDaysDesc": "Los días marcados se silencian completos (por ejemplo, el fin de semana).",
+      "saveError": "No se pudo guardar el cambio",
+      "locked": "Tu organización requiere este aviso",
+      "channelsOff": {
+        "both": "El administrador desactivó push y email en esta instalación.",
+        "push": "El administrador desactivó las notificaciones push en esta instalación.",
+        "email": "El administrador desactivó el email en esta instalación."
+      },
+      "groups": {
+        "messages": "Mensajes",
+        "calls": "Llamadas",
+        "other": "Otros"
+      },
+      "eventDesc": {
+        "message.direct": "Mensajes en chats uno a uno",
+        "message.group": "Mensajes en grupos y canales",
+        "message.mention": "Cuando alguien te menciona con @",
+        "thread.reply": "Respuestas en hilos que empezaste o en los que participás",
+        "message.reaction": "Cuando alguien reacciona a un mensaje tuyo",
+        "call.incoming": "Llamadas y videollamadas que te hacen",
+        "call.missed": "Llamadas que no llegaste a atender",
+        "broadcast": "Comunicados enviados por difusión",
+        "channel.join_request": "Solicitudes de ingreso a canales que administrás y sus respuestas",
+        "reminder": "Recordatorios que programaste sobre un mensaje",
+        "security.alert": "Inicios de sesión nuevos y cambios en tu cuenta"
+      },
+      "dnd": {
+        "title": "No molestar",
+        "desc": "Pausá todos los avisos un rato. Lo que llegue queda guardado en Notificaciones.",
+        "activeUntil": "No molestar activo hasta el {{time}}",
+        "activeIndefinite": "No molestar activo hasta que lo desactives",
+        "turnOff": "Desactivar",
+        "options": {
+          "1h": "1 hora",
+          "8h": "8 horas",
+          "tomorrow": "Hasta mañana",
+          "indefinite": "Hasta desactivarlo"
+        }
+      },
+      "sound": {
+        "title": "Sonidos",
+        "enabled": "Reproducir un sonido con cada aviso",
+        "choose": "Sonido de mensajes (tocá uno para escucharlo)",
+        "volume": "Volumen",
+        "names": {
+          "ping": "Ping",
+          "chime": "Campana",
+          "pop": "Pop",
+          "bubble": "Burbuja",
+          "knock": "Toc toc"
+        }
+      },
+      "pushCard": {
+        "title": "Notificaciones push",
+        "desc": "Avisos del sistema aunque EchoChat esté cerrado, en cada navegador o celular donde los actives.",
+        "desktop": "La app de escritorio usa las notificaciones del sistema; no hace falta activar nada.",
+        "unsupported": "Este navegador no soporta notificaciones push.",
+        "iosHint": "En iPhone y iPad, primero agregá EchoChat a la pantalla de inicio (Compartir → Agregar a inicio) y activalas desde ahí.",
+        "denied": "Bloqueaste las notificaciones de este sitio. Habilitalas desde la configuración del sitio en el navegador.",
+        "on": "Activas en este dispositivo",
+        "off": "Desactivadas en este dispositivo",
+        "enable": "Activar en este dispositivo",
+        "test": "Enviar prueba",
+        "disable": "Desactivar",
+        "testSent": "Te mandamos una notificación de prueba",
+        "testNone": "No hay ningún dispositivo que la pueda recibir",
+        "installDesc": "Instalá EchoChat como app para tenerla en su propia ventana y recibir avisos como cualquier aplicación.",
+        "install": "Instalar EchoChat",
+        "devices": "Dispositivos con push activo",
+        "unknownDevice": "Dispositivo desconocido",
+        "thisDevice": "este dispositivo",
+        "lastUsed": "Último aviso: {{date}}",
+        "neverUsed": "Todavía no recibió avisos",
+        "remove": "Quitar dispositivo",
+        "preview": "Qué se ve en la notificación",
+        "previewOptions": {
+          "full": "Quién y el mensaje",
+          "sender": "Sólo quién",
+          "none": "Nada"
+        },
+        "when": "Cuándo mandarlas",
+        "whenOptions": {
+          "inactive": "Si no estoy usando la app",
+          "always": "Siempre"
+        },
+        "badge": "Mostrar el contador de no leídos en el ícono de la app"
+      },
+      "emailCard": {
+        "title": "Email",
+        "desc": "Los avisos por email llegan a {{email}}. Elegí en la tabla de arriba qué eventos se mandan por email.",
+        "noEmail": "No tenés un email en tu perfil, así que no te podemos mandar avisos por correo.",
+        "addEmail": "Agregar email en el perfil",
+        "delay": "Avisarme por email si algo sigue sin leer después de",
+        "minutes": "{{count}} min",
+        "hours": "{{count}} h",
+        "delayHint": "Si lo leés antes en la app, no llega ningún email.",
+        "digest": "Resumen de mensajes sin leer",
+        "digestOptions": {
+          "off": "Nunca",
+          "hourly": "Cada hora",
+          "daily": "Diario",
+          "weekly": "Semanal"
+        },
+        "digestHour": "Hora del resumen",
+        "weeklyHint": "El resumen semanal sale los lunes a la hora elegida.",
+        "language": "Idioma de los emails",
+        "languages": {
+          "auto": "El de mi perfil",
+          "es": "Español",
+          "en": "English",
+          "pt": "Português"
+        }
       }
     },
     "languages": {
@@ -779,7 +955,13 @@
       "disable2faError": "No se pudo desactivar el 2FA",
       "oidc": "SSO",
       "saml": "SAML",
-      "scim": "SCIM"
+      "scim": "SCIM",
+      "sendInvite": "Enviar invitación por email",
+      "sendInviteHint": "El usuario recibe un link para elegir su contraseña y activar la cuenta (vence en 72 horas).",
+      "resendInvite": "Reenviar invitación",
+      "resendInviteHint": "Manda un link nuevo para elegir contraseña. El anterior deja de servir.",
+      "inviteSent": "Invitación enviada a {{email}}",
+      "inviteError": "No se pudo enviar la invitación"
     },
     "settings": {
       "categories": "Categorías",
@@ -896,6 +1078,46 @@
         "disabled": "Deshabilitado",
         "endpoint": "URL base del endpoint",
         "disabledHint": "Configurá SCIM_ENABLED y SCIM_TOKEN en el backend para habilitar el aprovisionamiento automático."
+      }
+    },
+    "notifications": {
+      "title": "Política de notificaciones",
+      "desc": "Valores por defecto para quienes no cambiaron sus preferencias, y avisos que nadie puede desactivar.",
+      "pushEnabled": "Notificaciones push habilitadas",
+      "emailEnabled": "Email habilitado",
+      "event": "Evento",
+      "lock": "Obligatorio",
+      "lockHint": "Un evento obligatorio usa siempre estos valores: el usuario no lo puede apagar y no lo frenan el no molestar ni los silencios.",
+      "saved": "Política guardada",
+      "saveError": "No se pudo guardar la política",
+      "loadError": "No se pudo cargar la política"
+    },
+    "email": {
+      "title": "Email (SMTP)",
+      "configured": "El servidor tiene SMTP configurado. Mandá una prueba para confirmar que llega.",
+      "notConfigured": "No hay SMTP configurado (SMTP_HOST en el .env): no se mandan emails.",
+      "testTo": "Enviar prueba a",
+      "testToPlaceholder": "Vacío = tu email",
+      "sendTest": "Enviar prueba",
+      "testSent": "Email de prueba enviado a {{to}}",
+      "testError": "No se pudo enviar el email de prueba",
+      "colDate": "Fecha",
+      "colTo": "Para",
+      "colType": "Tipo",
+      "colStatus": "Estado",
+      "templates": {
+        "passwordReset": "Recuperar contraseña",
+        "invite": "Invitación",
+        "security": "Alerta de seguridad",
+        "pending": "Avisos sin ver",
+        "unread": "Mensajes sin leer",
+        "digest": "Resumen",
+        "test": "Prueba"
+      },
+      "status": {
+        "pending": "Pendiente",
+        "sent": "Enviado",
+        "failed": "Falló"
       }
     }
   },
@@ -1105,5 +1327,11 @@
       "tomorrow": "Mañana",
       "nextWeek": "La semana que viene"
     }
+  },
+  "unsubscribe": {
+    "title": "Emails de avisos",
+    "done": "Listo: dejamos de mandarte emails de avisos y resúmenes. Las alertas de seguridad siguen llegando.",
+    "error": "El link no es válido o ya venció. Podés cambiar tus preferencias desde la configuración.",
+    "manage": "Configurar notificaciones"
   }
 }

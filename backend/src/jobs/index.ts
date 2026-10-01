@@ -11,6 +11,8 @@ import monitoringSnapshotJob from './monitoringSnapshot.job';
 import ldapSyncJob from './ldapSync.job';
 import awayExpiryJob from './awayExpiry.job';
 import scheduledMessagesJob from './scheduledMessages.job';
+import emailOutboxJob from './emailOutbox.job';
+import emailNoticesJob from './emailNotices.job';
 
 /** Lo que cada archivo de job exporta. */
 export interface BackgroundJob {
@@ -29,6 +31,8 @@ const jobs: BackgroundJob[] = [
   ldapSyncJob,
   awayExpiryJob,
   scheduledMessagesJob,
+  emailOutboxJob,
+  emailNoticesJob,
 ];
 
 const tasks: ScheduledTask[] = [];

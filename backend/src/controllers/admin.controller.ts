@@ -15,6 +15,21 @@ class AdminController {
     res.json({ status: 'success', data: users });
   }
 
+  async resendInvite(req: AuthRequest, res: Response) {
+    await adminService.resendInvite(req.user.id, req.params.userId, req.ip, req.get('user-agent'));
+    res.json({ status: 'success', message: 'Invitation sent' });
+  }
+
+  async sendTestEmail(req: AuthRequest, res: Response) {
+    const result = await adminService.sendTestEmail(req.user.id, req.body.to);
+    res.json({ status: 'success', data: result });
+  }
+
+  async getEmailLog(req: AuthRequest, res: Response) {
+    const log = await adminService.getEmailLog();
+    res.json({ status: 'success', data: log });
+  }
+
   async createUser(req: AuthRequest, res: Response) {
     const user = await adminService.createUser(
       req.user.id,

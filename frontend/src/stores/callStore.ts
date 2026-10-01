@@ -111,6 +111,9 @@ interface CallState {
   /** segundos transcurridos (para el cronómetro) */
   elapsed: number;
   endReason?: string;
+  /** Llamada a atender apenas llegue su timbre ("Atender" en la notificación push). */
+  autoAcceptCallId: string | null;
+  setAutoAccept: (callId: string | null) => void;
 
   attach: (userId: string) => void;
   detach: () => void;
@@ -156,6 +159,9 @@ export const useCallStore = create<CallState>()((set, get) => ({
   sharingScreen: false,
   startedAt: null,
   elapsed: 0,
+  autoAcceptCallId: null,
+
+  setAutoAccept: (callId) => set({ autoAcceptCallId: callId }),
 
   // ── Registro de listeners de socket ──────────────────────────────────
   attach: (userId) => {
@@ -266,13 +272,21 @@ export const useCallStore = create<CallState>()((set, get) => ({
 
   // ── Llamada entrante ─────────────────────────────────────────────────
   _onIncoming: (payload) => {
+    const { status, incoming, call, autoAcceptCallId } = get();
+    // El servidor reenvía los timbres pendientes al reconectar: si es la misma
+    // llamada que ya está sonando (o en curso) acá, no es otra llamada.
+    if (incoming?.callId === payload.callId || call?.id === payload.callId) return;
     // Ya ocupado en otra llamada → rechazar automáticamente como "busy".
-    if (get().status !== 'idle') {
+    if (status !== 'idle') {
       socket()?.emit('call:reject', { callId: payload.callId, reason: 'busy' });
       return;
     }
     set({ status: 'incoming', incoming: payload });
     get()._loadDirectory(payload.conversationId);
+    if (autoAcceptCallId === payload.callId) {
+      set({ autoAcceptCallId: null });
+      void get().acceptCall();
+    }
   },
 
   acceptCall: async () => {

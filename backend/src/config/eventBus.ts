@@ -42,6 +42,11 @@ export function toUser(userId: string, event: string, payload: unknown): void {
   bus.emit(CANAL, { room: `user:${userId}`, event, payload });
 }
 
+/** Emite a los participantes conectados a una llamada. */
+export function toCall(callId: string, event: string, payload: unknown): void {
+  bus.emit(CANAL, { room: `call:${callId}`, event, payload });
+}
+
 /** Emite a todos los clientes conectados (de todas las instancias). */
 export function toAll(event: string, payload: unknown): void {
   bus.emit(CANAL, { room: null, event, payload });

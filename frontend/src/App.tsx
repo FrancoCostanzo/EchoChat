@@ -6,9 +6,11 @@ import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { useWallpaperStore } from '@/stores/wallpaperStore';
+import { useNotificationStore } from '@/stores/notificationStore';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { ConfirmProvider } from '@/components/ConfirmProvider';
 import DesktopIntegration from '@/components/DesktopIntegration';
+import PushIntegration from '@/components/PushIntegration';
 import { AnimatedLogoMark } from '@/components/AppLogo';
 import { SPRING_SOFT } from '@/lib/motion';
 
@@ -16,6 +18,9 @@ const ChatLayout = lazy(() => import('@/layouts/ChatLayout'));
 const LoginPage = lazy(() => import('@/pages/LoginPage'));
 const AuthCallbackPage = lazy(() => import('@/pages/AuthCallbackPage'));
 const RegisterPage = lazy(() => import('@/pages/RegisterPage'));
+const ForgotPasswordPage = lazy(() => import('@/pages/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('@/pages/ResetPasswordPage'));
+const UnsubscribePage = lazy(() => import('@/pages/UnsubscribePage'));
 const EmptyChat = lazy(() => import('@/pages/EmptyChat'));
 const ConversationPage = lazy(() => import('@/pages/ConversationPage'));
 const NewConversationPage = lazy(() => import('@/pages/NewConversationPage'));
@@ -65,6 +70,7 @@ export default function App() {
   const destroySocket = useChatStore((s) => s.destroySocket);
   const initTheme = useThemeStore((s) => s.init);
   const fetchWallpapers = useWallpaperStore((s) => s.fetchWallpapers);
+  const loadNotificationPrefs = useNotificationStore((s) => s.load);
 
   useEffect(() => {
     init();
@@ -75,21 +81,26 @@ export default function App() {
     if (isAuthenticated && !loading) {
       fetchConversations();
       fetchWallpapers();
+      loadNotificationPrefs();
       if (token && user?.id) initSocket(token, user.id);
       return () => destroySocket();
     }
-  }, [isAuthenticated, loading, fetchConversations, fetchWallpapers, token, user?.id, initSocket, destroySocket]);
+  }, [isAuthenticated, loading, fetchConversations, fetchWallpapers, loadNotificationPrefs, token, user?.id, initSocket, destroySocket]);
 
   return (
     <ConfirmProvider>
       <Toast.Provider placement="bottom end" maxVisibleToasts={4} width={360} />
       <DesktopIntegration />
+      <PushIntegration />
       <Suspense fallback={<PageLoader />}>
       <RouteFade>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/unsubscribe" element={<UnsubscribePage />} />
 
         <Route
           element={

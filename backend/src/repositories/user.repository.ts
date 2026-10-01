@@ -24,6 +24,15 @@ class UserRepository extends BaseRepository<UserRow> {
     return rows[0] || null;
   }
 
+  /** Sin distinguir mayúsculas: para "olvidé mi contraseña", donde el email lo tipea el usuario. */
+  async findByEmailInsensitive(email: string): Promise<UserRow | null> {
+    const { rows } = await this.query(
+      'SELECT * FROM users WHERE LOWER(email) = LOWER($1) AND status != $2 LIMIT 1',
+      [email, 'deleted']
+    );
+    return rows[0] || null;
+  }
+
   async findByEmail(email: string): Promise<UserRow | null> {
     const { rows } = await this.query(
       'SELECT * FROM users WHERE email = $1 AND status != $2',

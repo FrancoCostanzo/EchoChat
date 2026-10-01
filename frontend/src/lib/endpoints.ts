@@ -39,12 +39,20 @@ import type {
   AdminCreateUserRequest, AdminUpdateUserRequest,
   RoleResponse, LdapStatus, LdapSyncSummary, IntegrationsResponse,
   AuditLogResult, StorageStatsResponse,
+  EmailLogEntry,
 } from '@/types/admin';
 import type {
   CreateBroadcastListRequest, SendBroadcastRequest, AddBroadcastRecipientsRequest,
   BroadcastListResponse, BroadcastRecipient, BroadcastMessageResponse, BroadcastDeliveryDetail,
 } from '@/types/broadcast';
-import type { NotificationPrefsRequest, NotificationPreferenceResponse } from '@/types/notification';
+import type {
+  NotificationPrefsRequest,
+  NotificationPreferenceResponse,
+  NotificationPreferencesResponse,
+  NotificationSettings,
+  NotificationSettingsRequest,
+  PushDevice,
+} from '@/types/notification';
 import type { RelationshipRequest, RelationshipEntry } from '@/types/relationship';
 import type { UpsertWallpaperRequest, WallpaperEntry } from '@/types/wallpaper';
 
@@ -67,6 +75,11 @@ export const authApi = {
   // SSO: la lista es un fetch normal; el login es una navegación top-level del navegador.
   ssoProviders: () => api.get<ApiEnvelope<{ providers: unknown[] }>>('/auth/sso/providers'),
   ssoLoginUrl: (provider: string) => `/api/auth/sso/${provider}/login`,
+  // Recuperar contraseña / activar cuenta invitada (sin sesión)
+  passwordResetStatus: () => api.get<ApiEnvelope<{ available: boolean }>>('/auth/password-reset/status'),
+  requestPasswordReset: (identifier: string) => api.post<ApiMessageEnvelope>('/auth/password-reset/request', { identifier }),
+  inspectPasswordToken: (token: string) => api.post<ApiEnvelope<{ purpose: 'reset' | 'invite'; username: string }>>('/auth/password-reset/inspect', { token }),
+  completePasswordReset: (token: string, password: string) => api.post<ApiEnvelope<{ purpose: 'reset' | 'invite' }>>('/auth/password-reset/complete', { token, password }),
 };
 
 export const usersApi = {
@@ -204,8 +217,17 @@ export const notificationsApi = {
   getUnreadCount: () => api.get<ApiEnvelope<{ count: number }>>('/notifications/count'),
   readAll: () => api.post<ApiMessageEnvelope>('/notifications/read-all'),
   read: (id: string) => api.put<ApiEnvelope<unknown>>(`/notifications/${id}/read`),
-  getPreferences: () => api.get<ApiEnvelope<NotificationPreferenceResponse[]>>('/notifications/preferences'),
+  getPreferences: () => api.get<ApiEnvelope<NotificationPreferencesResponse>>('/notifications/preferences'),
   updatePreferences: (data: NotificationPrefsRequest) => api.put<ApiEnvelope<NotificationPreferenceResponse>>('/notifications/preferences', data),
+  getSettings: () => api.get<ApiEnvelope<NotificationSettings>>('/notifications/settings'),
+  updateSettings: (data: NotificationSettingsRequest) => api.put<ApiEnvelope<NotificationSettings>>('/notifications/settings', data),
+  getPushConfig: () => api.get<ApiEnvelope<{ public_key: string | null }>>('/notifications/push/config'),
+  getPushDevices: () => api.get<ApiEnvelope<PushDevice[]>>('/notifications/push/devices'),
+  subscribePush: (subscription: PushSubscriptionJSON) => api.post<ApiEnvelope<PushDevice>>('/notifications/push/subscribe', subscription),
+  unsubscribePush: (endpoint: string) => api.post<ApiEnvelope<null>>('/notifications/push/unsubscribe', { endpoint }),
+  removePushDevice: (id: string) => api.delete<ApiEnvelope<null>>(`/notifications/push/devices/${id}`),
+  testPush: () => api.post<ApiEnvelope<{ delivered: number }>>('/notifications/push/test'),
+  unsubscribeEmail: (token: string) => api.post<ApiMessageEnvelope>(`/notifications/email/unsubscribe?token=${encodeURIComponent(token)}`),
 };
 
 export const adminApi = {
@@ -216,6 +238,9 @@ export const adminApi = {
   removeUserAvatar: (userId: string) => api.delete<ApiEnvelope<AdminUserResponse>>(`/admin/users/${userId}/avatar`),
   disableUser2fa: (userId: string) => api.delete<ApiEnvelope<AdminUserResponse>>(`/admin/users/${userId}/2fa`),
   resetUserPassword: (userId: string, password: string) => api.patch<ApiEnvelope<unknown>>(`/admin/users/${userId}/password`, { password }),
+  resendInvite: (userId: string) => api.post<ApiMessageEnvelope>(`/admin/users/${userId}/invite`),
+  sendTestEmail: (to?: string) => api.post<ApiEnvelope<{ to: string }>>('/admin/email/test', to ? { to } : {}),
+  getEmailLog: () => api.get<ApiEnvelope<{ configured: boolean; entries: EmailLogEntry[] }>>('/admin/email/log'),
   deleteUser: (userId: string) => api.delete<ApiEnvelope<AdminUserResponse>>(`/admin/users/${userId}`),
   listRoles: () => api.get<ApiEnvelope<RoleResponse[]>>('/admin/roles'),
   getLdapStatus: () => api.get<ApiEnvelope<LdapStatus>>('/admin/ldap/status'),

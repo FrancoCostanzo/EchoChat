@@ -338,6 +338,16 @@ class MessageRepository extends BaseRepository<MessageRow> {
     return rows;
   }
 
+  /** Autor de la raíz + quienes respondieron en el hilo (sin repetir). */
+  async getThreadParticipantIds(threadId: string): Promise<string[]> {
+    const { rows } = await this.query<{ sender_id: string }>(
+      `SELECT DISTINCT sender_id FROM messages
+       WHERE (id = $1 OR thread_id = $1) AND is_deleted = FALSE AND sender_id IS NOT NULL`,
+      [threadId]
+    );
+    return rows.map((r) => r.sender_id);
+  }
+
   async countThreadReplies(threadId: string): Promise<number> {
     const { rows } = await this.query<{ count: number }>(
       `SELECT COUNT(*)::int AS count FROM messages WHERE thread_id = $1 AND is_deleted = FALSE`,

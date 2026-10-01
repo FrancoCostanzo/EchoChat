@@ -94,7 +94,34 @@
     "useBackupCode": "Use a backup code",
     "verify": "Verify",
     "verifying": "Verifying...",
-    "backToLogin": "Back to sign in"
+    "backToLogin": "Back to sign in",
+    "forgot": {
+      "link": "Forgot your password?",
+      "title": "Recover password",
+      "desc": "Enter your username or email and we'll send you a link to choose a new password.",
+      "identifier": "Username or email",
+      "identifierPlaceholder": "john.doe or john@company.com",
+      "submit": "Send link",
+      "sent": "If the account exists and has an email, we sent you a link to choose a new password.",
+      "sentHint": "Check your spam folder too. The link expires in 30 minutes.",
+      "unavailable": "Password recovery by email isn't available on this server. Ask an administrator to reset it.",
+      "error": "Couldn't send the request",
+      "backToLogin": "Back to sign in"
+    },
+    "reset": {
+      "title": "Choose a new password",
+      "inviteTitle": "Activate your account",
+      "desc": "Choose a new password for {{username}}. Open sessions will be signed out.",
+      "inviteDesc": "Your username is {{username}}. Choose a password to start using EchoChat.",
+      "newPassword": "New password",
+      "submit": "Save password",
+      "inviteSubmit": "Activate account",
+      "done": "Done: you can now sign in with your new password.",
+      "inviteDone": "Your account is active: you can now sign in.",
+      "invalid": "The link is invalid or has expired. Links work only once.",
+      "requestAnother": "Request a new link",
+      "error": "Couldn't save the password"
+    }
   },
   "server": {
     "title": "Connect to your server",
@@ -272,7 +299,37 @@
     "onlyAdminsSendMessages": "Only admins can send messages",
     "onlyAdminsSendMessagesHint": "When on, other members won't be able to write in this group.",
     "onlyAdminsEditInfo": "Only admins can edit group info",
-    "onlyAdminsEditInfoHint": "When off, any member can change the name, description and photo."
+    "onlyAdminsEditInfoHint": "When off, any member can change the name, description and photo.",
+    "notif": {
+      "threadReply": "{{name}} replied in a thread",
+      "reaction": "{{name}} reacted {{emoji}} to your message",
+      "missedCall": "Missed call from {{name}}"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "level": "Notification level",
+      "levels": {
+        "all": "All",
+        "mentions": "Mentions",
+        "none": "None"
+      },
+      "levelHints": {
+        "all": "You'll be notified of every message in this chat.",
+        "mentions": "You'll only be notified when you're mentioned.",
+        "none": "You won't be notified of anything in this chat, mentions included."
+      },
+      "mutedUntil": "Muted until {{time}}",
+      "mutedForever": "Muted",
+      "unmute": "Unmute",
+      "muteFor": "Mute (mentions still notify you)",
+      "muteOptions": {
+        "1h": "1 h",
+        "8h": "8 h",
+        "1w": "1 week",
+        "always": "Always"
+      },
+      "mutedBadge": "Muted chat"
+    }
   },
   "newConversation": {
     "title": "New conversation",
@@ -594,13 +651,13 @@
     },
     "languageSelector": "Application language",
     "notifications": {
-      "title": "Notification preferences",
-      "subtitle": "Choose how to receive each event type. Push and email will activate when available.",
+      "title": "What we notify you about",
+      "subtitle": "Choose where to receive each kind of notification.",
       "inApp": "In-app",
       "push": "Push",
       "email": "Email",
       "quietHours": "Quiet hours",
-      "quietHoursDesc": "During this interval no push or email notifications will be sent.",
+      "quietHoursDesc": "During this window nothing plays a sound and nothing reaches your phone. Everything stays in Notifications.",
       "quietStart": "From",
       "quietEnd": "To",
       "saveQuietHours": "Save schedule",
@@ -610,7 +667,126 @@
         "message.mention": "Mentions",
         "channel.join_request": "Channel join requests",
         "broadcast": "Broadcasts",
-        "call.incoming": "Incoming calls"
+        "call.incoming": "Incoming calls",
+        "thread.reply": "Thread replies",
+        "message.reaction": "Reactions",
+        "call.missed": "Missed calls",
+        "reminder": "Reminders",
+        "security.alert": "Security alerts"
+      },
+      "quietDays": "Days without notifications",
+      "quietDaysDesc": "Selected days are fully silenced (for example, the weekend).",
+      "saveError": "Couldn't save the change",
+      "locked": "Your organization requires this notification",
+      "channelsOff": {
+        "both": "The administrator turned off push and email on this server.",
+        "push": "The administrator turned off push notifications on this server.",
+        "email": "The administrator turned off email on this server."
+      },
+      "groups": {
+        "messages": "Messages",
+        "calls": "Calls",
+        "other": "Other"
+      },
+      "eventDesc": {
+        "message.direct": "Messages in one-on-one chats",
+        "message.group": "Messages in groups and channels",
+        "message.mention": "When someone mentions you with @",
+        "thread.reply": "Replies in threads you started or joined",
+        "message.reaction": "When someone reacts to one of your messages",
+        "call.incoming": "Voice and video calls to you",
+        "call.missed": "Calls you didn't pick up",
+        "broadcast": "Announcements sent as a broadcast",
+        "channel.join_request": "Join requests for channels you manage, and their answers",
+        "reminder": "Reminders you scheduled on a message",
+        "security.alert": "New sign-ins and changes to your account"
+      },
+      "dnd": {
+        "title": "Do not disturb",
+        "desc": "Pause all notifications for a while. Anything that arrives stays in Notifications.",
+        "activeUntil": "Do not disturb until {{time}}",
+        "activeIndefinite": "Do not disturb until you turn it off",
+        "turnOff": "Turn off",
+        "options": {
+          "1h": "1 hour",
+          "8h": "8 hours",
+          "tomorrow": "Until tomorrow",
+          "indefinite": "Until I turn it off"
+        }
+      },
+      "sound": {
+        "title": "Sounds",
+        "enabled": "Play a sound with each notification",
+        "choose": "Message sound (tap one to hear it)",
+        "volume": "Volume",
+        "names": {
+          "ping": "Ping",
+          "chime": "Chime",
+          "pop": "Pop",
+          "bubble": "Bubble",
+          "knock": "Knock"
+        }
+      },
+      "pushCard": {
+        "title": "Push notifications",
+        "desc": "System notifications even when EchoChat is closed, on each browser or phone where you turn them on.",
+        "desktop": "The desktop app uses system notifications; there's nothing to turn on.",
+        "unsupported": "This browser doesn't support push notifications.",
+        "iosHint": "On iPhone and iPad, first add EchoChat to your Home Screen (Share → Add to Home Screen) and turn them on from there.",
+        "denied": "You blocked notifications for this site. Allow them from the browser's site settings.",
+        "on": "On for this device",
+        "off": "Off for this device",
+        "enable": "Turn on for this device",
+        "test": "Send a test",
+        "disable": "Turn off",
+        "testSent": "We sent you a test notification",
+        "testNone": "There's no device that can receive it",
+        "installDesc": "Install EchoChat as an app to get its own window and notifications like any other application.",
+        "install": "Install EchoChat",
+        "devices": "Devices with push on",
+        "unknownDevice": "Unknown device",
+        "thisDevice": "this device",
+        "lastUsed": "Last notification: {{date}}",
+        "neverUsed": "Hasn't received notifications yet",
+        "remove": "Remove device",
+        "preview": "What the notification shows",
+        "previewOptions": {
+          "full": "Sender and message",
+          "sender": "Sender only",
+          "none": "Nothing"
+        },
+        "when": "When to send them",
+        "whenOptions": {
+          "inactive": "When I'm not using the app",
+          "always": "Always"
+        },
+        "badge": "Show the unread count on the app icon"
+      },
+      "emailCard": {
+        "title": "Email",
+        "desc": "Email notifications go to {{email}}. Choose which events are emailed in the table above.",
+        "noEmail": "There's no email on your profile, so we can't email you notifications.",
+        "addEmail": "Add an email to your profile",
+        "delay": "Email me if something is still unread after",
+        "minutes": "{{count}} min",
+        "hours": "{{count}} h",
+        "delayHint": "If you read it in the app first, no email is sent.",
+        "digest": "Summary of unread messages",
+        "digestOptions": {
+          "off": "Never",
+          "hourly": "Hourly",
+          "daily": "Daily",
+          "weekly": "Weekly"
+        },
+        "digestHour": "Summary time",
+        "weeklyHint": "The weekly summary goes out on Mondays at the chosen time.",
+        "language": "Email language",
+        "languages": {
+          "auto": "My profile's",
+          "es": "Español",
+          "en": "English",
+          "pt": "Português"
+        }
       }
     },
     "languages": {
@@ -779,7 +955,13 @@
       "disable2faError": "Could not disable 2FA",
       "oidc": "SSO",
       "saml": "SAML",
-      "scim": "SCIM"
+      "scim": "SCIM",
+      "sendInvite": "Send an invitation by email",
+      "sendInviteHint": "The user gets a link to choose their password and activate the account (expires in 72 hours).",
+      "resendInvite": "Resend invitation",
+      "resendInviteHint": "Sends a new link to choose a password. The previous one stops working.",
+      "inviteSent": "Invitation sent to {{email}}",
+      "inviteError": "Couldn't send the invitation"
     },
     "settings": {
       "categories": "Categories",
@@ -896,6 +1078,46 @@
         "disabled": "Disabled",
         "endpoint": "Endpoint base URL",
         "disabledHint": "Set SCIM_ENABLED and SCIM_TOKEN in the backend to enable automatic provisioning."
+      }
+    },
+    "notifications": {
+      "title": "Notification policy",
+      "desc": "Defaults for people who haven't changed their preferences, and notifications nobody can turn off.",
+      "pushEnabled": "Push notifications enabled",
+      "emailEnabled": "Email enabled",
+      "event": "Event",
+      "lock": "Required",
+      "lockHint": "A required event always uses these values: users can't turn it off, and do not disturb or muting don't hold it back.",
+      "saved": "Policy saved",
+      "saveError": "Couldn't save the policy",
+      "loadError": "Couldn't load the policy"
+    },
+    "email": {
+      "title": "Email (SMTP)",
+      "configured": "SMTP is configured on the server. Send a test to confirm it arrives.",
+      "notConfigured": "SMTP isn't configured (SMTP_HOST in .env): no emails are sent.",
+      "testTo": "Send test to",
+      "testToPlaceholder": "Empty = your email",
+      "sendTest": "Send test",
+      "testSent": "Test email sent to {{to}}",
+      "testError": "Couldn't send the test email",
+      "colDate": "Date",
+      "colTo": "To",
+      "colType": "Type",
+      "colStatus": "Status",
+      "templates": {
+        "passwordReset": "Password recovery",
+        "invite": "Invitation",
+        "security": "Security alert",
+        "pending": "Unseen notifications",
+        "unread": "Unread messages",
+        "digest": "Summary",
+        "test": "Test"
+      },
+      "status": {
+        "pending": "Pending",
+        "sent": "Sent",
+        "failed": "Failed"
       }
     }
   },
@@ -1105,5 +1327,11 @@
       "tomorrow": "Tomorrow",
       "nextWeek": "Next week"
     }
+  },
+  "unsubscribe": {
+    "title": "Notification emails",
+    "done": "Done: we stopped sending you notification and summary emails. Security alerts still arrive.",
+    "error": "The link is invalid or has expired. You can change your preferences in settings.",
+    "manage": "Notification settings"
   }
 }

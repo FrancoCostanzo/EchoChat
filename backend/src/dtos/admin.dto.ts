@@ -4,7 +4,10 @@ export interface AdminCreateUserRequest {
   username: string;
   display_name: string;
   email?: string | null;
-  password: string;
+  /** Obligatoria salvo que se mande invitación: ahí la elige el usuario. */
+  password?: string;
+  /** Manda un email con un link para que el usuario active la cuenta. */
+  send_invite?: boolean;
   department?: string | null;
   job_title?: string | null;
   role_names?: string[];
@@ -13,11 +16,18 @@ export interface AdminCreateUserRequest {
 export const adminCreateUserDto = Joi.object<AdminCreateUserRequest>({
   username: Joi.string().pattern(/^[a-zA-Z0-9._]+$/).min(3).max(50).required(),
   display_name: Joi.string().max(100).required(),
-  email: Joi.string().email().allow(null, ''),
-  password: Joi.string().min(8).required(),
+  email: Joi.string().email().allow(null, '')
+    .when('send_invite', { is: true, then: Joi.string().email().required() }),
+  password: Joi.string().min(8)
+    .when('send_invite', { is: true, then: Joi.forbidden(), otherwise: Joi.required() }),
+  send_invite: Joi.boolean().default(false),
   department: Joi.string().max(100).allow(null, ''),
   job_title: Joi.string().max(100).allow(null, ''),
   role_names: Joi.array().items(Joi.string()).default(['user']),
+});
+
+export const adminEmailTestDto = Joi.object<{ to?: string }>({
+  to: Joi.string().email(),
 });
 
 export interface AdminUpdateUserRequest {

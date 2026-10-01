@@ -13,6 +13,8 @@ import storageRepository from './storage.repository';
 import stickerRepository from './sticker.repository';
 import broadcastRepository from './broadcast.repository';
 import notificationRepository from './notification.repository';
+import pushSubscriptionRepository from './pushSubscription.repository';
+import emailRepository from './email.repository';
 import auditRepository from './audit.repository';
 import relationshipRepository from './relationship.repository';
 import systemSettingsRepository from './systemSettings.repository';
@@ -35,6 +37,8 @@ export {
   stickerRepository,
   broadcastRepository,
   notificationRepository,
+  pushSubscriptionRepository,
+  emailRepository,
   auditRepository,
   relationshipRepository,
   systemSettingsRepository,

@@ -89,8 +89,14 @@ interface AppConfig {
   };
   scim: { enabled: boolean; token: string; defaultRole: string };
   messageEnc: { key: string | undefined; keyId: string };
+  /** Web Push (VAPID). Sin las dos claves el canal push queda deshabilitado. */
+  push: { publicKey: string; privateKey: string; subject: string };
+  /** SMTP. Sin `host` el canal email queda deshabilitado. */
+  mail: { host: string; port: number; secure: boolean; user: string; pass: string; from: string };
+  /** URL pública del frontend, para los links de los emails. */
+  appUrl: string;
   cors: { origins: string[] };
-  rateLimit: { windowMs: number; max: number };
+  rateLimit: { windowMs: number; max: number; passwordResetMax: number };
   log: { level: string };
 }
 
@@ -275,6 +281,28 @@ const config: AppConfig = {
     keyId: process.env.MESSAGE_ENC_KEY_ID || 'v1',
   },
 
+  push: {
+    publicKey: process.env.VAPID_PUBLIC_KEY || '',
+    privateKey: process.env.VAPID_PRIVATE_KEY || '',
+    // Contacto que los servicios de push (Google, Mozilla, Apple) usan si hay
+    // un problema con los envíos: un mailto: o la URL de la instalación.
+    subject: process.env.VAPID_SUBJECT || 'mailto:admin@localhost',
+  },
+
+  mail: {
+    host: process.env.SMTP_HOST || '',
+    port: num(process.env.SMTP_PORT, 587),
+    // true = TLS directo (puerto 465); false = STARTTLS si el servidor lo ofrece.
+    secure: process.env.SMTP_SECURE === 'true',
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
+    from: process.env.MAIL_FROM || 'EchoChat <no-reply@localhost>',
+  },
+
+  appUrl: (process.env.APP_URL
+    || parseCorsOrigins(process.env.CORS_ORIGIN).find((o) => o.startsWith('http'))
+    || 'http://localhost:5173').replace(/\/$/, ''),
+
   cors: {
     origins: parseCorsOrigins(process.env.CORS_ORIGIN),
   },
@@ -282,6 +310,8 @@ const config: AppConfig = {
   rateLimit: {
     windowMs: num(process.env.RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000),
     max: num(process.env.RATE_LIMIT_MAX, 100),
+    // Pedidos de "olvidé mi contraseña" por IP cada 15 minutos: cada uno manda un email.
+    passwordResetMax: num(process.env.PASSWORD_RESET_RATE_MAX, 5),
   },
 
   log: {

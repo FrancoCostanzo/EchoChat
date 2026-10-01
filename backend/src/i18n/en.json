@@ -1,0 +1,76 @@
+{
+  "push": {
+    "newMessage": "New message",
+    "attachment": "📎 Attachment",
+    "mention": "{{name}} mentioned you",
+    "mentionIn": "{{name}} mentioned you in {{chat}}",
+    "threadReply": "{{name}} replied in a thread",
+    "reaction": "{{name}} reacted {{emoji}} to your message",
+    "incomingCall": "Call from {{name}}",
+    "incomingVideoCall": "Video call from {{name}}",
+    "missedCall": "Missed call from {{name}}",
+    "broadcast": "Broadcast: {{chat}}",
+    "reminder": "Reminder",
+    "joinRequest": "Channel request",
+    "security": "Security alert",
+    "generic": "You have a new notification",
+    "test": {
+      "title": "Notifications enabled",
+      "body": "This is how EchoChat notifications will look on this device."
+    },
+    "actions": {
+      "reply": "Reply",
+      "markRead": "Mark as read",
+      "answer": "Answer",
+      "decline": "Decline"
+    }
+  },
+  "email": {
+    "greeting": "Hi {{name}},",
+    "footer": "You're receiving this email because you have an EchoChat account.",
+    "manage": "Notification settings",
+    "unsubscribe": "Stop receiving these emails",
+    "ignore": "If this wasn't you, ignore this email: nothing has changed.",
+    "passwordReset": {
+      "subject": "Reset your EchoChat password",
+      "intro": "You asked to reset your account password.",
+      "cta": "Choose a new password",
+      "expires": "The link expires in {{minutes}} minutes and works only once."
+    },
+    "invite": {
+      "subject": "{{inviter}} invited you to EchoChat",
+      "intro": "{{inviter}} created an EchoChat account for you. Your username is {{username}}.",
+      "cta": "Activate my account",
+      "expires": "The link expires in {{hours}} hours. If it expires, ask an administrator to send it again."
+    },
+    "security": {
+      "subject": "Security alert on your EchoChat account",
+      "newLogin": "Someone signed in to your account from a new device: {{device}}.",
+      "passwordChanged": "Your account password was changed.",
+      "passwordReset": "Your account password was reset with a recovery link. All sessions were signed out.",
+      "2faDisabled": "Two-step verification was turned off on your account.",
+      "when": "Date: {{time}}",
+      "notYou": "If this wasn't you, change your password right away and tell an administrator."
+    },
+    "pending": {
+      "subject": "Unseen notifications on EchoChat ({{count}})",
+      "intro": "This happened while you were away:",
+      "cta": "Open EchoChat"
+    },
+    "unread": {
+      "subject": "You have unread messages on EchoChat",
+      "intro": "You have unread messages in these chats:",
+      "item": "{{name}}: {{count}} unread",
+      "cta": "Open EchoChat"
+    },
+    "digest": {
+      "subject": "Your EchoChat summary",
+      "intro": "Here's what's waiting for you:",
+      "cta": "Catch up"
+    },
+    "test": {
+      "subject": "EchoChat email test",
+      "body": "If you're reading this, EchoChat can send emails."
+    }
+  }
+}

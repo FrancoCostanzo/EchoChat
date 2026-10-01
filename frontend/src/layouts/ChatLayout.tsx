@@ -30,10 +30,12 @@ import {
   Sticker,
   Clapperboard,
   Megaphone,
+  BellOff,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
+import { isConversationMuted } from '@/stores/notificationStore';
 import UserAvatar from '@/components/UserAvatar';
 import ServerOrbitDock from '@/components/ServerOrbitDock';
 import CommandPalette from '@/components/CommandPalette';
@@ -142,6 +144,9 @@ function ConversationItem({
   const time = conversation.last_message_at;
   const unread = conversation.unread_count || 0;
   const hasUnread = unread > 0;
+  // Chat silenciado o sin avisos: se marca con la campana tachada y el contador
+  // pasa a gris, para que no compita con los chats que sí avisan.
+  const quieted = isConversationMuted(conversation) || conversation.notification_level === 'none';
 
   // "Escribiendo…" tiene prioridad sobre el preview del último mensaje. En DMs ya
   // se sabe quién es; en grupos mostramos el nombre (o "varios" si son varios).
@@ -259,8 +264,15 @@ function ConversationItem({
         )}
       </div>
 
+      {quieted && (
+        <BellOff size={13} className="ml-1 shrink-0 text-ink-300" aria-label={t('chat.notifications.mutedBadge')} />
+      )}
       {hasUnread && (
-        <span className="ml-1 flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-echo-dnd px-1.5 text-[10px] font-bold text-white">
+        <span
+          className={`ml-1 flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${
+            quieted ? 'bg-ink-700 text-ink-100' : 'bg-echo-dnd text-white'
+          }`}
+        >
           {unread > 99 ? '99+' : unread}
         </span>
       )}

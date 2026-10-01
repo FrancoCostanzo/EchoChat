@@ -76,6 +76,8 @@ class ConversationRepository extends BaseRepository<ConvRow> {
       `SELECT c.*,
               cm.role AS member_role,
               cm.is_muted,
+              cm.muted_until,
+              cm.notification_level,
               cm.is_pinned,
               cm.last_read_msg_id,
               (SELECT COUNT(*) FROM messages m
@@ -169,6 +171,25 @@ class ConversationRepository extends BaseRepository<ConvRow> {
     return rows[0] || null;
   }
 
+  /** Ids de todos los miembros activos, sin datos de usuario (para repartir avisos). */
+  async getActiveMemberIds(conversationId: string): Promise<string[]> {
+    const { rows } = await this.query<{ user_id: string }>(
+      'SELECT user_id FROM conversation_members WHERE conversation_id = $1 AND left_at IS NULL',
+      [conversationId]
+    );
+    return rows.map((r) => r.user_id);
+  }
+
+  /** De `userIds`, los que son miembros activos de la conversación. */
+  async filterActiveMemberIds(conversationId: string, userIds: string[]): Promise<string[]> {
+    const { rows } = await this.query<{ user_id: string }>(
+      `SELECT user_id FROM conversation_members
+       WHERE conversation_id = $1 AND user_id = ANY($2::uuid[]) AND left_at IS NULL`,
+      [conversationId, userIds]
+    );
+    return rows.map((r) => r.user_id);
+  }
+
   async getMembers(
     conversationId: string,
     { limit = 100, offset = 0 }: { limit?: number; offset?: number } = {},
@@ -190,7 +211,7 @@ class ConversationRepository extends BaseRepository<ConvRow> {
     userId: string,
     fields: UpdateMemberFields,
   ): Promise<Row<'conversation_members'> | null | undefined> {
-    const allowed = ['role', 'is_muted', 'muted_until', 'is_pinned', 'is_hidden', 'last_read_at', 'last_read_msg_id'] as const;
+    const allowed = ['role', 'is_muted', 'muted_until', 'notification_level', 'is_pinned', 'is_hidden', 'last_read_at', 'last_read_msg_id'] as const;
     const sets: string[] = [];
     const values: any[] = [];
     let idx = 1;
