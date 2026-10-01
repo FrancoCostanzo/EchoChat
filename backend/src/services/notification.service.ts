@@ -16,6 +16,8 @@ import {
   type ChannelFlags,
   type NotificationEvent,
 } from '../utils/notificationEvents';
+import pushService, { type PushMessage } from './push.service';
+import { idiomaDe } from '../i18n';
 
 /**
  * ¿La hora `ahora` (en minutos desde medianoche) cae dentro de la franja de
@@ -139,7 +141,17 @@ export interface NotifyInput {
   conversationId?: string | null;
   /** Campos extra del evento de socket `notification:new`. */
   realtime?: Record<string, unknown>;
+  /**
+   * false = no guardar en la bandeja ni emitir `notification:new`. Para los
+   * mensajes comunes, que el cliente ya avisa solo al recibirlos.
+   */
+  persist?: boolean;
+  /** Contenido del push; sin esto el evento no manda push aunque esté activo. */
+  push?: PushMessage;
 }
+
+/** "Activo" = con la app abierta y tocándola en los últimos minutos. */
+const ACTIVE_WINDOW_MS = 2 * 60 * 1000;
 
 class NotificationService {
   async getByUser(
@@ -212,7 +224,7 @@ class NotificationService {
     });
     return {
       events,
-      channels: { push: policy.push_enabled, email: policy.email_enabled },
+      channels: { push: policy.push_enabled && pushService.isConfigured(), email: policy.email_enabled },
       // Los defaults de la instancia: para "volver al default" y para el editor del admin.
       defaults: policy.defaults,
     };
@@ -289,7 +301,7 @@ class NotificationService {
       }
     }
 
-    if (!policy.push_enabled) flags.push = false;
+    if (!policy.push_enabled || !pushService.isConfigured()) flags.push = false;
     if (!policy.email_enabled) flags.email = false;
 
     return { ...flags, quiet: locked ? false : await this.isQuietNow(userId) };
@@ -332,7 +344,7 @@ class NotificationService {
     try {
       const decision = await this.resolve(userId, input.event, { conversationId: input.conversationId });
 
-      if (decision.in_app) {
+      if (decision.in_app && input.persist !== false) {
         const notification = await notificationRepository.create({
           recipient_id: userId,
           type: input.type,
@@ -351,11 +363,27 @@ class NotificationService {
           ...input.realtime,
         });
       }
+      if (decision.push && !decision.quiet && input.push) {
+        await this._sendPush(userId, input.push);
+      }
       return decision;
     } catch (err) {
       logger.warn({ err: (err as Error).message, userId, event: input.event }, 'Failed to notify');
       return null;
     }
+  }
+
+  /** Respeta "sólo si no estoy activo" y la privacidad elegida para el contenido. */
+  async _sendPush(userId: string, message: PushMessage): Promise<void> {
+    const [settings, user] = await Promise.all([this.getSettings(userId), userRepository.findById(userId)]);
+    if (settings.push_when === 'inactive' && user?.presence === 'online' && user.last_seen_at
+      && Date.now() - new Date(user.last_seen_at as Date).getTime() < ACTIVE_WINDOW_MS) {
+      return;
+    }
+    await pushService.send(userId, message, {
+      idioma: idiomaDe(user?.locale),
+      preview: settings.push_preview as 'full' | 'sender' | 'none',
+    });
   }
 }
 

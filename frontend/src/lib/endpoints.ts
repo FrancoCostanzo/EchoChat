@@ -50,6 +50,7 @@ import type {
   NotificationPreferencesResponse,
   NotificationSettings,
   NotificationSettingsRequest,
+  PushDevice,
 } from '@/types/notification';
 import type { RelationshipRequest, RelationshipEntry } from '@/types/relationship';
 import type { UpsertWallpaperRequest, WallpaperEntry } from '@/types/wallpaper';
@@ -214,6 +215,12 @@ export const notificationsApi = {
   updatePreferences: (data: NotificationPrefsRequest) => api.put<ApiEnvelope<NotificationPreferenceResponse>>('/notifications/preferences', data),
   getSettings: () => api.get<ApiEnvelope<NotificationSettings>>('/notifications/settings'),
   updateSettings: (data: NotificationSettingsRequest) => api.put<ApiEnvelope<NotificationSettings>>('/notifications/settings', data),
+  getPushConfig: () => api.get<ApiEnvelope<{ public_key: string | null }>>('/notifications/push/config'),
+  getPushDevices: () => api.get<ApiEnvelope<PushDevice[]>>('/notifications/push/devices'),
+  subscribePush: (subscription: PushSubscriptionJSON) => api.post<ApiEnvelope<PushDevice>>('/notifications/push/subscribe', subscription),
+  unsubscribePush: (endpoint: string) => api.post<ApiEnvelope<null>>('/notifications/push/unsubscribe', { endpoint }),
+  removePushDevice: (id: string) => api.delete<ApiEnvelope<null>>(`/notifications/push/devices/${id}`),
+  testPush: () => api.post<ApiEnvelope<{ delivered: number }>>('/notifications/push/test'),
 };
 
 export const adminApi = {

@@ -35,6 +35,14 @@ process.env.JWT_SECRET = process.env.JWT_SECRET || 'secreto-solo-para-tests';
 process.env.MESSAGE_ENC_KEY = process.env.MESSAGE_ENC_KEY
   || '1qRzXT/frO9XABpxCbCeSZkV8BbKTJyd/O/QgM/4YUk=';
 
+// Web Push habilitado con claves de prueba. Ningún aviso sale a la red: los
+// tests reemplazan `webpush.sendNotification` (ver notificacionesPush.test.ts).
+// Par fijo generado con `npm run vapid`, sólo para la suite.
+process.env.VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY
+  || 'BIFqB6XAkuQjwnh8xCmcMGM9AvXtLJZf3vXWcPX_hbnx4UMov2L_DAM2K1quKmPPuwm8O0hmW4PuLdNAmcz9pds';
+process.env.VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY
+  || 'GBquZy2RKgWenFL143RglyjX0bQF6ffBqUvHq5UN1sI';
+
 // SCIM se prueba entero, así que va habilitado con un token fijo.
 process.env.SCIM_ENABLED = 'true';
 process.env.SCIM_TOKEN = 'token-scim-de-la-suite-de-tests';

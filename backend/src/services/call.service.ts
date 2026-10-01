@@ -3,7 +3,7 @@ import { callRepository, conversationRepository, messageRepository, userReposito
 import { BadRequestError, ForbiddenError, NotFoundError } from '../errors';
 import { toCallResponse, toMessageResponse, toCallHistoryItem } from '../models';
 import { publicMinioClient } from '../config/minio';
-import { toConversation } from '../config/eventBus';
+import { toCall, toConversation, toUser } from '../config/eventBus';
 import notificationService from './notification.service';
 import type { CallRow } from '../models/call.model';
 import type { CallHistoryItem } from '../models/call.model';
@@ -30,6 +30,9 @@ async function withAvatarUrl(item: CallHistoryItem | null) {
 }
 
 const TERMINAL_STATUSES = ['ended', 'missed', 'rejected', 'failed'];
+
+// Lo mismo que timbra el cliente (RING_TIMEOUT_MS en callStore) antes de colgar.
+const RING_SECONDS = 35;
 
 const PERMISSION_BY_TYPE: Record<string, string> = {
   voice: 'calls.make_voice',
@@ -130,6 +133,13 @@ class CallService {
         reference_data: { conversation_id: call.conversation_id, call_type: call.type },
         conversationId: call.conversation_id,
         realtime: { call_id: call.id, conversation_id: call.conversation_id, sender_display_name: name },
+        // Mismo tag que el timbre: el aviso de "perdida" reemplaza al que sonaba.
+        push: {
+          kind: 'missedCall',
+          params: { name },
+          url: call.conversation_id ? `/chat/${call.conversation_id}` : '/calls',
+          tag: `call-${call.id}`,
+        },
       });
     }
   }
@@ -236,6 +246,65 @@ class CallService {
     const ids = await callRepository.getParticipantIds(callId);
     if (!ids.includes(userId)) return null;
     return { call, peerIds: ids.filter((id) => id !== userId) };
+  }
+
+  /**
+   * Push del timbre para los invitados que no tienen la app abierta. Sin
+   * bandeja: si la atienden no queda nada que leer, y si no, llega la de
+   * llamada perdida.
+   */
+  async pushRing(call: CallRow, callerName: string, calleeIds: string[]) {
+    let chat: string | null = null;
+    if (call.conversation_id) {
+      const conversation = await conversationRepository.findById(call.conversation_id).catch(() => null);
+      if (conversation?.type !== 'direct') chat = conversation?.name ?? null;
+    }
+    for (const calleeId of calleeIds) {
+      await notificationService.notify(calleeId, {
+        event: 'call.incoming',
+        type: 'call',
+        title: callerName,
+        conversationId: call.conversation_id,
+        persist: false,
+        push: {
+          kind: 'incomingCall',
+          params: { name: callerName, chat, video: call.type === 'video' },
+          url: call.conversation_id ? `/chat/${call.conversation_id}?call=${call.id}` : `/calls?call=${call.id}`,
+          tag: `call-${call.id}`,
+          call: { callId: call.id },
+        },
+      });
+    }
+  }
+
+  /**
+   * Timbres que siguen activos para `userId`. Al conectarse (por ejemplo, al
+   * abrir la app desde la notificación push) se le vuelven a mandar: el
+   * `call:incoming` original salió cuando no tenía la app abierta.
+   */
+  async pendingRingsFor(userId: string) {
+    const calls = await callRepository.findRingingForUser(userId, RING_SECONDS);
+    return Promise.all(calls.map(async (call) => {
+      const [caller, ids] = await Promise.all([
+        userRepository.findById(call.initiated_by),
+        callRepository.getParticipantIds(call.id),
+      ]);
+      return {
+        callId: call.id,
+        conversationId: call.conversation_id,
+        type: call.type,
+        from: caller ? await this.describeCaller(caller) : { id: call.initiated_by, display_name: '', avatar_url: null },
+        participantIds: ids,
+      };
+    }));
+  }
+
+  /** El invitado rechaza: queda registrado y se avisa a la sala y a sus otras sesiones. */
+  async decline(callId: string, userId: string, reason: 'declined' | 'busy') {
+    await callRepository.updateParticipant(callId, userId, { status: reason === 'busy' ? 'busy' : 'rejected' });
+    toCall(callId, 'call:rejected', { callId, userId, reason });
+    // Que deje de sonar en las demás pestañas/dispositivos del mismo usuario.
+    toUser(userId, 'call:cancelled', { callId });
   }
 
   /** Quién llama, armado en el servidor: el cliente no puede hacerse pasar por otro. */

@@ -72,5 +72,15 @@ export interface NotificationSettings {
 
 export type NotificationSettingsRequest = Partial<NotificationSettings>;
 
+/** Un navegador/dispositivo suscripto a push. Fuente: push.service toDevice. */
+export interface PushDevice {
+  id: string;
+  user_agent: string | null;
+  created_at: string;
+  last_used_at: string | null;
+  /** Final del endpoint, para reconocer el navegador actual en la lista. */
+  endpoint_tail: string;
+}
+
 /** Nivel de aviso de un chat (conversation_members.notification_level). */
 export type NotificationLevel = 'all' | 'mentions' | 'none';

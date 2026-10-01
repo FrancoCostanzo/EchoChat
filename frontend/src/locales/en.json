@@ -699,6 +699,41 @@
           "bubble": "Bubble",
           "knock": "Knock"
         }
+      },
+      "pushCard": {
+        "title": "Push notifications",
+        "desc": "System notifications even when EchoChat is closed, on each browser or phone where you turn them on.",
+        "desktop": "The desktop app uses system notifications; there's nothing to turn on.",
+        "unsupported": "This browser doesn't support push notifications.",
+        "iosHint": "On iPhone and iPad, first add EchoChat to your Home Screen (Share → Add to Home Screen) and turn them on from there.",
+        "denied": "You blocked notifications for this site. Allow them from the browser's site settings.",
+        "on": "On for this device",
+        "off": "Off for this device",
+        "enable": "Turn on for this device",
+        "test": "Send a test",
+        "disable": "Turn off",
+        "testSent": "We sent you a test notification",
+        "testNone": "There's no device that can receive it",
+        "installDesc": "Install EchoChat as an app to get its own window and notifications like any other application.",
+        "install": "Install EchoChat",
+        "devices": "Devices with push on",
+        "unknownDevice": "Unknown device",
+        "thisDevice": "this device",
+        "lastUsed": "Last notification: {{date}}",
+        "neverUsed": "Hasn't received notifications yet",
+        "remove": "Remove device",
+        "preview": "What the notification shows",
+        "previewOptions": {
+          "full": "Sender and message",
+          "sender": "Sender only",
+          "none": "Nothing"
+        },
+        "when": "When to send them",
+        "whenOptions": {
+          "inactive": "When I'm not using the app",
+          "always": "Always"
+        },
+        "badge": "Show the unread count on the app icon"
       }
     },
     "languages": {

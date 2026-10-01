@@ -1,0 +1,28 @@
+{
+  "push": {
+    "newMessage": "Nova mensagem",
+    "attachment": "📎 Arquivo anexado",
+    "mention": "{{name}} mencionou você",
+    "mentionIn": "{{name}} mencionou você em {{chat}}",
+    "threadReply": "{{name}} respondeu em um tópico",
+    "reaction": "{{name}} reagiu {{emoji}} à sua mensagem",
+    "incomingCall": "Chamada de {{name}}",
+    "incomingVideoCall": "Videochamada de {{name}}",
+    "missedCall": "Chamada perdida de {{name}}",
+    "broadcast": "Difusão: {{chat}}",
+    "reminder": "Lembrete",
+    "joinRequest": "Solicitação de canal",
+    "security": "Alerta de segurança",
+    "generic": "Você tem uma nova notificação",
+    "test": {
+      "title": "Notificações ativadas",
+      "body": "É assim que você verá os avisos do EchoChat neste dispositivo."
+    },
+    "actions": {
+      "reply": "Responder",
+      "markRead": "Marcar como lida",
+      "answer": "Atender",
+      "decline": "Recusar"
+    }
+  }
+}

@@ -246,6 +246,13 @@ class BroadcastService {
           reference_data: { conversation_id: conv.id },
           conversationId: conv.id,
           realtime: { conversation_id: conv.id },
+          push: {
+            kind: 'broadcast',
+            params: { chat: list?.name || 'Broadcast' },
+            preview: message.body || null,
+            url: `/chat/${conv.id}`,
+            tag: `conv-${conv.id}`,
+          },
         });
 
         try {

@@ -58,3 +58,28 @@ export const notificationSettingsDto = Joi.object<NotificationSettingsRequest>({
   email_unread_delay_minutes: Joi.number().valid(15, 30, 60, 120),
   email_locale: Joi.string().valid('es', 'en', 'pt').allow(null),
 }).min(1);
+
+export interface PushSubscribeRequest {
+  endpoint: string;
+  /** Viene en el JSON del navegador; no se usa. */
+  expirationTime?: number | null;
+  keys: { p256dh: string; auth: string };
+}
+
+/** Lo que entrega `PushSubscription.toJSON()` en el navegador. */
+export const pushSubscribeDto = Joi.object<PushSubscribeRequest>({
+  endpoint: Joi.string().uri({ scheme: ['https', 'http'] }).max(2000).required(),
+  expirationTime: Joi.any(),
+  keys: Joi.object({
+    p256dh: Joi.string().max(200).required(),
+    auth: Joi.string().max(100).required(),
+  }).required(),
+});
+
+export const pushUnsubscribeDto = Joi.object<{ endpoint: string }>({
+  endpoint: Joi.string().max(2000).required(),
+});
+
+export const pushActionDto = Joi.object<{ token: string }>({
+  token: Joi.string().max(2000).required(),
+});

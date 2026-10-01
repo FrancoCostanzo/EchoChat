@@ -1,0 +1,28 @@
+{
+  "push": {
+    "newMessage": "New message",
+    "attachment": "📎 Attachment",
+    "mention": "{{name}} mentioned you",
+    "mentionIn": "{{name}} mentioned you in {{chat}}",
+    "threadReply": "{{name}} replied in a thread",
+    "reaction": "{{name}} reacted {{emoji}} to your message",
+    "incomingCall": "Call from {{name}}",
+    "incomingVideoCall": "Video call from {{name}}",
+    "missedCall": "Missed call from {{name}}",
+    "broadcast": "Broadcast: {{chat}}",
+    "reminder": "Reminder",
+    "joinRequest": "Channel request",
+    "security": "Security alert",
+    "generic": "You have a new notification",
+    "test": {
+      "title": "Notifications enabled",
+      "body": "This is how EchoChat notifications will look on this device."
+    },
+    "actions": {
+      "reply": "Reply",
+      "markRead": "Mark as read",
+      "answer": "Answer",
+      "decline": "Decline"
+    }
+  }
+}

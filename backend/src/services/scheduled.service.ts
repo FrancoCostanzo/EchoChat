@@ -138,6 +138,12 @@ class ScheduledService {
             conversation_id: recordatorio.conversation_id,
             note: recordatorio.note,
           },
+          push: {
+            kind: 'reminder',
+            preview: recordatorio.note || null,
+            url: `/chat/${recordatorio.conversation_id}`,
+            tag: `reminder-${recordatorio.id}`,
+          },
         });
       } catch (err) {
         logger.warn(

@@ -171,6 +171,15 @@ class ConversationRepository extends BaseRepository<ConvRow> {
     return rows[0] || null;
   }
 
+  /** Ids de todos los miembros activos, sin datos de usuario (para repartir avisos). */
+  async getActiveMemberIds(conversationId: string): Promise<string[]> {
+    const { rows } = await this.query<{ user_id: string }>(
+      'SELECT user_id FROM conversation_members WHERE conversation_id = $1 AND left_at IS NULL',
+      [conversationId]
+    );
+    return rows.map((r) => r.user_id);
+  }
+
   /** De `userIds`, los que son miembros activos de la conversación. */
   async filterActiveMemberIds(conversationId: string, userIds: string[]): Promise<string[]> {
     const { rows } = await this.query<{ user_id: string }>(

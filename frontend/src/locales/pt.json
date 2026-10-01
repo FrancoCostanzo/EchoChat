@@ -699,6 +699,41 @@
           "bubble": "Bolha",
           "knock": "Toc toc"
         }
+      },
+      "pushCard": {
+        "title": "Notificações push",
+        "desc": "Avisos do sistema mesmo com o EchoChat fechado, em cada navegador ou celular onde você ativá-los.",
+        "desktop": "O app para desktop usa as notificações do sistema; não é preciso ativar nada.",
+        "unsupported": "Este navegador não suporta notificações push.",
+        "iosHint": "No iPhone e iPad, primeiro adicione o EchoChat à Tela de Início (Compartilhar → Adicionar à Tela de Início) e ative por lá.",
+        "denied": "Você bloqueou as notificações deste site. Permita-as nas configurações do site no navegador.",
+        "on": "Ativas neste dispositivo",
+        "off": "Desativadas neste dispositivo",
+        "enable": "Ativar neste dispositivo",
+        "test": "Enviar teste",
+        "disable": "Desativar",
+        "testSent": "Enviamos uma notificação de teste",
+        "testNone": "Não há nenhum dispositivo que possa recebê-la",
+        "installDesc": "Instale o EchoChat como app para tê-lo em sua própria janela e receber avisos como qualquer aplicativo.",
+        "install": "Instalar EchoChat",
+        "devices": "Dispositivos com push ativo",
+        "unknownDevice": "Dispositivo desconhecido",
+        "thisDevice": "este dispositivo",
+        "lastUsed": "Último aviso: {{date}}",
+        "neverUsed": "Ainda não recebeu avisos",
+        "remove": "Remover dispositivo",
+        "preview": "O que a notificação mostra",
+        "previewOptions": {
+          "full": "Quem e a mensagem",
+          "sender": "Só quem",
+          "none": "Nada"
+        },
+        "when": "Quando enviá-las",
+        "whenOptions": {
+          "inactive": "Se não estou usando o app",
+          "always": "Sempre"
+        },
+        "badge": "Mostrar o contador de não lidas no ícone do app"
       }
     },
     "languages": {

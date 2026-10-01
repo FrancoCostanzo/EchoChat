@@ -99,6 +99,21 @@ class CallRepository extends BaseRepository<CallRow> {
     return rows[0];
   }
 
+  /** Llamadas que todavía le están sonando a `userId` (no atendió ni rechazó). */
+  async findRingingForUser(userId: string, maxAgeSeconds: number): Promise<CallRow[]> {
+    const { rows } = await this.query<CallRow>(
+      `SELECT c.* FROM calls c
+       JOIN call_participants cp ON cp.call_id = c.id
+       WHERE cp.user_id = $1
+         AND cp.status = 'invited'
+         AND c.initiated_by <> $1
+         AND c.status IN ('pending', 'ringing')
+         AND c.initiated_at > NOW() - make_interval(secs => $2)`,
+      [userId, maxAgeSeconds]
+    );
+    return rows;
+  }
+
   async getParticipantIds(callId: string): Promise<string[]> {
     const { rows } = await this.query<{ user_id: string }>(
       'SELECT user_id FROM call_participants WHERE call_id = $1',

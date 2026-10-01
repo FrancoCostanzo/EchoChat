@@ -85,7 +85,7 @@ Fase 0 → Fase 1 → Fase 2 → Fase 3 → (Fase 6 en paralelo) → Fase 8 → 
 | # | Funcionalidad | Esfuerzo | Depende de | Estado |
 |---|---|---|---|---|
 | 2.0 | **Preferencias en 3 niveles + despachador único** (ver detalle abajo). | M (4-5d) | — | ✅ |
-| 2.1 | Web Push (VAPID) + PWA: suscripción por dispositivo, envío respetando preferencias. | M (4-5d) | 2.0 | ⬜ |
+| 2.1 | Web Push (VAPID) + PWA: suscripción por dispositivo, envío respetando preferencias. | M (4-5d) | 2.0 | ✅ |
 | 2.2 | Email (nodemailer + SMTP): reset de contraseña, invitaciones, alertas, digest. | M (5-6d) | 2.0, 0.3 | ⬜ |
 | 2.3 | UI de preferencias granular por evento + horario de silencio. | S (2d) | 2.1 | ✅ |
 
@@ -141,6 +141,16 @@ Resolución de preferencias de lo más específico a lo más general:
   app instalada (16.4+) y la UI lo explica.
 - Electron mantiene sus notificaciones nativas y no se suscribe a push; el despachador evita
   duplicados con la regla "solo si no estoy activo".
+- ✅ **Hecho** — `web-push` + migración `022_push_subscriptions.sql` + `npm run vapid`;
+  `push.service` (formato según privacidad, TTL corto y urgencia alta para llamadas, limpieza de
+  suscripciones 404/410 y tras 5 fallos), textos en es/en/pt desde `backend/src/i18n`. Push en
+  mensajes comunes (sólo a quien tiene dispositivos), menciones, hilos, reacciones, llamadas
+  entrantes/perdidas, difusiones, recordatorios y canales. Acciones sin sesión con token firmado
+  (`POST /notifications/push/action`): "Marcar como leído" y "Rechazar" llamada; "Atender" abre la
+  app con `?call=…&answer=1` y el servidor reenvía al conectar los timbres pendientes. Frontend:
+  `public/sw.js`, `lib/push.ts`, `PushIntegration` (navegación desde el aviso, badge del ícono),
+  tarjeta en Ajustes (activar, dispositivos, prueba, privacidad, cuándo, instalar PWA, contador).
+  nginx sirve `/sw.js` sin caché. Tests en `backend/tests/notificacionesPush.test.ts`.
 
 #### 2.2 Email
 

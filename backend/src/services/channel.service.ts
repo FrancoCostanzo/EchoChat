@@ -143,6 +143,14 @@ class ChannelService {
         : 'Tu solicitud para unirte al canal fue rechazada',
       reference_type: 'conversation',
       reference_id: conversationId,
+      push: {
+        kind: 'joinRequest',
+        preview: status === 'approved'
+          ? 'Tu solicitud para unirte al canal fue aprobada'
+          : 'Tu solicitud para unirte al canal fue rechazada',
+        url: status === 'approved' ? `/chat/${conversationId}` : '/channels',
+        tag: `join-${requestId}`,
+      },
     });
 
     logger.info({ conversationId, requestId, status }, 'Channel join request reviewed');
@@ -188,6 +196,12 @@ class ChannelService {
           body: `Hay una solicitud para unirse a ${channelName || 'un canal'}`,
           reference_type: 'conversation',
           reference_id: conversationId,
+          push: {
+            kind: 'joinRequest',
+            preview: `Hay una solicitud para unirse a ${channelName || 'un canal'}`,
+            url: '/channels',
+            tag: `join-${conversationId}`,
+          },
         });
         this._emitToUser(manager.user_id, 'channel:join_request', { conversationId });
       }

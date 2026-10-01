@@ -11,6 +11,7 @@ import {
   pollRepository,
   gameRepository,
   systemSettingsRepository,
+  pushSubscriptionRepository,
 } from '../repositories';
 import notificationService from './notification.service';
 import { NotFoundError, ForbiddenError, BadRequestError } from '../errors';
@@ -47,6 +48,16 @@ async function getWindowMinutes(key: string, defaultMinutes: number): Promise<nu
   } catch {
     return defaultMinutes;
   }
+}
+
+/**
+ * Texto que puede ir en la vista previa de un aviso fuera de la app. Sólo los
+ * tipos que son texto; para el resto (adjuntos, encuestas, juegos…) el aviso
+ * dice "Nuevo mensaje".
+ */
+function textoParaAviso(mensaje: MessageResponse): string | null {
+  if (mensaje.type !== 'text' && mensaje.type !== 'code') return null;
+  return typeof mensaje.body === 'string' && mensaje.body.trim() ? mensaje.body : null;
 }
 
 function assertWithinWindow(sentAt: Date | string | null, minutes: number, action: string): void {
@@ -153,6 +164,8 @@ class MessageService {
     }
     if (response.thread_id) {
       void this._notificarHilo(response, menciones, userId);
+    } else if (response.type !== 'system') {
+      void this._pushNuevoMensaje(response, menciones, userId);
     }
     void this._autoResponderAusencia(response, userId);
     return response;
@@ -225,13 +238,14 @@ class MessageService {
     if (destinatarios.length === 0) return;
 
     const autor = mensaje.sender_display_name || mensaje.sender_username || 'Alguien';
-    let dondeFue = '';
+    let nombreChat: string | null = null;
     try {
       const conversacion = await conversationRepository.findById(mensaje.conversation_id);
-      if (conversacion?.name) dondeFue = ` en ${conversacion.name}`;
+      nombreChat = conversacion?.name ?? null;
     } catch {
       // El nombre es decorativo: si falla, la notificación igual sale.
     }
+    const dondeFue = nombreChat ? ` en ${nombreChat}` : '';
 
     for (const destinatario of destinatarios) {
       await notificationService.notify(destinatario, {
@@ -251,7 +265,54 @@ class MessageService {
           thread_id: mensaje.thread_id ?? null,
           sender_display_name: autor,
         },
+        push: {
+          kind: 'mention',
+          params: { name: autor, chat: nombreChat },
+          preview: textoParaAviso(mensaje),
+          url: `/chat/${mensaje.conversation_id}`,
+          tag: `conv-${mensaje.conversation_id}`,
+          markRead: { conversationId: mensaje.conversation_id, messageId: mensaje.id },
+        },
       });
+    }
+  }
+
+  /**
+   * Push de un mensaje común a los miembros que no están mirando. No deja
+   * notificación en la bandeja: en la app el aviso lo da el propio mensaje.
+   * Sólo se resuelven preferencias de quien tiene algún dispositivo suscripto,
+   * así un canal grande no dispara una consulta por miembro en cada mensaje.
+   */
+  async _pushNuevoMensaje(mensaje: MessageResponse, menciones: Mencion[], autorId: string): Promise<void> {
+    try {
+      const mencionados = new Set(destinatariosDeMenciones(menciones, autorId));
+      const miembros = await conversationRepository.getActiveMemberIds(mensaje.conversation_id);
+      const candidatos = miembros.filter((id) => id !== autorId && !mencionados.has(id));
+      const suscriptos = await pushSubscriptionRepository.filterSubscribedUserIds(candidatos);
+      if (suscriptos.length === 0) return;
+
+      const conversacion = await conversationRepository.findById(mensaje.conversation_id);
+      const esDirecto = conversacion?.type === 'direct';
+      const autor = mensaje.sender_display_name || mensaje.sender_username || 'Alguien';
+      for (const destinatario of suscriptos) {
+        await notificationService.notify(destinatario, {
+          event: esDirecto ? 'message.direct' : 'message.group',
+          type: 'message',
+          title: autor,
+          conversationId: mensaje.conversation_id,
+          persist: false,
+          push: {
+            kind: 'message',
+            params: { name: autor, chat: esDirecto ? null : conversacion?.name ?? null },
+            preview: textoParaAviso(mensaje),
+            url: `/chat/${mensaje.conversation_id}`,
+            tag: `conv-${mensaje.conversation_id}`,
+            markRead: { conversationId: mensaje.conversation_id, messageId: mensaje.id },
+          },
+        });
+      }
+    } catch (err) {
+      logger.warn({ err: (err as Error).message, messageId: mensaje.id }, 'Failed to push new message');
     }
   }
 
@@ -280,6 +341,13 @@ class MessageService {
             conversation_id: mensaje.conversation_id,
             thread_id: mensaje.thread_id,
             sender_display_name: autor,
+          },
+          push: {
+            kind: 'threadReply',
+            params: { name: autor },
+            preview: textoParaAviso(mensaje),
+            url: `/chat/${mensaje.conversation_id}`,
+            tag: `thread-${mensaje.thread_id}`,
           },
         });
       }
@@ -504,6 +572,12 @@ class MessageService {
       reference_data: { conversation_id: conversationId },
       conversationId,
       realtime: { message_id: messageId, conversation_id: conversationId, sender_display_name: nombre, emoji },
+      push: {
+        kind: 'reaction',
+        params: { name: nombre, emoji },
+        url: `/chat/${conversationId}`,
+        tag: `reaction-${messageId}`,
+      },
     });
   }
 

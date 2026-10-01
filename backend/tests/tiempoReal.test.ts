@@ -80,6 +80,20 @@ describe('señalización de llamadas', () => {
     return llamada.datos.id;
   }
 
+  test('al conectarse le vuelven a sonar las llamadas pendientes', async () => {
+    const ana = await crearUsuario(pedir, 'call');
+    const beto = await crearUsuario(pedir, 'call');
+    const callId = await llamadaEntre(ana, beto);
+
+    const socketBeto = clienteSocket(servidor.base, {
+      auth: { token: beto.token }, transports: ['websocket'], reconnection: false,
+    });
+    abiertos.push(socketBeto);
+    const timbre = await esperarEvento(socketBeto, 'call:incoming');
+    assert.equal(timbre.callId, callId);
+    assert.equal(timbre.from.id, ana.id);
+  });
+
   test('el timbre sale con los datos del servidor, no con los del cliente', async () => {
     const ana = await crearUsuario(pedir, 'call');
     const beto = await crearUsuario(pedir, 'call');
@@ -101,10 +115,12 @@ describe('señalización de llamadas', () => {
     const ana = await crearUsuario(pedir, 'call');
     const beto = await crearUsuario(pedir, 'call');
     const intruso = await crearUsuario(pedir, 'call');
-    const callId = await llamadaEntre(ana, beto);
+    // Conectados antes de crear la llamada: al conectarse, el servidor reenvía
+    // los timbres pendientes, y acá se prueba sólo el `call:start`.
     const [socketAna, socketBeto, socketIntruso] = await Promise.all([
       conectar(ana), conectar(beto), conectar(intruso),
     ]);
+    const callId = await llamadaEntre(ana, beto);
 
     // Timbrar en nombre de una llamada ajena, o a cualquiera.
     const sinTimbre = noLlega(socketBeto, 'call:incoming');

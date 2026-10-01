@@ -393,6 +393,18 @@ export interface PollVotes {
   voted_at: Generated<Timestamp | null>;
 }
 
+export interface PushSubscriptions {
+  auth: string;
+  created_at: Generated<Timestamp>;
+  endpoint: string;
+  failure_count: Generated<number>;
+  id: Generated<string>;
+  last_used_at: Timestamp | null;
+  p256dh: string;
+  user_agent: string | null;
+  user_id: string;
+}
+
 export interface RolePermissions {
   permission_id: string;
   role_id: string;
@@ -667,6 +679,7 @@ export interface DB {
   poll_options: PollOptions;
   poll_votes: PollVotes;
   polls: Polls;
+  push_subscriptions: PushSubscriptions;
   role_permissions: RolePermissions;
   roles: Roles;
   saved_messages: SavedMessages;

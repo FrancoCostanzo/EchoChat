@@ -130,6 +130,11 @@ async function initSocket(httpServer: HttpServer): Promise<Server> {
     // registra antes de los await de abajo: un timbre emitido apenas conecta
     // el socket se perdía mientras se consultaba la base.
     registerCallHandlers(servidor, socket, userId);
+    // Llamadas que le estaban sonando mientras no tenía la app abierta (por
+    // ejemplo, si la abre tocando "Atender" en la notificación push).
+    callService.pendingRingsFor(userId)
+      .then((rings) => { for (const ring of rings) socket.emit('call:incoming', ring); })
+      .catch((err: Error) => logger.warn({ err: err.message, userId }, 'Failed to resend pending rings'));
 
     // Join all conversation rooms this user belongs to
     try {
@@ -320,6 +325,7 @@ function registerCallHandlers(io: Server, socket: SocketAutenticado, userId: str
           participantIds: [userId, ...peerIds],
         });
       }
+      void callService.pushRing(call, from.display_name, peerIds);
       logger.info({ callId: call.id, userId, type: call.type }, 'Call ring started');
     } catch (err) {
       logger.warn({ err: (err as Error).message, callId, userId }, 'Failed to start call ring');
@@ -355,6 +361,8 @@ function registerCallHandlers(io: Server, socket: SocketAutenticado, userId: str
     socket.join(room(id));
     socket.emit('call:peers', { callId: id, userIds: [...existing] });
     socket.to(room(id)).emit('call:peer-joined', { callId: id, userId });
+    // Atendió en esta sesión: que deje de sonar en sus otras pestañas/dispositivos.
+    socket.to(`user:${userId}`).emit('call:cancelled', { callId: id });
 
     // Persistencia: la primera aceptación marca la llamada como activa (setea
     // answered_at) para que el trigger calcule la duración al finalizar.
@@ -375,11 +383,7 @@ function registerCallHandlers(io: Server, socket: SocketAutenticado, userId: str
     try {
       const found = await callService.getPeers(callId, userId);
       if (!found) return;
-      io.to(room(found.call.id)).emit('call:rejected', {
-        callId: found.call.id,
-        userId,
-        reason: reason === 'busy' ? 'busy' : 'declined',
-      });
+      await callService.decline(found.call.id, userId, reason === 'busy' ? 'busy' : 'declined');
     } catch (err) {
       logger.warn({ err: (err as Error).message, callId, userId }, 'Failed to relay call reject');
     }

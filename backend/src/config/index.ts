@@ -89,6 +89,8 @@ interface AppConfig {
   };
   scim: { enabled: boolean; token: string; defaultRole: string };
   messageEnc: { key: string | undefined; keyId: string };
+  /** Web Push (VAPID). Sin las dos claves el canal push queda deshabilitado. */
+  push: { publicKey: string; privateKey: string; subject: string };
   cors: { origins: string[] };
   rateLimit: { windowMs: number; max: number };
   log: { level: string };
@@ -273,6 +275,14 @@ const config: AppConfig = {
   messageEnc: {
     key: process.env.MESSAGE_ENC_KEY,
     keyId: process.env.MESSAGE_ENC_KEY_ID || 'v1',
+  },
+
+  push: {
+    publicKey: process.env.VAPID_PUBLIC_KEY || '',
+    privateKey: process.env.VAPID_PRIVATE_KEY || '',
+    // Contacto que los servicios de push (Google, Mozilla, Apple) usan si hay
+    // un problema con los envíos: un mailto: o la URL de la instalación.
+    subject: process.env.VAPID_SUBJECT || 'mailto:admin@localhost',
   },
 
   cors: {

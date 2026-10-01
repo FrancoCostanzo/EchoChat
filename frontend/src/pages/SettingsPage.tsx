@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type ReactNode, type ChangeEvent } from 'react';
+import { useState, useRef, useEffect, useCallback, type ReactNode, type ChangeEvent } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Input,
@@ -45,6 +45,8 @@ import {
   MoonStar,
   Volume2,
   Play,
+  Download,
+  Trash2,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -71,7 +73,20 @@ function parseUserAgent(ua: string | null | undefined): { browser: string | null
 }
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
-import { usersApi, authApi } from '@/lib/endpoints';
+import { usersApi, authApi, notificationsApi } from '@/lib/endpoints';
+import { isElectron } from '@/lib/runtimeConfig';
+import {
+  canInstall,
+  disablePush,
+  enablePush,
+  getCurrentSubscription,
+  getPushState,
+  isIos,
+  isStandalone,
+  onInstallAvailabilityChange,
+  promptInstall,
+  type PushState,
+} from '@/lib/push';
 import { useNotificationStore, isDndActive } from '@/stores/notificationStore';
 import { MESSAGE_SOUND_NAMES, playMessageSound } from '@/lib/sounds';
 import { NOTIFICATION_EVENT_GROUPS } from '@/lib/notificationEvents';
@@ -82,7 +97,14 @@ import { useWallpaperStore } from '@/stores/wallpaperStore';
 import WallpaperPicker, { WallpaperPreview } from '@/components/WallpaperPicker';
 import { changeLanguage } from '@/lib/i18n';
 import type { SessionResponse, Setup2faResponse } from '@/types/auth';
-import type { NotificationPrefsRequest, NotificationSettingsRequest } from '@/types/notification';
+import type {
+  NotificationPrefsRequest,
+  NotificationSettings,
+  NotificationSettingsRequest,
+  PushDevice,
+  PushPreview,
+  PushWhen,
+} from '@/types/notification';
 
 type WallpaperScope = 'global' | 'type' | 'conversation';
 
@@ -1282,6 +1304,202 @@ function dndUntil(option: string): string | null {
   return null;
 }
 
+/** Push del navegador en este dispositivo + los demás dispositivos suscriptos. */
+function PushSettingsCard({
+  settings,
+  save,
+}: {
+  settings: NotificationSettings;
+  save: (patch: NotificationSettingsRequest) => Promise<void>;
+}) {
+  const { t, i18n } = useTranslation();
+  const channels = useNotificationStore((s) => s.channels);
+  const [state, setState] = useState<PushState | null>(null);
+  const [devices, setDevices] = useState<PushDevice[]>([]);
+  const [currentTail, setCurrentTail] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [installable, setInstallable] = useState(canInstall());
+
+  const refresh = useCallback(async () => {
+    const [nextState, subscription, list] = await Promise.all([
+      getPushState(),
+      getCurrentSubscription().catch(() => null),
+      notificationsApi.getPushDevices().then((r) => r.data).catch(() => [] as PushDevice[]),
+    ]);
+    setState(nextState);
+    setCurrentTail(subscription ? subscription.endpoint.slice(-24) : null);
+    setDevices(list);
+  }, []);
+
+  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => onInstallAvailabilityChange(() => setInstallable(canInstall())), []);
+
+  const run = async (action: () => Promise<unknown>) => {
+    setBusy(true);
+    try {
+      await action();
+    } catch {
+      toast.danger(t('settings.notifications.saveError'));
+    } finally {
+      setBusy(false);
+      void refresh();
+    }
+  };
+
+  const sendTest = () => run(async () => {
+    const { data } = await notificationsApi.testPush();
+    if (data.delivered > 0) toast.success(t('settings.notifications.pushCard.testSent'));
+    else toast.warning(t('settings.notifications.pushCard.testNone'));
+  });
+
+  if (!channels.push) return null;
+
+  const electron = isElectron();
+  const statusText = electron
+    ? t('settings.notifications.pushCard.desktop')
+    : state === 'unsupported'
+      ? (isIos() && !isStandalone() ? t('settings.notifications.pushCard.iosHint') : t('settings.notifications.pushCard.unsupported'))
+      : state === 'denied'
+        ? t('settings.notifications.pushCard.denied')
+        : state === 'on'
+          ? t('settings.notifications.pushCard.on')
+          : t('settings.notifications.pushCard.off');
+
+  return (
+    <SettingsCard icon={Smartphone} title={t('settings.notifications.pushCard.title')}>
+      <p className="mb-4 text-xs text-ink-200">{t('settings.notifications.pushCard.desc')}</p>
+
+      <div className="flex flex-col gap-3 rounded-xl border border-white/8 bg-ink-800/45 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-sm text-foreground">{state === null && !electron ? <Spinner size="sm" /> : statusText}</div>
+        {!electron && (
+          <div className="flex shrink-0 flex-wrap gap-2">
+            {state === 'off' && (
+              <Button size="sm" isPending={busy} onPress={() => run(async () => {
+                const result = await enablePush();
+                if (result === 'denied') toast.warning(t('settings.notifications.pushCard.denied'));
+              })}>
+                {t('settings.notifications.pushCard.enable')}
+              </Button>
+            )}
+            {state === 'on' && (
+              <>
+                <Button size="sm" variant="secondary" isPending={busy} onPress={sendTest}>
+                  {t('settings.notifications.pushCard.test')}
+                </Button>
+                <Button size="sm" variant="ghost" isDisabled={busy} onPress={() => run(disablePush)}>
+                  {t('settings.notifications.pushCard.disable')}
+                </Button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {installable && !isStandalone() && (
+        <div className="mt-3 flex flex-col gap-2 rounded-xl border border-accent/25 bg-accent/8 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-ink-100">{t('settings.notifications.pushCard.installDesc')}</p>
+          <Button size="sm" variant="secondary" onPress={() => void promptInstall()}>
+            <Download size={14} />
+            {t('settings.notifications.pushCard.install')}
+          </Button>
+        </div>
+      )}
+
+      {devices.length > 0 && (
+        <>
+          <p className="mt-5 mb-2 text-xs font-medium text-ink-200">{t('settings.notifications.pushCard.devices')}</p>
+          <div className="flex flex-col gap-2">
+            {devices.map((device) => {
+              const { browser, os } = parseUserAgent(device.user_agent);
+              const isThis = currentTail !== null && device.endpoint_tail === currentTail;
+              return (
+                <div key={device.id} className="flex items-center justify-between gap-3 rounded-lg bg-ink-800/40 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm text-foreground">
+                      {[browser, os].filter(Boolean).join(' · ') || t('settings.notifications.pushCard.unknownDevice')}
+                      {isThis && <span className="ml-2 text-xs text-accent">{t('settings.notifications.pushCard.thisDevice')}</span>}
+                    </p>
+                    <p className="text-xs text-ink-300">
+                      {device.last_used_at
+                        ? t('settings.notifications.pushCard.lastUsed', {
+                            date: new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium', timeStyle: 'short' })
+                              .format(new Date(device.last_used_at)),
+                          })
+                        : t('settings.notifications.pushCard.neverUsed')}
+                    </p>
+                  </div>
+                  <Button
+                    isIconOnly
+                    size="sm"
+                    variant="ghost"
+                    aria-label={t('settings.notifications.pushCard.remove')}
+                    isDisabled={busy}
+                    onPress={() => run(async () => {
+                      if (isThis) await disablePush();
+                      else await notificationsApi.removePushDevice(device.id);
+                    })}
+                  >
+                    <Trash2 size={14} />
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      <p className="mt-5 mb-2 text-xs font-medium text-ink-200">{t('settings.notifications.pushCard.preview')}</p>
+      <ToggleButtonGroup
+        aria-label={t('settings.notifications.pushCard.preview')}
+        selectionMode="single"
+        disallowEmptySelection
+        size="sm"
+        className="flex-wrap"
+        selectedKeys={new Set([settings.push_preview])}
+        onSelectionChange={(keys) => {
+          const value = [...keys][0] as PushPreview | undefined;
+          if (value && value !== settings.push_preview) void save({ push_preview: value });
+        }}
+      >
+        {(['full', 'sender', 'none'] as const).map((value, i) => (
+          <ToggleButton key={value} id={value}>
+            {i > 0 && <ToggleButtonGroup.Separator />}
+            {t(`settings.notifications.pushCard.previewOptions.${value}`)}
+          </ToggleButton>
+        ))}
+      </ToggleButtonGroup>
+
+      <p className="mt-5 mb-2 text-xs font-medium text-ink-200">{t('settings.notifications.pushCard.when')}</p>
+      <ToggleButtonGroup
+        aria-label={t('settings.notifications.pushCard.when')}
+        selectionMode="single"
+        disallowEmptySelection
+        size="sm"
+        className="flex-wrap"
+        selectedKeys={new Set([settings.push_when])}
+        onSelectionChange={(keys) => {
+          const value = [...keys][0] as PushWhen | undefined;
+          if (value && value !== settings.push_when) void save({ push_when: value });
+        }}
+      >
+        {(['inactive', 'always'] as const).map((value, i) => (
+          <ToggleButton key={value} id={value}>
+            {i > 0 && <ToggleButtonGroup.Separator />}
+            {t(`settings.notifications.pushCard.whenOptions.${value}`)}
+          </ToggleButton>
+        ))}
+      </ToggleButtonGroup>
+
+      <div className="mt-5">
+        <Switch isSelected={settings.badge_enabled} onChange={(v) => save({ badge_enabled: v })}>
+          <Switch.Control><Switch.Thumb /></Switch.Control>
+          <Switch.Content>{t('settings.notifications.pushCard.badge')}</Switch.Content>
+        </Switch>
+      </div>
+    </SettingsCard>
+  );
+}
+
 function NotificationsTab() {
   const { t, i18n } = useTranslation();
   const settings = useNotificationStore((s) => s.settings);
@@ -1509,6 +1727,8 @@ function NotificationsTab() {
           ))}
         </div>
       </SettingsCard>
+
+      <PushSettingsCard settings={settings} save={save} />
 
       {/* ── Sonidos ── */}
       <SettingsCard icon={Volume2} title={t('settings.notifications.sound.title')}>

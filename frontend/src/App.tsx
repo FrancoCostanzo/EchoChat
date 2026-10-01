@@ -10,6 +10,7 @@ import { useNotificationStore } from '@/stores/notificationStore';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { ConfirmProvider } from '@/components/ConfirmProvider';
 import DesktopIntegration from '@/components/DesktopIntegration';
+import PushIntegration from '@/components/PushIntegration';
 import { AnimatedLogoMark } from '@/components/AppLogo';
 import { SPRING_SOFT } from '@/lib/motion';
 
@@ -87,6 +88,7 @@ export default function App() {
     <ConfirmProvider>
       <Toast.Provider placement="bottom end" maxVisibleToasts={4} width={360} />
       <DesktopIntegration />
+      <PushIntegration />
       <Suspense fallback={<PageLoader />}>
       <RouteFade>
       <Routes>
