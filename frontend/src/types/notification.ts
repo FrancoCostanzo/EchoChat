@@ -68,6 +68,14 @@ export interface NotificationSettings {
   email_digest_hour: number;
   email_unread_delay_minutes: 15 | 30 | 60 | 120;
   email_locale: string | null;
+  call_privacy: 'everyone' | 'contacts' | 'nobody';
+  call_dnd_behavior: 'reject' | 'silent';
+  ringtone_volume: number;
+  join_muted: boolean;
+  join_camera_off: boolean;
+  noise_suppression: boolean;
+  echo_cancellation: boolean;
+  auto_gain_control: boolean;
 }
 
 export type NotificationSettingsRequest = Partial<NotificationSettings>;

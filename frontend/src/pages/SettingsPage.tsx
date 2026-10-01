@@ -50,6 +50,11 @@ import {
   Download,
   Trash2,
   Mail,
+  Phone,
+  PhoneIncoming,
+  Video,
+  Mic,
+  AudioLines,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -91,7 +96,15 @@ import {
   type PushState,
 } from '@/lib/push';
 import { useNotificationStore, isDndActive } from '@/stores/notificationStore';
-import { MESSAGE_SOUND_NAMES, playMessageSound } from '@/lib/sounds';
+import { MESSAGE_SOUND_NAMES, playMessageSound, RINGTONE_NAMES, previewRingtone } from '@/lib/sounds';
+import {
+  audioConstraints,
+  canChooseSpeaker,
+  getDevicePrefs,
+  setDevicePref,
+  videoConstraints,
+  type DevicePrefs,
+} from '@/lib/mediaPrefs';
 import { NOTIFICATION_EVENT_GROUPS } from '@/lib/notificationEvents';
 import UserAvatar from '@/components/UserAvatar';
 import AvatarCropModal from '@/components/AvatarCropModal';
@@ -1923,11 +1936,307 @@ function NotificationsTab() {
   );
 }
 
+/** Selector de un tipo de dispositivo; el elegido queda guardado en este navegador. */
+function DeviceSelect({
+  devices,
+  kind,
+  label,
+  value,
+  onChange,
+}: {
+  devices: MediaDeviceInfo[];
+  kind: keyof DevicePrefs;
+  label: string;
+  value: string | undefined;
+  onChange: (kind: keyof DevicePrefs, deviceId: string) => void;
+}) {
+  const options = devices.filter((d) => d.kind === kind);
+  if (options.length === 0) return null;
+  return (
+    <Select
+      className="w-full"
+      value={value && options.some((o) => o.deviceId === value) ? value : options[0].deviceId}
+      onChange={(next) => onChange(kind, String(next))}
+    >
+      <Label className="text-xs font-medium text-ink-200">{label}</Label>
+      <Select.Trigger>
+        <Select.Value />
+        <Select.Indicator />
+      </Select.Trigger>
+      <Select.Popover>
+        <ListBox>
+          {options.map((d, i) => (
+            <ListBox.Item key={d.deviceId || i} id={d.deviceId} textValue={d.label || `${label} ${i + 1}`}>
+              {d.label || `${label} ${i + 1}`}
+              <ListBox.ItemIndicator />
+            </ListBox.Item>
+          ))}
+        </ListBox>
+      </Select.Popover>
+    </Select>
+  );
+}
+
+/** Elegir micrófono, cámara y parlante, con prueba de micrófono y vista previa de cámara. */
+function CallDevicesCard() {
+  const { t } = useTranslation();
+  const settings = useNotificationStore((s) => s.settings);
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+  const [prefs, setPrefs] = useState<DevicePrefs>(getDevicePrefs);
+  const [testing, setTesting] = useState(false);
+  const [level, setLevel] = useState(0);
+  const testStream = useRef<MediaStream | null>(null);
+  const previewRef = useRef<HTMLVideoElement | null>(null);
+  const stopTest = useRef<(() => void) | null>(null);
+
+  const refresh = useCallback(() => {
+    navigator.mediaDevices?.enumerateDevices().then(setDevices).catch(() => setDevices([]));
+  }, []);
+  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => () => stopTest.current?.(), []);
+
+  // Sin permiso, el navegador lista los dispositivos sin nombre: hay que pedirlo una vez.
+  const hasLabels = devices.some((d) => d.label);
+
+  const askPermission = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
+        .catch(() => navigator.mediaDevices.getUserMedia({ audio: true }));
+      stream.getTracks().forEach((track) => track.stop());
+      refresh();
+    } catch {
+      toast.danger(t('settings.calls.devices.permissionDenied'));
+    }
+  };
+
+  const choose = (kind: keyof DevicePrefs, deviceId: string) => {
+    setDevicePref(kind, deviceId || null);
+    setPrefs(getDevicePrefs());
+    if (testing) { stopTest.current?.(); setTesting(false); }
+  };
+
+  /** Prende micrófono y cámara elegidos: barra de nivel + vista previa, hasta que se corte. */
+  const startTest = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: audioConstraints(settings, prefs.audioinput),
+        video: devices.some((d) => d.kind === 'videoinput') ? videoConstraints(prefs.videoinput) : false,
+      });
+      testStream.current = stream;
+      if (previewRef.current) previewRef.current.srcObject = stream;
+      const ctx = new AudioContext();
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      ctx.createMediaStreamSource(stream).connect(analyser);
+      const data = new Uint8Array(analyser.fftSize);
+      let frame = 0;
+      const tick = () => {
+        analyser.getByteTimeDomainData(data);
+        let peak = 0;
+        for (const v of data) peak = Math.max(peak, Math.abs(v - 128));
+        setLevel(Math.min(1, peak / 64));
+        frame = requestAnimationFrame(tick);
+      };
+      tick();
+      stopTest.current = () => {
+        cancelAnimationFrame(frame);
+        void ctx.close().catch(() => {});
+        stream.getTracks().forEach((track) => track.stop());
+        testStream.current = null;
+        if (previewRef.current) previewRef.current.srcObject = null;
+        setLevel(0);
+      };
+      setTesting(true);
+      refresh();
+    } catch {
+      toast.danger(t('settings.calls.devices.permissionDenied'));
+    }
+  };
+
+  return (
+    <SettingsCard icon={Mic} title={t('settings.calls.devices.title')}>
+      <p className="mb-4 text-xs text-ink-200">{t('settings.calls.devices.desc')}</p>
+      {!hasLabels ? (
+        <Button size="sm" variant="secondary" onPress={askPermission}>{t('settings.calls.devices.allow')}</Button>
+      ) : (
+        <div className="flex flex-col gap-4">
+          <DeviceSelect devices={devices} kind="audioinput" label={t('call.devices.microphone')} value={prefs.audioinput} onChange={choose} />
+          <DeviceSelect devices={devices} kind="videoinput" label={t('call.devices.camera')} value={prefs.videoinput} onChange={choose} />
+          {canChooseSpeaker() && <DeviceSelect devices={devices} kind="audiooutput" label={t('call.devices.speaker')} value={prefs.audiooutput} onChange={choose} />}
+
+          <div className="flex flex-col gap-3 rounded-xl border border-white/8 bg-ink-800/45 p-3 sm:flex-row sm:items-center">
+            <video
+              ref={previewRef}
+              autoPlay
+              playsInline
+              muted
+              className={`aspect-video w-full rounded-lg bg-black object-cover sm:w-48 -scale-x-100 ${testing ? '' : 'hidden'}`}
+            />
+            <div className="flex flex-1 flex-col gap-2">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-ink-700" aria-hidden>
+                <div className="h-full rounded-full bg-accent transition-[width] duration-75" style={{ width: `${Math.round(level * 100)}%` }} />
+              </div>
+              <p className="text-xs text-ink-300">
+                {testing ? t('settings.calls.devices.testing') : t('settings.calls.devices.testHint')}
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant={testing ? 'ghost' : 'secondary'}
+              onPress={() => { if (testing) { stopTest.current?.(); setTesting(false); } else void startTest(); }}
+            >
+              {testing ? t('settings.calls.devices.stopTest') : t('settings.calls.devices.test')}
+            </Button>
+          </div>
+        </div>
+      )}
+    </SettingsCard>
+  );
+}
+
+function CallsTab() {
+  const { t } = useTranslation();
+  const settings = useNotificationStore((s) => s.settings);
+  const loaded = useNotificationStore((s) => s.loaded);
+  const load = useNotificationStore((s) => s.load);
+  const updateSettings = useNotificationStore((s) => s.updateSettings);
+
+  useEffect(() => { if (!loaded) void load(); }, [loaded, load]);
+
+  const save = async (patch: NotificationSettingsRequest) => {
+    try {
+      await updateSettings(patch);
+    } catch {
+      toast.danger(t('settings.notifications.saveError'));
+    }
+  };
+
+  if (!settings) {
+    return <div className="flex justify-center py-16"><Spinner size="lg" /></div>;
+  }
+
+  const single = <T extends string>(
+    label: string,
+    value: T,
+    options: readonly T[],
+    labelOf: (v: T) => string,
+    onChange: (v: T) => void,
+  ) => (
+    <ToggleButtonGroup
+      aria-label={label}
+      selectionMode="single"
+      disallowEmptySelection
+      isDetached
+      size="sm"
+      className="flex-wrap"
+      selectedKeys={new Set([value])}
+      onSelectionChange={(keys) => {
+        const next = [...keys][0] as T | undefined;
+        if (next && next !== value) onChange(next);
+      }}
+    >
+      {options.map((option) => (
+        <ToggleButton key={option} id={option}>{labelOf(option)}</ToggleButton>
+      ))}
+    </ToggleButtonGroup>
+  );
+
+  return (
+    <div className="flex flex-col gap-5">
+      <SettingsCard icon={PhoneIncoming} title={t('settings.calls.incoming.title')}>
+        <p className="mb-2 text-xs font-medium text-ink-200">{t('settings.calls.incoming.privacy')}</p>
+        {single(
+          t('settings.calls.incoming.privacy'),
+          settings.call_privacy,
+          ['everyone', 'contacts', 'nobody'] as const,
+          (v) => t(`settings.calls.incoming.privacyOptions.${v}`),
+          (v) => void save({ call_privacy: v }),
+        )}
+        <p className="mt-2 text-xs text-ink-300">{t('settings.calls.incoming.privacyHint')}</p>
+
+        <p className="mt-5 mb-2 text-xs font-medium text-ink-200">{t('settings.calls.incoming.dnd')}</p>
+        {single(
+          t('settings.calls.incoming.dnd'),
+          settings.call_dnd_behavior,
+          ['silent', 'reject'] as const,
+          (v) => t(`settings.calls.incoming.dndOptions.${v}`),
+          (v) => void save({ call_dnd_behavior: v }),
+        )}
+
+        <p className="mt-5 mb-2 text-xs font-medium text-ink-200">{t('settings.calls.incoming.ringtone')}</p>
+        <div className="grid grid-cols-3 gap-2">
+          {RINGTONE_NAMES.map((name) => (
+            <SettingsOptionButton
+              key={name}
+              variant="tile"
+              selected={settings.ringtone_name === name}
+              onPress={() => {
+                previewRingtone(name, settings.ringtone_volume);
+                if (settings.ringtone_name !== name) void save({ ringtone_name: name });
+              }}
+            >
+              <Play size={13} className="text-accent" />
+              <span className="text-sm">{t(`settings.calls.incoming.ringtones.${name}`)}</span>
+            </SettingsOptionButton>
+          ))}
+        </div>
+        <Slider
+          className="mt-5 w-full max-w-sm"
+          minValue={0}
+          maxValue={100}
+          step={5}
+          defaultValue={settings.ringtone_volume}
+          onChangeEnd={(value) => {
+            const volume = Array.isArray(value) ? value[0] : value;
+            previewRingtone(settings.ringtone_name, volume);
+            void save({ ringtone_volume: volume });
+          }}
+        >
+          <Label className="text-xs font-medium text-ink-200">{t('settings.calls.incoming.ringtoneVolume')}</Label>
+          <Slider.Output className="text-xs tabular-nums text-ink-300" />
+          <Slider.Track>
+            <Slider.Fill />
+            <Slider.Thumb />
+          </Slider.Track>
+        </Slider>
+      </SettingsCard>
+
+      <SettingsCard icon={Video} title={t('settings.calls.joining.title')}>
+        <div className="flex flex-col gap-3">
+          <Switch isSelected={settings.join_muted} onChange={(v) => save({ join_muted: v })}>
+            <Switch.Control><Switch.Thumb /></Switch.Control>
+            <Switch.Content>{t('settings.calls.joining.muted')}</Switch.Content>
+          </Switch>
+          <Switch isSelected={settings.join_camera_off} onChange={(v) => save({ join_camera_off: v })}>
+            <Switch.Control><Switch.Thumb /></Switch.Control>
+            <Switch.Content>{t('settings.calls.joining.cameraOff')}</Switch.Content>
+          </Switch>
+        </div>
+      </SettingsCard>
+
+      <CallDevicesCard />
+
+      <SettingsCard icon={AudioLines} title={t('settings.calls.audio.title')}>
+        <p className="mb-4 text-xs text-ink-200">{t('settings.calls.audio.desc')}</p>
+        <div className="flex flex-col gap-3">
+          {(['noise_suppression', 'echo_cancellation', 'auto_gain_control'] as const).map((key) => (
+            <Switch key={key} isSelected={settings[key]} onChange={(v) => save({ [key]: v })}>
+              <Switch.Control><Switch.Thumb /></Switch.Control>
+              <Switch.Content>{t(`settings.calls.audio.${key}`)}</Switch.Content>
+            </Switch>
+          ))}
+        </div>
+      </SettingsCard>
+    </div>
+  );
+}
+
 const TAB_COMPONENTS: Record<string, () => ReactNode> = {
   profile:    ProfileTab,
   appearance: AppearanceTab,
   language:   LanguageTab,
   notifications: NotificationsTab,
+  calls:      CallsTab,
   security:   SecurityTab,
   presence:   PresenceTab,
 };
@@ -1937,6 +2246,7 @@ const MOBILE_SETTINGS_NAV: { id: string; icon: LucideIcon }[] = [
   { id: 'appearance', icon: Palette },
   { id: 'language',   icon: Globe   },
   { id: 'notifications', icon: Bell },
+  { id: 'calls',      icon: Phone   },
   { id: 'security',   icon: Shield  },
   { id: 'presence',   icon: Wifi    },
 ];

@@ -316,16 +316,25 @@ function registerCallHandlers(io: Server, socket: SocketAutenticado, userId: str
       peersByCall.set(call.id, new Set(peerIds));
       socket.join(room(call.id));
       const from = await callService.describeCaller(socket.user);
+      const ringing: string[] = [];
       for (const uid of peerIds) {
+        // No molestar con "rechazar": ni suena, el que llama ve "ocupado".
+        const mode = await callService.ringModeFor(uid);
+        if (mode === 'reject') {
+          await callService.decline(call.id, uid, 'busy');
+          continue;
+        }
+        ringing.push(uid);
         io.to(`user:${uid}`).emit('call:incoming', {
           callId: call.id,
           conversationId: call.conversation_id,
           type: call.type,
           from,
           participantIds: [userId, ...peerIds],
+          silent: mode === 'silent',
         });
       }
-      void callService.pushRing(call, from.display_name, peerIds);
+      void callService.pushRing(call, from.display_name, ringing);
       logger.info({ callId: call.id, userId, type: call.type }, 'Call ring started');
     } catch (err) {
       logger.warn({ err: (err as Error).message, callId, userId }, 'Failed to start call ring');

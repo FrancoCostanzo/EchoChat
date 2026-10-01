@@ -36,6 +36,14 @@ export interface NotificationSettingsRequest {
   email_digest_hour?: number;
   email_unread_delay_minutes?: 15 | 30 | 60 | 120;
   email_locale?: string | null;
+  call_privacy?: 'everyone' | 'contacts' | 'nobody';
+  call_dnd_behavior?: 'reject' | 'silent';
+  ringtone_volume?: number;
+  join_muted?: boolean;
+  join_camera_off?: boolean;
+  noise_suppression?: boolean;
+  echo_cancellation?: boolean;
+  auto_gain_control?: boolean;
 }
 
 const HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -57,6 +65,14 @@ export const notificationSettingsDto = Joi.object<NotificationSettingsRequest>({
   email_digest_hour: Joi.number().integer().min(0).max(23),
   email_unread_delay_minutes: Joi.number().valid(15, 30, 60, 120),
   email_locale: Joi.string().valid('es', 'en', 'pt').allow(null),
+  call_privacy: Joi.string().valid('everyone', 'contacts', 'nobody'),
+  call_dnd_behavior: Joi.string().valid('reject', 'silent'),
+  ringtone_volume: Joi.number().integer().min(0).max(100),
+  join_muted: Joi.boolean(),
+  join_camera_off: Joi.boolean(),
+  noise_suppression: Joi.boolean(),
+  echo_cancellation: Joi.boolean(),
+  auto_gain_control: Joi.boolean(),
 }).min(1);
 
 export interface PushSubscribeRequest {

@@ -177,6 +177,8 @@ export const callsApi = {
   getByConversation: (convId: string, limit = 20, offset = 0) => api.get<ApiEnvelope<CallResponse[]>>(`/calls/conversation/${convId}`, { limit, offset }),
   getActive: () => api.get<ApiEnvelope<CallResponse[]>>('/calls/active'),
   getHistory: (params?: ApiParams) => api.get<ApiEnvelope<CallHistoryItem[]>>('/calls/history', params),
+  getIceServers: () => api.get<ApiEnvelope<{ ice_servers: RTCIceServer[]; ttl_seconds: number }>>('/calls/ice-servers'),
+  recordQuality: (callId: string, data: { rtt_ms: number | null; jitter_ms: number | null; packet_loss_pct: number | null }) => api.post<ApiMessageEnvelope>(`/calls/${callId}/quality`, data),
 };
 
 export const storageApi = {

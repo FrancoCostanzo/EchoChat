@@ -20,6 +20,8 @@ export interface CallResponse {
   duration_seconds: number | null;
   end_reason: string | null;
   is_encrypted: boolean;
+  /** Resumen de calidad reportado al colgar (`avg_rtt_ms`, `max_jitter_ms`, `avg_packet_loss_pct`). */
+  quality_stats: Record<string, number | string | null>;
   participants: unknown[];
   created_at: string | null;
 }

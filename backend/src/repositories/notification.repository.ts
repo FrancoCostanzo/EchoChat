@@ -12,7 +12,9 @@ const SETTINGS_COLUMNS = [
   'dnd_enabled', 'dnd_until', 'quiet_hours_start', 'quiet_hours_end', 'quiet_days',
   'push_preview', 'push_when', 'sound_enabled', 'sound_name', 'sound_volume',
   'ringtone_name', 'badge_enabled', 'email_digest', 'email_digest_hour',
-  'email_unread_delay_minutes', 'email_locale',
+  'email_unread_delay_minutes', 'email_locale', 'call_privacy', 'call_dnd_behavior',
+  'ringtone_volume', 'join_muted', 'join_camera_off', 'noise_suppression',
+  'echo_cancellation', 'auto_gain_control',
 ] as const;
 
 class NotificationRepository extends BaseRepository<NotificationRow> {

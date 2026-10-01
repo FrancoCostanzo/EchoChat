@@ -509,6 +509,7 @@ const SETTINGS_NAV = [
   { id: 'appearance', icon: Palette },
   { id: 'language',   icon: Globe   },
   { id: 'notifications', icon: Bell },
+  { id: 'calls',      icon: Phone   },
   { id: 'security',   icon: Shield  },
   { id: 'presence',   icon: Wifi    },
 ];

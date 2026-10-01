@@ -9,6 +9,15 @@ class CallController {
     res.status(StatusCodes.CREATED).json({ status: 'success', data: call });
   }
 
+  async getIceServers(req: AuthRequest, res: Response) {
+    res.json({ status: 'success', data: callService.getIceServers(req.user.id) });
+  }
+
+  async recordQuality(req: AuthRequest, res: Response) {
+    await callService.recordQuality(req.params.callId, req.user.id, req.body);
+    res.json({ status: 'success', message: 'Recorded' });
+  }
+
   async getById(req: AuthRequest, res: Response) {
     const call = await callService.getById(req.params.callId, req.user.id);
     res.json({ status: 'success', data: call });

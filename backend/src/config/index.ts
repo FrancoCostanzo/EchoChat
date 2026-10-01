@@ -95,9 +95,16 @@ interface AppConfig {
   mail: { host: string; port: number; secure: boolean; user: string; pass: string; from: string };
   /** URL pública del frontend, para los links de los emails. */
   appUrl: string;
+  /** Servidores ICE para WebRTC. TURN con credenciales temporales (coturn `use-auth-secret`). */
+  ice: { stunUrls: string[]; turnUrls: string[]; turnSecret: string; turnTtlSeconds: number };
   cors: { origins: string[] };
   rateLimit: { windowMs: number; max: number; passwordResetMax: number };
   log: { level: string };
+}
+
+/** "a, b,c" → ['a', 'b', 'c']; vacío → []. */
+function list(raw: string | undefined): string[] {
+  return String(raw || '').split(',').map((s) => s.trim()).filter(Boolean);
 }
 
 /** Convierte una variable de entorno numérica, cayendo al default si no es válida. */
@@ -302,6 +309,15 @@ const config: AppConfig = {
   appUrl: (process.env.APP_URL
     || parseCorsOrigins(process.env.CORS_ORIGIN).find((o) => o.startsWith('http'))
     || 'http://localhost:5173').replace(/\/$/, ''),
+
+  ice: {
+    // Sin ICE_STUN_URLS se usa el STUN público de Google, como antes. En una
+    // intranet sin salida a internet conviene apuntarlo al propio coturn.
+    stunUrls: list(process.env.ICE_STUN_URLS ?? 'stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302'),
+    turnUrls: list(process.env.TURN_URLS),
+    turnSecret: process.env.TURN_SECRET || '',
+    turnTtlSeconds: num(process.env.TURN_TTL_SECONDS, 12 * 60 * 60),
+  },
 
   cors: {
     origins: parseCorsOrigins(process.env.CORS_ORIGIN),

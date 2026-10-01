@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import { getSocket } from '@/lib/socket';
 import { callsApi, conversationsApi } from '@/lib/endpoints';
+import { startRingtone } from '@/lib/sounds';
+import { audioConstraints, getDevicePrefs, setDevicePref, videoConstraints, type DevicePrefs } from '@/lib/mediaPrefs';
+import { useNotificationStore } from '@/stores/notificationStore';
 import type { CallType, InitiateCallRequest } from '@/types/call';
 
 /*
@@ -12,11 +15,31 @@ import type { CallType, InitiateCallRequest } from '@/types/call';
  * cliente mantiene N-1 conexiones (malla) — pensado para grupos pequeños.
  */
 
-const ICE_CONFIG: RTCConfiguration = {
+// Respaldo si el backend no responde: el STUN público que se usaba antes.
+const FALLBACK_ICE: RTCConfiguration = {
   iceServers: [
     { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
   ],
 };
+
+/**
+ * Servidores ICE del backend (STUN + TURN con credenciales temporales). Se
+ * piden al empezar o atender una llamada y se reusan hasta la mitad de su
+ * vigencia, así nunca se arma una conexión con credenciales vencidas.
+ */
+let iceConfig: RTCConfiguration = FALLBACK_ICE;
+let iceExpiresAt = 0;
+
+async function loadIceConfig(): Promise<void> {
+  if (Date.now() < iceExpiresAt) return;
+  try {
+    const { data } = await callsApi.getIceServers();
+    iceConfig = { iceServers: data.ice_servers.length ? data.ice_servers : FALLBACK_ICE.iceServers };
+    iceExpiresAt = Date.now() + (data.ttl_seconds * 1000) / 2;
+  } catch {
+    iceConfig = FALLBACK_ICE;
+  }
+}
 
 const RING_TIMEOUT_MS = 35000;
 
@@ -44,6 +67,8 @@ interface IncomingCall {
   conversationId: string;
   conversationName?: string | null;
   participantIds?: string[];
+  /** No molestar con "sonar en silencio": se muestra sin tono. */
+  silent?: boolean;
 }
 
 export interface Participant {
@@ -74,6 +99,63 @@ let screenStream: MediaStream | null = null;
 const camStreamIds = new Map<string, string>();
 let ringTimer: ReturnType<typeof setTimeout> | null = null;
 let durationTimer: ReturnType<typeof setInterval> | null = null;
+let stopRingtone: (() => void) | null = null;
+
+/** Última medición de calidad de la llamada; se reporta al colgar. */
+let lastQuality: { rtt_ms: number | null; jitter_ms: number | null; packet_loss_pct: number | null } | null = null;
+const QUALITY_SAMPLE_EVERY_S = 5;
+
+function silenceRingtone(): void {
+  stopRingtone?.();
+  stopRingtone = null;
+}
+
+/** Los campos de getStats() que se usan; el DOM los tipa como `any`. */
+interface StatsReportEntry {
+  type: string;
+  kind?: string;
+  nominated?: boolean;
+  currentRoundTripTime?: number;
+  jitter?: number;
+  packetsLost?: number;
+  packetsReceived?: number;
+}
+
+/** Promedia RTT, jitter y pérdida de todas las conexiones (getStats de WebRTC). */
+async function sampleQuality(): Promise<void> {
+  const rtts: number[] = [];
+  const jitters: number[] = [];
+  let lost = 0;
+  let received = 0;
+  for (const pc of peers.values()) {
+    try {
+      const stats = await pc.getStats();
+      stats.forEach((raw: unknown) => {
+        const report = raw as StatsReportEntry;
+        if (report.type === 'candidate-pair' && report.nominated && typeof report.currentRoundTripTime === 'number') {
+          rtts.push(report.currentRoundTripTime * 1000);
+        }
+        if (report.type === 'inbound-rtp' && report.kind === 'audio') {
+          if (typeof report.jitter === 'number') jitters.push(report.jitter * 1000);
+          lost += report.packetsLost || 0;
+          received += report.packetsReceived || 0;
+        }
+      });
+    } catch { /* conexión cerrada */ }
+  }
+  if (rtts.length === 0 && jitters.length === 0 && received === 0) return;
+  const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+  lastQuality = {
+    rtt_ms: avg(rtts),
+    jitter_ms: jitters.length ? Math.max(...jitters) : null,
+    packet_loss_pct: received + lost > 0 ? Math.round((lost / (received + lost)) * 10000) / 100 : null,
+  };
+}
+
+/** Preferencias de llamada del usuario (Ajustes → Llamadas), con defaults si no cargaron. */
+function callSettings() {
+  return useNotificationStore.getState().settings;
+}
 
 function socket() {
   return getSocket();
@@ -86,10 +168,25 @@ function shouldOffer(otherId: string): boolean {
 }
 
 async function getLocalMedia(withVideo: boolean): Promise<MediaStream> {
-  return navigator.mediaDevices.getUserMedia({
-    audio: true,
-    video: withVideo ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false,
+  const prefs = getDevicePrefs();
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: audioConstraints(callSettings(), prefs.audioinput),
+    video: withVideo ? videoConstraints(prefs.videoinput) : false,
   });
+  // "Entrar silenciado / sin cámara": las pistas existen pero arrancan apagadas.
+  const settings = callSettings();
+  if (settings?.join_muted) stream.getAudioTracks().forEach((t) => { t.enabled = false; });
+  if (settings?.join_camera_off) stream.getVideoTracks().forEach((t) => { t.enabled = false; });
+  return stream;
+}
+
+/** Estado inicial de micrófono/cámara según "Entrar silenciado / sin cámara". */
+function initialMediaState(type: CallType) {
+  const settings = callSettings();
+  return {
+    micOff: Boolean(settings?.join_muted),
+    camOff: type !== 'video' || Boolean(settings?.join_camera_off),
+  };
 }
 
 export type CallUiStatus = 'idle' | 'incoming' | 'outgoing' | 'active';
@@ -114,6 +211,11 @@ interface CallState {
   /** Llamada a atender apenas llegue su timbre ("Atender" en la notificación push). */
   autoAcceptCallId: string | null;
   setAutoAccept: (callId: string | null) => void;
+  /** Parlante elegido para el audio de la llamada (null = el del sistema). */
+  speakerId: string | null;
+  /** Cambia micrófono, cámara o parlante en plena llamada y lo recuerda. */
+  switchDevice: (kind: keyof DevicePrefs, deviceId: string) => Promise<void>;
+  _announceMediaState: () => void;
 
   attach: (userId: string) => void;
   detach: () => void;
@@ -135,7 +237,7 @@ interface CallState {
   _ensurePeer: (uid: string) => NegotiatingPeerConnection | undefined;
   _onSignal: (from: string, data: SignalData) => Promise<void>;
   _onRejected: (uid: string, reason: string) => void;
-  _onCancelled: () => void;
+  _onCancelled: (callId?: string) => void;
   _onRemoteMedia: (uid: string, kind: 'audio' | 'video' | 'screen', enabled: boolean) => void;
   toggleMute: () => void;
   toggleCamera: () => Promise<void>;
@@ -160,8 +262,49 @@ export const useCallStore = create<CallState>()((set, get) => ({
   startedAt: null,
   elapsed: 0,
   autoAcceptCallId: null,
+  speakerId: getDevicePrefs().audiooutput ?? null,
 
   setAutoAccept: (callId) => set({ autoAcceptCallId: callId }),
+
+  switchDevice: async (kind, deviceId) => {
+    setDevicePref(kind, deviceId);
+    if (kind === 'audiooutput') {
+      set({ speakerId: deviceId });
+      return;
+    }
+    if (!localStream) return;
+    const isAudio = kind === 'audioinput';
+    const old = isAudio ? localStream.getAudioTracks()[0] : localStream.getVideoTracks()[0];
+    // Una llamada de voz sin cámara no tiene pista de video que reemplazar.
+    if (!old) return;
+    try {
+      const fresh = await navigator.mediaDevices.getUserMedia(isAudio
+        ? { audio: audioConstraints(callSettings(), deviceId) }
+        : { video: videoConstraints(deviceId) });
+      const track = isAudio ? fresh.getAudioTracks()[0] : fresh.getVideoTracks()[0];
+      // Respeta el estado actual: si estaba silenciado, el micrófono nuevo también.
+      track.enabled = old.enabled;
+      for (const pc of peers.values()) {
+        const sender = pc.getSenders().find((sn) => sn.track === old);
+        if (sender) await sender.replaceTrack(track);
+      }
+      localStream.removeTrack(old);
+      localStream.addTrack(track);
+      old.stop();
+      // Nuevo objeto para que React re-renderice la vista propia.
+      localStream = new MediaStream(localStream.getTracks());
+      set({ localStream });
+    } catch { /* dispositivo no disponible: se queda el anterior */ }
+  },
+
+  // Al conectar con alguien, le contamos si entramos silenciados o sin cámara:
+  // sin esto vería el tile como si el micrófono estuviera abierto.
+  _announceMediaState: () => {
+    const { call, micOff, camOff } = get();
+    if (!call) return;
+    socket()?.emit('call:media', { callId: call.id, kind: 'audio', enabled: !micOff });
+    socket()?.emit('call:media', { callId: call.id, kind: 'video', enabled: !camOff });
+  },
 
   // ── Registro de listeners de socket ──────────────────────────────────
   attach: (userId) => {
@@ -176,7 +319,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
     sock.on('call:peer-left', ({ userId: uid }: { userId: string }) => get()._onPeerLeft(uid));
     sock.on('call:signal', ({ from, data }: { from: string; data: SignalData }) => get()._onSignal(from, data));
     sock.on('call:rejected', ({ userId: uid, reason }: { userId: string; reason: string }) => get()._onRejected(uid, reason));
-    sock.on('call:cancelled', () => get()._onCancelled());
+    sock.on('call:cancelled', ({ callId }: { callId?: string }) => get()._onCancelled(callId));
     sock.on('call:media', ({ userId: uid, kind, enabled }: { userId: string; kind: 'audio' | 'video' | 'screen'; enabled: boolean }) => get()._onRemoteMedia(uid, kind, enabled));
   },
 
@@ -224,7 +367,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
         dir[m.user_id] = { display_name: m.display_name || '', avatar_url: null };
       }
 
-      const stream = await getLocalMedia(type === 'video');
+      const [stream] = await Promise.all([getLocalMedia(type === 'video'), loadIceConfig()]);
       localStream = stream;
 
       // Persistir la llamada para el historial y obtener un id de servidor.
@@ -240,8 +383,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
         call: { id: callId, type, conversationId, isGroup, conversationName, calleeIds },
         localStream: stream,
         directory: dir,
-        micOff: false,
-        camOff: type !== 'video',
+        ...initialMediaState(type),
         sharingScreen: false,
         participants: {},
         elapsed: 0,
@@ -283,6 +425,11 @@ export const useCallStore = create<CallState>()((set, get) => ({
     }
     set({ status: 'incoming', incoming: payload });
     get()._loadDirectory(payload.conversationId);
+    if (!payload.silent && autoAcceptCallId !== payload.callId) {
+      const settings = callSettings();
+      silenceRingtone();
+      stopRingtone = startRingtone(settings?.ringtone_name ?? 'classic', settings?.ringtone_volume ?? 80);
+    }
     if (autoAcceptCallId === payload.callId) {
       set({ autoAcceptCallId: null });
       void get().acceptCall();
@@ -292,7 +439,9 @@ export const useCallStore = create<CallState>()((set, get) => ({
   acceptCall: async () => {
     const inc = get().incoming;
     if (!inc) return;
+    silenceRingtone();
     try {
+      await loadIceConfig();
       const stream = await getLocalMedia(inc.type === 'video');
       localStream = stream;
       set({
@@ -306,8 +455,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
         },
         incoming: null,
         localStream: stream,
-        micOff: false,
-        camOff: inc.type !== 'video',
+        ...initialMediaState(inc.type),
         sharingScreen: false,
         startedAt: Date.now(),
       });
@@ -343,6 +491,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       callsApi.updateStatus(call.id, answered
         ? { status: 'ended', end_reason: 'hangup' }
         : { status: 'missed', end_reason: 'no_answer' }).catch(() => {});
+      if (answered && lastQuality) callsApi.recordQuality(call.id, lastQuality).catch(() => {});
     }
     get()._cleanup();
     set({ status: 'idle', call: null, incoming: null });
@@ -352,6 +501,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
   // Al aceptar, el servidor devuelve quiénes ya estaban → creamos conexión.
   _onPeers: (userIds) => {
     for (const uid of userIds) get()._ensurePeer(uid);
+    if (userIds.length > 0) get()._announceMediaState();
   },
 
   // Alguien nuevo entró; si somos el iniciador del par, le ofrecemos.
@@ -363,6 +513,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       get()._startDurationTimer();
     }
     get()._ensurePeer(uid);
+    get()._announceMediaState();
   },
 
   _onPeerLeft: (uid) => {
@@ -388,7 +539,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
   // el establecimiento inicial como añadir la cámara a mitad de una llamada.
   _ensurePeer: (uid) => {
     if (peers.has(uid) || uid === selfId) return peers.get(uid);
-    const pc = new RTCPeerConnection(ICE_CONFIG) as NegotiatingPeerConnection;
+    const pc = new RTCPeerConnection(iceConfig) as NegotiatingPeerConnection;
     // El par con id menor es "polite": ante una colisión de ofertas cede.
     pc._polite = !shouldOffer(uid);
     pc._makingOffer = false;
@@ -510,8 +661,11 @@ export const useCallStore = create<CallState>()((set, get) => ({
     }
   },
 
-  _onCancelled: () => {
-    if (get().status === 'incoming') {
+  _onCancelled: (callId) => {
+    // Sólo si es la llamada que está sonando acá (atenderla en otra pestaña
+    // también la cancela en esta, pero no a otra llamada distinta).
+    const { status, incoming } = get();
+    if (status === 'incoming' && (!callId || incoming?.callId === callId)) {
       get()._cleanup();
       set({ status: 'idle', incoming: null });
     }
@@ -541,7 +695,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
     if (!hasVideo) {
       // Encender cámara por primera vez (llamada de voz que pasa a vídeo).
       try {
-        const cam = await navigator.mediaDevices.getUserMedia({ video: true });
+        const cam = await navigator.mediaDevices.getUserMedia({ video: videoConstraints(getDevicePrefs().videoinput) });
         const track = cam.getVideoTracks()[0];
         localStream.addTrack(track);
         for (const pc of peers.values()) pc.addTrack(track, localStream);
@@ -603,11 +757,16 @@ export const useCallStore = create<CallState>()((set, get) => ({
     if (durationTimer) clearInterval(durationTimer);
     durationTimer = setInterval(() => {
       const started = get().startedAt;
-      if (started) set({ elapsed: Math.floor((Date.now() - started) / 1000) });
+      if (!started) return;
+      const elapsed = Math.floor((Date.now() - started) / 1000);
+      set({ elapsed });
+      if (elapsed > 0 && elapsed % QUALITY_SAMPLE_EVERY_S === 0) void sampleQuality();
     }, 1000);
   },
 
   _cleanup: () => {
+    silenceRingtone();
+    lastQuality = null;
     if (ringTimer) clearTimeout(ringTimer);
     if (durationTimer) clearInterval(durationTimer);
     ringTimer = null;

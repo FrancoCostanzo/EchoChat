@@ -570,20 +570,28 @@ export interface UserCredentials {
 }
 
 export interface UserNotificationSettings {
+  auto_gain_control: Generated<boolean>;
   badge_enabled: Generated<boolean>;
+  call_dnd_behavior: Generated<string>;
+  call_privacy: Generated<string>;
   dnd_enabled: Generated<boolean>;
   dnd_until: Timestamp | null;
+  echo_cancellation: Generated<boolean>;
   email_digest: Generated<string>;
   email_digest_hour: Generated<number>;
   email_locale: string | null;
   email_unread_delay_minutes: Generated<number>;
+  join_camera_off: Generated<boolean>;
+  join_muted: Generated<boolean>;
   last_digest_at: Timestamp | null;
+  noise_suppression: Generated<boolean>;
   push_preview: Generated<string>;
   push_when: Generated<string>;
   quiet_days: Generated<number[]>;
   quiet_hours_end: string | null;
   quiet_hours_start: string | null;
   ringtone_name: Generated<string>;
+  ringtone_volume: Generated<number>;
   sound_enabled: Generated<boolean>;
   sound_name: Generated<string>;
   sound_volume: Generated<number>;
