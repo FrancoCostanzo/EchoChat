@@ -99,6 +99,14 @@ class CallRepository extends BaseRepository<CallRow> {
     return rows[0];
   }
 
+  async getParticipantIds(callId: string): Promise<string[]> {
+    const { rows } = await this.query<{ user_id: string }>(
+      'SELECT user_id FROM call_participants WHERE call_id = $1',
+      [callId]
+    );
+    return rows.map((r) => r.user_id);
+  }
+
   async getParticipants(callId: string): Promise<ParticipantWithUser[]> {
     const { rows } = await this.query<ParticipantWithUser>(
       `SELECT cp.*, u.username, u.display_name, u.avatar_object_key

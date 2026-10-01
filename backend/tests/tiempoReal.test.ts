@@ -55,6 +55,80 @@ function esperarEvento<T = any>(socket: Socket, evento: string, ms = 5000): Prom
   });
 }
 
+/** Resuelve si el evento NO llega en `ms`; falla si llega. */
+function noLlega(socket: Socket, evento: string, ms = 600): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const alLlegar = () => reject(new Error(`llegó "${evento}" y no debía`));
+    socket.once(evento, alLlegar);
+    setTimeout(() => {
+      socket.off(evento, alLlegar);
+      resolve();
+    }, ms);
+  });
+}
+
+describe('señalización de llamadas', () => {
+  async function llamadaEntre(ana: UsuarioDeTest, beto: UsuarioDeTest): Promise<string> {
+    const conv = await pedir('/api/conversations', {
+      method: 'POST', token: ana.token, body: { type: 'direct', member_ids: [beto.id] },
+    });
+    const llamada = await pedir('/api/calls', {
+      method: 'POST', token: ana.token,
+      body: { conversation_id: conv.datos.id, type: 'voice', participant_ids: [beto.id] },
+    });
+    assert.equal(llamada.status, 201);
+    return llamada.datos.id;
+  }
+
+  test('el timbre sale con los datos del servidor, no con los del cliente', async () => {
+    const ana = await crearUsuario(pedir, 'call');
+    const beto = await crearUsuario(pedir, 'call');
+    const callId = await llamadaEntre(ana, beto);
+    const [socketAna, socketBeto] = await Promise.all([conectar(ana), conectar(beto)]);
+
+    const llegada = esperarEvento(socketBeto, 'call:incoming');
+    socketAna.emit('call:start', {
+      callId, calleeIds: [beto.id], from: { id: 'otro', display_name: 'El jefe' },
+    });
+
+    const timbre = await llegada;
+    assert.equal(timbre.callId, callId);
+    assert.equal(timbre.from.id, ana.id);
+    assert.notEqual(timbre.from.display_name, 'El jefe');
+  });
+
+  test('alguien ajeno no puede timbrar, entrar ni mandar señalización', async () => {
+    const ana = await crearUsuario(pedir, 'call');
+    const beto = await crearUsuario(pedir, 'call');
+    const intruso = await crearUsuario(pedir, 'call');
+    const callId = await llamadaEntre(ana, beto);
+    const [socketAna, socketBeto, socketIntruso] = await Promise.all([
+      conectar(ana), conectar(beto), conectar(intruso),
+    ]);
+
+    // Timbrar en nombre de una llamada ajena, o a cualquiera.
+    const sinTimbre = noLlega(socketBeto, 'call:incoming');
+    socketIntruso.emit('call:start', { callId, calleeIds: [beto.id], from: { id: ana.id } });
+    await sinTimbre;
+
+    // Ana timbra de verdad; el intruso intenta aceptar y mandar SDP.
+    const timbre = esperarEvento(socketBeto, 'call:incoming');
+    socketAna.emit('call:start', { callId });
+    await timbre;
+
+    const sinIngreso = noLlega(socketAna, 'call:peer-joined');
+    const sinSenal = noLlega(socketBeto, 'call:signal');
+    socketIntruso.emit('call:accept', { callId });
+    socketIntruso.emit('call:signal', { callId, to: beto.id, data: { sdp: 'x' } });
+    await Promise.all([sinIngreso, sinSenal]);
+
+    // Beto sí entra.
+    const ingreso = esperarEvento(socketAna, 'call:peer-joined');
+    socketBeto.emit('call:accept', { callId });
+    assert.equal((await ingreso).userId, beto.id);
+  });
+});
+
 describe('bus de eventos', () => {
   test('el handshake rechaza una conexión sin token válido', async () => {
     const socket = clienteSocket(servidor.base, {

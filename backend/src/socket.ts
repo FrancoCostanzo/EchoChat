@@ -8,7 +8,7 @@ import { setSocketServer, registerSocket, unregisterSocket } from './config/sock
 import { isAutoAway, clearAutoAway } from './config/presenceStore';
 import { onRealtime } from './config/eventBus';
 import { registerCollector } from './utils/clusterMetrics';
-import { authService } from './services';
+import { authService, callService } from './services';
 import broadcastService from './services/broadcast.service';
 import {
   conversationRepository,
@@ -123,6 +123,13 @@ async function initSocket(httpServer: HttpServer): Promise<Server> {
 
     // Join a personal room for direct events
     socket.join(`user:${userId}`);
+
+    // ── Llamadas: señalización WebRTC (malla P2P) ───────────────────
+    // El backend solo transporta la señalización (SDP/ICE) y el ciclo de vida
+    // de la llamada; el audio/vídeo viaja P2P entre los navegadores. Se
+    // registra antes de los await de abajo: un timbre emitido apenas conecta
+    // el socket se perdía mientras se consultaba la base.
+    registerCallHandlers(servidor, socket, userId);
 
     // Join all conversation rooms this user belongs to
     try {
@@ -252,11 +259,6 @@ async function initSocket(httpServer: HttpServer): Promise<Server> {
       }
     });
 
-    // ── Llamadas: señalización WebRTC (malla P2P) ───────────────────
-    // El backend solo transporta la señalización (SDP/ICE) y el ciclo de vida
-    // de la llamada; el audio/vídeo viaja P2P entre los navegadores.
-    registerCallHandlers(servidor, socket, userId);
-
     // ── Disconnect ──────────────────────────────────────────────────
     // 'disconnecting' aún expone socket.rooms → avisamos a las llamadas activas
     // que este participante se fue antes de que Socket.IO limpie las salas.
@@ -286,95 +288,136 @@ async function initSocket(httpServer: HttpServer): Promise<Server> {
 // Convención de salas: `call:{callId}` agrupa a los participantes conectados
 // de una llamada. Los eventos de invitación viajan por la sala personal
 // `user:{userId}` (el invitado puede no estar aún en la sala de la llamada).
-function registerCallHandlers(io: Server, socket: Socket, userId: string): void {
+//
+// Todo lo que llega del cliente se valida contra `call_participants`: sólo
+// quien inició la llamada puede timbrar o cancelar, sólo un participante
+// puede entrar a la sala, y la señalización sólo se relaya entre participantes.
+// Los invitados y el `from` del timbre salen de la base, nunca del cliente.
+function registerCallHandlers(io: Server, socket: SocketAutenticado, userId: string): void {
   const room = (callId: string) => `call:${callId}`;
+
+  // callId -> resto de participantes, validado al iniciar o aceptar. Lo usa
+  // `call:signal`, que llega por cada SDP/ICE, para no volver a la base.
+  const peersByCall = new Map<string, Set<string>>();
 
   // El que inicia timbra a los invitados por su sala personal y se une a la
   // sala de la llamada para quedar a la escucha de aceptaciones/rechazos.
-  socket.on('call:start', ({ callId, conversationId, type, calleeIds, from }: {
-    callId?: string; conversationId?: string; type?: string; calleeIds?: string[]; from?: unknown;
-  }) => {
-    if (!callId || !Array.isArray(calleeIds)) return;
-    socket.join(room(callId));
-    for (const uid of calleeIds) {
-      if (uid === userId) continue;
-      io.to(`user:${uid}`).emit('call:incoming', {
-        callId,
-        conversationId: conversationId || null,
-        type,
-        from,
-        participantIds: [...new Set([userId, ...calleeIds])],
-      });
+  socket.on('call:start', async ({ callId }: { callId?: string }) => {
+    try {
+      const found = await callService.getPeers(callId, userId, { liveOnly: true });
+      if (!found || found.call.initiated_by !== userId) return;
+      const { call, peerIds } = found;
+
+      peersByCall.set(call.id, new Set(peerIds));
+      socket.join(room(call.id));
+      const from = await callService.describeCaller(socket.user);
+      for (const uid of peerIds) {
+        io.to(`user:${uid}`).emit('call:incoming', {
+          callId: call.id,
+          conversationId: call.conversation_id,
+          type: call.type,
+          from,
+          participantIds: [userId, ...peerIds],
+        });
+      }
+      logger.info({ callId: call.id, userId, type: call.type }, 'Call ring started');
+    } catch (err) {
+      logger.warn({ err: (err as Error).message, callId, userId }, 'Failed to start call ring');
     }
-    logger.info({ callId, userId, type }, 'Call ring started');
   });
 
   // El invitado acepta: calcula quiénes ya están dentro (para armar la malla),
   // se une a la sala y avisa a los presentes que llegó un nuevo par.
   socket.on('call:accept', async ({ callId }: { callId?: string }) => {
-    if (!callId) return;
+    let found: Awaited<ReturnType<typeof callService.getPeers>>;
+    try {
+      found = await callService.getPeers(callId, userId);
+    } catch (err) {
+      logger.warn({ err: (err as Error).message, callId, userId }, 'Failed to authorize call accept');
+      return;
+    }
+    if (!found) return;
+    const id = found.call.id;
+    peersByCall.set(id, new Set(found.peerIds));
+
     // fetchSockets() consulta también las otras instancias; `io.sockets.adapter.rooms`
     // y `io.sockets.sockets` sólo verían a los participantes de este proceso.
     const existing = new Set<string>();
     try {
-      const members = await io.in(room(callId)).fetchSockets();
+      const members = await io.in(room(id)).fetchSockets();
       for (const s of members) {
         const memberId = s.data?.userId;
         if (memberId && memberId !== userId) existing.add(memberId);
       }
     } catch (err) {
-      logger.warn({ err: (err as Error).message, callId }, 'Failed to list call participants');
+      logger.warn({ err: (err as Error).message, callId: id }, 'Failed to list call participants');
     }
-    socket.join(room(callId));
-    socket.emit('call:peers', { callId, userIds: [...existing] });
-    socket.to(room(callId)).emit('call:peer-joined', { callId, userId });
+    socket.join(room(id));
+    socket.emit('call:peers', { callId: id, userIds: [...existing] });
+    socket.to(room(id)).emit('call:peer-joined', { callId: id, userId });
 
     // Persistencia: la primera aceptación marca la llamada como activa (setea
     // answered_at) para que el trigger calcule la duración al finalizar.
     (async () => {
       try {
-        const call = await callRepository.findById(callId);
-        if (call && call.status !== 'active') {
-          await callRepository.updateStatus(callId, 'active');
+        if (found.call.status !== 'active') {
+          await callRepository.updateStatus(id, 'active');
         }
-        await callRepository.updateParticipant(callId, userId, { status: 'joined' });
+        await callRepository.updateParticipant(id, userId, { status: 'joined' });
       } catch (err) {
-        logger.warn({ err: (err as Error).message, callId, userId }, 'Failed to persist call accept');
+        logger.warn({ err: (err as Error).message, callId: id, userId }, 'Failed to persist call accept');
       }
     })();
   });
 
   // Rechazo (el invitado dice que no). Los presentes en la sala se enteran.
-  socket.on('call:reject', ({ callId, reason }: { callId?: string; reason?: string }) => {
-    if (!callId) return;
-    io.to(room(callId)).emit('call:rejected', { callId, userId, reason: reason || 'declined' });
+  socket.on('call:reject', async ({ callId, reason }: { callId?: string; reason?: string }) => {
+    try {
+      const found = await callService.getPeers(callId, userId);
+      if (!found) return;
+      io.to(room(found.call.id)).emit('call:rejected', {
+        callId: found.call.id,
+        userId,
+        reason: reason === 'busy' ? 'busy' : 'declined',
+      });
+    } catch (err) {
+      logger.warn({ err: (err as Error).message, callId, userId }, 'Failed to relay call reject');
+    }
   });
 
   // Cancelación del que llama antes de que contesten.
-  socket.on('call:cancel', ({ callId, calleeIds }: { callId?: string; calleeIds?: string[] }) => {
-    if (!callId) return;
-    for (const uid of calleeIds || []) {
-      io.to(`user:${uid}`).emit('call:cancelled', { callId });
+  socket.on('call:cancel', async ({ callId }: { callId?: string }) => {
+    try {
+      const found = await callService.getPeers(callId, userId);
+      if (!found || found.call.initiated_by !== userId) return;
+      for (const uid of found.peerIds) {
+        io.to(`user:${uid}`).emit('call:cancelled', { callId: found.call.id });
+      }
+      io.to(room(found.call.id)).emit('call:cancelled', { callId: found.call.id });
+    } catch (err) {
+      logger.warn({ err: (err as Error).message, callId, userId }, 'Failed to relay call cancel');
     }
-    io.to(room(callId)).emit('call:cancelled', { callId });
   });
 
   // Relé de señalización dirigida (offer/answer/ICE) a un par concreto.
   socket.on('call:signal', ({ callId, to, data }: { callId?: string; to?: string; data?: unknown }) => {
-    if (!callId || !to) return;
+    if (!callId || !to || !socket.rooms.has(room(callId))) return;
+    if (!peersByCall.get(callId)?.has(to)) return;
     io.to(`user:${to}`).emit('call:signal', { callId, from: userId, data });
   });
 
   // Un participante deja la llamada.
   socket.on('call:leave', ({ callId }: { callId?: string }) => {
     if (!callId) return;
+    peersByCall.delete(callId);
+    if (!socket.rooms.has(room(callId))) return;
     socket.to(room(callId)).emit('call:peer-left', { callId, userId });
     socket.leave(room(callId));
   });
 
   // Cambios de estado de medios (silenciar micro, apagar cámara, compartir).
   socket.on('call:media', ({ callId, kind, enabled }: { callId?: string; kind?: string; enabled?: boolean }) => {
-    if (!callId || !kind) return;
+    if (!callId || !kind || !socket.rooms.has(room(callId))) return;
     socket.to(room(callId)).emit('call:media', { callId, userId, kind, enabled });
   });
 }

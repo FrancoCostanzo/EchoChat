@@ -13,7 +13,7 @@
 | 2 | Notificaciones push + email | 🟡 En progreso (UI 2.3 ✅) |
 | 3 | Broadcasts completos | 🟡 En progreso (3.1–3.4 base ✅) |
 | 4 | Pipeline de media seguro | ⬜ Pendiente |
-| 5 | Llamadas WebRTC reales | ⬜ Pendiente |
+| 5 | Llamadas WebRTC reales | 🟡 En progreso (malla P2P ✅) |
 | 6 | Mensajería ya modelada (quick wins) | ✅ Hecho |
 | 7 | Panel de administración | ✅ Hecho (base) |
 | 8 | Formato enriquecido y contenido | 🟡 En progreso (8.1–8.3 ✅) |
@@ -84,9 +84,67 @@ Fase 0 → Fase 1 → Fase 2 → Fase 3 → (Fase 6 en paralelo) → Fase 8 → 
 
 | # | Funcionalidad | Esfuerzo | Depende de | Estado |
 |---|---|---|---|---|
-| 2.1 | Web Push (VAPID): suscripción, envío respetando `notification_preferences`/`quiet_hours`. | M (3-4d) | 0.3 | ⬜ |
-| 2.2 | Email (nodemailer + SMTP): digest de no leídos, invitaciones, reset de contraseña. | M (2-3d) | 0.3 | ⬜ |
+| 2.0 | **Preferencias en 3 niveles + despachador único** (ver detalle abajo). | M (4-5d) | — | ⬜ |
+| 2.1 | Web Push (VAPID) + PWA: suscripción por dispositivo, envío respetando preferencias. | M (4-5d) | 2.0 | ⬜ |
+| 2.2 | Email (nodemailer + SMTP): reset de contraseña, invitaciones, alertas, digest. | M (5-6d) | 2.0, 0.3 | ⬜ |
 | 2.3 | UI de preferencias granular por evento + horario de silencio. | S (2d) | 2.1 | ✅ |
+
+### Plan detallado (2.0–2.2)
+
+**Principio:** todo configurable por el usuario, con defaults y bloqueos definidos por el admin.
+Resolución de preferencias de lo más específico a lo más general:
+**conversación → evento → global del usuario → defaults del admin**.
+
+#### 2.0 Preferencias + despachador
+
+- **Global del usuario** (tabla nueva `user_notification_settings`): horario de silencio con
+  días (`quiet_days`), no molestar manual con vencimiento (1h/8h/mañana/indefinido), contenido
+  del push (nombre+mensaje / solo nombre / genérico), cuándo mandar push (siempre / solo si no
+  estoy activo / tras X min inactivo), sonido y tono de llamada, badge, frecuencia del digest
+  por email (nunca/hora/diario a hora elegida/semanal), "email si sigue sin leer tras X min",
+  idioma de los emails.
+- **Por evento** (`notification_preferences`, sin los campos de horario, que hoy se duplican en
+  cada fila): se suman `thread.reply`, `message.reaction`, `call.missed`, `reminder`,
+  `security.alert`.
+- **Por conversación**: usar `conversation_members.is_muted`/`muted_until` (existen, sin uso) +
+  nuevo `notification_level` (`all`/`mentions`/`none`) + "ignorar @todos".
+- **Admin** (`system_settings` + `seed.sql`): habilitar push/email en la instancia, defaults
+  para usuarios nuevos y eventos **bloqueados** que el usuario no puede apagar (seguridad,
+  difusiones oficiales).
+- **`notificationService.notify(userId, event, payload)`**: reemplaza los `notificationRepository
+  .create` sueltos (message, broadcast, channel, scheduled). Resuelve preferencias, silencios,
+  DND, quiet hours en la zona del usuario y presencia (no avisa si está mirando ese chat), y
+  reparte a in-app/socket, push y cola de email.
+- UI: pestaña Notificaciones reorganizada (matriz evento×canal, DND, quiet hours con días,
+  sonidos, privacidad, dispositivos, emails); "Notificaciones / Silenciar por…" en el panel de
+  la conversación e ícono 🔕 en la lista; defaults y bloqueos en el panel de admin. i18n es/en/pt.
+
+#### 2.1 Web Push + PWA
+
+- Backend: `web-push`, claves VAPID en `.env` (+ comando CLI para generarlas), tabla
+  `push_subscriptions`; endpoints de clave pública, alta/baja de suscripción, listado de
+  dispositivos y "enviar prueba". Las suscripciones 404/410 se borran solas.
+- Service worker: `tag` por conversación (agrupa), acciones Responder / Marcar leído, click
+  enfoca o abre el chat; llamada entrante persistente con Atender / Rechazar; `setAppBadge`.
+- PWA instalable (el manifest ya existe) con aviso de instalación; en iOS el push requiere la
+  app instalada (16.4+) y la UI lo explica.
+- Electron mantiene sus notificaciones nativas y no se suscribe a push; el despachador evita
+  duplicados con la regla "solo si no estoy activo".
+
+#### 2.2 Email
+
+- `nodemailer` + SMTP por `.env` (`SMTP_HOST/PORT/USER/PASS/SECURE`, `MAIL_FROM`). Sin SMTP
+  configurado el canal queda deshabilitado y la UI oculta los toggles.
+- Cola `email_outbox` + job con reintentos y backoff (ningún request espera al SMTP).
+- Plantillas HTML i18n (es/en/pt) según el idioma del usuario; link firmado de baja a la
+  configuración de emails + header `List-Unsubscribe`.
+- Emails: **reset de contraseña** (`password_reset_tokens` con hash, 30 min, un solo uso;
+  `POST /auth/forgot-password` siempre 200 con rate limit; revoca sesiones; audit; solo cuentas
+  `local`), **invitación** al crear usuario (link para definir contraseña), **alertas de
+  seguridad** (login nuevo, contraseña cambiada, 2FA desactivado), **pendientes sin leer**
+  (menciones/DM/llamadas perdidas tras X min) y **digest** periódico sin contenido por defecto
+  (los mensajes están cifrados en reposo).
+- Admin: "Probar SMTP" y registro de envíos.
 
 ### Detalle de lo implementado en Fase 2 (parcial)
 
@@ -132,12 +190,43 @@ Fase 0 → Fase 1 → Fase 2 → Fase 3 → (Fase 6 en paralelo) → Fase 8 → 
 
 ## FASE 5 — Llamadas WebRTC reales
 
-| # | Funcionalidad | Esfuerzo | Depende de |
-|---|---|---|---|
-| 5.1 | Señalización por Socket.IO: offer/answer/ICE, `call:incoming`/`call:status`. | M (3-4d) | — |
-| 5.2 | SFU para grupales (mediasoup/LiveKit/Janus), usando `server_host`/`room_id`. | L (8-10d) | 5.1 |
-| 5.3 | UI de llamada: mute/cámara/screen-share, controles de host. | L (6-8d) | 5.1 |
-| 5.4 | Grabación con consentimiento (`call_recordings`, `consented_by`). | M (3d) | 5.2, Fase 4 |
+| # | Funcionalidad | Esfuerzo | Depende de | Estado |
+|---|---|---|---|---|
+| 5.1 | Señalización por Socket.IO: offer/answer/ICE, `call:incoming`/`call:status`. | M (3-4d) | — | ✅ (malla P2P) |
+| 5.1b | **Autorización de la señalización** (validar participantes en cada evento). | S (1-2d) | 5.1 | ✅ |
+| 5.2 | SFU para grupales (mediasoup/LiveKit/Janus), usando `server_host`/`room_id`. | L (8-10d) | 5.1 | ⬜ |
+| 5.3 | UI de llamada: mute/cámara/screen-share, controles de host. | L (6-8d) | 5.1 | ✅ base |
+| 5.4 | Grabación con consentimiento (`call_recordings`, `consented_by`). | M (3d) | 5.2, Fase 4 | ⬜ |
+| 5.5 | **TURN propio (coturn)** con credenciales efímeras servidas por el backend. | S–M (2d) | 5.1 | ⬜ |
+| 5.6 | **Preferencias de llamadas** + cambio de dispositivo en llamada. | M (3-4d) | 2.0 | ⬜ |
+
+### Estado actual y plan
+
+- **Hecho:** `callStore` arma una malla P2P (un `RTCPeerConnection` por par, "perfect
+  negotiation"), con voz, vídeo y compartir pantalla; el backend sólo relaya señalización
+  (`call:start/accept/reject/cancel/signal/leave/media`) y persiste el ciclo de vida.
+- **5.1b Seguridad:** los handlers de `socket.ts` no verificaban que el emisor perteneciera a
+  la llamada: `call:start` aceptaba `calleeIds` y `from` del cliente (suplantación / timbrar a
+  cualquiera), `call:accept` dejaba entrar a cualquier `callId` y `call:signal` relayaba a
+  cualquier usuario. Validar contra `calls`/`call_participants` y armar `from` en el servidor.
+  ✅ Hecho: `callService.getPeers` valida cada evento contra `call_participants`; timbrar y
+  cancelar sólo los puede el que inició, los invitados y el `from` salen de la base, y
+  `call:signal`/`call:media` sólo circulan dentro de la sala entre participantes. La API REST
+  también exige ser participante (ver/actualizar estado), miembro (historial de la
+  conversación, iniciar llamadas sólo a miembros), el permiso `calls.make_*` según el tipo, y
+  ser quien inició para cambiar permisos de otros participantes. Tests en `api.test.ts` y
+  `tiempoReal.test.ts`.
+- **5.5 TURN:** hoy sólo STUN público de Google; detrás de NAT simétrico/firewall corporativo
+  muchas llamadas no conectan y se consulta un servidor externo. `GET /calls/ice-servers` con
+  credenciales TURN temporales (HMAC) + servicio `coturn` en Docker.
+- **5.6 Preferencias:** quién puede llamarme (todos/contactos/nadie), comportamiento con DND
+  (rechazar como ocupado / sonar en silencio), dispositivos por defecto con prueba de micro,
+  entrar silenciado / sin cámara, supresión de ruido / cancelación de eco / ganancia
+  automática, tono y volumen. En llamada: cambio de dispositivo, vista previa antes de entrar a
+  grupales, llamada perdida vía el despachador (2.0) y push con timbre (2.1), y guardar
+  `quality_stats`.
+
+**Orden:** 5.1b → 2.0 → 2.1 → 2.2 → 5.5 → 5.6.
 
 ## FASE 6 — Mensajería ya modelada (quick wins)
 
