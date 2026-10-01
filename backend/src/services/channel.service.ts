@@ -2,8 +2,8 @@ import logger from '../config/logger';
 import {
   conversationRepository,
   channelRepository,
-  notificationRepository,
 } from '../repositories';
+import notificationService from './notification.service';
 import { NotFoundError, ForbiddenError, ConflictError, BadRequestError } from '../errors';
 import { toChannelResponse, toJoinRequestResponse } from '../models';
 import { toUser } from '../config/eventBus';
@@ -134,8 +134,8 @@ class ChannelService {
       this._emitToUser(request.user_id, 'channel:joined', { conversationId });
     }
 
-    await notificationRepository.create({
-      recipient_id: request.user_id,
+    await notificationService.notify(request.user_id, {
+      event: 'channel.join_request',
       type: 'system',
       title: status === 'approved' ? 'Solicitud aprobada' : 'Solicitud rechazada',
       body: status === 'approved'
@@ -181,8 +181,8 @@ class ChannelService {
       const members = await conversationRepository.getMembers(conversationId, { limit: 200 });
       const managers = members.filter((m) => MANAGE_ROLES.includes(m.role as string) && m.user_id !== requesterId);
       for (const manager of managers) {
-        await notificationRepository.create({
-          recipient_id: manager.user_id,
+        await notificationService.notify(manager.user_id, {
+          event: 'channel.join_request',
           type: 'system',
           title: 'Nueva solicitud de ingreso',
           body: `Hay una solicitud para unirse a ${channelName || 'un canal'}`,

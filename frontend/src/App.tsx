@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { useWallpaperStore } from '@/stores/wallpaperStore';
+import { useNotificationStore } from '@/stores/notificationStore';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { ConfirmProvider } from '@/components/ConfirmProvider';
 import DesktopIntegration from '@/components/DesktopIntegration';
@@ -65,6 +66,7 @@ export default function App() {
   const destroySocket = useChatStore((s) => s.destroySocket);
   const initTheme = useThemeStore((s) => s.init);
   const fetchWallpapers = useWallpaperStore((s) => s.fetchWallpapers);
+  const loadNotificationPrefs = useNotificationStore((s) => s.load);
 
   useEffect(() => {
     init();
@@ -75,10 +77,11 @@ export default function App() {
     if (isAuthenticated && !loading) {
       fetchConversations();
       fetchWallpapers();
+      loadNotificationPrefs();
       if (token && user?.id) initSocket(token, user.id);
       return () => destroySocket();
     }
-  }, [isAuthenticated, loading, fetchConversations, fetchWallpapers, token, user?.id, initSocket, destroySocket]);
+  }, [isAuthenticated, loading, fetchConversations, fetchWallpapers, loadNotificationPrefs, token, user?.id, initSocket, destroySocket]);
 
   return (
     <ConfirmProvider>

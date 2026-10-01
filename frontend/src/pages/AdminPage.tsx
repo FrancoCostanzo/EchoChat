@@ -53,7 +53,9 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { adminApi } from '@/lib/endpoints';
+import { adminApi, notificationsApi } from '@/lib/endpoints';
+import { NOTIFICATION_EVENTS } from '@/lib/notificationEvents';
+import type { NotificationEvent } from '@/types/notification';
 import { useAuthStore } from '@/stores/authStore';
 import MonitoreoDashboard from '@/components/monitoring/MonitoreoDashboard';
 import { useConfirm } from '@/components/ConfirmProvider';
@@ -974,6 +976,129 @@ function UserFormModal({
 }
 
 /* ── 7.2 Settings ── */
+type ChannelKey = 'in_app' | 'push' | 'email';
+type PolicyDefaults = Record<NotificationEvent, Record<ChannelKey, boolean>>;
+
+/**
+ * Política de notificaciones de la instancia, en vez de editar a mano el JSON
+ * de `notification_defaults` / `notification_locked_events`. Guarda en los
+ * mismos settings, así que el listado de abajo sigue mostrando la verdad.
+ */
+function NotificationPolicyEditor({ t, onSaved }: { t: TFunc; onSaved: () => void }) {
+  const [channels, setChannels] = useState<{ push: boolean; email: boolean } | null>(null);
+  const [defaults, setDefaults] = useState<PolicyDefaults | null>(null);
+  const [locked, setLocked] = useState<Set<NotificationEvent>>(new Set());
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    notificationsApi.getPreferences()
+      .then(({ data }) => {
+        setChannels(data.channels);
+        setDefaults(data.defaults);
+        setLocked(new Set(data.events.filter((e) => e.locked).map((e) => e.event_type)));
+      })
+      .catch(() => toast.danger(t('admin.notifications.loadError')));
+  }, [t]);
+
+  if (!channels || !defaults) return <div className="flex justify-center py-6"><Spinner /></div>;
+
+  const toggleDefault = (event: NotificationEvent, channel: ChannelKey, value: boolean) =>
+    setDefaults({ ...defaults, [event]: { ...defaults[event], [channel]: value } });
+
+  const toggleLocked = (event: NotificationEvent) => {
+    const next = new Set(locked);
+    if (next.has(event)) next.delete(event); else next.add(event);
+    setLocked(next);
+  };
+
+  const save = async () => {
+    setBusy(true);
+    try {
+      await Promise.all([
+        adminApi.updateSetting('notifications_push_enabled', channels.push),
+        adminApi.updateSetting('notifications_email_enabled', channels.email),
+        adminApi.updateSetting('notification_defaults', defaults),
+        adminApi.updateSetting('notification_locked_events', [...locked]),
+      ]);
+      toast.success(t('admin.notifications.saved'));
+      onSaved();
+    } catch {
+      toast.danger(t('admin.notifications.saveError'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card className="flex flex-col gap-4 p-4">
+      <div>
+        <p className="text-sm font-semibold">{t('admin.notifications.title')}</p>
+        <p className="mt-0.5 text-xs text-ink-200">{t('admin.notifications.desc')}</p>
+      </div>
+
+      <div className="flex flex-wrap gap-6">
+        <Switch isSelected={channels.push} onChange={(v) => setChannels({ ...channels, push: v })}>
+          <Switch.Control><Switch.Thumb /></Switch.Control>
+          <Switch.Content>{t('admin.notifications.pushEnabled')}</Switch.Content>
+        </Switch>
+        <Switch isSelected={channels.email} onChange={(v) => setChannels({ ...channels, email: v })}>
+          <Switch.Control><Switch.Thumb /></Switch.Control>
+          <Switch.Content>{t('admin.notifications.emailEnabled')}</Switch.Content>
+        </Switch>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[520px] text-sm">
+          <thead>
+            <tr className="text-left text-[11px] uppercase tracking-wider text-ink-300">
+              <th className="py-2 pr-3 font-semibold">{t('admin.notifications.event')}</th>
+              <th className="px-3 py-2 text-center font-semibold">{t('settings.notifications.inApp')}</th>
+              <th className="px-3 py-2 text-center font-semibold">{t('settings.notifications.push')}</th>
+              <th className="px-3 py-2 text-center font-semibold">{t('settings.notifications.email')}</th>
+              <th className="px-3 py-2 text-center font-semibold">{t('admin.notifications.lock')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {NOTIFICATION_EVENTS.map((event) => (
+              <tr key={event} className="border-t border-white/6">
+                <td className="py-2 pr-3">{t(`settings.notifications.events.${event}`)}</td>
+                {(['in_app', 'push', 'email'] as const).map((channel) => (
+                  <td key={channel} className="px-3 py-2 text-center">
+                    <Switch
+                      size="sm"
+                      aria-label={`${t(`settings.notifications.events.${event}`)} · ${channel}`}
+                      isSelected={defaults[event][channel]}
+                      onChange={(v) => toggleDefault(event, channel, v)}
+                    >
+                      <Switch.Control><Switch.Thumb /></Switch.Control>
+                    </Switch>
+                  </td>
+                ))}
+                <td className="px-3 py-2 text-center">
+                  <Checkbox
+                    aria-label={t('admin.notifications.lock')}
+                    isSelected={locked.has(event)}
+                    onChange={() => toggleLocked(event)}
+                  >
+                    <Checkbox.Content>
+                      <Checkbox.Control><Checkbox.Indicator /></Checkbox.Control>
+                    </Checkbox.Content>
+                  </Checkbox>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-xs text-ink-300">{t('admin.notifications.lockHint')}</p>
+
+      <div className="flex justify-end">
+        <Button isPending={busy} onPress={save}>{t('common.save')}</Button>
+      </div>
+    </Card>
+  );
+}
+
 function SettingsTab({ t }: { t: TFunc }) {
   const [settings, setSettings] = useState<SettingResponse[]>([]);
   const [category, setCategory] = useState('all');
@@ -1040,6 +1165,7 @@ function SettingsTab({ t }: { t: TFunc }) {
           </Tabs.List>
         </Tabs.ListContainer>
       </Tabs>
+      {category === 'notifications' && <NotificationPolicyEditor t={t} onSaved={load} />}
       <div className="space-y-2">
         {filtered.map((s) => (
           <Card key={s.key} className="flex items-start justify-between gap-4 p-4">

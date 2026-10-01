@@ -76,6 +76,8 @@ class ConversationRepository extends BaseRepository<ConvRow> {
       `SELECT c.*,
               cm.role AS member_role,
               cm.is_muted,
+              cm.muted_until,
+              cm.notification_level,
               cm.is_pinned,
               cm.last_read_msg_id,
               (SELECT COUNT(*) FROM messages m
@@ -200,7 +202,7 @@ class ConversationRepository extends BaseRepository<ConvRow> {
     userId: string,
     fields: UpdateMemberFields,
   ): Promise<Row<'conversation_members'> | null | undefined> {
-    const allowed = ['role', 'is_muted', 'muted_until', 'is_pinned', 'is_hidden', 'last_read_at', 'last_read_msg_id'] as const;
+    const allowed = ['role', 'is_muted', 'muted_until', 'notification_level', 'is_pinned', 'is_hidden', 'last_read_at', 'last_read_msg_id'] as const;
     const sets: string[] = [];
     const values: any[] = [];
     let idx = 1;

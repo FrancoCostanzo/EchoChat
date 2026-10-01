@@ -1,9 +1,19 @@
 import BaseRepository from './base.repository';
 import type { Row } from '../types/rows';
-import type { NotificationPrefsRequest } from '../dtos/notification.dto';
+import type { NotificationPrefsRequest, NotificationSettingsRequest } from '../dtos/notification.dto';
 
 type NotificationRow = Row<'notifications'>;
 type PreferenceRow = Row<'notification_preferences'>;
+export type NotificationSettingsRow = Row<'user_notification_settings'>;
+
+// Columnas de user_notification_settings que el usuario puede cambiar. La
+// lista blanca arma el UPDATE dinámico sin interpolar nombres que vengan de afuera.
+const SETTINGS_COLUMNS = [
+  'dnd_enabled', 'dnd_until', 'quiet_hours_start', 'quiet_hours_end', 'quiet_days',
+  'push_preview', 'push_when', 'sound_enabled', 'sound_name', 'sound_volume',
+  'ringtone_name', 'badge_enabled', 'email_digest', 'email_digest_hour',
+  'email_unread_delay_minutes', 'email_locale',
+] as const;
 
 class NotificationRepository extends BaseRepository<NotificationRow> {
   constructor() {
@@ -96,17 +106,47 @@ class NotificationRepository extends BaseRepository<NotificationRow> {
 
   async upsertPreference(userId: string, prefs: NotificationPrefsRequest): Promise<PreferenceRow> {
     const { rows } = await this.query<PreferenceRow>(
-      `INSERT INTO notification_preferences (user_id, event_type, in_app_enabled, push_enabled, email_enabled, quiet_hours_start, quiet_hours_end)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO notification_preferences (user_id, event_type, in_app_enabled, push_enabled, email_enabled)
+       VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (user_id, event_type) DO UPDATE
        SET in_app_enabled = COALESCE($3, notification_preferences.in_app_enabled),
            push_enabled = COALESCE($4, notification_preferences.push_enabled),
-           email_enabled = COALESCE($5, notification_preferences.email_enabled),
-           quiet_hours_start = COALESCE($6, notification_preferences.quiet_hours_start),
-           quiet_hours_end = COALESCE($7, notification_preferences.quiet_hours_end)
+           email_enabled = COALESCE($5, notification_preferences.email_enabled)
        RETURNING *`,
       [userId, prefs.event_type, prefs.in_app_enabled ?? null, prefs.push_enabled ?? null,
-       prefs.email_enabled ?? null, prefs.quiet_hours_start || null, prefs.quiet_hours_end || null]
+       prefs.email_enabled ?? null]
+    );
+    return rows[0];
+  }
+
+  /** Configuración global del usuario; null si nunca la tocó (valen los defaults de la tabla). */
+  async findSettings(userId: string): Promise<NotificationSettingsRow | null> {
+    const { rows } = await this.query<NotificationSettingsRow>(
+      'SELECT * FROM user_notification_settings WHERE user_id = $1',
+      [userId]
+    );
+    return rows[0] || null;
+  }
+
+  /** Crea la fila con los defaults si no existe y aplica sólo los campos presentes. */
+  async upsertSettings(userId: string, patch: NotificationSettingsRequest): Promise<NotificationSettingsRow> {
+    const sets: string[] = [];
+    const values: unknown[] = [userId];
+    for (const column of SETTINGS_COLUMNS) {
+      if (patch[column] === undefined) continue;
+      values.push(patch[column]);
+      sets.push(`${column} = $${values.length}`);
+    }
+    await this.query(
+      'INSERT INTO user_notification_settings (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING',
+      [userId]
+    );
+    const { rows } = await this.query<NotificationSettingsRow>(
+      `UPDATE user_notification_settings
+       SET ${[...sets, 'updated_at = NOW()'].join(', ')}
+       WHERE user_id = $1
+       RETURNING *`,
+      values
     );
     return rows[0];
   }

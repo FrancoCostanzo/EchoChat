@@ -126,7 +126,14 @@ INSERT INTO system_settings (key, value, description, category) VALUES
      'Minutos para eliminar un mensaje propio (0 = sin límite)', 'messages'),
     ('max_broadcast_recipients',   '1000',  'Máximo de destinatarios en una difusión', 'broadcast'),
     -- Seguridad / altas
-    ('allow_registration',         'true',  'Permitir el auto-registro público de usuarios (POST /auth/register)', 'security')
+    ('allow_registration',         'true',  'Permitir el auto-registro público de usuarios (POST /auth/register)', 'security'),
+    -- Notificaciones
+    ('notifications_push_enabled', 'true',  'Permitir notificaciones push en la instancia', 'notifications'),
+    ('notifications_email_enabled', 'true', 'Permitir notificaciones por email en la instancia (requiere SMTP)', 'notifications'),
+    ('notification_defaults',      '{}',
+     'Valores por defecto por evento para usuarios que no los cambiaron: {"evento": {"in_app": bool, "push": bool, "email": bool}}', 'notifications'),
+    ('notification_locked_events', '["security.alert"]',
+     'Eventos que el usuario no puede desactivar ni silenciar (usan los valores por defecto)', 'notifications')
 ON CONFLICT (key) DO NOTHING;
 
 -- ── Backfill: todo usuario sin ningún rol recibe 'user' ────────────────────

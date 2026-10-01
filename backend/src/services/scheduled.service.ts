@@ -5,7 +5,6 @@ import {
   reminderRepository,
   conversationRepository,
   messageRepository,
-  notificationRepository,
 } from '../repositories';
 import messageService from './message.service';
 import notificationService from './notification.service';
@@ -126,22 +125,19 @@ class ScheduledService {
 
     for (const recordatorio of vencidos) {
       try {
-        if (await notificationService.shouldNotifyInApp(recordatorio.user_id, 'reminder')) {
-          await notificationRepository.create({
-            recipient_id: recordatorio.user_id,
-            type: 'reminder',
-            title: 'Recordatorio',
-            body: recordatorio.note || null,
-            reference_type: 'message',
-            reference_id: recordatorio.message_id,
-            reference_data: { conversation_id: recordatorio.conversation_id },
-          });
-        }
-        toUser(recordatorio.user_id, 'notification:new', {
+        await notificationService.notify(recordatorio.user_id, {
+          event: 'reminder',
           type: 'reminder',
-          message_id: recordatorio.message_id,
-          conversation_id: recordatorio.conversation_id,
-          note: recordatorio.note,
+          title: 'Recordatorio',
+          body: recordatorio.note || null,
+          reference_type: 'message',
+          reference_id: recordatorio.message_id,
+          reference_data: { conversation_id: recordatorio.conversation_id },
+          realtime: {
+            message_id: recordatorio.message_id,
+            conversation_id: recordatorio.conversation_id,
+            note: recordatorio.note,
+          },
         });
       } catch (err) {
         logger.warn(

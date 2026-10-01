@@ -62,6 +62,7 @@ export interface UpdateMemberRequest {
   role?: MemberRole;
   is_muted?: boolean;
   muted_until?: Date | null;
+  notification_level?: 'all' | 'mentions' | 'none';
   is_pinned?: boolean;
   is_hidden?: boolean;
 }
@@ -70,6 +71,7 @@ export const updateMemberDto = Joi.object<UpdateMemberRequest>({
   role: Joi.string().valid('owner', 'admin', 'moderator', 'member', 'viewer'),
   is_muted: Joi.boolean(),
   muted_until: Joi.date().iso().allow(null),
+  notification_level: Joi.string().valid('all', 'mentions', 'none'),
   is_pinned: Joi.boolean(),
   is_hidden: Joi.boolean(),
 }).min(1);

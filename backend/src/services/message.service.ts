@@ -1,5 +1,5 @@
 import logger from '../config/logger';
-import { toConversation, toUser } from '../config/eventBus';
+import { toConversation } from '../config/eventBus';
 import broadcastService from './broadcast.service';
 import {
   messageRepository,
@@ -11,7 +11,6 @@ import {
   pollRepository,
   gameRepository,
   systemSettingsRepository,
-  notificationRepository,
 } from '../repositories';
 import notificationService from './notification.service';
 import { NotFoundError, ForbiddenError, BadRequestError } from '../errors';
@@ -152,6 +151,9 @@ class MessageService {
     if (menciones.length > 0) {
       void this._notificarMenciones(response, menciones, userId);
     }
+    if (response.thread_id) {
+      void this._notificarHilo(response, menciones, userId);
+    }
     void this._autoResponderAusencia(response, userId);
     return response;
   }
@@ -232,32 +234,57 @@ class MessageService {
     }
 
     for (const destinatario of destinatarios) {
-      try {
-        if (!(await notificationService.shouldNotifyInApp(destinatario, 'message.mention'))) continue;
-        await notificationRepository.create({
-          recipient_id: destinatario,
-          type: 'mention',
-          title: `${autor} te mencionó${dondeFue}`,
-          reference_type: 'message',
-          reference_id: mensaje.id,
-          reference_data: {
-            conversation_id: mensaje.conversation_id,
-            thread_id: mensaje.thread_id ?? null,
-          },
-        });
-        toUser(destinatario, 'notification:new', {
-          type: 'mention',
+      await notificationService.notify(destinatario, {
+        event: 'message.mention',
+        type: 'mention',
+        title: `${autor} te mencionó${dondeFue}`,
+        reference_type: 'message',
+        reference_id: mensaje.id,
+        reference_data: {
+          conversation_id: mensaje.conversation_id,
+          thread_id: mensaje.thread_id ?? null,
+        },
+        conversationId: mensaje.conversation_id,
+        realtime: {
           message_id: mensaje.id,
           conversation_id: mensaje.conversation_id,
           thread_id: mensaje.thread_id ?? null,
           sender_display_name: autor,
+        },
+      });
+    }
+  }
+
+  /**
+   * Respuesta en un hilo: avisa al autor de la raíz y a quienes ya respondieron.
+   * Los mencionados en esta misma respuesta quedan afuera: ya recibieron la mención.
+   */
+  async _notificarHilo(mensaje: MessageResponse, menciones: Mencion[], autorId: string): Promise<void> {
+    if (!mensaje.thread_id) return;
+    try {
+      const mencionados = new Set(destinatariosDeMenciones(menciones, autorId));
+      const participantes = await messageRepository.getThreadParticipantIds(mensaje.thread_id);
+      const autor = mensaje.sender_display_name || mensaje.sender_username || 'Alguien';
+      for (const destinatario of participantes) {
+        if (destinatario === autorId || mencionados.has(destinatario)) continue;
+        await notificationService.notify(destinatario, {
+          event: 'thread.reply',
+          type: 'thread',
+          title: `${autor} respondió en un hilo`,
+          reference_type: 'message',
+          reference_id: mensaje.id,
+          reference_data: { conversation_id: mensaje.conversation_id, thread_id: mensaje.thread_id },
+          conversationId: mensaje.conversation_id,
+          realtime: {
+            message_id: mensaje.id,
+            conversation_id: mensaje.conversation_id,
+            thread_id: mensaje.thread_id,
+            sender_display_name: autor,
+          },
         });
-      } catch (err) {
-        logger.warn(
-          { err: (err as Error).message, messageId: mensaje.id, destinatario },
-          'Failed to notify mention',
-        );
       }
+    } catch (err) {
+      logger.warn({ err: (err as Error).message, messageId: mensaje.id }, 'Failed to notify thread reply');
     }
   }
 
@@ -442,17 +469,42 @@ class MessageService {
   }
 
   async addReaction(messageId: string, userId: string, emoji: string) {
-    await messageRepository.toggleReaction(messageId, userId, emoji);
+    const result = await messageRepository.toggleReaction(messageId, userId, emoji);
     const reactions = await messageRepository.getReactions(messageId);
     try {
       const message = await messageRepository.findById(messageId);
       if (message) {
         toConversation(message.conversation_id, 'message:reaction', { messageId, reactions });
+        // Sólo una reacción nueva avisa: cambiarla o quitarla no.
+        if (result === 'added' && message.sender_id && message.sender_id !== userId) {
+          void this._notificarReaccion(message.sender_id, message.conversation_id, messageId, userId, emoji);
+        }
       }
     } catch (err) {
       logger.warn({ err: (err as Error).message }, 'Failed to emit message:reaction');
     }
     return reactions;
+  }
+
+  async _notificarReaccion(
+    autorId: string,
+    conversationId: string,
+    messageId: string,
+    reactorId: string,
+    emoji: string,
+  ): Promise<void> {
+    const reactor = await userRepository.findById(reactorId).catch(() => null);
+    const nombre = reactor?.display_name || reactor?.username || 'Alguien';
+    await notificationService.notify(autorId, {
+      event: 'message.reaction',
+      type: 'reaction',
+      title: `${nombre} reaccionó ${emoji} a tu mensaje`,
+      reference_type: 'message',
+      reference_id: messageId,
+      reference_data: { conversation_id: conversationId },
+      conversationId,
+      realtime: { message_id: messageId, conversation_id: conversationId, sender_display_name: nombre, emoji },
+    });
   }
 
   async removeReaction(messageId: string, userId: string, emoji: string) {

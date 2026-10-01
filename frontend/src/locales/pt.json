@@ -272,7 +272,37 @@
     "onlyAdminsSendMessages": "Somente administradores podem enviar mensagens",
     "onlyAdminsSendMessagesHint": "Se ativado, os demais membros não vão poder escrever neste grupo.",
     "onlyAdminsEditInfo": "Somente administradores editam a info do grupo",
-    "onlyAdminsEditInfoHint": "Se desativado, qualquer membro pode alterar o nome, a descrição e a foto."
+    "onlyAdminsEditInfoHint": "Se desativado, qualquer membro pode alterar o nome, a descrição e a foto.",
+    "notif": {
+      "threadReply": "{{name}} respondeu em um tópico",
+      "reaction": "{{name}} reagiu {{emoji}} à sua mensagem",
+      "missedCall": "Chamada perdida de {{name}}"
+    },
+    "notifications": {
+      "title": "Notificações",
+      "level": "Nível de aviso",
+      "levels": {
+        "all": "Tudo",
+        "mentions": "Menções",
+        "none": "Nada"
+      },
+      "levelHints": {
+        "all": "Avisamos você de cada mensagem desta conversa.",
+        "mentions": "Só avisamos quando mencionarem você.",
+        "none": "Não avisamos nada desta conversa, nem as menções."
+      },
+      "mutedUntil": "Silenciada até {{time}}",
+      "mutedForever": "Silenciada",
+      "unmute": "Reativar",
+      "muteFor": "Silenciar (as menções continuam avisando)",
+      "muteOptions": {
+        "1h": "1 h",
+        "8h": "8 h",
+        "1w": "1 semana",
+        "always": "Sempre"
+      },
+      "mutedBadge": "Conversa silenciada"
+    }
   },
   "newConversation": {
     "title": "Nova conversa",
@@ -594,13 +624,13 @@
     },
     "languageSelector": "Idioma do aplicativo",
     "notifications": {
-      "title": "Preferências de notificações",
-      "subtitle": "Escolha como receber cada tipo de evento. Push e email serão ativados quando disponíveis.",
+      "title": "Sobre o que avisamos você",
+      "subtitle": "Escolha por onde receber cada tipo de aviso.",
       "inApp": "No app",
       "push": "Push",
       "email": "Email",
       "quietHours": "Horário de silêncio",
-      "quietHoursDesc": "Durante este intervalo não serão enviadas notificações push nem email.",
+      "quietHoursDesc": "Nesse intervalo nada toca e nenhum aviso chega ao celular. Tudo fica salvo em Notificações.",
       "quietStart": "De",
       "quietEnd": "Até",
       "saveQuietHours": "Salvar horário",
@@ -610,7 +640,65 @@
         "message.mention": "Menções",
         "channel.join_request": "Solicitações de canal",
         "broadcast": "Difusões",
-        "call.incoming": "Chamadas recebidas"
+        "call.incoming": "Chamadas recebidas",
+        "thread.reply": "Respostas em tópicos",
+        "message.reaction": "Reações",
+        "call.missed": "Chamadas perdidas",
+        "reminder": "Lembretes",
+        "security.alert": "Alertas de segurança"
+      },
+      "quietDays": "Dias sem avisos",
+      "quietDaysDesc": "Os dias marcados ficam totalmente silenciados (por exemplo, o fim de semana).",
+      "saveError": "Não foi possível salvar a alteração",
+      "locked": "Sua organização exige este aviso",
+      "channelsOff": {
+        "both": "O administrador desativou push e email nesta instalação.",
+        "push": "O administrador desativou as notificações push nesta instalação.",
+        "email": "O administrador desativou o email nesta instalação."
+      },
+      "groups": {
+        "messages": "Mensagens",
+        "calls": "Chamadas",
+        "other": "Outros"
+      },
+      "eventDesc": {
+        "message.direct": "Mensagens em conversas individuais",
+        "message.group": "Mensagens em grupos e canais",
+        "message.mention": "Quando alguém menciona você com @",
+        "thread.reply": "Respostas em tópicos que você iniciou ou dos quais participa",
+        "message.reaction": "Quando alguém reage a uma mensagem sua",
+        "call.incoming": "Chamadas de voz e vídeo para você",
+        "call.missed": "Chamadas que você não atendeu",
+        "broadcast": "Comunicados enviados por difusão",
+        "channel.join_request": "Pedidos de entrada em canais que você administra e suas respostas",
+        "reminder": "Lembretes que você programou em uma mensagem",
+        "security.alert": "Novos logins e mudanças na sua conta"
+      },
+      "dnd": {
+        "title": "Não perturbe",
+        "desc": "Pause todos os avisos por um tempo. O que chegar fica salvo em Notificações.",
+        "activeUntil": "Não perturbe ativo até {{time}}",
+        "activeIndefinite": "Não perturbe ativo até você desativar",
+        "turnOff": "Desativar",
+        "options": {
+          "1h": "1 hora",
+          "8h": "8 horas",
+          "tomorrow": "Até amanhã",
+          "indefinite": "Até eu desativar"
+        }
+      },
+      "sound": {
+        "title": "Sons",
+        "enabled": "Tocar um som a cada aviso",
+        "choose": "Som de mensagens (toque em um para ouvir)",
+        "volume": "Volume",
+        "names": {
+          "ping": "Ping",
+          "chime": "Sino",
+          "pop": "Pop",
+          "bubble": "Bolha",
+          "knock": "Toc toc"
+        }
       }
     },
     "languages": {
@@ -897,6 +985,18 @@
         "endpoint": "URL base do endpoint",
         "disabledHint": "Configure SCIM_ENABLED e SCIM_TOKEN no backend para habilitar o provisionamento automático."
       }
+    },
+    "notifications": {
+      "title": "Política de notificações",
+      "desc": "Valores padrão para quem não alterou as preferências, e avisos que ninguém pode desativar.",
+      "pushEnabled": "Notificações push habilitadas",
+      "emailEnabled": "Email habilitado",
+      "event": "Evento",
+      "lock": "Obrigatório",
+      "lockHint": "Um evento obrigatório sempre usa estes valores: o usuário não pode desativá-lo, e o não perturbe e os silenciamentos não o seguram.",
+      "saved": "Política salva",
+      "saveError": "Não foi possível salvar a política",
+      "loadError": "Não foi possível carregar a política"
     }
   },
   "monitoring": {

@@ -11,13 +11,15 @@ interface NotificationPayload {
   body: string;
   /** Para abrir la conversación al hacer click. */
   conversationId?: string;
+  /** Sin sonido del SO: la app ya reproduce el suyo (o el usuario lo apagó). */
+  silent?: boolean;
 }
 
 /** Valida lo que llega del renderer: nunca es una fuente confiable. */
 function parsePayload(raw: unknown): NotificationPayload | null {
   if (typeof raw !== 'object' || raw === null) return null;
 
-  const { title, body, conversationId } = raw as Record<string, unknown>;
+  const { title, body, conversationId, silent } = raw as Record<string, unknown>;
   if (typeof title !== 'string' || !title.trim()) return null;
   if (typeof body !== 'string') return null;
 
@@ -25,6 +27,7 @@ function parsePayload(raw: unknown): NotificationPayload | null {
     title: title.slice(0, MAX_TITLE),
     body: body.slice(0, MAX_BODY),
     conversationId: typeof conversationId === 'string' ? conversationId : undefined,
+    silent: silent === true,
   };
 }
 
@@ -35,7 +38,11 @@ export function registerNotificationIpc(): void {
     const payload = parsePayload(raw);
     if (!payload) return;
 
-    const notification = new Notification({ title: payload.title, body: payload.body });
+    const notification = new Notification({
+      title: payload.title,
+      body: payload.body,
+      silent: payload.silent,
+    });
 
     notification.on('click', () => {
       const win = showMainWindow();

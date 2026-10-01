@@ -37,6 +37,16 @@ class NotificationController {
     const pref = await notificationService.updatePreference(req.user.id, req.body);
     res.json({ status: 'success', data: pref });
   }
+
+  async getSettings(req: AuthRequest, res: Response) {
+    const settings = await notificationService.getSettings(req.user.id);
+    res.json({ status: 'success', data: settings });
+  }
+
+  async updateSettings(req: AuthRequest, res: Response) {
+    const settings = await notificationService.updateSettings(req.user.id, req.body);
+    res.json({ status: 'success', data: settings });
+  }
 }
 
 export default new NotificationController();

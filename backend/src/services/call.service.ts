@@ -4,10 +4,12 @@ import { BadRequestError, ForbiddenError, NotFoundError } from '../errors';
 import { toCallResponse, toMessageResponse, toCallHistoryItem } from '../models';
 import { publicMinioClient } from '../config/minio';
 import { toConversation } from '../config/eventBus';
+import notificationService from './notification.service';
 import type { CallRow } from '../models/call.model';
 import type { CallHistoryItem } from '../models/call.model';
 import type { InitiateCallRequest, UpdateParticipantRequest } from '../dtos/call.dto';
 import type { Row } from '../types/rows';
+import type { ParticipantWithUser } from '../repositories/call.repository';
 
 const AVATAR_BUCKET = 'messaging-avatars';
 
@@ -105,7 +107,31 @@ class CallService {
         logger.warn({ err: err.message, callId }, 'Failed to post call event message'),
       );
     }
+    if (!wasTerminal && status === 'missed') {
+      void this._notifyMissed(updated);
+    }
     return toCallResponse(updated);
+  }
+
+  /** Llamada perdida: avisa a los invitados que nunca llegaron a entrar. */
+  async _notifyMissed(call: CallRow) {
+    const participants = (call.participants || []) as ParticipantWithUser[];
+    const caller = participants.find((p) => p.user_id === call.initiated_by);
+    const name = caller?.display_name || caller?.username || 'Alguien';
+    const missed = participants
+      .filter((p) => p.user_id !== call.initiated_by && p.status !== 'joined');
+    for (const participant of missed) {
+      await notificationService.notify(participant.user_id, {
+        event: 'call.missed',
+        type: 'call',
+        title: call.type === 'video' ? `Videollamada perdida de ${name}` : `Llamada perdida de ${name}`,
+        reference_type: 'call',
+        reference_id: call.id,
+        reference_data: { conversation_id: call.conversation_id, call_type: call.type },
+        conversationId: call.conversation_id,
+        realtime: { call_id: call.id, conversation_id: call.conversation_id, sender_display_name: name },
+      });
+    }
   }
 
   // Inserta y difunde un mensaje de sistema que resume la llamada finalizada.

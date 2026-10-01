@@ -44,7 +44,13 @@ import type {
   CreateBroadcastListRequest, SendBroadcastRequest, AddBroadcastRecipientsRequest,
   BroadcastListResponse, BroadcastRecipient, BroadcastMessageResponse, BroadcastDeliveryDetail,
 } from '@/types/broadcast';
-import type { NotificationPrefsRequest, NotificationPreferenceResponse } from '@/types/notification';
+import type {
+  NotificationPrefsRequest,
+  NotificationPreferenceResponse,
+  NotificationPreferencesResponse,
+  NotificationSettings,
+  NotificationSettingsRequest,
+} from '@/types/notification';
 import type { RelationshipRequest, RelationshipEntry } from '@/types/relationship';
 import type { UpsertWallpaperRequest, WallpaperEntry } from '@/types/wallpaper';
 
@@ -204,8 +210,10 @@ export const notificationsApi = {
   getUnreadCount: () => api.get<ApiEnvelope<{ count: number }>>('/notifications/count'),
   readAll: () => api.post<ApiMessageEnvelope>('/notifications/read-all'),
   read: (id: string) => api.put<ApiEnvelope<unknown>>(`/notifications/${id}/read`),
-  getPreferences: () => api.get<ApiEnvelope<NotificationPreferenceResponse[]>>('/notifications/preferences'),
+  getPreferences: () => api.get<ApiEnvelope<NotificationPreferencesResponse>>('/notifications/preferences'),
   updatePreferences: (data: NotificationPrefsRequest) => api.put<ApiEnvelope<NotificationPreferenceResponse>>('/notifications/preferences', data),
+  getSettings: () => api.get<ApiEnvelope<NotificationSettings>>('/notifications/settings'),
+  updateSettings: (data: NotificationSettingsRequest) => api.put<ApiEnvelope<NotificationSettings>>('/notifications/settings', data),
 };
 
 export const adminApi = {

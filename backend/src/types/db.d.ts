@@ -187,6 +187,10 @@ export interface ConversationMembers {
   last_read_msg_id: string | null;
   left_at: Timestamp | null;
   muted_until: Timestamp | null;
+  /**
+   * all = todo; mentions = sólo menciones; none = nada (ni menciones). is_muted silencia todo menos menciones.
+   */
+  notification_level: Generated<string>;
   role: Generated<string | null>;
   user_id: string;
 }
@@ -205,6 +209,9 @@ export interface Conversations {
   max_members: number | null;
   metadata: Generated<Json | null>;
   name: string | null;
+  /**
+   * Si es TRUE, sólo owner/admin pueden editar nombre, descripción y foto del grupo.
+   */
   only_admins_edit_info: Generated<boolean>;
   topic: string | null;
   type: string;
@@ -326,9 +333,6 @@ export interface NotificationPreferences {
   event_type: string;
   in_app_enabled: Generated<boolean | null>;
   push_enabled: Generated<boolean | null>;
-  quiet_days: number[] | null;
-  quiet_hours_end: string | null;
-  quiet_hours_start: string | null;
   user_id: string;
 }
 
@@ -525,6 +529,27 @@ export interface UserCredentials {
   user_id: string;
 }
 
+export interface UserNotificationSettings {
+  badge_enabled: Generated<boolean>;
+  dnd_enabled: Generated<boolean>;
+  dnd_until: Timestamp | null;
+  email_digest: Generated<string>;
+  email_digest_hour: Generated<number>;
+  email_locale: string | null;
+  email_unread_delay_minutes: Generated<number>;
+  push_preview: Generated<string>;
+  push_when: Generated<string>;
+  quiet_days: Generated<number[]>;
+  quiet_hours_end: string | null;
+  quiet_hours_start: string | null;
+  ringtone_name: Generated<string>;
+  sound_enabled: Generated<boolean>;
+  sound_name: Generated<string>;
+  sound_volume: Generated<number>;
+  updated_at: Generated<Timestamp>;
+  user_id: string;
+}
+
 export interface UserRelationships {
   alias: string | null;
   created_at: Generated<Timestamp | null>;
@@ -653,6 +678,7 @@ export interface DB {
   storage_presigned_urls: StoragePresignedUrls;
   system_settings: SystemSettings;
   user_credentials: UserCredentials;
+  user_notification_settings: UserNotificationSettings;
   user_relationships: UserRelationships;
   user_roles: UserRoles;
   user_sessions: UserSessions;

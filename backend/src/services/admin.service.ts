@@ -6,6 +6,7 @@ import { publicMinioClient } from '../config/minio';
 // Require directo (no vía ../services) para evitar dependencia circular.
 import ldapService from './ldap.service';
 import oidcService from './oidc.service';
+import notificationService from './notification.service';
 import {
   userRepository,
   credentialRepository,
@@ -531,6 +532,7 @@ class AdminService {
     if (!before) throw new NotFoundError('Setting');
 
     const updated = await systemSettingsRepository.update(key, value, actorId);
+    if (key.startsWith('notification')) notificationService.invalidatePolicy();
 
     await auditRepository.log({
       actor_id: actorId,

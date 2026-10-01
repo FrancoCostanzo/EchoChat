@@ -84,7 +84,7 @@ Fase 0 → Fase 1 → Fase 2 → Fase 3 → (Fase 6 en paralelo) → Fase 8 → 
 
 | # | Funcionalidad | Esfuerzo | Depende de | Estado |
 |---|---|---|---|---|
-| 2.0 | **Preferencias en 3 niveles + despachador único** (ver detalle abajo). | M (4-5d) | — | ⬜ |
+| 2.0 | **Preferencias en 3 niveles + despachador único** (ver detalle abajo). | M (4-5d) | — | ✅ |
 | 2.1 | Web Push (VAPID) + PWA: suscripción por dispositivo, envío respetando preferencias. | M (4-5d) | 2.0 | ⬜ |
 | 2.2 | Email (nodemailer + SMTP): reset de contraseña, invitaciones, alertas, digest. | M (5-6d) | 2.0, 0.3 | ⬜ |
 | 2.3 | UI de preferencias granular por evento + horario de silencio. | S (2d) | 2.1 | ✅ |
@@ -118,6 +118,17 @@ Resolución de preferencias de lo más específico a lo más general:
 - UI: pestaña Notificaciones reorganizada (matriz evento×canal, DND, quiet hours con días,
   sonidos, privacidad, dispositivos, emails); "Notificaciones / Silenciar por…" en el panel de
   la conversación e ícono 🔕 en la lista; defaults y bloqueos en el panel de admin. i18n es/en/pt.
+- ✅ **Hecho** — migración `021_notification_settings.sql` (tabla `user_notification_settings`,
+  mudanza del horario de silencio, `conversation_members.notification_level`), catálogo
+  `utils/notificationEvents.ts`, `notificationService.resolve/notify` usado por menciones,
+  recordatorios, difusiones, canales y los eventos nuevos (respuesta en hilo, reacción, llamada
+  perdida). `GET/PUT /notifications/settings`; `GET /notifications/preferences` devuelve la matriz
+  resuelta + canales + defaults. En no molestar / silencio la notificación se guarda igual pero
+  el aviso en vivo sale con `silent: true`. Frontend: `notificationStore` (mismas reglas para el
+  aviso nativo y el sonido de mensajes comunes), sonidos sintetizados con Web Audio
+  (`lib/sounds.ts`), pestaña de Ajustes nueva, sección "Notificaciones" en el detalle del chat,
+  🔕 en la lista y editor de política en Admin → Sistema → notifications. Tests en
+  `backend/tests/notificaciones.test.ts`.
 
 #### 2.1 Web Push + PWA
 

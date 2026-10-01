@@ -272,7 +272,37 @@
     "onlyAdminsSendMessages": "Only admins can send messages",
     "onlyAdminsSendMessagesHint": "When on, other members won't be able to write in this group.",
     "onlyAdminsEditInfo": "Only admins can edit group info",
-    "onlyAdminsEditInfoHint": "When off, any member can change the name, description and photo."
+    "onlyAdminsEditInfoHint": "When off, any member can change the name, description and photo.",
+    "notif": {
+      "threadReply": "{{name}} replied in a thread",
+      "reaction": "{{name}} reacted {{emoji}} to your message",
+      "missedCall": "Missed call from {{name}}"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "level": "Notification level",
+      "levels": {
+        "all": "All",
+        "mentions": "Mentions",
+        "none": "None"
+      },
+      "levelHints": {
+        "all": "You'll be notified of every message in this chat.",
+        "mentions": "You'll only be notified when you're mentioned.",
+        "none": "You won't be notified of anything in this chat, mentions included."
+      },
+      "mutedUntil": "Muted until {{time}}",
+      "mutedForever": "Muted",
+      "unmute": "Unmute",
+      "muteFor": "Mute (mentions still notify you)",
+      "muteOptions": {
+        "1h": "1 h",
+        "8h": "8 h",
+        "1w": "1 week",
+        "always": "Always"
+      },
+      "mutedBadge": "Muted chat"
+    }
   },
   "newConversation": {
     "title": "New conversation",
@@ -594,13 +624,13 @@
     },
     "languageSelector": "Application language",
     "notifications": {
-      "title": "Notification preferences",
-      "subtitle": "Choose how to receive each event type. Push and email will activate when available.",
+      "title": "What we notify you about",
+      "subtitle": "Choose where to receive each kind of notification.",
       "inApp": "In-app",
       "push": "Push",
       "email": "Email",
       "quietHours": "Quiet hours",
-      "quietHoursDesc": "During this interval no push or email notifications will be sent.",
+      "quietHoursDesc": "During this window nothing plays a sound and nothing reaches your phone. Everything stays in Notifications.",
       "quietStart": "From",
       "quietEnd": "To",
       "saveQuietHours": "Save schedule",
@@ -610,7 +640,65 @@
         "message.mention": "Mentions",
         "channel.join_request": "Channel join requests",
         "broadcast": "Broadcasts",
-        "call.incoming": "Incoming calls"
+        "call.incoming": "Incoming calls",
+        "thread.reply": "Thread replies",
+        "message.reaction": "Reactions",
+        "call.missed": "Missed calls",
+        "reminder": "Reminders",
+        "security.alert": "Security alerts"
+      },
+      "quietDays": "Days without notifications",
+      "quietDaysDesc": "Selected days are fully silenced (for example, the weekend).",
+      "saveError": "Couldn't save the change",
+      "locked": "Your organization requires this notification",
+      "channelsOff": {
+        "both": "The administrator turned off push and email on this server.",
+        "push": "The administrator turned off push notifications on this server.",
+        "email": "The administrator turned off email on this server."
+      },
+      "groups": {
+        "messages": "Messages",
+        "calls": "Calls",
+        "other": "Other"
+      },
+      "eventDesc": {
+        "message.direct": "Messages in one-on-one chats",
+        "message.group": "Messages in groups and channels",
+        "message.mention": "When someone mentions you with @",
+        "thread.reply": "Replies in threads you started or joined",
+        "message.reaction": "When someone reacts to one of your messages",
+        "call.incoming": "Voice and video calls to you",
+        "call.missed": "Calls you didn't pick up",
+        "broadcast": "Announcements sent as a broadcast",
+        "channel.join_request": "Join requests for channels you manage, and their answers",
+        "reminder": "Reminders you scheduled on a message",
+        "security.alert": "New sign-ins and changes to your account"
+      },
+      "dnd": {
+        "title": "Do not disturb",
+        "desc": "Pause all notifications for a while. Anything that arrives stays in Notifications.",
+        "activeUntil": "Do not disturb until {{time}}",
+        "activeIndefinite": "Do not disturb until you turn it off",
+        "turnOff": "Turn off",
+        "options": {
+          "1h": "1 hour",
+          "8h": "8 hours",
+          "tomorrow": "Until tomorrow",
+          "indefinite": "Until I turn it off"
+        }
+      },
+      "sound": {
+        "title": "Sounds",
+        "enabled": "Play a sound with each notification",
+        "choose": "Message sound (tap one to hear it)",
+        "volume": "Volume",
+        "names": {
+          "ping": "Ping",
+          "chime": "Chime",
+          "pop": "Pop",
+          "bubble": "Bubble",
+          "knock": "Knock"
+        }
       }
     },
     "languages": {
@@ -897,6 +985,18 @@
         "endpoint": "Endpoint base URL",
         "disabledHint": "Set SCIM_ENABLED and SCIM_TOKEN in the backend to enable automatic provisioning."
       }
+    },
+    "notifications": {
+      "title": "Notification policy",
+      "desc": "Defaults for people who haven't changed their preferences, and notifications nobody can turn off.",
+      "pushEnabled": "Push notifications enabled",
+      "emailEnabled": "Email enabled",
+      "event": "Event",
+      "lock": "Required",
+      "lockHint": "A required event always uses these values: users can't turn it off, and do not disturb or muting don't hold it back.",
+      "saved": "Policy saved",
+      "saveError": "Couldn't save the policy",
+      "loadError": "Couldn't load the policy"
     }
   },
   "monitoring": {
