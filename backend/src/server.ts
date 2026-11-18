@@ -4,7 +4,7 @@ import config from './config';
 import logger from './config/logger';
 import { pool } from './config/database';
 import { setup } from './config/migrate';
-import { ensureBuckets } from './config/minio';
+import { ensureBuckets } from './config/storage';
 import { closeRedis } from './config/redis';
 import { initSocket, closeSocket } from './socket';
 import { startJobs, stopJobs } from './jobs';
@@ -25,11 +25,11 @@ async function start(): Promise<void> {
       logger.info('RUN_MIGRATIONS_ON_BOOT=false — se omiten las migraciones al arranque');
     }
 
-    // Ensure MinIO buckets exist
+    // Ensure storage buckets exist
     try {
       await ensureBuckets();
     } catch (err) {
-      logger.warn({ err }, 'MinIO not available — file storage will fail until connected');
+      logger.warn({ err }, 'Storage not available — file storage will fail until connected');
     }
 
     // Create HTTP server and attach Socket.IO

@@ -7,6 +7,7 @@ import pollController from './poll.controller';
 import gameController from './game.controller';
 import callController from './call.controller';
 import storageController from './storage.controller';
+import storageFileController from './storageFile.controller';
 import stickerController from './sticker.controller';
 import broadcastController from './broadcast.controller';
 import notificationController from './notification.controller';
@@ -25,6 +26,7 @@ export {
   gameController,
   callController,
   storageController,
+  storageFileController,
   stickerController,
   broadcastController,
   notificationController,

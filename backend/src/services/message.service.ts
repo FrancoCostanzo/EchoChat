@@ -19,9 +19,7 @@ import { toMessageResponse, toSavedMessageResponse, toDraftResponse, toPollRespo
 import { resolveBodyFormat } from '../utils/markdown.util';
 import { resolverMenciones, destinatariosDeMenciones, type Mencion } from '../utils/mentions.util';
 import { urlesDeAvatares } from '../utils/avatarUrl.util';
-// `minioClient` para operar sobre el bucket (borrar objetos) y
-// `publicMinioClient` para firmar URLs que resuelve el cliente del usuario.
-import { minioClient, publicMinioClient } from '../config/minio';
+import { storage } from '../config/storage';
 import type { MessageResponse } from '../models/message.model';
 import type { GameRow } from '../models/game.model';
 import type { ReceiptDetail } from '../repositories/message.repository';
@@ -78,7 +76,7 @@ function assertWithinWindow(sentAt: Date | string | null, minutes: number, actio
 async function withAvatarUrl<T extends { avatar_object_key?: string | null; avatar_bucket?: string | null }>(user: T) {
   if (!user?.avatar_object_key) return user;
   try {
-    const url = await publicMinioClient.presignedGetObject(
+    const url = await storage.getSignedUrl(
       user.avatar_bucket || AVATAR_BUCKET,
       user.avatar_object_key,
       60 * 60,
@@ -497,13 +495,13 @@ class MessageService {
     const attachmentObjects = await messageRepository.getAttachmentObjects(messageId);
     for (const obj of attachmentObjects) {
       try {
-        await minioClient.removeObject(obj.bucket_name, obj.object_key);
+        await storage.removeObject(obj.bucket_name, obj.object_key);
       } catch (err) {
         logger.warn({ err: (err as Error).message, objectKey: obj.object_key }, 'Failed to delete object from MinIO');
       }
       if (obj.thumbnail_bucket && obj.thumbnail_key) {
         try {
-          await minioClient.removeObject(obj.thumbnail_bucket, obj.thumbnail_key);
+          await storage.removeObject(obj.thumbnail_bucket, obj.thumbnail_key);
         } catch (err) {
           logger.warn({ err: (err as Error).message }, 'Failed to delete thumbnail from MinIO');
         }
