@@ -58,21 +58,24 @@ cd backend && npm run migrate
 cd backend && npm test
 ```
 
-Modelo de base de datos (ver `src/config/migrate.js`), en este orden al arrancar:
+Modelo de base de datos (ver `src/config/migrate.ts`), en este orden al arrancar.
+Se está migrando a varios motores con Kysely: ver `backend/docs/MULTI_DB.md`.
 
-1. **`docs/messaging_intranet_schema.sql`** — solo DDL. Se aplica una vez (se
-   registra como `000_base_schema` en `schema_migrations`).
-2. **`docs/migrations/NNN_*.sql`** — cambios estructurales incrementales. Cada
-   uno se aplica una vez y queda registrado. Deben ser idempotentes.
-3. **`docs/seed.sql`** — datos de referencia (roles, permisos, settings). Todo
-   `ON CONFLICT DO NOTHING`; corre en **cada** arranque para converger: agregar
+1. **`src/config/db/migrations/NNN_*.ts`** — esquema, con el schema builder de
+   Kysely y los helpers de `src/config/db/schema.ts` (tipos y defaults por motor).
+   Cada una se aplica una vez y queda en `kysely_migration`. `001_initial` es el
+   esquema completo histórico.
+2. **`src/config/db/seed.ts`** — datos de referencia (roles, permisos, settings).
+   Sólo inserta lo que falta y corre en **cada** arranque para converger: agregar
    un permiso/setting acá basta para que llegue a instancias existentes.
-4. **Primer admin** — crea el `super_admin` desde `ADMIN_USERNAME`/`ADMIN_PASSWORD`
+3. **Primer admin** — crea el `super_admin` desde `ADMIN_USERNAME`/`ADMIN_PASSWORD`
    si no existe ninguno.
 
-> Las migraciones arrancan en `003`: `001`/`002` sembraban RBAC y quedaron
-> subsumidas por `seed.sql`. Para un cambio de esquema nuevo, agregá el
-> siguiente número correlativo; para datos de referencia, editá `seed.sql`.
+> Para un cambio de esquema nuevo, creá la siguiente migración TS (`002_…`) y
+> registrala en `migrations/index.ts`. Lo que sólo exista en PostgreSQL va dentro
+> de `onPostgres()`. `docs/messaging_intranet_schema.sql` y `docs/migrations/*.sql`
+> quedan **congelados**: sólo los usa `legacyMigrations.ts` para poner al día bases
+> anteriores a Kysely antes de marcar `001_initial` como aplicada.
 
 Variables de entorno: `backend/.env` en desarrollo; `.env` en la raíz para Docker. Ver `README.md`.
 

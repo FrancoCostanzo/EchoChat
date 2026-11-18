@@ -1,6 +1,6 @@
 # Soporte para varios motores de base de datos
 
-> Estado: **etapa 0 hecha** (Kysely conectado, `draft.repository` migrado como piloto).
+> Estado: **etapas 0 y 1 hechas** (Kysely conectado; esquema, migraciones y seed en TypeScript).
 > Motores: PostgreSQL (actual) → **SQL Server** (primero) → MySQL/MariaDB y SQLite más adelante.
 
 ## Decisiones
@@ -61,15 +61,25 @@ commit. Desde la etapa 5 la suite corre también contra SQL Server.
 - Piloto: `draft.repository` (upsert con `onConflict`, `returningAll`, select, delete).
   `now()` queda como `sql` crudo hasta los helpers de la etapa 3.
 
-### Etapa 1 — Migraciones en TypeScript (≈3–4 días, la más delicada)
-- Pasar el schema base, las 22 migraciones y el `seed.sql` a migraciones de Kysely
-  (`src/db/migrations/NNN_*.ts`) con un runner propio que conserva la semántica actual: el
-  esquema y las migraciones se aplican una vez y el seed converge en cada arranque.
-- **Baseline de bases existentes:** si `schema_migrations` ya tiene `000_base_schema` y las 22, se
-  marcan como aplicadas las migraciones TS equivalentes sin ejecutar nada.
-- **Verificación:** el `pg_dump --schema-only` de una base creada con las migraciones nuevas
-  tiene que coincidir con el de una creada con los `.sql` actuales (salvo el orden).
+### Etapa 1 — Migraciones en TypeScript ✅
+- `src/config/db/migrations/001_initial.ts`: el esquema completo (schema base + migraciones
+  003–024) con el schema builder de Kysely. Se generó leyendo el catálogo de una base creada
+  con los `.sql` y los CHECK se reescribieron como `col IN (...)`, que es SQL portable.
+- `src/config/db/schema.ts`: helpers de tipos (`t.uuid()`, `t.timestamptz()`, `t.json()`…),
+  defaults (`d.now()`, `d.uuid()`) y `onPostgres()` para lo exclusivo de PostgreSQL
+  (extensiones, 4 índices GIN/de expresión, 4 funciones, 7 triggers, comentarios).
+- `src/config/db/seed.ts` reemplaza a `docs/seed.sql`.
+- `src/config/migrate.ts` usa el `Migrator` de Kysely (tabla `kysely_migration`). Bases del
+  sistema viejo: `legacyMigrations.ts` aplica las `.sql` que falten y después registra
+  `001_initial` sin ejecutarla. Los `.sql` quedan congelados (`docs/migrations/README.md`).
+- **Verificado:** el `pg_dump --schema-only` de una base nueva es idéntico línea por línea al
+  del sistema viejo, y el seed da las mismas 139 filas. Probado también con una base vieja al
+  día (baseline sin cambios) y con una atrasada hasta la 022 (aplica 023–024 y queda idéntica).
+  Suite: 118/119 sobre base vieja y sobre base vacía (el fallo, "fijar y dejar de fijar", ya
+  existía).
 - Los triggers y funciones **todavía no se tocan**: en PostgreSQL se crean igual que hoy.
+- Pendiente para la etapa 6: la guía pública (`site/…/despliegue/base-de-datos.md` y
+  `actualizacion.md`) todavía describe los `.sql`.
 
 ### Etapa 2 — Repositorios a Kysely, sólo PostgreSQL (≈6–8 días)
 - Uno por uno, de los simples a los complejos (`wallpaper`, `draft`, `saved`… → `conversation`,

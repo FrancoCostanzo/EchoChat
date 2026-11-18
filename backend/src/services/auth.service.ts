@@ -119,7 +119,7 @@ class AuthService {
     await credentialRepository.create(user.id, passwordHash);
 
     // Assign default 'user' role.
-    // ON CONFLICT porque el backfill de docs/seed.sql —que corre en cada
+    // ON CONFLICT porque el backfill de src/config/db/seed.ts —que corre en cada
     // arranque— le asigna 'user' a todo usuario que no tenga ninguno. Si otra
     // instancia arranca entre el INSERT del usuario y esta línea (el bcrypt de
     // arriba tarda cientos de ms), el rol ya está puesto y esto reventaba con
