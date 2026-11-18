@@ -88,18 +88,21 @@ commit. Desde la etapa 5 la suite corre también contra SQL Server.
   Kysely, para no frenar.
 - El SQL que vive fuera de los repositorios (`auth.service`, jobs, health) pasa a repositorios.
 
-**Avance (12 de 25):** ✅ `base`, `draft`, `systemSettings`, `game`, `saved`, `wallpaper`,
-`relationship`, `session`, `pushSubscription`, `credential`, `poll`, `scheduled`.
-Pendientes: `audit`, `notification`, `channel`, `sticker`, `storage`, `call`, `conversation`,
-`broadcast`, `email`, `user`, `message`, `monitoring` y el SQL fuera de repositorios.
+**Avance (18 de 25):** ✅ `base`, `draft`, `systemSettings`, `game`, `saved`, `wallpaper`,
+`relationship`, `session`, `pushSubscription`, `credential`, `poll`, `scheduled`, `audit`,
+`notification`, `channel`, `sticker`, `storage`, `call`.
+Pendientes: `conversation`, `broadcast`, `email`, `user`, `message`, `monitoring` y el SQL
+fuera de repositorios.
 
-Expresiones por motor en `src/config/db/sql.ts`: `now()`, `nowPlus()`, `nowMinus()`, `json()`.
+Expresiones por motor en `src/config/db/sql.ts`: `now()`, `nowPlus()`, `nowMinus()`, `ilike()`, `json()`.
 Quedan como PostgreSQL a propósito, para la etapa 3: `onConflict` (upserts), `returning`,
-`forUpdate().skipLocked()` y `array_remove` sobre `totp_backup_codes`.
+`forUpdate().skipLocked()`, `leftJoinLateral`, `array_remove` sobre `totp_backup_codes`, el
+`unnest` de `user_stickers.keywords` y el `jsonb_build_object` de `call.recordQuality`.
 
 Cambios de forma (mismo resultado): `deviceHistory` hace dos consultas chicas en vez de un
 `EXISTS` doble con `IS NOT DISTINCT FROM`, `markFailed` actualiza y después borra en vez de
-un CTE con `DELETE … USING`, y los `ORDER BY (status = 'pending')` pasan a `CASE`.
+un CTE con `DELETE … USING`, los `ORDER BY (status = 'pending')` pasan a `CASE`, los `COUNT(*) FILTER (WHERE …)` a
+`SUM(CASE …)` y `storage.countReferences` hace una consulta por tabla en vez de una suma de subconsultas.
 
 ### Etapa 3 — Sacar lo exclusivo de PostgreSQL del código (≈3–4 días)
 - Helpers por dialecto (`now`, `addInterval`, `ilike`, `upsert`, `jsonText`, `lockForUpdate`).

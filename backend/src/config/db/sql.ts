@@ -23,6 +23,11 @@ export function nowMinus(amount: number, unit: IntervalUnit): RawBuilder<Date> {
   return sql<Date>`now() - ${`${amount} ${unit}`}::interval`;
 }
 
+/** Comparación sin distinguir mayúsculas: `col ILIKE pattern` en PostgreSQL. */
+export function ilike(column: string, pattern: string): RawBuilder<boolean> {
+  return sql<boolean>`${sql.ref(column)} ILIKE ${pattern}`;
+}
+
 /** Valor que va a una columna JSON: se serializa explícitamente. */
 export function json(value: unknown): string {
   return JSON.stringify(value);
