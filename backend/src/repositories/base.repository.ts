@@ -1,4 +1,5 @@
 import type { QueryResult, QueryResultRow } from 'pg';
+import type { Kysely } from 'kysely';
 import { pool } from '../config/database';
 import { db, type Db } from '../config/db';
 
@@ -35,27 +36,26 @@ class BaseRepository<T extends QueryResultRow = any> {
   }
 
   async findById(id: string): Promise<T | null> {
-    const { rows } = await this.query(
-      `SELECT * FROM ${this.tableName} WHERE id = $1`,
-      [id]
-    );
-    return rows[0] || null;
+    const row = await this.table().selectFrom(this.tableName).selectAll().where('id', '=', id).executeTakeFirst();
+    return (row as T | undefined) ?? null;
   }
 
   async deleteById(id: string): Promise<boolean> {
-    const { rowCount } = await this.query(
-      `DELETE FROM ${this.tableName} WHERE id = $1`,
-      [id]
-    );
-    return (rowCount ?? 0) > 0;
+    const result = await this.table().deleteFrom(this.tableName).where('id', '=', id).executeTakeFirst();
+    return Number(result.numDeletedRows) > 0;
   }
 
   async exists(id: string): Promise<boolean> {
-    const { rows } = await this.query(
-      `SELECT 1 FROM ${this.tableName} WHERE id = $1`,
-      [id]
-    );
-    return rows.length > 0;
+    const row = await this.table().selectFrom(this.tableName).select('id').where('id', '=', id).executeTakeFirst();
+    return !!row;
+  }
+
+  /**
+   * `db` sin tipar la tabla: los métodos genéricos de arriba no saben en
+   * compilación qué tabla maneja la subclase (`tableName` es un string).
+   */
+  private table(): Kysely<Record<string, { id: string }>> {
+    return this.db as unknown as Kysely<Record<string, { id: string }>>;
   }
 }
 

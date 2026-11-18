@@ -1,4 +1,5 @@
 import BaseRepository from './base.repository';
+import { now, json } from '../config/db/sql';
 import type { Row } from '../types/rows';
 
 type SettingRow = Row<'system_settings'>;
@@ -9,28 +10,25 @@ class SystemSettingsRepository extends BaseRepository<SettingRow> {
   }
 
   async findAll(): Promise<SettingRow[]> {
-    const { rows } = await this.query(
-      `SELECT * FROM system_settings ORDER BY category, key`
-    );
-    return rows;
+    return this.db.selectFrom('system_settings').selectAll()
+      .orderBy('category').orderBy('key')
+      .execute() as Promise<SettingRow[]>;
   }
 
   async findByKey(key: string): Promise<SettingRow | null> {
-    const { rows } = await this.query(
-      `SELECT * FROM system_settings WHERE key = $1`,
-      [key]
-    );
-    return rows[0] || null;
+    const row = await this.db.selectFrom('system_settings').selectAll()
+      .where('key', '=', key)
+      .executeTakeFirst();
+    return (row as SettingRow | undefined) ?? null;
   }
 
   async update(key: string, value: unknown, updatedBy: string | null): Promise<SettingRow> {
-    const { rows } = await this.query(
-      `UPDATE system_settings
-       SET value = $2::jsonb, updated_by = $3, updated_at = NOW()
-       WHERE key = $1 RETURNING *`,
-      [key, JSON.stringify(value), updatedBy]
-    );
-    return rows[0];
+    const row = await this.db.updateTable('system_settings')
+      .set({ value: json(value), updated_by: updatedBy, updated_at: now() })
+      .where('key', '=', key)
+      .returningAll()
+      .executeTakeFirst();
+    return row as SettingRow;
   }
 }
 

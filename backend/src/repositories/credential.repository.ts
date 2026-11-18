@@ -1,4 +1,6 @@
+import { sql } from 'kysely';
 import BaseRepository from './base.repository';
+import { now, nowPlus } from '../config/db/sql';
 import type { Row } from '../types/rows';
 
 type CredentialRow = Row<'user_credentials'>;
@@ -9,94 +11,86 @@ class CredentialRepository extends BaseRepository<CredentialRow> {
   }
 
   async findByUserId(userId: string): Promise<CredentialRow | null> {
-    const { rows } = await this.query(
-      'SELECT * FROM user_credentials WHERE user_id = $1',
-      [userId]
-    );
-    return rows[0] || null;
+    const row = await this.db.selectFrom('user_credentials').selectAll().where('user_id', '=', userId).executeTakeFirst();
+    return (row as CredentialRow | undefined) ?? null;
   }
 
   async create(userId: string, passwordHash: string): Promise<CredentialRow> {
-    const { rows } = await this.query(
-      `INSERT INTO user_credentials (user_id, password_hash)
-       VALUES ($1, $2) RETURNING *`,
-      [userId, passwordHash]
-    );
-    return rows[0];
+    const row = await this.db.insertInto('user_credentials')
+      .values({ user_id: userId, password_hash: passwordHash })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    return row as CredentialRow;
   }
 
   async updatePassword(userId: string, passwordHash: string): Promise<CredentialRow> {
-    const { rows } = await this.query(
-      `UPDATE user_credentials
-       SET password_hash = $1, pw_changed_at = NOW(), must_change_pw = FALSE, failed_attempts = 0
-       WHERE user_id = $2 RETURNING *`,
-      [passwordHash, userId]
-    );
-    return rows[0];
+    const row = await this.db.updateTable('user_credentials')
+      .set({ password_hash: passwordHash, pw_changed_at: now(), must_change_pw: false, failed_attempts: 0 })
+      .where('user_id', '=', userId)
+      .returningAll()
+      .executeTakeFirst();
+    return row as CredentialRow;
   }
 
   async incrementFailedAttempts(userId: string): Promise<CredentialRow> {
-    const { rows } = await this.query(
-      `UPDATE user_credentials
-       SET failed_attempts = failed_attempts + 1,
-           locked_until = CASE
-             WHEN failed_attempts + 1 >= 5 THEN NOW() + INTERVAL '15 minutes'
-             ELSE locked_until
-           END
-       WHERE user_id = $1 RETURNING *`,
-      [userId]
-    );
-    return rows[0];
+    const row = await this.db.updateTable('user_credentials')
+      .set((eb) => ({
+        failed_attempts: eb('failed_attempts', '+', 1),
+        locked_until: eb.case()
+          .when(eb('failed_attempts', '+', 1), '>=', 5).then(nowPlus(15, 'minutes'))
+          .else(eb.ref('locked_until'))
+          .end(),
+      }))
+      .where('user_id', '=', userId)
+      .returningAll()
+      .executeTakeFirst();
+    return row as CredentialRow;
   }
 
   async resetFailedAttempts(userId: string): Promise<void> {
-    await this.query(
-      `UPDATE user_credentials SET failed_attempts = 0, locked_until = NULL WHERE user_id = $1`,
-      [userId]
-    );
+    await this.db.updateTable('user_credentials')
+      .set({ failed_attempts: 0, locked_until: null })
+      .where('user_id', '=', userId)
+      .execute();
   }
 
   // ── 2FA ──────────────────────────────────────────────────────────────────
+  // totp_backup_codes es TEXT[]: pasa a JSON en la etapa 3 (docs/MULTI_DB.md).
 
   async setTotpSecret(userId: string, secret: string): Promise<void> {
-    await this.query(
-      `UPDATE user_credentials SET totp_secret = $1, totp_enabled = FALSE WHERE user_id = $2`,
-      [secret, userId]
-    );
+    await this.db.updateTable('user_credentials')
+      .set({ totp_secret: secret, totp_enabled: false })
+      .where('user_id', '=', userId)
+      .execute();
   }
 
   async enableTotp(userId: string, hashedBackupCodes: string[]): Promise<void> {
-    await this.query(
-      `UPDATE user_credentials
-       SET totp_enabled = TRUE, totp_backup_codes = $1
-       WHERE user_id = $2`,
-      [hashedBackupCodes, userId]
-    );
+    await this.db.updateTable('user_credentials')
+      .set({ totp_enabled: true, totp_backup_codes: hashedBackupCodes })
+      .where('user_id', '=', userId)
+      .execute();
   }
 
   async disableTotp(userId: string): Promise<void> {
-    await this.query(
-      `UPDATE user_credentials
-       SET totp_enabled = FALSE, totp_secret = NULL, totp_backup_codes = '{}'
-       WHERE user_id = $1`,
-      [userId]
-    );
+    await this.db.updateTable('user_credentials')
+      .set({ totp_enabled: false, totp_secret: null, totp_backup_codes: [] })
+      .where('user_id', '=', userId)
+      .execute();
   }
 
   async updateBackupCodes(userId: string, hashedBackupCodes: string[]): Promise<void> {
-    await this.query(
-      `UPDATE user_credentials SET totp_backup_codes = $1 WHERE user_id = $2`,
-      [hashedBackupCodes, userId]
-    );
+    await this.db.updateTable('user_credentials')
+      .set({ totp_backup_codes: hashedBackupCodes })
+      .where('user_id', '=', userId)
+      .execute();
   }
 
   async removeBackupCode(userId: string, codeHash: string): Promise<void> {
-    await this.query(
-      `UPDATE user_credentials
-       SET totp_backup_codes = array_remove(totp_backup_codes, $1)
-       WHERE user_id = $2`,
-      [codeHash, userId]
-    );
+    // TODO(etapa 3): array_remove es de PostgreSQL; con JSON se filtra en la app.
+    await this.db.updateTable('user_credentials')
+      .set({ totp_backup_codes: sql<string[]>`array_remove(totp_backup_codes, ${codeHash})` })
+      .where('user_id', '=', userId)
+      .execute();
   }
 }
 
