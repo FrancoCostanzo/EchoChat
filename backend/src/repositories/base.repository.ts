@@ -1,5 +1,6 @@
 import type { QueryResult, QueryResultRow } from 'pg';
 import { pool } from '../config/database';
+import { db, type Db } from '../config/db';
 
 /**
  * Repositorio base del que heredan los 21 repositorios restantes.
@@ -11,14 +12,19 @@ import { pool } from '../config/database';
  *
  * `query()` acepta su propio parámetro `R` para las consultas cuyo resultado no
  * es una fila de la tabla: agregados (`COUNT`), proyecciones o JOINs.
+ *
+ * `db` es el query builder de Kysely, que genera el SQL del motor activo. Los
+ * repositorios se pasan de `query()` a `db` de a uno (docs/MULTI_DB.md).
  */
 class BaseRepository<T extends QueryResultRow = any> {
   tableName: string;
   pool: typeof pool;
+  db: Db;
 
   constructor(tableName: string) {
     this.tableName = tableName;
     this.pool = pool;
+    this.db = db;
   }
 
   async query<R extends QueryResultRow = T>(

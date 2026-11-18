@@ -30,6 +30,8 @@ interface AppConfig {
   instanceId: string;
   jobs: { enabled: boolean };
   db: {
+    /** Motor de base de datos (`DB_CLIENT`). Ver docs/MULTI_DB.md. */
+    client: DbClient;
     host: string;
     port: number;
     database: string;
@@ -105,6 +107,18 @@ interface AppConfig {
 /** "a, b,c" → ['a', 'b', 'c']; vacío → []. */
 function list(raw: string | undefined): string[] {
   return String(raw || '').split(',').map((s) => s.trim()).filter(Boolean);
+}
+
+/** Motores soportados. Se van sumando por etapas (docs/MULTI_DB.md). */
+const DB_CLIENTS = ['postgres'] as const;
+export type DbClient = (typeof DB_CLIENTS)[number];
+
+function parseDbClient(raw: string | undefined): DbClient {
+  const value = (raw || 'postgres').trim().toLowerCase();
+  if (!(DB_CLIENTS as readonly string[]).includes(value)) {
+    throw new Error(`DB_CLIENT="${raw}" no está soportado. Opciones: ${DB_CLIENTS.join(', ')}.`);
+  }
+  return value as DbClient;
 }
 
 /** Convierte una variable de entorno numérica, cayendo al default si no es válida. */
@@ -190,6 +204,7 @@ const config: AppConfig = {
   },
 
   db: {
+    client: parseDbClient(process.env.DB_CLIENT),
     host: process.env.DB_HOST || 'localhost',
     port: num(process.env.DB_PORT, 5432),
     database: process.env.DB_NAME || 'echochat',
