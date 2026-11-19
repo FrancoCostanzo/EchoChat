@@ -88,16 +88,18 @@ commit. Desde la etapa 5 la suite corre también contra SQL Server.
   Kysely, para no frenar.
 - El SQL que vive fuera de los repositorios (`auth.service`, jobs, health) pasa a repositorios.
 
-**Avance (18 de 25):** ✅ `base`, `draft`, `systemSettings`, `game`, `saved`, `wallpaper`,
+**Avance (22 de 25):** ✅ `base`, `draft`, `systemSettings`, `game`, `saved`, `wallpaper`,
 `relationship`, `session`, `pushSubscription`, `credential`, `poll`, `scheduled`, `audit`,
-`notification`, `channel`, `sticker`, `storage`, `call`.
-Pendientes: `conversation`, `broadcast`, `email`, `user`, `message`, `monitoring` y el SQL
-fuera de repositorios.
+`notification`, `channel`, `sticker`, `storage`, `call`, `conversation`, `broadcast`, `email`,
+`monitoring`. Pendientes: `user`, `message` y el SQL fuera de repositorios.
 
-Expresiones por motor en `src/config/db/sql.ts`: `now()`, `nowPlus()`, `nowMinus()`, `ilike()`, `json()`.
+Expresiones por motor en `src/config/db/sql.ts`: `now()`, `nowPlus()`, `nowMinus()`, `ilike()`, `jsonText()`, `asText()`, `json()`.
 Quedan como PostgreSQL a propósito, para la etapa 3: `onConflict` (upserts), `returning`,
 `forUpdate().skipLocked()`, `leftJoinLateral`, `array_remove` sobre `totp_backup_codes`, el
-`unnest` de `user_stickers.keywords` y el `jsonb_build_object` de `call.recordQuality`.
+`unnest` de `user_stickers.keywords`, el `jsonb_build_object` de `call.recordQuality`,
+`NULLS LAST` (lista de chats y entregas de difusiones), el intervalo que depende de una
+columna en `email.markFailed` y las vistas del sistema de `monitoring` (`pg_stat_activity`,
+que en SQL Server se reemplazan por `sys.dm_exec_sessions`).
 
 Cambios de forma (mismo resultado): `deviceHistory` hace dos consultas chicas en vez de un
 `EXISTS` doble con `IS NOT DISTINCT FROM`, `markFailed` actualiza y después borra en vez de

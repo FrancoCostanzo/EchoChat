@@ -28,6 +28,16 @@ export function ilike(column: string, pattern: string): RawBuilder<boolean> {
   return sql<boolean>`${sql.ref(column)} ILIKE ${pattern}`;
 }
 
+/** Campo de primer nivel de una columna JSON, como texto (`col->>'campo'`). */
+export function jsonText(column: string, key: string): RawBuilder<string | null> {
+  return sql<string | null>`(${sql.ref(column)}->>${sql.lit(key)})`;
+}
+
+/** La columna convertida a texto (para comparar un uuid con un campo JSON). */
+export function asText(column: string): RawBuilder<string> {
+  return sql<string>`${sql.ref(column)}::text`;
+}
+
 /** Valor que va a una columna JSON: se serializa explícitamente. */
 export function json(value: unknown): string {
   return JSON.stringify(value);
