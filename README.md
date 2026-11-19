@@ -87,8 +87,9 @@ cd backend && npm install && npm run dev
 cd frontend && npm install && npm run dev
 ```
 
-Requiere **Node.js ≥ 22** y **PostgreSQL ≥ 15**. Los archivos van a MinIO/S3 o, con
-`STORAGE_DRIVER=local`, a una carpeta del disco (sin Docker). Guía completa (variables de
+Requiere **Node.js ≥ 22** y **PostgreSQL ≥ 15** (o **SQL Server ≥ 2019** con `DB_CLIENT=mssql`).
+Los archivos van a MinIO/S3 o, con `STORAGE_DRIVER=local`, a una carpeta del disco (sin Docker).
+Guía completa (variables de
 entorno, convenciones de código, flujo de ramas) en
 **[CONTRIBUTING.md](./CONTRIBUTING.md)** y en
 **[Instalación (desarrollo)](https://echochat.netlify.app/docs/instalacion)**.

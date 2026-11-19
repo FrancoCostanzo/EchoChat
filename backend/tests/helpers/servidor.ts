@@ -4,7 +4,7 @@ import config from '../../src/config';
 import { setup } from '../../src/config/migrate';
 import app from '../../src/app';
 import { initSocket, closeSocket } from '../../src/socket';
-import { pool } from '../../src/config/database';
+import { closeDb } from '../../src/config/db';
 
 export const ADMIN = { username: 'admin', password: 'Admin1234!' };
 export const TOKEN_SCIM = 'token-scim-de-la-suite-de-tests';
@@ -56,7 +56,7 @@ async function arrancar(): Promise<ServidorDeTest> {
     cerrar: async () => {
       await closeSocket();
       await new Promise<void>((resolve) => server.close(() => resolve()));
-      await pool.end();
+      await closeDb();
     },
   };
 }

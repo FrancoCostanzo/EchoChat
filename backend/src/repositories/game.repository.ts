@@ -1,4 +1,5 @@
 import BaseRepository from './base.repository';
+import { now, json } from '../config/db/sql';
 import type { Row } from '../types/rows';
 import type { GameState } from '../models/game.model';
 
@@ -21,18 +22,16 @@ class GameRepository extends BaseRepository<GameRow> {
       state: GameState;
     },
   ): Promise<GameRow> {
-    const { rows } = await this.query(
-      `INSERT INTO games (message_id, conversation_id, kind, player1_id, player2_id, state)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING *`,
-      [message_id, conversation_id, kind, player1_id, player2_id, state]
-    );
-    return rows[0];
+    const row = await this.db.insertInto('games')
+      .values({ message_id, conversation_id, kind, player1_id, player2_id, state: json(state) })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    return row as GameRow;
   }
 
   async findByMessageId(messageId: string): Promise<GameRow | null> {
-    const { rows } = await this.query(`SELECT * FROM games WHERE message_id = $1`, [messageId]);
-    return rows[0] || null;
+    const row = await this.db.selectFrom('games').selectAll().where('message_id', '=', messageId).executeTakeFirst();
+    return (row as GameRow | undefined) ?? null;
   }
 
   async updateState(
@@ -42,12 +41,12 @@ class GameRepository extends BaseRepository<GameRow> {
     winnerId?: string | null,
     result?: string | null,
   ): Promise<GameRow> {
-    const { rows } = await this.query(
-      `UPDATE games SET state = $2, status = $3, winner_id = $4, result = $5, updated_at = NOW()
-       WHERE id = $1 RETURNING *`,
-      [id, state, status, winnerId || null, result || null]
-    );
-    return rows[0];
+    const row = await this.db.updateTable('games')
+      .set({ state: json(state), status, winner_id: winnerId || null, result: result || null, updated_at: now() })
+      .where('id', '=', id)
+      .returningAll()
+      .executeTakeFirst();
+    return row as GameRow;
   }
 }
 

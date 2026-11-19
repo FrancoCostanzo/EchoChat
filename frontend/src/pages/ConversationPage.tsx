@@ -1,94 +1,52 @@
 import {
-  useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, memo,
-  type ReactNode, type RefObject,
-  type KeyboardEvent as ReactKeyboardEvent, type ClipboardEvent as ReactClipboardEvent,
-  type MouseEvent as ReactMouseEvent, type TouchEvent as ReactTouchEvent,
-  type ChangeEvent,
-  type DragEvent as ReactDragEvent,
-  type CSSProperties,
+  useState,
+  useRef,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  useMemo,
+  type ReactNode,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ClipboardEvent as ReactClipboardEvent,
 } from 'react';
-import { createPortal } from 'react-dom';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
-import { AlertDialog, Button, Input, Dropdown, Label, Spinner, Tooltip, Modal, toast } from '@heroui/react';
+import { Button, Dropdown, Label, Spinner, Tooltip, toast } from '@heroui/react';
 import {
-  Paperclip,
   MoreVertical,
   Search,
   Pin,
-  PinOff,
   AtSign,
-  Smile,
-  Reply,
-  Forward,
-  Bookmark,
-  BookmarkCheck,
   Pencil,
-  Copy,
-  Trash2,
-  Clock,
-  CalendarClock,
-  AlarmClock,
   Hash,
   Users,
   ArrowDown,
   ArrowLeft,
   ArrowUp,
   CornerUpLeft,
-  Download,
-  Check,
-  CheckCheck,
   X,
-  Loader,
-  AlertCircle,
-  RefreshCw,
-  Image,
-  Film,
-  FileText,
-  Send,
-  BarChart3,
-  Code2,
   Upload,
-  MessageSquareText,
-  Play,
   ImageIcon,
-  Info,
   Phone,
-  PhoneMissed,
   Video as VideoIcon,
-  Sticker,
-  Megaphone,
   UserPlus,
-  type LucideIcon,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
 import { useCallStore } from '@/stores/callStore';
-import { useWallpaperStore } from '@/stores/wallpaperStore';
 import { useTranslation } from 'react-i18next';
 import UserAvatar from '@/components/UserAvatar';
-import ImageViewer from '@/components/ImageViewer';
-import VideoViewer from '@/components/VideoViewer';
-import PdfPreview from '@/components/PdfPreview';
 import SendButton from '@/components/SendButton';
 import MessageSearchPanel from '@/components/MessageSearchPanel';
 import PinnedMessageBar from '@/components/PinnedMessageBar';
 import CallHistoryPanel from '@/components/CallHistoryPanel';
 import ThreadPanel from '@/components/ThreadPanel';
-import PollMessage from '@/components/PollMessage';
-import CodeMessage from '@/components/CodeMessage';
-import GameMessage from '@/components/GameMessage';
 import GamePickerMenu from '@/components/GamePickerMenu';
 import MessageInfoModal from '@/components/MessageInfoModal';
 import CreatePollModal from '@/components/CreatePollModal';
 import CreateCodeModal from '@/components/CreateCodeModal';
 import WallpaperPicker from '@/components/WallpaperPicker';
-import { PRESETS } from '@/components/WallpaperPicker';
-import { formatMessageTime, formatFullTime, formatDaySeparator } from '@/lib/dates';
-import { downloadFile } from '@/lib/download';
-import { readMentions } from '@/lib/mentions';
 import FloatingComposer from '@/components/FloatingComposer';
-import MessageBody from '@/components/MessageBody';
 import { handleFormatShortcut } from '@/components/FormatToolbar';
 import DynamicMessageInput from '@/components/DynamicMessageInput';
 import MentionAutocomplete, { useMentionAutocomplete } from '@/components/MentionAutocomplete';
@@ -105,1556 +63,66 @@ import {
   isWithinMessageWindow,
 } from '@/lib/messageWindow';
 import ConversationDetailPanel, { type DetailTab } from '@/components/ConversationDetailPanel';
-import { storageApi, stickerApi, messagesApi, conversationsApi, relationshipsApi } from '@/lib/endpoints';
-import { useStorageUrl, attachmentUrlCache } from '@/lib/useStorageUrl';
-import { EASE_OUT, SPRING_BOUNCY, msgEntryInitial, msgEntryTransition } from '@/lib/motion';
-import { userColor } from '@/lib/userColor';
+import { storageApi, stickerApi, messagesApi } from '@/lib/endpoints';
+import { EASE_OUT } from '@/lib/motion';
 import type { ChatMessage } from '@/stores/chatStore';
-import type { ConversationResponse, MemberResponse } from '@/types/conversation';
-import type { MessageAttachment, MessageResponse, SendMessageRequest } from '@/types/message';
+import type { SendMessageRequest } from '@/types/message';
 import type { CallType } from '@/types/call';
-import type { AuthenticatedUser } from '@/types/user';
 import type { TextInputHandle } from '@/lib/formatText';
 import type { PickedItem } from '@/components/StickerGifPicker';
 import type { FakeInputChangeEvent } from '@/components/DynamicMessageInput';
-
-type TFunc = ReturnType<typeof useTranslation>['t'];
-
-const SPRING_OUT = [0.34, 1.56, 0.64, 1] as const;
-
-interface MenuItem {
-  icon: LucideIcon;
-  label: string;
-  ref?: RefObject<HTMLInputElement | null>;
-  accept?: string;
-  action?: () => void;
-}
-
-/* ─────────────────────────── File Picker Menu ─────────────────────────── */
-function FilePickerMenu({
-  onPick,
-  onPoll,
-  onCode,
-  onSchedule,
-  disabled,
-  uploading,
-  open,
-  onOpenChange,
-}: {
-  onPick: (file: File) => void;
-  onPoll?: () => void;
-  onCode?: () => void;
-  onSchedule?: () => void;
-  disabled?: boolean;
-  uploading?: boolean;
-  open: boolean;
-  onOpenChange: (next: boolean | ((prev: boolean) => boolean)) => void;
-}) {
-  const { t } = useTranslation();
-  const setOpen = useCallback((next: boolean | ((prev: boolean) => boolean)) => {
-    onOpenChange(typeof next === 'function' ? next(open) : next);
-  }, [open, onOpenChange]);
-  const [menuPos, setMenuPos] = useState<{ left: number; top: number } | null>(null);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLDivElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const imageRef = useRef<HTMLInputElement>(null);
-  const videoRef = useRef<HTMLInputElement>(null);
-  const docRef   = useRef<HTMLInputElement>(null);
-
-  const pick = (ref: RefObject<HTMLInputElement | null>) => { setOpen(false); ref.current?.click(); };
-
-  const FILE_ITEMS: MenuItem[] = [
-    { icon: Image,    label: t('chat.attachImage'),    ref: imageRef, accept: 'image/*' },
-    { icon: Film,     label: t('chat.attachVideo'),    ref: videoRef, accept: 'video/*' },
-    { icon: FileText, label: t('chat.attachDocument'), ref: docRef,   accept: '*/*' },
-  ];
-
-  const MENU_ITEMS: MenuItem[] = [
-    ...FILE_ITEMS,
-    ...(onCode ? [{ icon: Code2, label: t('code.sendTitle'), action: onCode }] : []),
-    ...(onPoll ? [{ icon: BarChart3, label: t('poll.create'), action: onPoll }] : []),
-    ...(onSchedule ? [{ icon: CalendarClock, label: t('schedule.action'), action: onSchedule }] : []),
-  ];
-
-  const updateMenuPosition = useCallback(() => {
-    const trigger = triggerRef.current;
-    const menu = menuRef.current;
-    if (!trigger) return;
-
-    const rect = trigger.getBoundingClientRect();
-    const menuHeight = menu?.offsetHeight ?? MENU_ITEMS.length * 40;
-    const menuWidth = menu?.offsetWidth ?? 192;
-    const gap = 8;
-    const vh = window.innerHeight;
-    const vw = window.innerWidth;
-
-    // Prefer opening above the attach button (composer sits at the bottom on mobile)
-    let top = rect.top - menuHeight - gap;
-    if (top < gap) {
-      top = rect.bottom + gap;
-      if (top + menuHeight > vh - gap) {
-        top = Math.max(gap, vh - menuHeight - gap);
-      }
-    }
-
-    let left = rect.left;
-    if (left + menuWidth > vw - gap) left = vw - menuWidth - gap;
-    if (left < gap) left = gap;
-
-    setMenuPos({ left, top });
-  }, [MENU_ITEMS.length]);
-
-  const toggleOpen = useCallback(() => {
-    setOpen((prev) => !prev);
-  }, [setOpen]);
-
-  useLayoutEffect(() => {
-    if (!open) {
-      setMenuPos(null);
-      return;
-    }
-    updateMenuPosition();
-    requestAnimationFrame(updateMenuPosition);
-  }, [open, updateMenuPosition]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onReposition = () => updateMenuPosition();
-    window.addEventListener('resize', onReposition);
-    window.addEventListener('scroll', onReposition, true);
-    return () => {
-      window.removeEventListener('resize', onReposition);
-      window.removeEventListener('scroll', onReposition, true);
-    };
-  }, [open, updateMenuPosition]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent | TouchEvent) => {
-      const target = e.target as Node;
-      if (menuRef.current?.contains(target)) return;
-      if (triggerRef.current?.contains(target)) return;
-      setOpen(false);
-    };
-    const timer = setTimeout(() => {
-      document.addEventListener('mousedown', handler);
-      document.addEventListener('touchstart', handler, { passive: true });
-    }, 0);
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener('mousedown', handler);
-      document.removeEventListener('touchstart', handler);
-    };
-  }, [open]);
-
-  // The portal must stay mounted while AnimatePresence runs the exit animation;
-  // the `open` conditional lives inside it so closing doesn't unmount abruptly.
-  const menu = createPortal(
-    <AnimatePresence>
-      {open && (
-        <motion.div
-          ref={menuRef}
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: menuPos ? 1 : 0, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.97 }}
-          transition={{ duration: 0.18, ease: 'easeOut' }}
-          style={{
-            position: 'fixed',
-            left: menuPos?.left ?? -9999,
-            top: menuPos?.top ?? -9999,
-            visibility: menuPos ? 'visible' : 'hidden',
-            zIndex: 9999,
-          }}
-          className="min-w-48 overflow-hidden rounded-lg border border-ink-400/40 bg-ink-850 shadow-xl"
-        >
-          {MENU_ITEMS.map(({ icon: Icon, label, ref, action }) => (
-            <Button
-              key={label}
-              variant="ghost"
-              onPress={() => {
-                setOpen(false);
-                if (action) action();
-                else if (ref) pick(ref);
-              }}
-              className="flex h-auto w-full items-center justify-start gap-3 rounded-none px-3 py-2 text-[14px] text-ink-50 transition-colors hover:bg-accent hover:text-accent-foreground"
-            >
-              <Icon size={16} className="shrink-0" />
-              {label}
-            </Button>
-          ))}
-        </motion.div>
-      )}
-    </AnimatePresence>,
-    document.body,
-  );
-
-  return (
-    <div className="relative shrink-0" ref={rootRef}>
-      {FILE_ITEMS.map(({ ref, accept }) => (
-        <input
-          key={accept}
-          ref={ref}
-          type="file"
-          accept={accept}
-          className="hidden"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) { onPick(f); e.target.value = ''; } }}
-        />
-      ))}
-
-      <div ref={triggerRef} className="shrink-0">
-        <Button
-          isIconOnly
-          variant="ghost"
-          isDisabled={disabled}
-          onPress={toggleOpen}
-          aria-label={t('chat.attachFile')}
-          aria-expanded={open}
-          aria-haspopup="menu"
-          className="flex h-9 w-9 min-w-0 shrink-0 items-center justify-center rounded-md text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
-        >
-          {uploading ? <Loader size={18} className="animate-spin" /> : <Paperclip size={18} />}
-        </Button>
-      </div>
-
-      {menu}
-    </div>
-  );
-}
-
-/* Emoji picker now lives in components/EmojiPicker.jsx (emoji-mart library). */
-
-/* ─────────────────────────── File Preview Bar ─────────────────────────── */
-function FilePreviewBar({
-  file,
-  onSend,
-  onCancel,
-}: {
-  file: File;
-  onSend: (file: File, caption: string) => Promise<void>;
-  onCancel: () => void;
-}) {
-  const { t } = useTranslation();
-  const [caption, setCaption] = useState('');
-  const [sending, setSending] = useState(false);
-  const [objectUrl, setObjectUrl] = useState<string | null>(null);
-  const isImage = file?.type.startsWith('image/');
-  const isVideo = file?.type.startsWith('video/');
-
-  useEffect(() => {
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    setObjectUrl(url);
-    return () => { URL.revokeObjectURL(url); setObjectUrl(null); };
-  }, [file]);
-
-  const handleSend = async () => {
-    setSending(true);
-    try { await onSend(file, caption.trim()); }
-    finally { setSending(false); }
-  };
-
-  const formatSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 16 }}
-      transition={{ duration: 0.22, ease: SPRING_OUT }}
-      className="mx-3 overflow-hidden rounded-t-lg border-b border-ink-900 bg-ink-800"
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-black/20 px-4 py-2">
-        <div className="flex min-w-0 items-center gap-2">
-          {isImage
-            ? <Image size={14} className="shrink-0 text-accent" />
-            : isVideo
-              ? <Film size={14} className="shrink-0 text-accent" />
-              : <FileText size={14} className="shrink-0 text-accent" />}
-          <span className="truncate text-[13px] font-semibold">{file.name}</span>
-          <span className="shrink-0 text-[11px] text-ink-200">{formatSize(file.size)}</span>
-        </div>
-        <Button
-          isIconOnly
-          variant="ghost"
-          onPress={onCancel}
-          isDisabled={sending}
-          className="ml-2 h-auto w-auto min-w-0 shrink-0 rounded-md p-1 text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
-        >
-          <X size={15} />
-        </Button>
-      </div>
-
-      {/* Preview area */}
-      <div className="flex max-h-60 items-center justify-center overflow-hidden bg-ink-900/50 px-4 py-3">
-        {isImage && (
-            <img src={objectUrl ?? undefined} alt={file.name} className="max-h-52 max-w-full rounded-lg object-contain shadow-md" />
-          )}
-          {isVideo && (
-            <video src={objectUrl ?? undefined} controls className="max-h-52 max-w-full rounded-lg shadow-md" />
-          )}
-          {!isImage && !isVideo && (
-            <div className="flex items-center gap-4 py-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-accent/15">
-                <FileText size={28} className="text-accent" />
-              </div>
-              <div className="min-w-0">
-                <p className="max-w-xs truncate text-sm font-medium">{file.name}</p>
-                <p className="text-xs text-ink-200">{formatSize(file.size)}</p>
-              </div>
-            </div>
-          )}
-      </div>
-
-      {/* Caption + send */}
-      <div className="flex items-end gap-2 px-3 py-2.5">
-          <Input
-            autoFocus
-            placeholder={t('chat.captionPlaceholder')}
-            value={caption}
-            onChange={(e) => setCaption(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
-              if (e.key === 'Escape') onCancel();
-            }}
-            disabled={sending}
-            className="flex-1 border-ink-400/40 bg-ink-750"
-          />
-          <Button
-            isIconOnly
-            isDisabled={sending}
-            className="shrink-0 rounded-md bg-accent text-accent-foreground transition-[filter] hover:brightness-110"
-            onPress={handleSend}
-          >
-            {sending ? <Loader size={16} className="animate-spin" /> : <Send size={16} />}
-          </Button>
-        </div>
-    </motion.div>
-  );
-}
-
-function TypingDots() {
-  return (
-    <div className="flex items-center gap-0.5 text-ink-100">
-      {[0, 1, 2].map((index) => (
-        <motion.span
-          key={index}
-          animate={{ y: [0, -3, 0], opacity: [0.35, 1, 0.35] }}
-          transition={{
-            duration: 1.2,
-            ease: 'easeInOut',
-            repeat: Number.POSITIVE_INFINITY,
-            delay: index * 0.15,
-          }}
-          className="inline-block h-1.5 w-1.5 rounded-full bg-current"
-        />
-      ))}
-    </div>
-  );
-}
-
-/* ─────────────────────────── Confirm Delete Modal ─────────────────────────── */
-function ConfirmDeleteModal({
-  message,
-  isOpen,
-  onConfirm,
-  onCancel,
-}: {
-  message: ChatMessage | null;
-  isOpen: boolean;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  const { t } = useTranslation();
-
-  return (
-    <AlertDialog.Backdrop
-      isOpen={isOpen}
-      onOpenChange={(open) => { if (!open) onCancel(); }}
-    >
-      <AlertDialog.Container>
-        <AlertDialog.Dialog className="sm:max-w-[400px]">
-          <AlertDialog.CloseTrigger />
-          <AlertDialog.Header>
-            <AlertDialog.Icon status="danger" />
-            <AlertDialog.Heading>{t('chat.deleteMessage')}</AlertDialog.Heading>
-          </AlertDialog.Header>
-          <AlertDialog.Body className="flex flex-col gap-3">
-            <p className="text-pretty text-ink-100">
-              {t('chat.deleteMessageWarning')}
-            </p>
-            {message?.body && message.type !== 'media' && (
-              <div className="rounded-xl border border-ink-700/60 bg-ink-800/70 px-3.5 py-2.5 text-[13px] leading-relaxed text-ink-100 line-clamp-3">
-                {message.body}
-              </div>
-            )}
-          </AlertDialog.Body>
-          <AlertDialog.Footer>
-            <Button variant="tertiary" onPress={onCancel}>
-              {t('common.cancel')}
-            </Button>
-            <Button variant="danger" onPress={onConfirm} autoFocus>
-              <Trash2 size={14} />
-              {t('common.delete')}
-            </Button>
-          </AlertDialog.Footer>
-        </AlertDialog.Dialog>
-      </AlertDialog.Container>
-    </AlertDialog.Backdrop>
-  );
-}
-
-/** Payload guardado en `message.metadata.sticker` — ver handleStickerSend. */
-interface MessageSticker {
-  source: 'custom' | 'giphy';
-  kind: 'sticker' | 'gif';
-  object_id?: string | null;
-  url?: string | null;
-  width?: number | null;
-  height?: number | null;
-  alt?: string | null;
-}
-
-/* ─────────────────────────── Attachment View ─────────────────────────── */
-
-/* ─────────────────────────── Sticker / GIF ─────────────────────────── */
-// Bare artwork with no bubble chrome. Custom stickers resolve a signed URL
-// from their storage object_id; Giphy GIFs use the external CDN url directly.
-function StickerImage({
-  sticker,
-  sending,
-  error,
-}: {
-  sticker: MessageSticker;
-  sending?: boolean;
-  error?: boolean;
-}) {
-  const objectId = sticker.source === 'custom' ? sticker.object_id ?? null : null;
-  const resolved = useStorageUrl(objectId);
-  const src = objectId ? resolved : sticker.url;
-  const isGif = sticker.kind === 'gif';
-
-  return (
-    <div
-      className={[
-        'overflow-hidden',
-        isGif ? 'rounded-xl' : '',
-        sending ? 'opacity-70' : '',
-        error ? 'opacity-50 grayscale' : '',
-      ].filter(Boolean).join(' ')}
-      style={{
-        width: isGif ? 'min(240px, 60vw)' : 'min(160px, 44vw)',
-        aspectRatio: sticker.width && sticker.height ? `${sticker.width} / ${sticker.height}` : '1 / 1',
-      }}
-    >
-      {src ? (
-        <img
-          src={src}
-          alt={sticker.alt || (isGif ? 'GIF' : 'Sticker')}
-          loading="lazy"
-          draggable={false}
-          className="h-full w-full object-contain"
-        />
-      ) : (
-        <div className="flex h-full w-full items-center justify-center">
-          <Loader size={18} className="animate-spin text-ink-200" />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function AttachmentView({ attachment }: { attachment: MessageAttachment }) {
-  const { t } = useTranslation();
-  const reducedMotion = useReducedMotion();
-  const [url, setUrl] = useState<string | null>(() => {
-    const c = attachmentUrlCache.get(attachment.id);
-    return typeof c === 'string' ? c : null;
-  });
-  const [imgLoaded, setImgLoaded] = useState(false);
-  const [videoReady, setVideoReady] = useState(false);
-  const [viewerOpen, setViewerOpen] = useState(false);
-  const [videoViewerOpen, setVideoViewerOpen] = useState(false);
-  const imageLayoutId = `att-img-${attachment.id}`;
-  const videoLayoutId = `att-vid-${attachment.id}`;
-  const isImage =
-    attachment.object_type === 'image' || attachment.mime_type?.startsWith('image/');
-  const isVideo =
-    attachment.object_type === 'video' || attachment.mime_type?.startsWith('video/');
-  const isPdf = attachment.mime_type === 'application/pdf';
-
-  useEffect(() => {
-    const cached = attachmentUrlCache.get(attachment.id);
-    if (typeof cached === 'string') {
-      setUrl(cached);
-      return;
-    }
-    // Reuse in-flight promise or start a new one
-    const promise = cached instanceof Promise
-      ? cached
-      : (() => {
-          const p = storageApi.getUrl(attachment.id).then((res) => {
-            attachmentUrlCache.set(attachment.id, res.data.url);
-            return res.data.url;
-          }).catch(() => {
-            attachmentUrlCache.delete(attachment.id);
-            return undefined;
-          });
-          attachmentUrlCache.set(attachment.id, p);
-          return p;
-        })();
-    promise.then((resolvedUrl) => { if (resolvedUrl) setUrl(resolvedUrl); }).catch(() => {});
-  }, [attachment.id]);
-
-  if (!url) {
-    return (
-      <div
-        className={`echo-shimmer rounded-lg ${
-          isImage || isVideo || isPdf ? 'h-48 w-[280px]' : 'h-9 w-44'
-        }`}
-      />
-    );
-  }
-
-  if (isImage) {
-    return (
-      <>
-        <motion.div
-          className="group relative inline-block min-h-48 cursor-zoom-in overflow-hidden rounded-lg"
-          onClick={() => setViewerOpen(true)}
-          whileHover={reducedMotion ? undefined : { scale: 1.015 }}
-          whileTap={reducedMotion ? undefined : { scale: 0.985 }}
-          transition={{ duration: 0.18, ease: EASE_OUT }}
-        >
-          {!imgLoaded && (
-            <div className="echo-shimmer absolute inset-0 z-0 min-h-48 w-[min(400px,70vw)]" />
-          )}
-          <motion.img
-            layoutId={imageLayoutId}
-            src={url}
-            alt={attachment.original_filename ?? ''}
-            decoding="async"
-            onLoad={() => setImgLoaded(true)}
-            initial={reducedMotion ? false : { opacity: 0 }}
-            animate={{ opacity: imgLoaded ? 1 : 0 }}
-            transition={{ duration: 0.28, ease: EASE_OUT }}
-            className="relative z-10 block max-h-80 max-w-[min(400px,70vw)] object-cover"
-          />
-          <div className="absolute inset-0 z-20 flex items-end justify-end gap-1 bg-gradient-to-t from-black/50 to-transparent p-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-            <Tooltip delay={0}>
-              <Button
-                isIconOnly
-                variant="ghost"
-                onPress={() => void downloadFile(url, attachment.original_filename)}
-                className="h-auto w-auto min-w-0 rounded-md bg-black/70 p-1.5 text-white backdrop-blur-sm transition-colors hover:bg-black/90"
-              >
-                <Download size={13} />
-              </Button>
-              <Tooltip.Content>{t('common.download')}</Tooltip.Content>
-            </Tooltip>
-          </div>
-        </motion.div>
-        {typeof document !== 'undefined' && createPortal(
-          <AnimatePresence>
-            {viewerOpen && (
-              <ImageViewer
-                key={attachment.id}
-                src={url}
-                filename={attachment.original_filename ?? undefined}
-                layoutId={imageLayoutId}
-                onClose={() => setViewerOpen(false)}
-              />
-            )}
-          </AnimatePresence>,
-          document.body,
-        )}
-      </>
-    );
-  }
-
-  if (isVideo) {
-    return (
-      <>
-        <motion.div
-          className="group relative inline-block min-h-48 cursor-pointer overflow-hidden rounded-lg bg-black"
-          onClick={() => setVideoViewerOpen(true)}
-          whileHover={reducedMotion ? undefined : { scale: 1.015 }}
-          whileTap={reducedMotion ? undefined : { scale: 0.985 }}
-          transition={{ duration: 0.18, ease: EASE_OUT }}
-        >
-          {!videoReady && (
-            <div className="echo-shimmer absolute inset-0 z-0 min-h-48 w-[min(400px,70vw)]" />
-          )}
-          <motion.video
-            layoutId={videoLayoutId}
-            src={url}
-            preload="metadata"
-            muted
-            playsInline
-            onLoadedData={() => setVideoReady(true)}
-            initial={reducedMotion ? false : { opacity: 0 }}
-            animate={{ opacity: videoReady ? 1 : 0 }}
-            transition={{ duration: 0.28, ease: EASE_OUT }}
-            className="relative z-10 block max-h-80 max-w-[min(400px,70vw)] rounded-lg object-cover"
-          />
-          <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/25 transition-colors group-hover:bg-black/35">
-            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/55 text-white shadow-lg backdrop-blur-sm transition-transform duration-200 group-hover:scale-110">
-              <Play size={22} className="ml-0.5" fill="currentColor" />
-            </span>
-          </div>
-          <div className="pointer-events-none absolute inset-0 z-30 flex items-end justify-end gap-1 p-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-            <span className="pointer-events-auto" onClick={(e) => e.stopPropagation()}>
-              <Tooltip delay={0}>
-                <Button
-                  isIconOnly
-                  variant="ghost"
-                  onPress={() => void downloadFile(url, attachment.original_filename)}
-                  className="h-auto w-auto min-w-0 rounded-md bg-black/70 p-1.5 text-white backdrop-blur-sm transition-colors hover:bg-black/90"
-                >
-                  <Download size={13} />
-                </Button>
-                <Tooltip.Content>{t('common.download')}</Tooltip.Content>
-              </Tooltip>
-            </span>
-          </div>
-        </motion.div>
-        {typeof document !== 'undefined' && createPortal(
-          <AnimatePresence>
-            {videoViewerOpen && (
-              <VideoViewer
-                key={attachment.id}
-                src={url}
-                filename={attachment.original_filename ?? undefined}
-                layoutId={videoLayoutId}
-                onClose={() => setVideoViewerOpen(false)}
-              />
-            )}
-          </AnimatePresence>,
-          document.body,
-        )}
-      </>
-    );
-  }
-
-  if (isPdf) {
-    return (
-      <PdfPreview
-        url={url}
-        filename={attachment.original_filename ?? undefined}
-        onDownload={() => void downloadFile(url, attachment.original_filename)}
-      />
-    );
-  }
-
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="flex items-center gap-2 rounded-md border border-ink-400/40 bg-ink-800 px-3 py-2 text-[13px] transition-colors hover:border-ink-300 hover:bg-ink-750"
-    >
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent/15">
-        <Paperclip size={14} className="echo-accent-fg" />
-      </div>
-      <span className="max-w-48 truncate font-medium text-ink-0">{attachment.original_filename}</span>
-      <Download size={12} className="ml-auto shrink-0 text-ink-200" />
-    </a>
-  );
-}
-
-/* ─────────────────────────── Message Row (Discord cozy) ─────────────────────────── */
-const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
-
-function ReactionPill({
-  emoji,
-  count,
-  mine,
-  onClick,
-}: {
-  emoji: string;
-  count: number;
-  mine?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <Button
-      variant="ghost"
-      onPress={onClick}
-      className={[
-        'echo-press flex h-auto min-w-0 items-center justify-start gap-1 rounded-full border px-2 py-0.5 text-[12px] font-semibold leading-none',
-        mine
-          ? 'echo-glow-sm border-accent/60 bg-accent/20 text-accent'
-          : 'border-ink-400/40 bg-ink-800/70 text-ink-50 hover:border-accent/50 hover:bg-ink-750',
-      ].join(' ')}
-    >
-      <span className="text-[14px]">{emoji}</span>
-      <span>{count}</span>
-    </Button>
-  );
-}
-
-// Delivery receipt — only rendered on the user's own (accent) bubbles.
-function ReceiptIcon({ message }: { message: ChatMessage }) {
-  const reducedMotion = useReducedMotion();
-  const key = message._status === 'sending'
-    ? 'sending'
-    : message._status === 'error'
-      ? 'error'
-      : message.read_count > 0
-        ? 'read'
-        : message.delivered_count > 0
-          ? 'delivered'
-          : 'sent';
-
-  const icon = (() => {
-    if (message._status === 'sending') return <Loader size={13} className="animate-spin text-white/70" />;
-    if (message._status === 'error') return <AlertCircle size={13} className="text-red-200" />;
-    if (message.read_count > 0) return <CheckCheck size={13} className="text-sky-300" />;
-    if (message.delivered_count > 0) return <CheckCheck size={13} className="text-white/70" />;
-    return <Check size={13} className="text-white/70" />;
-  })();
-
-  return (
-    <AnimatePresence mode="wait" initial={false}>
-      <motion.span
-        key={key}
-        className="inline-flex"
-        initial={reducedMotion ? false : { opacity: 0, scale: 0.5, y: 2 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={reducedMotion ? undefined : { opacity: 0, scale: 0.6 }}
-        transition={reducedMotion ? { duration: 0.01 } : SPRING_BOUNCY}
-      >
-        {icon}
-      </motion.span>
-    </AnimatePresence>
-  );
-}
-
-interface MenuAction {
-  key: string;
-  icon: LucideIcon;
-  label: string;
-  onClick: () => void;
-  danger?: boolean;
-}
-
-interface ContextMenuPos {
-  messageId: string;
-  x: number;
-  y: number;
-}
-
-/* ─────────────────────────────────────────────────────────
-   MessageContextMenu — right-click / long-press action menu.
-   Rendered in a portal, positioned at the cursor and clamped
-   to the viewport. Closes on outside-click, Escape, scroll/resize.
-   ───────────────────────────────────────────────────────── */
-function MessageContextMenu({
-  pos,
-  onClose,
-  quickEmojis,
-  onEmoji,
-  items,
-}: {
-  pos: ContextMenuPos;
-  onClose: () => void;
-  quickEmojis: string[];
-  onEmoji: (emoji: string) => void;
-  items: (MenuAction | false | null | undefined)[];
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [coords, setCoords] = useState({ left: pos.x, top: pos.y, ready: false });
-
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const { width, height } = el.getBoundingClientRect();
-    const pad = 8;
-    let left = pos.x;
-    let top = pos.y;
-    if (left + width + pad > window.innerWidth) left = window.innerWidth - width - pad;
-    if (top + height + pad > window.innerHeight) top = Math.max(pad, pos.y - height);
-    if (left < pad) left = pad;
-    if (top < pad) top = pad;
-    setCoords({ left, top, ready: true });
-  }, [pos]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    const onPointerDown = (e: PointerEvent) => {
-      if (ref.current?.contains(e.target as Node)) return;
-      onClose();
-    };
-    window.addEventListener('resize', onClose);
-    window.addEventListener('scroll', onClose, true);
-    window.addEventListener('keydown', onKey);
-    document.addEventListener('pointerdown', onPointerDown);
-    return () => {
-      window.removeEventListener('resize', onClose);
-      window.removeEventListener('scroll', onClose, true);
-      window.removeEventListener('keydown', onKey);
-      document.removeEventListener('pointerdown', onPointerDown);
-    };
-  }, [onClose]);
-
-  return createPortal(
-    <>
-      <div className="pointer-events-none fixed inset-0 z-80" aria-hidden />
-      <motion.div
-        ref={ref}
-        initial={{ opacity: 0, scale: 0.92, y: 6 }}
-        animate={{ opacity: coords.ready ? 1 : 0, scale: coords.ready ? 1 : 0.92, y: coords.ready ? 0 : 6 }}
-        exit={{ opacity: 0, scale: 0.95, y: 4, transition: { duration: 0.12, ease: 'easeIn' } }}
-        transition={SPRING_BOUNCY}
-        style={{ left: coords.left, top: coords.top, transformOrigin: 'top left' }}
-        className="echo-glass-strong pointer-events-auto fixed z-80 w-56 overflow-hidden rounded-2xl p-1.5"
-      >
-        {/* Quick reactions */}
-        <div className="mb-1 flex items-center justify-between gap-0.5 px-1.5 pb-1.5">
-          {quickEmojis.map((em) => (
-            <button
-              key={em}
-              type="button"
-              onClick={() => onEmoji(em)}
-              className="echo-press flex h-9 w-9 items-center justify-center rounded-full text-lg hover:bg-white/10"
-            >
-              {em}
-            </button>
-          ))}
-        </div>
-        <div className="mb-1 h-px bg-white/10" />
-        {/* Actions */}
-        {items.map((it) =>
-          it ? (
-            <button
-              key={it.key}
-              type="button"
-              onClick={it.onClick}
-              className={[
-                'echo-press flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-colors',
-                it.danger
-                  ? 'text-echo-dnd hover:bg-echo-dnd/15'
-                  : 'text-ink-50 hover:bg-accent hover:text-accent-foreground',
-              ].join(' ')}
-            >
-              <it.icon size={16} className="shrink-0" />
-              <span className="truncate">{it.label}</span>
-            </button>
-          ) : null
-        )}
-      </motion.div>
-    </>,
-    document.body
-  );
-}
-
-function buildMessageMenuItems({
-  message, isOwn, saved, pinned, t, closeMenu,
-  onReply, onOpenThread, onForward, onEdit, onDelete, onToggleSave, onTogglePin, onInfo, onSaveSticker, onRemind,
-}: {
-  message: ChatMessage;
-  isOwn: boolean;
-  saved: boolean;
-  pinned: boolean;
-  t: TFunc;
-  closeMenu: () => void;
-  onReply: (message: ChatMessage) => void;
-  onOpenThread: (message: ChatMessage) => void;
-  onForward: (message: ChatMessage) => void;
-  onEdit: (message: ChatMessage) => void;
-  onDelete: (message: ChatMessage) => void;
-  onToggleSave: (message: ChatMessage) => void;
-  onTogglePin: (message: ChatMessage) => void;
-  onInfo: (message: ChatMessage) => void;
-  onSaveSticker: (message: ChatMessage) => void;
-  onRemind: (message: ChatMessage) => void;
-}): (MenuAction | false)[] {
-  const withinEditWindow = isWithinMessageWindow(message.sent_at, MESSAGE_EDIT_WINDOW_MS);
-  const withinDeleteWindow = isWithinMessageWindow(message.sent_at, MESSAGE_DELETE_WINDOW_MS);
-  const canEdit = isOwn
-    && withinEditWindow
-    && !message.is_deleted
-    && (message.type !== 'media' || message.body);
-  const canDelete = isOwn && withinDeleteWindow && !message.is_deleted;
-  const canCopy = !!message.body;
-  const messageSticker = (message.metadata as { sticker?: MessageSticker } | null)?.sticker;
-  // Only custom stickers can be saved — Giphy GIFs are external URLs, not storage objects.
-  const canSaveSticker = message.type === 'sticker'
-    && messageSticker?.source === 'custom'
-    && !!messageSticker?.object_id;
-  return [
-    { key: 'reply', icon: Reply, label: t('chat.reply'), onClick: () => { closeMenu(); onReply(message); } },
-    !message.thread_id && { key: 'thread', icon: MessageSquareText, label: t('chat.replyInThread'), onClick: () => { closeMenu(); onOpenThread(message); } },
-    { key: 'forward', icon: Forward, label: t('chat.forward'), onClick: () => { closeMenu(); onForward(message); } },
-    !!canSaveSticker && { key: 'saveSticker', icon: Sticker, label: t('sticker.saveToCollection'), onClick: () => { closeMenu(); onSaveSticker(message); } },
-    canCopy && { key: 'copy', icon: Copy, label: t('chat.copyText'), onClick: () => { closeMenu(); navigator.clipboard?.writeText(message.body || ''); } },
-    { key: 'pin', icon: pinned ? PinOff : Pin, label: pinned ? t('chat.unpin') : t('chat.pin'), onClick: () => { closeMenu(); onTogglePin(message); } },
-    { key: 'save', icon: saved ? BookmarkCheck : Bookmark, label: saved ? t('saved.remove') : t('chat.save'), onClick: () => { closeMenu(); onToggleSave(message); } },
-    !message.is_deleted && { key: 'remind', icon: AlarmClock, label: t('remind.action'), onClick: () => { closeMenu(); onRemind(message); } },
-    isOwn && { key: 'info', icon: Info, label: t('chat.messageInfo'), onClick: () => { closeMenu(); onInfo(message); } },
-    !!canEdit && { key: 'edit', icon: Pencil, label: t('common.edit'), onClick: () => { closeMenu(); onEdit(message); } },
-    canDelete && { key: 'delete', icon: Trash2, label: t('common.delete'), danger: true, onClick: () => { closeMenu(); onDelete(message); } },
-  ];
-}
-
-/* ─────────────────────────────────────────────────────────
-   EmptyConversationState — friendly hero for chats with no
-   messages yet. One-tap "say hi" sends a wave to break the ice.
-   ───────────────────────────────────────────────────────── */
-function EmptyConversationState({
-  conversation,
-  convName,
-  onSayHi,
-  sending,
-}: {
-  conversation: ConversationResponse;
-  convName: string;
-  onSayHi: () => void;
-  sending: boolean;
-}) {
-  const { t } = useTranslation();
-  const reducedMotion = useReducedMotion();
-  const isDirect = conversation.type === 'direct';
-  const isGroup = conversation.type === 'group';
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.98 }}
-      transition={{ duration: 0.32, ease: EASE_OUT }}
-      className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-5 px-6 text-center"
-    >
-      <div className="relative">
-        {isDirect ? (
-          <UserAvatar
-            user={{ display_name: convName, avatar_url: conversation.other_avatar_url }}
-            size="lg"
-            className="scale-125"
-          />
-        ) : (
-          <div className="echo-grad-brand echo-glow-md echo-on-accent flex h-20 w-20 items-center justify-center rounded-3xl">
-            {isGroup
-              ? <Users size={36} strokeWidth={1.8} />
-              : <Hash size={36} strokeWidth={1.8} />}
-          </div>
-        )}
-        <motion.span
-          aria-hidden
-          animate={reducedMotion ? undefined : { rotate: [0, 16, -9, 16, 0] }}
-          transition={{ duration: 1.1, ease: 'easeInOut', repeat: Number.POSITIVE_INFINITY, repeatDelay: 2.4 }}
-          className="absolute -bottom-3 -right-4 origin-[70%_70%] text-3xl drop-shadow-md"
-        >
-          👋
-        </motion.span>
-      </div>
-
-      <div>
-        <h3 className="echo-display text-2xl font-semibold">{t('chat.noMessagesTitle')}</h3>
-        <p className="mt-1.5 max-w-sm text-[14px] leading-relaxed text-ink-100">
-          {isDirect
-            ? t('chat.noMessagesDirect', { name: convName })
-            : isGroup
-              ? t('chat.noMessagesGroup')
-              : t('chat.noMessagesChannel', { name: convName })}
-        </p>
-      </div>
-
-      <button
-        type="button"
-        onClick={onSayHi}
-        disabled={sending}
-        className="echo-press echo-grad-brand echo-glow-md echo-on-accent pointer-events-auto flex items-center gap-2 rounded-full px-5 py-2.5 text-[14px] font-semibold disabled:opacity-60"
-      >
-        {sending
-          ? <Loader size={16} className="animate-spin" />
-          : <span className="text-lg leading-none">👋</span>}
-        {t('chat.sayHi')}
-      </button>
-    </motion.div>
-  );
-}
-
-// Centered date chip inserted between messages whenever the calendar day changes.
-function DaySeparator({ date }: { date: string | null | undefined }) {
-  return (
-    <div className="my-3 flex items-center justify-center">
-      <span className="rounded-full bg-ink-800/80 px-3 py-1 text-[11px] font-medium text-ink-100 shadow-sm backdrop-blur-sm">
-        {formatDaySeparator(date)}
-      </span>
-    </div>
-  );
-}
-
-/** `message.metadata` cuando `type === 'system'` y `metadata.event === 'call'`. */
-interface CallEventMetadata {
-  event?: string;
-  call_type?: 'voice' | 'video';
-  initiated_by?: string;
-  outcome?: string;
-  duration_seconds?: number;
-}
-
-/** Forma combinada de `message.metadata` para las variantes que arma esta página. */
-interface MessageMetadata extends CallEventMetadata {
-  sticker?: MessageSticker;
-  /** Lo pone el backend cuando el mensaje es la auto-respuesta de una ausencia. */
-  auto_reply?: boolean;
-  broadcast_msg_id?: string;
-  broadcast_list_id?: string;
-  broadcast_list_name?: string;
-}
-
-/* Centered pill summarizing a finished/missed call. Doubles as chat history. */
-function CallEventRow({
-  message,
-  currentUserId,
-  shouldAnimate,
-  reducedMotion,
-  t,
-}: {
-  message: ChatMessage;
-  currentUserId?: string | null;
-  shouldAnimate: boolean;
-  reducedMotion: boolean | null;
-  t: TFunc;
-}) {
-  const meta = (message.metadata as CallEventMetadata | null) || {};
-  const isVideo = meta.call_type === 'video';
-  const outgoing = meta.initiated_by === currentUserId;
-  const missed = meta.outcome === 'missed';
-  const declined = meta.outcome === 'declined';
-
-  let label;
-  if (missed) label = outgoing ? t('call.timeline.noAnswer') : t('call.timeline.missed');
-  else if (declined) label = outgoing ? t('call.timeline.declined') : t('call.timeline.declinedByYou');
-  else label = isVideo ? t('call.timeline.videoCall') : t('call.timeline.voiceCall');
-
-  const secs = meta.duration_seconds || 0;
-  const duration = secs > 0
-    ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`
-    : null;
-
-  const Icon = missed ? PhoneMissed : isVideo ? VideoIcon : Phone;
-  const danger = missed || declined;
-
-  return (
-    <motion.div
-      id={`msg-${message.id}`}
-      initial={shouldAnimate && !reducedMotion ? { opacity: 0, y: 6 } : false}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
-      className="flex justify-center px-4 py-1.5"
-    >
-      <div
-        className={[
-          'flex items-center gap-2 rounded-full border px-3 py-1 text-[12px] shadow-sm backdrop-blur-sm',
-          danger
-            ? 'border-echo-dnd/30 bg-echo-dnd/10 text-echo-dnd'
-            : 'border-white/10 bg-ink-800/70 text-ink-100',
-        ].join(' ')}
-      >
-        <Icon size={13} className="shrink-0" />
-        <span className="font-medium">{label}</span>
-        {duration && <span className="text-ink-200">· {duration}</span>}
-        <span className="text-ink-300">· {formatMessageTime(message.sent_at)}</span>
-      </div>
-    </motion.div>
-  );
-}
-
-interface MessageRowProps {
-  message: ChatMessage;
-  isOwn: boolean;
-  isDirect: boolean;
-  isFirstInGroup: boolean;
-  isLastInGroup: boolean;
-  isContextOpen: boolean;
-  shouldAnimateEntry: boolean;
-  onOpenContextMenu: (messageId: string, pos: { x: number; y: number }) => void;
-  onScrollToReply: (id: string) => void;
-  onReact: (messageId: string, emoji: string) => void;
-  onOpenThread: (message: ChatMessage) => void;
-  onRetry: (tempId: string) => void;
-  currentUserId?: string;
-  currentUser?: AuthenticatedUser | null;
-}
-
-const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstInGroup, isLastInGroup, isContextOpen, shouldAnimateEntry, onOpenContextMenu, onScrollToReply, onReact, onOpenThread, onRetry, currentUserId, currentUser }: MessageRowProps) {
-  const { t } = useTranslation();
-  const reducedMotion = useReducedMotion();
-  const saved = !!message.is_saved;
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const isPending = message._status === 'sending' || message._status === 'error';
-
-  const meta = message.metadata as MessageMetadata | null;
-
-  const displayName = isOwn
-    ? (currentUser?.display_name || message.sender_display_name || t('common.you'))
-    : message.sender_display_name;
-  const avatarUrl = isOwn ? currentUser?.avatar_url : (message.sender_avatar_url ?? undefined);
-
-  const showName = !isOwn && !isDirect && isFirstInGroup;
-  const showAvatar = !isOwn && !isDirect;
-
-  // ── Context-menu (right-click / long-press) ──
-  const actionable = !isPending && !message.is_deleted;
-  const openMenuAt = (x: number, y: number) => onOpenContextMenu(message.id, { x, y });
-  const openMenu = (e: ReactMouseEvent | ReactTouchEvent) => {
-    if (!actionable) return;
-    e.preventDefault();
-    const mouseEvent = e as ReactMouseEvent;
-    const touchEvent = e as ReactTouchEvent;
-    openMenuAt(
-      mouseEvent.clientX ?? touchEvent.touches?.[0]?.clientX ?? 0,
-      mouseEvent.clientY ?? touchEvent.touches?.[0]?.clientY ?? 0,
-    );
-  };
-  const handleTouchStart = (e: ReactTouchEvent) => {
-    if (!actionable) return;
-    const t0 = e.touches[0];
-    const { clientX, clientY } = t0;
-    longPressTimer.current = setTimeout(() => openMenuAt(clientX, clientY), 450);
-  };
-  const cancelLongPress = () => {
-    if (longPressTimer.current) clearTimeout(longPressTimer.current);
-  };
-
-  const sticker = message.type === 'sticker' ? meta?.sticker : null;
-  const isSticker = Boolean(sticker);
-  const broadcastListName = meta?.broadcast_list_name || null;
-  const isBroadcast = Boolean(meta?.broadcast_msg_id || meta?.broadcast_list_id);
-
-  const isMediaOnly =
-    message.type === 'media' && (message.attachments?.length ?? 0) > 0 && !message.body;
-
-  // WhatsApp-style asymmetric corners: the "tail" corner is squared off on the
-  // first bubble of a group, on the side the bubble is anchored to.
-  // Stickers/GIFs float bare — no bubble chrome, just the artwork.
-  const bubbleClass = isSticker
-    ? [
-        'relative max-w-full bg-transparent',
-        isContextOpen ? 'echo-selected' : '',
-      ].join(' ')
-    : [
-        'relative max-w-full transition-shadow',
-        isMediaOnly ? 'overflow-hidden p-1' : 'px-3 py-1.5',
-        isOwn
-          ? 'echo-grad-own echo-glow-own echo-on-accent'
-          // Solid fill, not glass: the bubble is primary content, so its
-          // contrast can't depend on which wallpaper happens to sit behind it.
-          : 'bg-ink-800 text-ink-0 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.4)] ring-1 ring-white/8',
-        'rounded-2xl',
-        isFirstInGroup ? (isOwn ? 'rounded-tr-md' : 'rounded-tl-md') : '',
-        isContextOpen ? 'echo-selected' : '',
-      ].join(' ');
-
-  const metaClass = isSticker ? 'text-ink-200' : isOwn ? 'echo-on-accent-muted' : 'text-ink-200';
-
-  const justSent = isOwn && message._status === 'sent';
-
-  // ── Evento de llamada en el timeline (sirve de aviso e historial) ──
-  if (message.type === 'system' && meta?.event === 'call') {
-    return (
-      <CallEventRow
-        message={message}
-        currentUserId={currentUserId}
-        shouldAnimate={shouldAnimateEntry}
-        reducedMotion={reducedMotion}
-        t={t}
-      />
-    );
-  }
-
-  return (
-    <motion.div
-      id={`msg-${message.id}`}
-      initial={msgEntryInitial(isOwn, shouldAnimateEntry, reducedMotion)}
-      animate={{ opacity: 1, y: 0, x: 0, scale: 1 }}
-      transition={msgEntryTransition(isOwn, reducedMotion)}
-      onContextMenu={openMenu}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={cancelLongPress}
-      onTouchMove={cancelLongPress}
-      onTouchCancel={cancelLongPress}
-      className={[
-        'echo-msg-row group relative flex gap-2 rounded-lg px-3 transition-colors sm:px-4',
-        isFirstInGroup ? 'mt-3' : 'mt-0.5',
-        isOwn ? 'flex-row-reverse' : 'flex-row',
-        isContextOpen ? 'bg-white/4' : 'hover:bg-white/2.5',
-      ].join(' ')}
-    >
-      {/* Avatar gutter (group chats, other users only) */}
-      {showAvatar && (
-        <div className="w-8 shrink-0 select-none self-end">
-          {isLastInGroup && (
-            <UserAvatar user={{ display_name: displayName, avatar_url: avatarUrl }} size="sm" />
-          )}
-        </div>
-      )}
-
-      {/* Bubble column */}
-      <div className={[
-        'relative flex min-w-0 max-w-[82%] flex-col sm:max-w-[68%]',
-        isOwn ? 'items-end' : 'items-start',
-      ].join(' ')}>
-        <motion.div
-          className={bubbleClass}
-          animate={
-            reducedMotion || !justSent
-              ? undefined
-              : { scale: [1, 1.018, 1], transition: { duration: 0.35, ease: EASE_OUT } }
-          }
-        >
-          {/* Sender name (group chats, first in group) — deterministic per-user hue */}
-          {showName && (
-            <p className="mb-0.5 text-[13px] font-semibold" style={{ color: userColor(message.sender_id) }}>
-              {displayName}
-            </p>
-          )}
-
-          {/* Broadcast origin — DM came from a broadcast list fan-out */}
-          {isBroadcast && !message.is_deleted && (
-            <div
-              className={[
-                'mb-1 flex max-w-full items-center gap-1 text-[11px] font-medium leading-tight',
-                isOwn ? 'text-white/75' : 'text-accent',
-              ].join(' ')}
-              title={
-                broadcastListName
-                  ? t('chat.fromBroadcastList', { name: broadcastListName })
-                  : t('chat.fromBroadcast')
-              }
-            >
-              <Megaphone size={11} className="shrink-0 opacity-90" aria-hidden />
-              <span className="truncate">
-                {broadcastListName
-                  ? t('chat.fromBroadcastList', { name: broadcastListName })
-                  : t('chat.fromBroadcast')}
-              </span>
-            </div>
-          )}
-
-          {/* Reply preview — click to jump to the original message */}
-          {message.reply_to_id && (message.reply_to_body || message.reply_to_type) && (
-            <button
-              type="button"
-              title={t('chat.jumpToOriginal')}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (message.reply_to_id) onScrollToReply(message.reply_to_id);
-              }}
-              className={[
-                'echo-press mb-1 flex w-full flex-col gap-0.5 rounded-md border-l-[3px] px-2 py-1 text-left text-[12px] transition-colors',
-                isOwn
-                  ? 'border-white/70 bg-black/15 hover:bg-black/25'
-                  : 'border-accent bg-black/10 hover:bg-black/20',
-              ].join(' ')}
-            >
-              {message.reply_to_sender && (
-                <span className={isOwn ? 'font-semibold text-white/90' : 'font-semibold text-accent'}>
-                  {message.reply_to_sender}
-                </span>
-              )}
-              <span className={['truncate', isOwn ? 'text-white/70' : 'text-ink-200'].join(' ')}>
-                {message.reply_to_type === 'media'
-                  ? <span className="inline-flex items-center gap-1"><Paperclip size={11} />{t('chat.attachedFile')}</span>
-                  : message.reply_to_type === 'sticker'
-                    ? <span className="inline-flex items-center gap-1"><Sticker size={11} />{t('sticker.previewSticker')}</span>
-                    : message.reply_to_body}
-              </span>
-            </button>
-          )}
-
-          {/* Deleted */}
-          {message.is_deleted ? (
-            <div className={['flex items-center gap-1.5 text-[14px] italic', isOwn ? 'text-white/70' : 'text-ink-200'].join(' ')}>
-              <Trash2 size={13} className="shrink-0 opacity-60" />
-              <span>{t('chat.messageDeleted')}</span>
-            </div>
-          ) : (
-            <>
-              {/* Poll */}
-              {message.type === 'poll' && message.poll && (
-                <PollMessage message={message} currentUserId={currentUserId} variant={isOwn ? 'own' : 'other'} />
-              )}
-
-              {/* Code snippet */}
-              {message.type === 'code' && message.body && (
-                <CodeMessage message={message} variant={isOwn ? 'own' : 'other'} />
-              )}
-
-              {/* Mini-game invite/board */}
-              {message.type === 'game' && message.game && (
-                <GameMessage message={message} currentUserId={currentUserId} variant={isOwn ? 'own' : 'other'} />
-              )}
-
-              {/* Sticker / GIF — bare artwork, no bubble */}
-              {isSticker && sticker && (
-                <StickerImage
-                  sticker={sticker}
-                  sending={message._status === 'sending'}
-                  error={message._status === 'error'}
-                />
-              )}
-
-              {/* Auto-respuesta de ausencia: se aclara para que no se lea como
-                  una respuesta escrita en el momento. */}
-              {meta?.auto_reply && (
-                <span className={[
-                  'mb-0.5 inline-flex items-center gap-1 text-[11px] italic',
-                  isOwn ? 'echo-on-accent opacity-80' : 'text-ink-200',
-                ].join(' ')}>
-                  <Clock size={10} className="shrink-0" />
-                  {t('chat.autoReply')}
-                </span>
-              )}
-
-              {/* Body */}
-              {message.type !== 'media' && message.type !== 'poll' && message.type !== 'code' && message.type !== 'sticker' && message.type !== 'game' && message.body && (
-                <MessageBody
-                  body={message.body}
-                  bodyFormat={message.body_format ?? undefined}
-                  variant={isOwn ? 'own' : 'other'}
-                  mentions={readMentions(message.metadata)}
-                  currentUserId={currentUserId}
-                  className={[
-                    message._status === 'sending' ? 'opacity-70' : '',
-                    message._status === 'error' ? (isOwn ? 'text-red-100' : 'text-echo-dnd') : '',
-                  ].filter(Boolean).join(' ')}
-                />
-              )}
-
-              {/* Attachments */}
-              {message.attachments?.length > 0 && (
-                <div className={`flex flex-col items-start gap-2 ${message.body ? 'mt-2' : ''}`}>
-                  {message.attachments.map((att) => (
-                    <AttachmentView key={att.id} attachment={att} />
-                  ))}
-                </div>
-              )}
-
-              {/* Pending attachment */}
-              {message.type === 'media' && (!message.attachments || message.attachments.length === 0) && message._status === 'sending' && (
-                <div className="flex items-center gap-2 px-1 py-1 text-xs">
-                  <Loader size={13} className={`animate-spin shrink-0 ${isOwn ? 'text-white/80' : 'text-accent'}`} />
-                  <span className={`max-w-64 truncate ${isOwn ? 'text-white/80' : 'text-ink-100'}`}>{message._filename || t('chat.uploadingFile')}</span>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* Meta line: saved · edited · time · receipt */}
-          <div className={['mt-0.5 flex items-center justify-end gap-1 text-[10px] leading-none', metaClass, isMediaOnly ? 'px-1 pb-0.5' : ''].join(' ')}>
-            {saved && !message.is_deleted && (
-              <span title={t('chat.savedMessage')}>
-                <BookmarkCheck size={10} className="shrink-0 opacity-90" />
-              </span>
-            )}
-            {message.is_edited && !message.is_deleted && <span>{t('chat.edited')}</span>}
-            <span title={formatFullTime(message.sent_at)}>{formatMessageTime(message.sent_at)}</span>
-            {isOwn && !message.is_deleted && <ReceiptIcon message={message} />}
-          </div>
-        </motion.div>
-
-        {/* Retry (own, error) */}
-        {isOwn && message._status === 'error' && (
-          <Button
-            variant="ghost"
-            onPress={() => onRetry(message.id)}
-            className="mt-0.5 flex h-auto w-fit min-w-0 items-center gap-1 self-start bg-transparent p-0 text-[11px] font-normal text-echo-dnd hover:bg-transparent hover:underline"
-          >
-            <RefreshCw size={10} className="size-3" />
-            {t('chat.retrySend')}
-          </Button>
-        )}
-
-        {/* Thread reply counter — opens the thread panel */}
-        {!message.is_deleted && message.thread_count > 0 && (
-          <button
-            type="button"
-            onClick={() => onOpenThread(message)}
-            className={[
-              'echo-press mt-1 flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-2.5 py-0.5 text-[12px] font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent/20',
-              isOwn ? 'self-end' : 'self-start',
-            ].join(' ')}
-          >
-            <MessageSquareText size={12} />
-            {t('chat.threadReplies', { count: message.thread_count })}
-          </button>
-        )}
-
-        {/* Reactions */}
-        {!message.is_deleted && message.reactions?.length > 0 && (
-          <div className={['mt-1 flex flex-wrap gap-1', isOwn ? 'justify-end' : 'justify-start'].join(' ')}>
-            {message.reactions.map((r, i) => (
-              <ReactionPill
-                key={i}
-                emoji={r.emoji}
-                count={r.count}
-                mine={Boolean(Array.isArray(r.user_ids) && currentUserId && r.user_ids.includes(currentUserId))}
-                onClick={() => onReact(message.id, r.emoji)}
-              />
-            ))}
-            <button
-              type="button"
-              onClick={openMenu}
-              className="echo-press flex h-auto items-center rounded-full border border-ink-400/40 bg-ink-800/70 px-1.5 py-0.5 text-ink-200 transition-colors hover:border-accent/55 hover:text-foreground"
-              title={t('chat.react')}
-            >
-              <Smile size={13} />
-            </button>
-          </div>
-        )}
-      </div>
-    </motion.div>
-  );
-});
-
-/* ─────────────────────────────────────────────────────────
-   ForwardModal — pick target conversations to forward a message
-   ───────────────────────────────────────────────────────── */
-function ForwardModal({
-  message,
-  conversations,
-  currentConvId,
-  isOpen,
-  onClose,
-}: {
-  message: ChatMessage | null;
-  conversations: ConversationResponse[];
-  currentConvId?: string;
-  isOpen: boolean;
-  onClose: () => void;
-}) {
-  const { t } = useTranslation();
-  const [selected, setSelected] = useState<string[]>([]);
-  const [search, setSearch] = useState('');
-  const [sending, setSending] = useState(false);
-
-  const handleOpenChange = (open: boolean) => {
-    if (!open) {
-      onClose();
-      setSelected([]);
-      setSearch('');
-    }
-  };
-
-  const query = search.trim().toLowerCase();
-  const targets = conversations.filter((c) => {
-    if (c.id === currentConvId) return false;
-    if (!query) return true;
-    return (c.display_name || c.name || '').toLowerCase().includes(query);
-  });
-
-  const toggle = (id: string) =>
-    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-
-  const handleForward = async () => {
-    if (selected.length === 0 || !message) return;
-    setSending(true);
-    try {
-      await messagesApi.forward(message.id, selected);
-      onClose();
-      setSelected([]);
-      setSearch('');
-    } catch {
-      setSending(false);
-    }
-  };
-
-  return (
-    <Modal isOpen={isOpen} onOpenChange={handleOpenChange}>
-      <Modal.Backdrop>
-        <Modal.Container placement="center" size="md">
-          <Modal.Dialog>
-            <Modal.Header>
-              <Modal.Heading className="flex items-center gap-2">
-                <Forward size={16} /> {t('chat.forwardTo')}
-              </Modal.Heading>
-              <Modal.CloseTrigger />
-            </Modal.Header>
-
-            <Modal.Body className="flex flex-col gap-3">
-              <div className="relative">
-                <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-200" />
-                <Input className="pl-9" placeholder={t('sidebar.searchConversation')} value={search} onChange={(e) => setSearch(e.target.value)} />
-              </div>
-
-              <div className="flex max-h-72 flex-col gap-0.5 overflow-y-auto">
-                {targets.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-ink-200">{t('sidebar.noConversations')}</p>
-                ) : targets.map((c) => {
-                  const name = c.display_name || c.name || t('sidebar.noName');
-                  const isSel = selected.includes(c.id);
-                  return (
-                    <Button
-                      key={c.id}
-                      variant="ghost"
-                      onPress={() => toggle(c.id)}
-                      className={`flex h-auto w-full items-center justify-start gap-3 rounded-md px-2 py-2 text-left transition-colors ${isSel ? 'bg-accent/15 echo-ring-soft' : 'hover:bg-ink-750'}`}
-                    >
-                      {c.type === 'direct' ? (
-                        <UserAvatar user={{ display_name: name, avatar_url: c.other_avatar_url }} size="sm" />
-                      ) : (
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-ink-700 text-ink-100"><Hash size={15} /></div>
-                      )}
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{name}</span>
-                      {isSel && <Check size={16} className="text-accent" />}
-                    </Button>
-                  );
-                })}
-              </div>
-            </Modal.Body>
-
-            <Modal.Footer>
-              <Button className="w-full" isDisabled={selected.length === 0} isPending={sending} onPress={handleForward}>
-                {t('chat.forward')}{selected.length > 0 ? ` (${selected.length})` : ''}
-              </Button>
-            </Modal.Footer>
-          </Modal.Dialog>
-        </Modal.Container>
-      </Modal.Backdrop>
-    </Modal>
-  );
-}
+import {
+  SPRING_OUT,
+  type MessageSticker,
+  QUICK_EMOJIS,
+  type ContextMenuPos,
+  type MessageMetadata,
+} from '@/components/conversation/shared';
+import FilePickerMenu from '@/components/conversation/FilePickerMenu';
+import FilePreviewBar from '@/components/conversation/FilePreviewBar';
+import TypingDots from '@/components/conversation/TypingDots';
+import ConfirmDeleteModal from '@/components/conversation/ConfirmDeleteModal';
+import MessageContextMenu from '@/components/conversation/MessageContextMenu';
+import { buildMessageMenuItems } from '@/components/conversation/messageMenuItems';
+import EmptyConversationState from '@/components/conversation/EmptyConversationState';
+import DaySeparator from '@/components/conversation/DaySeparator';
+import MessageRow from '@/components/conversation/MessageRow';
+import ForwardModal from '@/components/conversation/ForwardModal';
+import useChatScroll from '@/components/conversation/useChatScroll';
+import useConversationDraft from '@/components/conversation/useConversationDraft';
+import useTypingIndicator from '@/components/conversation/useTypingIndicator';
+import useConversationWallpaper from '@/components/conversation/useConversationWallpaper';
+import useContactStatus from '@/components/conversation/useContactStatus';
+import useConversationMembers from '@/components/conversation/useConversationMembers';
+import usePinnedMessage from '@/components/conversation/usePinnedMessage';
+import useGroupAdmin from '@/components/conversation/useGroupAdmin';
+import useFileDrop from '@/components/conversation/useFileDrop';
 
 export default function ConversationPage() {
   const { t } = useTranslation();
   const { conversationId } = useParams();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
-  const {
-    messages,
-    loadingMessages,
-    hasMoreMessages,
-    setActiveConversation,
-    sendMessage,
-    retrySendMessage,
-    editMessage,
-    deleteMessage,
-    addReaction,
-    loadMoreMessages,
-    getActiveConversation,
-    typingUsers,
-    emitTyping,
-    clearActiveConversation,
-    conversations,
-    patchMessage,
-    joinConversation,
-    onlineUsers,
-  } = useChatStore();
+  // Selectores atómicos: la página sólo se re-renderiza cuando cambia lo que usa.
+  const messages = useChatStore((s) => s.messages);
+  const loadingMessages = useChatStore((s) => s.loadingMessages);
+  const hasMoreMessages = useChatStore((s) => s.hasMoreMessages);
+  const setActiveConversation = useChatStore((s) => s.setActiveConversation);
+  const sendMessage = useChatStore((s) => s.sendMessage);
+  const retrySendMessage = useChatStore((s) => s.retrySendMessage);
+  const editMessage = useChatStore((s) => s.editMessage);
+  const deleteMessage = useChatStore((s) => s.deleteMessage);
+  const addReaction = useChatStore((s) => s.addReaction);
+  const loadMoreMessages = useChatStore((s) => s.loadMoreMessages);
+  const clearActiveConversation = useChatStore((s) => s.clearActiveConversation);
+  const conversations = useChatStore((s) => s.conversations);
+  const activeConversationId = useChatStore((s) => s.activeConversationId);
+  const patchMessage = useChatStore((s) => s.patchMessage);
+  const joinConversation = useChatStore((s) => s.joinConversation);
 
   const [input, setInput] = useState('');
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [editing, setEditing] = useState<ChatMessage | null>(null);
-  const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ChatMessage | null>(null); // message object to confirm delete
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [sendingFile, setSendingFile] = useState(false);
@@ -1662,19 +130,11 @@ export default function ConversationPage() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
   const [detailTab, setDetailTab] = useState<DetailTab>('info');
-  // Un chat sólo puede tener un mensaje fijado a la vez (para todos los miembros).
-  const [pinnedMessage, setPinnedMessage] = useState<MessageResponse | null>(null);
   const [forwardTarget, setForwardTarget] = useState<ChatMessage | null>(null); // message being forwarded
   const [infoTarget, setInfoTarget] = useState<ChatMessage | null>(null); // message whose info panel is open
   const [threadRoot, setThreadRoot] = useState<ChatMessage | null>(null); // root message of the open thread panel
   const [contextMenu, setContextMenu] = useState<ContextMenuPos | null>(null);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
-  // Foto del grupo: sólo la pueden cambiar owner/admin (el backend lo vuelve a chequear).
-  const [groupAvatarSrc, setGroupAvatarSrc] = useState<string | null>(null);
-  const [groupAvatarName, setGroupAvatarName] = useState('avatar.jpg');
-  const [groupAvatarLoading, setGroupAvatarLoading] = useState(false);
-  const groupAvatarInputRef = useRef<HTMLInputElement>(null);
-  const patchConversation = useChatStore((s) => s.patchConversation);
   const [remindMessageId, setRemindMessageId] = useState<string | null>(null);
   const [sendPulse, setSendPulse] = useState(false);
   const [sendingHi, setSendingHi] = useState(false);
@@ -1684,158 +144,28 @@ export default function ConversationPage() {
   const [activePicker, setActivePicker] = useState<'file' | 'game' | 'sticker' | 'emoji' | null>(null);
   const [showCodeModal, setShowCodeModal] = useState(false);
   const [codeModalInitial, setCodeModalInitial] = useState({ body: '', language: 'plaintext' });
-  const [isDragging, setIsDragging] = useState(false);
-  const [members, setMembers] = useState<MemberResponse[]>([]);
-  const [loadingMembers, setLoadingMembers] = useState(false);
-  const dragCounterRef = useRef(0);
-
   const [wallpaperPickerOpen, setWallpaperPickerOpen] = useState(false);
-  const [wallpaperStyle, setWallpaperStyle] = useState<CSSProperties | null>(null); // null = default echo-chat-bg
-  const [isContact, setIsContact] = useState<boolean | null>(null); // null = unknown, true/false once loaded
-  const [addingContact, setAddingContact] = useState(false);
 
-  const wallpapers = useWallpaperStore((s) => s.wallpapers);
-  const resolveWallpaper = useWallpaperStore((s) => s.resolveWallpaper);
-  const cacheUrl = useWallpaperStore((s) => s.cacheUrl);
-  const getCachedUrl = useWallpaperStore((s) => s.getCachedUrl);
-
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messagesContentRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<TextInputHandle>(null);
-  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const prevScrollHeightRef = useRef<number | null>(null);
-  const loadingMoreRef = useRef(false);
-  const wasAtBottomRef = useRef(true);
-  const initialLoadRef = useRef(false); // true after first batch of messages is rendered
-  const anchorBottomRef = useRef(false); // keep pinned while media loads on open
-  const anchorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const prevScrollTopRef = useRef(0);
-  const prevContentHeightRef = useRef(0);
-  const scrollIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const draftReadyRef = useRef(false);  // true once the draft for this conv has loaded
-  const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const conversation =
-    conversations.find((c) => c.id === conversationId) ?? getActiveConversation();
+    conversations.find((c) => c.id === conversationId)
+    ?? conversations.find((c) => c.id === activeConversationId);
   const isDirect = conversation?.type === 'direct';
   // member_user_id no existe en ConversationResponse (solo other_user_id) — el
   // fallback nunca tuvo efecto real.
   const otherUserId = isDirect ? conversation?.other_user_id : null;
 
-  // Check whether the DM peer is already in contacts (only for direct chats).
-  useEffect(() => {
-    if (!otherUserId) {
-      setIsContact(null);
-      return undefined;
-    }
-    let alive = true;
-    setIsContact(null);
-    relationshipsApi.getContacts()
-      .then(({ data }) => {
-        if (!alive) return;
-        const found = (data || []).some(
-          (c) => (c.target_user_id || c.id) === otherUserId,
-        );
-        setIsContact(found);
-      })
-      .catch(() => {
-        if (alive) setIsContact(false);
-      });
-    return () => { alive = false; };
-  }, [otherUserId]);
-
-  const handleAddContact = useCallback(async () => {
-    if (!otherUserId || addingContact) return;
-    setAddingContact(true);
-    try {
-      await relationshipsApi.create({ target_user_id: otherUserId, type: 'contact' });
-      setIsContact(true);
-      toast.success(t('contacts.addedToast', {
-        name: conversation?.display_name || conversation?.name || t('chat.conversation'),
-      }), {
-        indicator: <UserPlus size={16} />,
-      });
-    } catch (err) {
-      toast.danger((err instanceof Error && err.message) || t('contacts.addError'));
-    } finally {
-      setAddingContact(false);
-    }
-  }, [otherUserId, addingContact, conversation?.display_name, conversation?.name, t]);
-
-  // Resolve and apply wallpaper using URL conversationId (works before chat list loads)
-  useEffect(() => {
-    if (!conversationId) {
-      setWallpaperStyle(null);
-      return undefined;
-    }
-
-    const convType =
-      conversation?.type ?? conversations.find((c) => c.id === conversationId)?.type;
-
-    const active = resolveWallpaper(convType, conversationId);
-    if (!active) {
-      setWallpaperStyle(null);
-      return undefined;
-    }
-
-    let cancelled = false;
-
-    if (active.wallpaper_type === 'preset') {
-      const preset = PRESETS.find((p) => p.key === active.wallpaper_value);
-      setWallpaperStyle(preset ? { background: preset.background } : null);
-    } else if (active.wallpaper_type === 'color') {
-      setWallpaperStyle({ backgroundColor: active.wallpaper_value ?? undefined });
-    } else if (active.wallpaper_type === 'image' && active.storage_object_id) {
-      const storageObjectId = active.storage_object_id;
-      const cached = getCachedUrl(storageObjectId);
-      if (cached) {
-        setWallpaperStyle({
-          backgroundImage: `url(${cached})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        });
-      } else {
-        storageApi.getUrl(storageObjectId).then((res) => {
-          if (cancelled) return;
-          const url = res.data?.url;
-          if (url) {
-            cacheUrl(storageObjectId, url);
-            setWallpaperStyle({
-              backgroundImage: `url(${url})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-            });
-          }
-        }).catch(() => {});
-      }
-    }
-
-    return () => { cancelled = true; };
-  }, [
-    conversationId,
-    conversation?.type,
-    conversations,
-    wallpapers,
-    resolveWallpaper,
-    getCachedUrl,
-    cacheUrl,
-  ]);
-
-  useEffect(() => {
-    if (!conversationId || !conversation || isDirect) {
-      setMembers([]);
-      return undefined;
-    }
-    let active = true;
-    setLoadingMembers(true);
-    conversationsApi
-      .getMembers(conversationId)
-      .then(({ data }) => { if (active) setMembers(Array.isArray(data) ? data : []); })
-      .catch(() => { if (active) setMembers([]); })
-      .finally(() => { if (active) setLoadingMembers(false); });
-    return () => { active = false; };
-  }, [conversationId, conversation, isDirect]);
+  const { isContact, addingContact, handleAddContact } = useContactStatus(
+    otherUserId,
+    conversation?.display_name || conversation?.name,
+  );
+  const wallpaperStyle = useConversationWallpaper(conversationId, conversation?.type);
+  // Foto del grupo: sólo la pueden cambiar owner/admin (el backend lo vuelve a chequear).
+  const groupAdmin = useGroupAdmin(conversationId);
+  const { members, membersWithPresence, loadingMembers } = useConversationMembers(conversationId, conversation, isDirect);
+  const { pinnedMessage, handleTogglePin, handleUnpinBar } = usePinnedMessage(conversationId);
+  const { typingText, notifyTyping, stopTyping } = useTypingIndicator(conversationId, user?.id);
 
   useEffect(() => {
     setMembersOpen(false);
@@ -1852,77 +182,16 @@ export default function ConversationPage() {
     excludeUserId: user?.id,
   });
 
-  // Members are fetched once via REST; overlay live presence from the socket
-  // so the member panel doesn't go stale while the conversation stays open.
-  const membersWithPresence = useMemo(
-    () => members.map((m) => ({ ...m, presence: onlineUsers[m.user_id] ?? m.presence })),
-    [members, onlineUsers],
-  );
-
-  // Build typing text for this conversation
-  const currentTyping = (conversationId ? typingUsers[conversationId] : null) || {};
-  const typingNames = Object.entries(currentTyping)
-    .filter(([uid]) => uid !== user?.id)
-    .map(([, name]) => name);
-  const typingText =
-    typingNames.length === 1
-      ? t('chat.isTyping', { name: typingNames[0] })
-      : typingNames.length > 1
-        ? t('chat.areTyping', { names: typingNames.join(', ') })
-        : null;
-
   // Clear active conversation when leaving the page entirely
   useEffect(() => {
     return () => clearActiveConversation();
   }, [clearActiveConversation]);
-
-  // Load the conversation's single pinned message (if any) so the bar below
-  // the header and the context menu's pin/unpin state stay in sync.
-  useEffect(() => {
-    setPinnedMessage(null);
-    if (!conversationId) return undefined;
-    let active = true;
-    messagesApi.getPinned(conversationId)
-      .then(({ data }) => {
-        if (active) setPinnedMessage(data ?? null);
-      })
-      .catch(() => {});
-    return () => { active = false; };
-  }, [conversationId]);
-
-  const scrollContainerToBottom = useCallback((smooth = false) => {
-    const el = containerRef.current;
-    if (!el) return;
-    const top = el.scrollHeight;
-    if (smooth) {
-      el.scrollTo({ top, behavior: 'smooth' });
-    } else {
-      el.scrollTop = top;
-    }
-  }, []);
-
-  const startBottomAnchor = useCallback(() => {
-    anchorBottomRef.current = true;
-    if (anchorTimerRef.current) clearTimeout(anchorTimerRef.current);
-    anchorTimerRef.current = setTimeout(() => {
-      anchorBottomRef.current = false;
-    }, 8000);
-  }, []);
 
   // Layout effect on purpose: setActiveConversation's synchronous part
   // (restoring the cached timeline) lands before the browser paints, so
   // switching chats never flashes the previous conversation's messages.
   useLayoutEffect(() => {
     if (conversationId) {
-      initialLoadRef.current = false;
-      prevScrollHeightRef.current = null;
-      loadingMoreRef.current = false;
-      wasAtBottomRef.current = true;
-      anchorBottomRef.current = false;
-      prevScrollTopRef.current = 0;
-      prevContentHeightRef.current = 0;
-      if (anchorTimerRef.current) clearTimeout(anchorTimerRef.current);
-      setShowScrollBtn(false);
       setContextMenu(null);
       setActiveConversation(conversationId);
       // Aseguramos estar en la sala de socket de la conversación: el auto-join
@@ -1930,153 +199,33 @@ export default function ConversationPage() {
       // quedarían fuera y no llegarían los recibos (entregado/leído) en vivo.
       joinConversation(conversationId);
     }
-    return () => {
-      if (conversationId) emitTyping(conversationId, false);
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    };
-  }, [conversationId, setActiveConversation, emitTyping, joinConversation]);
+  }, [conversationId, setActiveConversation, joinConversation]);
 
-  // Load the saved draft when switching conversations, resetting composer state
+  const {
+    containerRef,
+    messagesContentRef,
+    messagesEndRef,
+    showScrollBtn,
+    handleScroll,
+    scrollToBottom,
+    loadOlder,
+  } = useChatScroll({ conversationId, messages, loadingMessages, hasMoreMessages, loadMoreMessages });
+
+  // Reset composer state when switching conversations (the draft hook reloads the text)
   useEffect(() => {
     if (!conversationId) return;
-    draftReadyRef.current = false;
-    let active = true;
-    setInput('');
     setReplyTo(null);
     setEditing(null);
     setThreadRoot(null);
-    (async () => {
-      try {
-        const { data } = await messagesApi.getDraft(conversationId);
-        if (active && data?.body) setInput(data.body);
-      } catch {
-        // no draft / ignore
-      } finally {
-        if (active) draftReadyRef.current = true;
-      }
-    })();
-    return () => { active = false; };
   }, [conversationId]);
 
-  // Debounced autosave of the draft as the user types (skipped while editing)
-  useEffect(() => {
-    if (!conversationId || !draftReadyRef.current || editing) return;
-    if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current);
-    draftSaveTimerRef.current = setTimeout(() => {
-      const body = (input ?? '').trim();
-      if (body) {
-        messagesApi.saveDraft(conversationId, { body }).catch(() => {});
-      } else {
-        messagesApi.deleteDraft(conversationId).catch(() => {});
-      }
-    }, 600);
-    return () => { if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current); };
-  }, [input, conversationId, editing]);
-
-  // Scroll to bottom on initial load / own new message, but not when loading
-  // older messages. `conversationId` is a dependency on purpose: the messages
-  // region remounts per conversation (keyed container), so the effect must
-  // re-fire even when the cached `messages` array is already in place —
-  // otherwise the fresh container would stay stuck at the top.
-  useLayoutEffect(() => {
-    if (prevScrollHeightRef.current !== null) return; // handled by the load-more layout effect
-    if (loadingMoreRef.current) return;
-    if (!containerRef.current || messages.length === 0) return;
-
-    if (!initialLoadRef.current) {
-      // First batch: jump instantly before paint so user never sees the top
-      scrollContainerToBottom(false);
-      wasAtBottomRef.current = true;
-      initialLoadRef.current = true;
-      startBottomAnchor();
-      setShowScrollBtn(false);
-      requestAnimationFrame(() => scrollContainerToBottom(false));
-    } else if (wasAtBottomRef.current) {
-      scrollContainerToBottom(true);
-    }
-  }, [messages, conversationId, scrollContainerToBottom, startBottomAnchor]);
-
-  // Catch late layout shifts while still on initial open
-  useLayoutEffect(() => {
-    if (initialLoadRef.current || loadingMessages || messages.length === 0) return;
-    scrollContainerToBottom(false);
-    wasAtBottomRef.current = true;
-    initialLoadRef.current = true;
-    startBottomAnchor();
-    setShowScrollBtn(false);
-  }, [loadingMessages, messages.length, scrollContainerToBottom, startBottomAnchor]);
-
-  // Re-scroll only when content grows (images/videos loading), not on user scroll
-  useEffect(() => {
-    const content = messagesContentRef.current;
-    if (!content) return;
-    prevContentHeightRef.current = content.getBoundingClientRect().height;
-    const ro = new ResizeObserver((entries) => {
-      const h = entries[0]?.contentRect.height ?? 0;
-      const grew = h > prevContentHeightRef.current + 2;
-      prevContentHeightRef.current = h;
-      if (grew && (anchorBottomRef.current || wasAtBottomRef.current)) {
-        scrollContainerToBottom(false);
-      }
-    });
-    ro.observe(content);
-    return () => ro.disconnect();
-  }, [conversationId, scrollContainerToBottom]);
-
-  // Restore scroll position after prepending older messages
-  useLayoutEffect(() => {
-    if (prevScrollHeightRef.current !== null) {
-      const el = containerRef.current;
-      if (el) {
-        el.scrollTop = el.scrollHeight - prevScrollHeightRef.current;
-      }
-      prevScrollHeightRef.current = null;
-      loadingMoreRef.current = false;
-    }
-  }, [messages]);
-
-  const handleScroll = useCallback(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const scrollTop = el.scrollTop;
-    if (scrollTop < prevScrollTopRef.current - 2) {
-      // User scrolled up — stop auto-pinning to bottom
-      anchorBottomRef.current = false;
-      if (anchorTimerRef.current) clearTimeout(anchorTimerRef.current);
-    }
-    prevScrollTopRef.current = scrollTop;
-
-    const distanceFromBottom = el.scrollHeight - scrollTop - el.clientHeight;
-    const atBottom = distanceFromBottom < 100;
-    wasAtBottomRef.current = atBottom;
-    if (atBottom) {
-      setShowScrollBtn(false);
-      if (scrollIdleTimerRef.current) clearTimeout(scrollIdleTimerRef.current);
-    } else {
-      setShowScrollBtn(true);
-      if (scrollIdleTimerRef.current) clearTimeout(scrollIdleTimerRef.current);
-      scrollIdleTimerRef.current = setTimeout(() => setShowScrollBtn(false), 2000);
-    }
-    // Don't auto-load older messages until the initial scroll-to-bottom completed
-    if (!initialLoadRef.current) return;
-    if (el.scrollTop < 80 && hasMoreMessages && !loadingMoreRef.current) {
-      loadingMoreRef.current = true;
-      prevScrollHeightRef.current = el.scrollHeight;
-      loadMoreMessages();
-    }
-  }, [hasMoreMessages, loadMoreMessages]);
-
-  const scrollToBottom = () => {
-    scrollContainerToBottom(true);
-  };
+  const { discardDraft } = useConversationDraft(conversationId, input, setInput, !!editing);
 
   const handleSend = async () => {
     const body = (input ?? '').trim();
     if (!body || !conversationId || soloAdminsEnvianMensajes) return;
 
-    emitTyping(conversationId, false);
-    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    stopTyping();
 
     if (editing) {
       if (!isWithinMessageWindow(editing.sent_at, MESSAGE_EDIT_WINDOW_MS)) {
@@ -2102,8 +251,7 @@ export default function ConversationPage() {
       await sendMessage(data, user ?? undefined);
       setReplyTo(null);
       // The message was sent — drop any saved draft for this conversation
-      if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current);
-      messagesApi.deleteDraft(conversationId).catch(() => {});
+      discardDraft();
     }
     setInput('');
   };
@@ -2128,65 +276,6 @@ export default function ConversationPage() {
   const puedeEditarGrupo = esAdminDeGrupo || (!isDirect && conversation?.only_admins_edit_info === false);
   // is_read_only: el admin restringió el envío de mensajes a sólo admins.
   const soloAdminsEnvianMensajes = !isDirect && !!conversation?.is_read_only && !esAdminDeGrupo;
-
-  const handleGroupAvatarPick = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = ''; // permite volver a elegir el mismo archivo
-    if (!file) return;
-    setGroupAvatarName(file.name);
-    setGroupAvatarSrc(URL.createObjectURL(file));
-  };
-
-  const handleGroupAvatarConfirm = async (file: File) => {
-    if (!conversationId) return;
-    setGroupAvatarLoading(true);
-    try {
-      const { data } = await conversationsApi.uploadAvatar(conversationId, file);
-      patchConversation(conversationId, { avatar_url: data.avatar_url, avatar_object_id: data.avatar_object_id });
-      toast.success(t('chat.groupPhotoUpdated'));
-      setGroupAvatarSrc(null);
-    } catch (err) {
-      toast.danger((err instanceof Error && err.message) || t('common.error'));
-    } finally {
-      setGroupAvatarLoading(false);
-    }
-  };
-
-  const handleUpdateGroupInfo = async (patch: { name?: string; description?: string | null }) => {
-    if (!conversationId) return;
-    try {
-      const { data } = await conversationsApi.update(conversationId, patch);
-      patchConversation(conversationId, { name: data.name, description: data.description });
-    } catch (err) {
-      toast.danger((err instanceof Error && err.message) || t('common.error'));
-      throw err;
-    }
-  };
-
-  const handleUpdateGroupPermissions = async (patch: { is_read_only?: boolean; only_admins_edit_info?: boolean }) => {
-    if (!conversationId) return;
-    try {
-      const { data } = await conversationsApi.update(conversationId, patch);
-      patchConversation(conversationId, {
-        is_read_only: data.is_read_only,
-        only_admins_edit_info: data.only_admins_edit_info,
-      });
-    } catch (err) {
-      toast.danger((err instanceof Error && err.message) || t('common.error'));
-      throw err;
-    }
-  };
-
-  const handleGroupAvatarRemove = async () => {
-    if (!conversationId) return;
-    try {
-      await conversationsApi.removeAvatar(conversationId);
-      patchConversation(conversationId, { avatar_url: null, avatar_object_id: null });
-      toast.success(t('chat.groupPhotoRemoved'));
-    } catch (err) {
-      toast.danger((err instanceof Error && err.message) || t('common.error'));
-    }
-  };
 
   const handleFilePick = useCallback((file: File) => {
     setPreviewFile(file);
@@ -2264,34 +353,7 @@ export default function ConversationPage() {
     if (file && !previewFile && !sendingFile) setPreviewFile(file);
   }, [previewFile, sendingFile]);
 
-  const handleDragEnter = useCallback((e: ReactDragEvent<HTMLDivElement>) => {
-    if (!e.dataTransfer?.types?.includes('Files')) return;
-    e.preventDefault();
-    dragCounterRef.current += 1;
-    setIsDragging(true);
-  }, []);
-
-  const handleDragOver = useCallback((e: ReactDragEvent<HTMLDivElement>) => {
-    if (e.dataTransfer?.types?.includes('Files')) e.preventDefault(); // allow drop
-  }, []);
-
-  const handleDragLeave = useCallback((e: ReactDragEvent<HTMLDivElement>) => {
-    if (!e.dataTransfer?.types?.includes('Files')) return;
-    e.preventDefault();
-    dragCounterRef.current -= 1;
-    if (dragCounterRef.current <= 0) {
-      dragCounterRef.current = 0;
-      setIsDragging(false);
-    }
-  }, []);
-
-  const handleDrop = useCallback((e: ReactDragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    dragCounterRef.current = 0;
-    setIsDragging(false);
-    const file = e.dataTransfer?.files?.[0];
-    if (file) acceptDroppedFile(file);
-  }, [acceptDroppedFile]);
+  const { isDragging, handleDragEnter, handleDragOver, handleDragLeave, handleDrop } = useFileDrop(acceptDroppedFile);
 
   const handlePaste = useCallback((e: ReactClipboardEvent<HTMLDivElement>) => {
     const items = e.clipboardData?.items;
@@ -2350,7 +412,7 @@ export default function ConversationPage() {
       setSearchOpen(false);
       setMembersOpen(false);
     }
-  }, []);
+  }, [containerRef]);
 
   const handleJumpToMessage = useCallback((id: string) => {
     scrollToMessage(id, { closeSearch: true });
@@ -2517,38 +579,6 @@ export default function ConversationPage() {
     }
   }, [callStatus, startCall, conversationId, conversation, user, t]);
 
-  // Fijar un mensaje reemplaza al que estuviera fijado antes — un chat sólo
-  // puede tener uno a la vez, para todos los miembros.
-  const handleTogglePin = useCallback(async (message: ChatMessage) => {
-    if (!conversationId) return;
-    const isPinned = pinnedMessage?.id === message.id;
-    const previous = pinnedMessage;
-    setPinnedMessage(isPinned ? null : message);
-    try {
-      if (isPinned) {
-        await messagesApi.unpin(conversationId, message.id);
-        toast.success(t('chat.unpinnedToast'));
-      } else {
-        await messagesApi.pin(conversationId, message.id);
-        toast.success(t('chat.pinnedToast'));
-      }
-    } catch {
-      setPinnedMessage(previous); // revert on failure
-    }
-  }, [conversationId, pinnedMessage, t]);
-
-  const handleUnpinBar = useCallback(async () => {
-    if (!conversationId || !pinnedMessage) return;
-    const previous = pinnedMessage;
-    setPinnedMessage(null);
-    try {
-      await messagesApi.unpin(conversationId, previous.id);
-      toast.success(t('chat.unpinnedToast'));
-    } catch {
-      setPinnedMessage(previous); // revert on failure
-    }
-  }, [conversationId, pinnedMessage, t]);
-
   const handleSavedChange = useCallback((messageId: string, isSaved: boolean) => {
     patchMessage(messageId, { is_saved: isSaved });
   }, [patchMessage]);
@@ -2697,20 +727,20 @@ export default function ConversationPage() {
       />
 
       <input
-        ref={groupAvatarInputRef}
+        ref={groupAdmin.groupAvatarInputRef}
         type="file"
         accept="image/jpeg,image/png,image/webp,image/gif"
         className="hidden"
-        onChange={handleGroupAvatarPick}
+        onChange={groupAdmin.handleGroupAvatarPick}
       />
 
       <AvatarCropModal
-        isOpen={!!groupAvatarSrc}
-        imageSrc={groupAvatarSrc}
-        fileName={groupAvatarName}
-        onClose={() => setGroupAvatarSrc(null)}
-        onConfirm={handleGroupAvatarConfirm}
-        loading={groupAvatarLoading}
+        isOpen={!!groupAdmin.groupAvatarSrc}
+        imageSrc={groupAdmin.groupAvatarSrc}
+        fileName={groupAdmin.groupAvatarName}
+        onClose={groupAdmin.closeGroupAvatarCrop}
+        onConfirm={groupAdmin.handleGroupAvatarConfirm}
+        loading={groupAdmin.groupAvatarLoading}
       />
 
       <ScheduleMessageModal
@@ -2722,7 +752,7 @@ export default function ConversationPage() {
         // borrador: si no, se manda dos veces.
         onScheduled={() => {
           setInput('');
-          if (conversationId) messagesApi.deleteDraft(conversationId).catch(() => {});
+          discardDraft();
         }}
       />
 
@@ -3017,11 +1047,7 @@ export default function ConversationPage() {
               <div className="flex justify-center py-2">
                 <Button
                   variant="ghost"
-                  onPress={() => {
-                    loadingMoreRef.current = true;
-                    prevScrollHeightRef.current = containerRef.current?.scrollHeight ?? null;
-                    loadMoreMessages();
-                  }}
+                  onPress={loadOlder}
                   className="flex h-auto items-center gap-1.5 rounded-md border border-ink-400/40 bg-ink-800 px-3 py-1 text-xs text-ink-100 transition-colors hover:bg-ink-750 hover:text-foreground"
                 >
                   <ArrowUp size={12} />
@@ -3209,12 +1235,7 @@ export default function ConversationPage() {
               onChange={(e: FakeInputChangeEvent) => {
                 setInput(e.target.value);
                 mentions.detectar(e.target.value);
-                if (!conversationId) return;
-                emitTyping(conversationId, true);
-                if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-                typingTimeoutRef.current = setTimeout(() => {
-                  emitTyping(conversationId, false);
-                }, 2000);
+                notifyTyping();
               }}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
@@ -3272,10 +1293,10 @@ export default function ConversationPage() {
           activeTab={detailTab}
           onTabChange={setDetailTab}
           onJump={handleJumpToMessage}
-          onPickAvatar={() => groupAvatarInputRef.current?.click()}
-          onRemoveAvatar={handleGroupAvatarRemove}
-          onUpdateInfo={handleUpdateGroupInfo}
-          onUpdatePermissions={handleUpdateGroupPermissions}
+          onPickAvatar={() => groupAdmin.groupAvatarInputRef.current?.click()}
+          onRemoveAvatar={groupAdmin.handleGroupAvatarRemove}
+          onUpdateInfo={groupAdmin.handleUpdateGroupInfo}
+          onUpdatePermissions={groupAdmin.handleUpdateGroupPermissions}
         />
 
         {/* ── Message search panel ── */}

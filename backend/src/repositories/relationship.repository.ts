@@ -1,4 +1,5 @@
 import BaseRepository from './base.repository';
+import { upsert, insertIgnore } from '../config/db/upsert';
 import type { Row } from '../types/rows';
 
 type RelationshipRow = Row<'user_relationships'>;
@@ -26,58 +27,47 @@ class RelationshipRepository extends BaseRepository<RelationshipRow> {
       alias?: string | null;
     },
   ): Promise<RelationshipRow> {
-    const { rows } = await this.query(
-      `INSERT INTO user_relationships (user_id, target_user_id, type, alias)
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT (user_id, target_user_id, type) DO UPDATE SET alias = $4
-       RETURNING *`,
-      [user_id, target_user_id, type, alias || null]
-    );
-    return rows[0];
+    const row = await upsert(this.db, { table: 'user_relationships', values: { user_id, target_user_id, type, alias: alias || null }, conflict: ['user_id', 'target_user_id', 'type'], update: { alias: alias || null }, returning: true });
+    return row as RelationshipRow;
   }
 
   async remove(userId: string, targetUserId: string, type: string): Promise<boolean> {
-    const { rowCount } = await this.query(
-      `DELETE FROM user_relationships WHERE user_id = $1 AND target_user_id = $2 AND type = $3`,
-      [userId, targetUserId, type]
-    );
-    return (rowCount ?? 0) > 0;
+    const result = await this.db.deleteFrom('user_relationships')
+      .where('user_id', '=', userId)
+      .where('target_user_id', '=', targetUserId)
+      .where('type', '=', type)
+      .executeTakeFirst();
+    return Number(result.numDeletedRows) > 0;
   }
 
   async findByUser(userId: string, type: string | null = null): Promise<RelationshipWithUser[]> {
-    let sql = `SELECT ur.*, u.username, u.display_name, u.department,
-                      u.avatar_bucket, u.avatar_object_key, u.presence
-               FROM user_relationships ur
-               JOIN users u ON u.id = ur.target_user_id
-               WHERE ur.user_id = $1`;
-    const params: string[] = [userId];
-    if (type) {
-      sql += ` AND ur.type = $2`;
-      params.push(type);
-    }
-    sql += ' ORDER BY u.display_name';
-    const { rows } = await this.query<RelationshipWithUser>(sql, params);
-    return rows;
+    let q = this.db.selectFrom('user_relationships as ur')
+      .innerJoin('users as u', 'u.id', 'ur.target_user_id')
+      .selectAll('ur')
+      .select(['u.username', 'u.display_name', 'u.department', 'u.avatar_bucket', 'u.avatar_object_key', 'u.presence'])
+      .where('ur.user_id', '=', userId);
+    if (type) q = q.where('ur.type', '=', type);
+    return q.orderBy('u.display_name').execute() as unknown as Promise<RelationshipWithUser[]>;
   }
 
   /** ¿`userId` tiene a `targetUserId` entre sus contactos o favoritos? */
   async hasContact(userId: string, targetUserId: string): Promise<boolean> {
-    const { rows } = await this.query(
-      `SELECT 1 FROM user_relationships
-       WHERE user_id = $1 AND target_user_id = $2 AND type IN ('contact', 'favorite')
-       LIMIT 1`,
-      [userId, targetUserId]
-    );
-    return rows.length > 0;
+    const row = await this.db.selectFrom('user_relationships').select('id')
+      .where('user_id', '=', userId)
+      .where('target_user_id', '=', targetUserId)
+      .where('type', 'in', ['contact', 'favorite'])
+      .limit(1)
+      .executeTakeFirst();
+    return !!row;
   }
 
   async isBlocked(userId: string, targetUserId: string): Promise<boolean> {
-    const { rows } = await this.query(
-      `SELECT 1 FROM user_relationships
-       WHERE user_id = $1 AND target_user_id = $2 AND type = 'blocked'`,
-      [userId, targetUserId]
-    );
-    return rows.length > 0;
+    const row = await this.db.selectFrom('user_relationships').select('id')
+      .where('user_id', '=', userId)
+      .where('target_user_id', '=', targetUserId)
+      .where('type', '=', 'blocked')
+      .executeTakeFirst();
+    return !!row;
   }
 }
 

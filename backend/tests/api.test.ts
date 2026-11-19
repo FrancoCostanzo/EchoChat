@@ -120,9 +120,13 @@ describe('mensajes', () => {
     const conv = await conversacionDirecta();
     const id = await mensaje(conv);
     assert.equal((await pedir(`/api/messages/conversation/${conv}/pin/${id}`, { method: 'POST', token: ana.token })).status, 200);
-    assert.equal(lista(await pedir(`/api/messages/conversation/${conv}/pinned`, { token: ana.token })).length, 1);
+    // Un chat tiene a lo sumo un fijado: /pinned devuelve ese mensaje o null, no una lista.
+    // (Se lee `cuerpo.data` porque con data null el helper devuelve el cuerpo entero.)
+    const fijado = await pedir(`/api/messages/conversation/${conv}/pinned`, { token: ana.token });
+    assert.equal(fijado.cuerpo.data?.id, id);
     assert.equal((await pedir(`/api/messages/conversation/${conv}/pin/${id}`, { method: 'DELETE', token: ana.token })).status, 200);
-    assert.equal(lista(await pedir(`/api/messages/conversation/${conv}/pinned`, { token: ana.token })).length, 0);
+    const sinFijado = await pedir(`/api/messages/conversation/${conv}/pinned`, { token: ana.token });
+    assert.equal(sinFijado.cuerpo.data ?? null, null);
   });
 
   test('guardar, listar guardados y reenviar', async () => {

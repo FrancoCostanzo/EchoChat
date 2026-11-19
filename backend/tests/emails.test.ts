@@ -14,7 +14,8 @@ import { crearCliente, sufijo, type Cliente } from './helpers/api';
 import { CLAVE, iniciarSesion, type UsuarioDeTest } from './helpers/usuarios';
 import mailService from '../src/services/mail.service';
 import emailNoticesService from '../src/services/emailNotices.service';
-import { pool } from '../src/config/database';
+import { db } from '../src/config/db';
+import { nowMinus } from '../src/config/db/sql';
 
 interface Correo {
   to: string;
@@ -201,12 +202,12 @@ describe('avisos que siguen sin leer', () => {
     let pendientes = 0;
     for (let i = 0; i < 30 && pendientes === 0; i++) {
       await new Promise((r) => setTimeout(r, 100));
-      const { rowCount } = await pool.query(
-        `UPDATE notifications SET email_due_at = NOW() - INTERVAL '1 minute'
-         WHERE recipient_id = $1 AND email_due_at IS NOT NULL`,
-        [beto.id],
-      );
-      pendientes = rowCount ?? 0;
+      const result = await db.updateTable('notifications')
+        .set({ email_due_at: nowMinus(1, 'minutes') })
+        .where('recipient_id', '=', beto.id)
+        .where('email_due_at', 'is not', null)
+        .executeTakeFirst();
+      pendientes = Number(result.numUpdatedRows);
     }
     assert.equal(pendientes, 1);
 

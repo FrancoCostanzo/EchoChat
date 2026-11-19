@@ -1,4 +1,8 @@
+import { sql, type ExpressionBuilder } from 'kysely';
 import BaseRepository from './base.repository';
+import { upsert, insertIgnore } from '../config/db/upsert';
+import { now, json, bool } from '../config/db/sql';
+import type { DB } from '../types/db';
 import { encrypt, decrypt, searchTokens, searchQueryTokens } from '../utils/crypto.util';
 import type { Row } from '../types/rows';
 import type { MessageRow } from '../models/message.model';
@@ -70,25 +74,32 @@ function decryptRow<T extends Record<string, any> | null | undefined>(row: T): T
   return row;
 }
 
-/**
- * Fragmento SELECT que marca si el mensaje está guardado por quien consulta.
- * Empuja el id del viewer en `params`, así que el orden de llamada importa: los
- * placeholders que se agreguen después tienen que contar con ese parámetro.
- */
-function savedMessageSelect(viewerUserId: string | undefined | null, params: any[]): string {
-  if (!viewerUserId) {
-    return 'FALSE AS is_saved, NULL::text AS saved_note';
-  }
-  const idx = params.length + 1;
-  params.push(viewerUserId);
-  return `(EXISTS (
-    SELECT 1 FROM saved_messages sm
-    WHERE sm.message_id = m.id AND sm.user_id = $${idx}
-  )) AS is_saved,
-  (SELECT sm.note FROM saved_messages sm
-   WHERE sm.message_id = m.id AND sm.user_id = $${idx}
-   LIMIT 1) AS saved_note`;
+// ── Timeline ──────────────────────────────────────────────────────────────
+// Antes cada consulta agregaba adjuntos y reacciones con json_agg (exclusivo de
+// PostgreSQL). Ahora son tres consultas simples —mensajes, adjuntos y
+// reacciones por lote de ids— que se arman acá, y valen en cualquier motor
+// (docs/MULTI_DB.md, etapa 3). La forma de la respuesta es la misma.
+
+/** Adjunto tal como lo devolvía json_build_object (mismas claves, mismo orden). */
+interface TimelineAttachment {
+  id: string;
+  object_type: string;
+  original_filename: string | null;
+  mime_type: string | null;
+  file_size_bytes: number;
+  image_width: number | null;
+  image_height: number | null;
+  duration_ms: number | null;
 }
+
+/** Reacción agrupada por emoji. `count` va como texto, igual que antes (COUNT::text). */
+interface TimelineReaction {
+  emoji: string;
+  count: string;
+  user_ids: string[];
+}
+
+const toNumber = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
 
 class MessageRepository extends BaseRepository<MessageRow> {
   constructor() {
@@ -104,15 +115,109 @@ class MessageRepository extends BaseRepository<MessageRow> {
   // Reconstruye el índice ciego de búsqueda (HMAC de tokens) de un mensaje a
   // partir de su texto plano. Se llama tras crear/editar.
   async _setSearchTokens(messageId: string, plainBody: string | null): Promise<void> {
-    await this.query('DELETE FROM message_search_tokens WHERE message_id = $1', [messageId]);
+    await this.db.deleteFrom('message_search_tokens').where('message_id', '=', messageId).execute();
     const tokens = searchTokens(plainBody);
     if (tokens.length === 0) return;
-    await this.query(
-      `INSERT INTO message_search_tokens (message_id, token)
-       SELECT $1, t FROM unnest($2::text[]) AS t
-       ON CONFLICT (message_id, token) DO NOTHING`,
-      [messageId, tokens]
-    );
+    await insertIgnore(this.db, 'message_search_tokens', tokens.map((token) => ({ message_id: messageId, token })));
+  }
+
+  /**
+   * Mensajes con remitente y, opcionalmente, el mensaje al que responden y los
+   * contadores (acuses y respuestas en hilo). También si el que consulta lo
+   * guardó y su nota. Sin adjuntos ni reacciones: los agrega `enrich()`.
+   */
+  private timelineQuery(viewerUserId: string | undefined | null, { withReplyAndCounts }: { withReplyAndCounts: boolean }) {
+    const base = this.db.selectFrom('messages as m')
+      .leftJoin('users as u', 'u.id', 'm.sender_id')
+      .leftJoin('messages as rm', 'rm.id', 'm.reply_to_id')
+      .leftJoin('users as ru', 'ru.id', 'rm.sender_id')
+      .selectAll('m')
+      .select(['u.username as sender_username', 'u.display_name as sender_display_name', 'u.avatar_object_key as sender_avatar_key']);
+
+    const withExtras = withReplyAndCounts
+      ? base.select((eb) => [
+        'rm.body as reply_to_body',
+        'rm.type as reply_to_type',
+        'ru.display_name as reply_to_sender',
+        eb.selectFrom('message_receipts as mr').select((s) => s.fn.countAll<string>().as('n'))
+          .whereRef('mr.message_id', '=', 'm.id').where('mr.delivered_at', 'is not', null)
+          .as('delivered_count'),
+        eb.selectFrom('message_receipts as mr').select((s) => s.fn.countAll<string>().as('n'))
+          .whereRef('mr.message_id', '=', 'm.id').where('mr.read_at', 'is not', null)
+          .as('read_count'),
+        eb.selectFrom('messages as tm').select((s) => s.cast<number>(s.fn.countAll(), 'integer').as('n'))
+          .whereRef('tm.thread_id', '=', 'm.id').where('tm.is_deleted', '=', false)
+          .as('thread_count'),
+      ])
+      : base;
+
+    if (!viewerUserId) {
+      return withExtras.select(() => [bool(false).as('is_saved'), sql<string | null>`NULL`.as('saved_note')]);
+    }
+    return withExtras.select((eb) => [
+      eb.exists(eb.selectFrom('saved_messages as sm').select('sm.message_id')
+        .whereRef('sm.message_id', '=', 'm.id').where('sm.user_id', '=', viewerUserId)).as('is_saved'),
+      eb.selectFrom('saved_messages as sm').select('sm.note')
+        .whereRef('sm.message_id', '=', 'm.id').where('sm.user_id', '=', viewerUserId)
+        .limit(1)
+        .as('saved_note'),
+    ]);
+  }
+
+  /** Agrega `attachments` y `reactions` a cada mensaje (dos consultas por lote) y descifra. */
+  private async enrich(rows: MessageRow[]): Promise<MessageRow[]> {
+    const ids = rows.map((r) => r.id);
+    const attachments = new Map<string, TimelineAttachment[]>();
+    const reactions = new Map<string, TimelineReaction[]>();
+
+    if (ids.length > 0) {
+      const files = await this.db.selectFrom('message_attachments as ma')
+        .innerJoin('storage_objects as so', 'so.id', 'ma.object_id')
+        .select(['ma.message_id', 'so.id', 'so.object_type', 'so.original_filename', 'so.mime_type',
+          'so.file_size_bytes', 'so.image_width', 'so.image_height', 'so.duration_ms'])
+        .where('ma.message_id', 'in', ids)
+        .orderBy('ma.message_id')
+        .orderBy('ma.sort_order')
+        .execute();
+      for (const f of files) {
+        const list = attachments.get(f.message_id) ?? [];
+        list.push({
+          id: f.id,
+          object_type: f.object_type,
+          original_filename: f.original_filename,
+          mime_type: f.mime_type,
+          file_size_bytes: Number(f.file_size_bytes),
+          image_width: toNumber(f.image_width),
+          image_height: toNumber(f.image_height),
+          duration_ms: toNumber(f.duration_ms),
+        });
+        attachments.set(f.message_id, list);
+      }
+
+      const votes = await this.db.selectFrom('message_reactions')
+        .select(['message_id', 'emoji', 'user_id'])
+        .where('message_id', 'in', ids)
+        .orderBy('created_at')
+        .execute();
+      for (const v of votes) {
+        const list = reactions.get(v.message_id) ?? [];
+        let group = list.find((g) => g.emoji === v.emoji);
+        if (!group) {
+          group = { emoji: v.emoji, count: '0', user_ids: [] };
+          list.push(group);
+        }
+        group.user_ids.push(v.user_id);
+        group.count = String(group.user_ids.length);
+        reactions.set(v.message_id, list);
+      }
+    }
+
+    for (const row of rows) {
+      row.attachments = attachments.get(row.id) ?? [];
+      row.reactions = reactions.get(row.id) ?? [];
+      decryptRow(row);
+    }
+    return rows;
   }
 
   async create(
@@ -131,15 +236,32 @@ class MessageRepository extends BaseRepository<MessageRow> {
     },
   ): Promise<MessageRow> {
     const plainBody = body || null;
-    const { rows } = await this.query(
-      `INSERT INTO messages (conversation_id, sender_id, type, body, body_format, reply_to_id, thread_id, forwarded_from_id, forwarded_from_conv, metadata)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-       RETURNING *`,
-      [conversation_id, sender_id, type || 'text', encrypt(plainBody), body_format || 'plain',
-       reply_to_id || null, thread_id || null, forwarded_from_id || null, forwarded_from_conv || null, metadata || {}]
-    );
-    await this._setSearchTokens(rows[0].id, plainBody);
-    return decryptRow(rows[0]);
+    const row = await this.db.transaction().execute(async (trx) => {
+      const inserted = await trx.insertInto('messages')
+      .values({
+        conversation_id,
+        sender_id,
+        type: type || 'text',
+        body: encrypt(plainBody),
+        body_format: body_format || 'plain',
+        reply_to_id: reply_to_id || null,
+        thread_id: thread_id || null,
+        forwarded_from_id: forwarded_from_id || null,
+        forwarded_from_conv: forwarded_from_conv || null,
+        metadata: json(metadata || {}),
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+      // La conversación apunta a su último mensaje (antes lo hacía el trigger
+      // fn_update_conversation_last_message). updated_at lo pone UpdatedAtPlugin.
+      await trx.updateTable('conversations')
+        .set({ last_message_at: inserted.sent_at, last_message_id: inserted.id })
+        .where('id', '=', conversation_id)
+        .execute();
+      return inserted;
+    }) as unknown as MessageRow;
+    await this._setSearchTokens(row.id, plainBody);
+    return decryptRow(row);
   }
 
   async findByConversation(
@@ -153,133 +275,27 @@ class MessageRepository extends BaseRepository<MessageRow> {
   ): Promise<MessageRow[]> {
     // Thread replies live in their own side panel; the main timeline only
     // shows root messages (with a reply counter aggregated below).
-    let condition = 'm.conversation_id = $1 AND m.thread_id IS NULL';
-    const params: any[] = [conversationId];
-
+    let q = this.timelineQuery(viewerUserId, { withReplyAndCounts: true })
+      .where('m.conversation_id', '=', conversationId)
+      .where('m.thread_id', 'is', null);
     if (cursor) {
-      const op = direction === 'before' ? '<' : '>';
       const cursorMsg = await this.findById(cursor);
-      if (cursorMsg) {
-        condition += ` AND m.sent_at ${op} $${params.length + 1}`;
-        params.push(cursorMsg.sent_at);
-      }
+      if (cursorMsg) q = q.where('m.sent_at', direction === 'before' ? '<' : '>', cursorMsg.sent_at as Date);
     }
-
-    const savedSql = savedMessageSelect(viewerUserId, params);
-    params.push(limit);
-    const order = direction === 'before' ? 'DESC' : 'ASC';
-
-    const { rows } = await this.query(
-      `SELECT m.*,
-              u.username AS sender_username,
-              u.display_name AS sender_display_name,
-              u.avatar_object_key AS sender_avatar_key,
-              rm.body AS reply_to_body,
-              rm.type AS reply_to_type,
-              ru.display_name AS reply_to_sender,
-              COALESCE(
-                json_agg(
-                  json_build_object(
-                    'id', so.id,
-                    'object_type', so.object_type,
-                    'original_filename', so.original_filename,
-                    'mime_type', so.mime_type,
-                    'file_size_bytes', so.file_size_bytes,
-                    'image_width', so.image_width,
-                    'image_height', so.image_height,
-                    'duration_ms', so.duration_ms
-                  ) ORDER BY ma.sort_order
-                ) FILTER (WHERE ma.id IS NOT NULL),
-                '[]'
-              ) AS attachments,
-              -- Receipt aggregation: count of delivered and read per message
-              (SELECT COUNT(*) FROM message_receipts mr WHERE mr.message_id = m.id AND mr.delivered_at IS NOT NULL) AS delivered_count,
-              (SELECT COUNT(*) FROM message_receipts mr WHERE mr.message_id = m.id AND mr.read_at IS NOT NULL) AS read_count,
-              (SELECT COUNT(*) FROM messages tm WHERE tm.thread_id = m.id AND tm.is_deleted = FALSE)::int AS thread_count,
-              -- Reactions aggregation
-              COALESCE(
-                (SELECT json_agg(json_build_object('emoji', r.emoji, 'count', r.cnt, 'user_ids', r.user_ids))
-                 FROM (
-                   SELECT emoji,
-                          COUNT(*)::text AS cnt,
-                          json_agg(user_id) AS user_ids
-                   FROM message_reactions
-                   WHERE message_id = m.id
-                   GROUP BY emoji
-                 ) r),
-                '[]'
-              ) AS reactions,
-              ${savedSql}
-       FROM messages m
-       LEFT JOIN users u ON u.id = m.sender_id
-       LEFT JOIN messages rm ON rm.id = m.reply_to_id
-       LEFT JOIN users ru ON ru.id = rm.sender_id
-       LEFT JOIN message_attachments ma ON ma.message_id = m.id
-       LEFT JOIN storage_objects so ON so.id = ma.object_id
-       WHERE ${condition}
-       GROUP BY m.id, u.username, u.display_name, u.avatar_object_key, rm.body, rm.type, ru.display_name
-       ORDER BY m.sent_at ${order}
-       LIMIT $${params.length}`,
-      params
-    );
-
-    rows.forEach((r) => decryptRow(r));
+    const rows = await q
+      .orderBy('m.sent_at', direction === 'before' ? 'desc' : 'asc')
+      .limit(limit)
+      .execute() as unknown as MessageRow[];
+    await this.enrich(rows);
     return direction === 'before' ? rows.reverse() : rows;
   }
 
   async findWithAttachments(messageId: string, viewerUserId?: string): Promise<MessageRow | null> {
-    const params: any[] = [messageId];
-    const savedSql = savedMessageSelect(viewerUserId, params);
-    const { rows } = await this.query(
-      `SELECT m.*,
-              u.username AS sender_username,
-              u.display_name AS sender_display_name,
-              u.avatar_object_key AS sender_avatar_key,
-              rm.body AS reply_to_body,
-              rm.type AS reply_to_type,
-              ru.display_name AS reply_to_sender,
-              COALESCE(
-                json_agg(
-                  json_build_object(
-                    'id', so.id,
-                    'object_type', so.object_type,
-                    'original_filename', so.original_filename,
-                    'mime_type', so.mime_type,
-                    'file_size_bytes', so.file_size_bytes,
-                    'image_width', so.image_width,
-                    'image_height', so.image_height,
-                    'duration_ms', so.duration_ms
-                  ) ORDER BY ma.sort_order
-                ) FILTER (WHERE ma.id IS NOT NULL),
-                '[]'
-              ) AS attachments,
-              (SELECT COUNT(*) FROM message_receipts mr WHERE mr.message_id = m.id AND mr.delivered_at IS NOT NULL) AS delivered_count,
-              (SELECT COUNT(*) FROM message_receipts mr WHERE mr.message_id = m.id AND mr.read_at IS NOT NULL) AS read_count,
-              (SELECT COUNT(*) FROM messages tm WHERE tm.thread_id = m.id AND tm.is_deleted = FALSE)::int AS thread_count,
-              COALESCE(
-                (SELECT json_agg(json_build_object('emoji', r.emoji, 'count', r.cnt, 'user_ids', r.user_ids))
-                 FROM (
-                   SELECT emoji,
-                          COUNT(*)::text AS cnt,
-                          json_agg(user_id) AS user_ids
-                   FROM message_reactions
-                   WHERE message_id = m.id
-                   GROUP BY emoji
-                 ) r),
-                '[]'
-              ) AS reactions,
-              ${savedSql}
-       FROM messages m
-       LEFT JOIN users u ON u.id = m.sender_id
-       LEFT JOIN messages rm ON rm.id = m.reply_to_id
-       LEFT JOIN users ru ON ru.id = rm.sender_id
-       LEFT JOIN message_attachments ma ON ma.message_id = m.id
-       LEFT JOIN storage_objects so ON so.id = ma.object_id
-       WHERE m.id = $1
-       GROUP BY m.id, u.username, u.display_name, u.avatar_object_key, rm.body, rm.type, ru.display_name`,
-      params
-    );
-    return decryptRow(rows[0]) || null;
+    const row = await this.timelineQuery(viewerUserId, { withReplyAndCounts: true })
+      .where('m.id', '=', messageId)
+      .executeTakeFirst() as unknown as MessageRow | undefined;
+    if (!row) return null;
+    return (await this.enrich([row]))[0];
   }
 
   // All replies of a thread (oldest first), with the same enrichment as the
@@ -288,72 +304,31 @@ class MessageRepository extends BaseRepository<MessageRow> {
     threadId: string,
     { limit = 200, viewerUserId }: { limit?: number; viewerUserId?: string } = {},
   ): Promise<MessageRow[]> {
-    const params: any[] = [threadId];
-    const savedSql = savedMessageSelect(viewerUserId, params);
-    params.push(limit);
-    const { rows } = await this.query(
-      `SELECT m.*,
-              u.username AS sender_username,
-              u.display_name AS sender_display_name,
-              u.avatar_object_key AS sender_avatar_key,
-              COALESCE(
-                json_agg(
-                  json_build_object(
-                    'id', so.id,
-                    'object_type', so.object_type,
-                    'original_filename', so.original_filename,
-                    'mime_type', so.mime_type,
-                    'file_size_bytes', so.file_size_bytes,
-                    'image_width', so.image_width,
-                    'image_height', so.image_height,
-                    'duration_ms', so.duration_ms
-                  ) ORDER BY ma.sort_order
-                ) FILTER (WHERE ma.id IS NOT NULL),
-                '[]'
-              ) AS attachments,
-              COALESCE(
-                (SELECT json_agg(json_build_object('emoji', r.emoji, 'count', r.cnt, 'user_ids', r.user_ids))
-                 FROM (
-                   SELECT emoji,
-                          COUNT(*)::text AS cnt,
-                          json_agg(user_id) AS user_ids
-                   FROM message_reactions
-                   WHERE message_id = m.id
-                   GROUP BY emoji
-                 ) r),
-                '[]'
-              ) AS reactions,
-              ${savedSql}
-       FROM messages m
-       LEFT JOIN users u ON u.id = m.sender_id
-       LEFT JOIN message_attachments ma ON ma.message_id = m.id
-       LEFT JOIN storage_objects so ON so.id = ma.object_id
-       WHERE m.thread_id = $1
-       GROUP BY m.id, u.username, u.display_name, u.avatar_object_key
-       ORDER BY m.sent_at ASC
-       LIMIT $${params.length}`,
-      params
-    );
-    rows.forEach((r) => decryptRow(r));
-    return rows;
+    const rows = await this.timelineQuery(viewerUserId, { withReplyAndCounts: false })
+      .where('m.thread_id', '=', threadId)
+      .orderBy('m.sent_at', 'asc')
+      .limit(limit)
+      .execute() as unknown as MessageRow[];
+    return this.enrich(rows);
   }
 
   /** Autor de la raíz + quienes respondieron en el hilo (sin repetir). */
   async getThreadParticipantIds(threadId: string): Promise<string[]> {
-    const { rows } = await this.query<{ sender_id: string }>(
-      `SELECT DISTINCT sender_id FROM messages
-       WHERE (id = $1 OR thread_id = $1) AND is_deleted = FALSE AND sender_id IS NOT NULL`,
-      [threadId]
-    );
-    return rows.map((r) => r.sender_id);
+    const rows = await this.db.selectFrom('messages').select('sender_id').distinct()
+      .where((eb) => eb.or([eb('id', '=', threadId), eb('thread_id', '=', threadId)]))
+      .where('is_deleted', '=', false)
+      .where('sender_id', 'is not', null)
+      .execute();
+    return rows.map((r) => r.sender_id as string);
   }
 
   async countThreadReplies(threadId: string): Promise<number> {
-    const { rows } = await this.query<{ count: number }>(
-      `SELECT COUNT(*)::int AS count FROM messages WHERE thread_id = $1 AND is_deleted = FALSE`,
-      [threadId]
-    );
-    return rows[0]?.count ?? 0;
+    const row = await this.db.selectFrom('messages')
+      .select((eb) => eb.cast<number>(eb.fn.countAll(), 'integer').as('count'))
+      .where('thread_id', '=', threadId)
+      .where('is_deleted', '=', false)
+      .executeTakeFirst();
+    return row?.count ?? 0;
   }
 
   async updateBody(
@@ -367,73 +342,71 @@ class MessageRepository extends BaseRepository<MessageRow> {
     // vuelve a cifrar antes de guardarlo en el historial).
     const original = await this.findById(id);
     if (original && original.body) {
-      await this.query(
-        `INSERT INTO message_edits (message_id, body_before, edited_by) VALUES ($1, $2, $3)`,
-        [id, encrypt(original.body), editedBy]
-      );
+      await this.db.insertInto('message_edits')
+        .values({ message_id: id, body_before: encrypt(original.body) as string, edited_by: editedBy })
+        .execute();
     }
 
     // `metadata` sólo se pisa si el service lo recalculó (menciones); si no,
     // la fila conserva la que tenía (idioma de un bloque de código, sticker…).
-    const { rows } = metadata === undefined
-      ? await this.query(
-          `UPDATE messages SET body = $1, body_format = $2, is_edited = TRUE, edited_at = NOW()
-           WHERE id = $3 RETURNING *`,
-          [encrypt(body || null), bodyFormat || 'plain', id]
-        )
-      : await this.query(
-          `UPDATE messages SET body = $1, body_format = $2, metadata = $3, is_edited = TRUE, edited_at = NOW()
-           WHERE id = $4 RETURNING *`,
-          [encrypt(body || null), bodyFormat || 'plain', metadata, id]
-        );
+    const row = await this.db.updateTable('messages')
+      .set({
+        body: encrypt(body || null),
+        body_format: bodyFormat || 'plain',
+        ...(metadata === undefined ? {} : { metadata: json(metadata) }),
+        is_edited: true,
+        edited_at: now(),
+      })
+      .where('id', '=', id)
+      .returningAll()
+      .executeTakeFirst();
     await this._setSearchTokens(id, body || null);
-    return decryptRow(rows[0]);
+    return decryptRow(row as unknown as MessageRow);
   }
 
   async softDelete(id: string, deletedBy: string): Promise<MessageRow> {
-    const { rows } = await this.query(
-      `UPDATE messages SET is_deleted = TRUE, deleted_at = NOW(), deleted_by = $2,
-              body = NULL, type = 'deleted_placeholder'
-       WHERE id = $1 RETURNING *`,
-      [id, deletedBy]
-    );
+    const row = await this.db.updateTable('messages')
+      .set({ is_deleted: true, deleted_at: now(), deleted_by: deletedBy, body: null, type: 'deleted_placeholder' })
+      .where('id', '=', id)
+      .returningAll()
+      .executeTakeFirst();
     // El contenido desaparece → quitamos sus tokens del índice de búsqueda.
-    await this.query('DELETE FROM message_search_tokens WHERE message_id = $1', [id]);
-    return decryptRow(rows[0]);
+    await this.db.deleteFrom('message_search_tokens').where('message_id', '=', id).execute();
+    return decryptRow(row as unknown as MessageRow);
   }
 
   // Returns only attachment objects that are NOT shared with another message
   // (e.g. forwarded copies reference the same object_id). Callers use this to
   // physically remove MinIO files without breaking the original message.
   async getAttachmentObjects(messageId: string): Promise<ExclusiveAttachment[]> {
-    const { rows } = await this.query<ExclusiveAttachment>(
-      `SELECT so.bucket_name, so.object_key, so.thumbnail_bucket, so.thumbnail_key, ma.id AS attachment_id, so.id AS object_id
-       FROM message_attachments ma
-       JOIN storage_objects so ON so.id = ma.object_id
-       WHERE ma.message_id = $1
-         AND (SELECT COUNT(*) FROM message_attachments ma2 WHERE ma2.object_id = ma.object_id) = 1`,
-      [messageId]
-    );
-    return rows;
+    return this.db.selectFrom('message_attachments as ma')
+      .innerJoin('storage_objects as so', 'so.id', 'ma.object_id')
+      .select(['so.bucket_name', 'so.object_key', 'so.thumbnail_bucket', 'so.thumbnail_key', 'ma.id as attachment_id', 'so.id as object_id'])
+      .where('ma.message_id', '=', messageId)
+      .where((eb) => eb(
+        eb.selectFrom('message_attachments as ma2').select((s) => s.fn.countAll().as('n')).whereRef('ma2.object_id', '=', 'ma.object_id'),
+        '=',
+        1,
+      ))
+      .execute() as Promise<ExclusiveAttachment[]>;
   }
 
   // Object ids attached to a message (used to clone attachments when forwarding)
   async getAttachmentObjectIds(messageId: string): Promise<string[]> {
-    const { rows } = await this.query<{ object_id: string }>(
-      `SELECT object_id FROM message_attachments WHERE message_id = $1 ORDER BY sort_order`,
-      [messageId]
-    );
+    const rows = await this.db.selectFrom('message_attachments').select('object_id')
+      .where('message_id', '=', messageId)
+      .orderBy('sort_order')
+      .execute();
     return rows.map((r) => r.object_id);
   }
 
   async deleteAttachments(messageId: string): Promise<void> {
-    await this.query(`DELETE FROM message_attachments WHERE message_id = $1`, [messageId]);
-    await this.query(
-      `DELETE FROM storage_objects WHERE id IN (
-         SELECT object_id FROM message_attachments WHERE message_id = $1
-       )`,
-      [messageId]
-    );
+    await this.db.deleteFrom('message_attachments').where('message_id', '=', messageId).execute();
+    // Mismo orden que antes: al correr, los adjuntos ya no están y la
+    // subconsulta no encuentra objetos (ver docs/MULTI_DB.md, hallazgos).
+    await this.db.deleteFrom('storage_objects')
+      .where('id', 'in', (eb) => eb.selectFrom('message_attachments').select('object_id').where('message_id', '=', messageId))
+      .execute();
   }
 
   async addAttachment(
@@ -442,12 +415,11 @@ class MessageRepository extends BaseRepository<MessageRow> {
     sortOrder = 0,
     caption: string | null = null,
   ): Promise<Row<'message_attachments'>> {
-    const { rows } = await this.query<Row<'message_attachments'>>(
-      `INSERT INTO message_attachments (message_id, object_id, sort_order, caption)
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [messageId, objectId, sortOrder, caption]
-    );
-    return rows[0];
+    const row = await this.db.insertInto('message_attachments')
+      .values({ message_id: messageId, object_id: objectId, sort_order: sortOrder, caption })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    return row as Row<'message_attachments'>;
   }
 
   async toggleReaction(
@@ -455,52 +427,55 @@ class MessageRepository extends BaseRepository<MessageRow> {
     userId: string,
     emoji: string,
   ): Promise<ReactionToggleResult> {
-    const { rows } = await this.query<{ emoji: string }>(
-      `SELECT emoji FROM message_reactions WHERE message_id = $1 AND user_id = $2`,
-      [messageId, userId]
-    );
-    const existing = rows[0];
+    const existing = await this.reactionsOf(messageId, userId).select('emoji').executeTakeFirst();
     if (existing) {
       if (existing.emoji === emoji) {
         // Same emoji → remove it
-        await this.query(
-          `DELETE FROM message_reactions WHERE message_id = $1 AND user_id = $2`,
-          [messageId, userId]
-        );
+        await this.db.deleteFrom('message_reactions')
+          .where('message_id', '=', messageId).where('user_id', '=', userId)
+          .execute();
         return 'removed';
       }
       // Different emoji → update to new one
-      await this.query(
-        `UPDATE message_reactions SET emoji = $3 WHERE message_id = $1 AND user_id = $2`,
-        [messageId, userId, emoji]
-      );
+      await this.db.updateTable('message_reactions')
+        .set({ emoji })
+        .where('message_id', '=', messageId).where('user_id', '=', userId)
+        .execute();
       return 'updated';
     }
-    await this.query(
-      `INSERT INTO message_reactions (message_id, user_id, emoji) VALUES ($1, $2, $3)`,
-      [messageId, userId, emoji]
-    );
+    await this.db.insertInto('message_reactions').values({ message_id: messageId, user_id: userId, emoji }).execute();
     return 'added';
   }
 
-  async removeReaction(messageId: string, userId: string, emoji: string): Promise<boolean> {
-    const { rowCount } = await this.query(
-      `DELETE FROM message_reactions WHERE message_id = $1 AND user_id = $2 AND emoji = $3`,
-      [messageId, userId, emoji]
-    );
-    return (rowCount ?? 0) > 0;
+  private reactionsOf(messageId: string, userId: string) {
+    return this.db.selectFrom('message_reactions').where('message_id', '=', messageId).where('user_id', '=', userId);
   }
 
-  async getReactions(messageId: string) {
-    const { rows } = await this.query<{ emoji: string; count: string; user_ids: string[] }>(
-      `SELECT emoji, COUNT(*) AS count,
-              ARRAY_AGG(user_id) AS user_ids
-       FROM message_reactions
-       WHERE message_id = $1
-       GROUP BY emoji`,
-      [messageId]
-    );
-    return rows;
+  async removeReaction(messageId: string, userId: string, emoji: string): Promise<boolean> {
+    const result = await this.db.deleteFrom('message_reactions')
+      .where('message_id', '=', messageId).where('user_id', '=', userId).where('emoji', '=', emoji)
+      .executeTakeFirst();
+    return Number(result.numDeletedRows) > 0;
+  }
+
+  /** Reacciones agrupadas por emoji: { emoji, count (texto), user_ids }. Se agrupan acá (antes ARRAY_AGG). */
+  async getReactions(messageId: string): Promise<TimelineReaction[]> {
+    const votes = await this.db.selectFrom('message_reactions')
+      .select(['emoji', 'user_id'])
+      .where('message_id', '=', messageId)
+      .orderBy('created_at')
+      .execute();
+    const groups: TimelineReaction[] = [];
+    for (const v of votes) {
+      let group = groups.find((g) => g.emoji === v.emoji);
+      if (!group) {
+        group = { emoji: v.emoji, count: '0', user_ids: [] };
+        groups.push(group);
+      }
+      group.user_ids.push(v.user_id);
+      group.count = String(group.user_ids.length);
+    }
+    return groups;
   }
 
   async addReceipt(
@@ -512,38 +487,40 @@ class MessageRepository extends BaseRepository<MessageRow> {
       // Leer implica haber recibido: fijamos read_at y, si todavía no había
       // marca de entrega, completamos delivered_at en la misma operación para
       // que la "Información del mensaje" muestre ambas horas de forma coherente.
-      const { rows } = await this.query<Row<'message_receipts'>>(
-        `INSERT INTO message_receipts (message_id, user_id, delivered_at, read_at)
-         VALUES ($1, $2, NOW(), NOW())
-         ON CONFLICT (message_id, user_id) DO UPDATE
-           SET read_at = NOW(),
-               delivered_at = COALESCE(message_receipts.delivered_at, NOW())
-         RETURNING *`,
-        [messageId, userId]
-      );
-      return rows[0];
+      const row = await upsert(this.db, { table: 'message_receipts', values: { message_id: messageId, user_id: userId, delivered_at: now(), read_at: now() }, conflict: ['message_id', 'user_id'], update: (eb) => ({
+          read_at: now(),
+          delivered_at: eb.fn.coalesce('message_receipts.delivered_at', now()),
+        }), returning: true });
+      return row as Row<'message_receipts'>;
     }
-    const { rows } = await this.query<Row<'message_receipts'>>(
-      `INSERT INTO message_receipts (message_id, user_id, delivered_at)
-       VALUES ($1, $2, NOW())
-       ON CONFLICT (message_id, user_id) DO UPDATE
-         SET delivered_at = COALESCE(message_receipts.delivered_at, NOW())
-       RETURNING *`,
-      [messageId, userId]
+    const row = await upsert(this.db, { table: 'message_receipts', values: { message_id: messageId, user_id: userId, delivered_at: now() }, conflict: ['message_id', 'user_id'], update: (eb) => ({
+        delivered_at: eb.fn.coalesce('message_receipts.delivered_at', now()),
+      }), returning: true });
+    return row as Row<'message_receipts'>;
+  }
+
+  /** delivered_count / read_count como SUM(CASE), que vale en cualquier motor. */
+  private receiptCountColumns(eb: ExpressionBuilder<DB, 'message_receipts'>) {
+    const countWhere = (column: 'delivered_at' | 'read_at') => eb.fn.coalesce(
+      eb.fn.sum(eb.case().when(column, 'is not', null).then(1).else(0).end()),
+      eb.lit(0),
     );
-    return rows[0];
+    return {
+      delivered: countWhere('delivered_at'),
+      read: countWhere('read_at'),
+    };
   }
 
   async getReceiptCounts(messageId: string): Promise<ReceiptCounts> {
-    const { rows } = await this.query<ReceiptCounts>(
-      `SELECT
-         COUNT(*) FILTER (WHERE delivered_at IS NOT NULL) AS delivered_count,
-         COUNT(*) FILTER (WHERE read_at IS NOT NULL) AS read_count
-       FROM message_receipts
-       WHERE message_id = $1`,
-      [messageId]
-    );
-    return rows[0] || { delivered_count: 0, read_count: 0 };
+    const row = await this.db.selectFrom('message_receipts')
+      .select((eb) => {
+        const c = this.receiptCountColumns(eb);
+        // Como antes, vuelven como string (bigint de COUNT).
+        return [eb.cast<number>(c.delivered, 'bigint').as('delivered_count'), eb.cast<number>(c.read, 'bigint').as('read_count')];
+      })
+      .where('message_id', '=', messageId)
+      .executeTakeFirst();
+    return row || { delivered_count: 0, read_count: 0 };
   }
 
   // Estado de entrega/lectura por cada destinatario de un mensaje, para la
@@ -552,37 +529,34 @@ class MessageRepository extends BaseRepository<MessageRow> {
   // que quien todavía no recibió ni leyó aparece con delivered_at/read_at en
   // NULL ("pendiente de entrega") en lugar de desaparecer de la lista.
   async getReceipts(messageId: string): Promise<ReceiptDetail[]> {
-    const { rows } = await this.query<ReceiptDetail>(
-      `SELECT cm.user_id, mr.delivered_at, mr.read_at,
-              u.display_name, u.username, u.avatar_object_key, u.avatar_bucket
-       FROM messages m
-       JOIN conversation_members cm
-         ON cm.conversation_id = m.conversation_id
-        AND cm.left_at IS NULL
-        AND cm.user_id <> m.sender_id
-       JOIN users u ON u.id = cm.user_id
-       LEFT JOIN message_receipts mr
-         ON mr.message_id = m.id AND mr.user_id = cm.user_id
-       WHERE m.id = $1
-       ORDER BY mr.read_at DESC NULLS LAST,
-                mr.delivered_at DESC NULLS LAST,
-                u.display_name ASC`,
-      [messageId]
-    );
-    return rows;
+    return this.db.selectFrom('messages as m')
+      .innerJoin('conversation_members as cm', (j) => j
+        .onRef('cm.conversation_id', '=', 'm.conversation_id')
+        .on('cm.left_at', 'is', null)
+        .onRef('cm.user_id', '<>', 'm.sender_id'))
+      .innerJoin('users as u', 'u.id', 'cm.user_id')
+      .leftJoin('message_receipts as mr', (j) => j
+        .onRef('mr.message_id', '=', 'm.id')
+        .onRef('mr.user_id', '=', 'cm.user_id'))
+      .select(['cm.user_id', 'mr.delivered_at', 'mr.read_at', 'u.display_name', 'u.username', 'u.avatar_object_key', 'u.avatar_bucket'])
+      .where('m.id', '=', messageId)
+      // TODO(etapa 3): NULLS LAST no existe en SQL Server.
+      .orderBy('mr.read_at', (ob) => ob.desc().nullsLast())
+      .orderBy('mr.delivered_at', (ob) => ob.desc().nullsLast())
+      .orderBy('u.display_name', 'asc')
+      .execute() as Promise<ReceiptDetail[]>;
   }
 
   async getReceiptCountsBatch(messageIds: string[]): Promise<Record<string, ReceiptCounts>> {
     if (!messageIds.length) return {};
-    const { rows } = await this.query<{ message_id: string } & ReceiptCounts>(
-      `SELECT message_id,
-         COUNT(*) FILTER (WHERE delivered_at IS NOT NULL)::int AS delivered_count,
-         COUNT(*) FILTER (WHERE read_at IS NOT NULL)::int AS read_count
-       FROM message_receipts
-       WHERE message_id = ANY($1)
-       GROUP BY message_id`,
-      [messageIds]
-    );
+    const rows = await this.db.selectFrom('message_receipts')
+      .select((eb) => {
+        const c = this.receiptCountColumns(eb);
+        return ['message_id', eb.cast<number>(c.delivered, 'integer').as('delivered_count'), eb.cast<number>(c.read, 'integer').as('read_count')];
+      })
+      .where('message_id', 'in', messageIds)
+      .groupBy('message_id')
+      .execute();
     const map: Record<string, ReceiptCounts> = {};
     for (const r of rows) {
       map[r.message_id] = { delivered_count: r.delivered_count, read_count: r.read_count };
@@ -596,20 +570,23 @@ class MessageRepository extends BaseRepository<MessageRow> {
     // los tokens). Sin ranking ni stemming (trade-off del cifrado en reposo).
     const tokens = searchQueryTokens(term);
     if (tokens.length === 0) return [];
-    const { rows } = await this.query(
-      `SELECT m.*, u.username AS sender_username, u.display_name AS sender_display_name
-       FROM messages m
-       JOIN message_search_tokens t ON t.message_id = m.id
-       LEFT JOIN users u ON u.id = m.sender_id
-       WHERE m.conversation_id = $1
-         AND m.is_deleted = FALSE
-         AND t.token = ANY($2::text[])
-       GROUP BY m.id, u.username, u.display_name
-       HAVING COUNT(DISTINCT t.token) = $3
-       ORDER BY m.sent_at DESC
-       LIMIT $4`,
-      [conversationId, tokens, tokens.length, limit]
-    );
+    // Primero los ids que tienen todos los tokens; después los mensajes. Así no
+    // hace falta agrupar por m.* (SQL Server no lo admite).
+    const rows = await this.db.selectFrom('messages as m')
+      .leftJoin('users as u', 'u.id', 'm.sender_id')
+      .selectAll('m')
+      .select(['u.username as sender_username', 'u.display_name as sender_display_name'])
+      .where('m.id', 'in', (eb) => eb.selectFrom('message_search_tokens as t')
+        .innerJoin('messages as tm', 'tm.id', 't.message_id')
+        .select('t.message_id')
+        .where('tm.conversation_id', '=', conversationId)
+        .where('tm.is_deleted', '=', false)
+        .where('t.token', 'in', tokens)
+        .groupBy('t.message_id')
+        .having((h) => h(h.fn.count('t.token').distinct(), '=', tokens.length)))
+      .orderBy('m.sent_at', 'desc')
+      .limit(limit)
+      .execute() as unknown as MessageRow[];
     rows.forEach((r) => decryptRow(r));
     return rows;
   }
@@ -624,37 +601,29 @@ class MessageRepository extends BaseRepository<MessageRow> {
     messageId: string,
     pinnedBy: string,
   ): Promise<Row<'pinned_messages'> | undefined> {
-    const { rows } = await this.query<Row<'pinned_messages'>>(
-      `INSERT INTO pinned_messages (conversation_id, message_id, pinned_by)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (conversation_id) DO UPDATE
-         SET message_id = EXCLUDED.message_id,
-             pinned_by = EXCLUDED.pinned_by,
-             pinned_at = NOW()
-       RETURNING *`,
-      [conversationId, messageId, pinnedBy]
-    );
-    return rows[0];
+    const row = await upsert(this.db, { table: 'pinned_messages', values: { conversation_id: conversationId, message_id: messageId, pinned_by: pinnedBy }, conflict: ['conversation_id'], update: {
+        message_id: messageId,
+        pinned_by: pinnedBy,
+        pinned_at: now(),
+      }, returning: true });
+    return row as Row<'pinned_messages'> | undefined;
   }
 
   async unpinMessage(conversationId: string, messageId: string): Promise<boolean> {
-    const { rowCount } = await this.query(
-      `DELETE FROM pinned_messages WHERE conversation_id = $1 AND message_id = $2`,
-      [conversationId, messageId]
-    );
-    return (rowCount ?? 0) > 0;
+    const result = await this.db.deleteFrom('pinned_messages')
+      .where('conversation_id', '=', conversationId).where('message_id', '=', messageId)
+      .executeTakeFirst();
+    return Number(result.numDeletedRows) > 0;
   }
 
   async getPinnedMessage(conversationId: string): Promise<MessageRow | undefined> {
-    const { rows } = await this.query(
-      `SELECT m.*, pm.pinned_by, pm.pinned_at,
-              u.username AS sender_username, u.display_name AS sender_display_name
-       FROM pinned_messages pm
-       JOIN messages m ON m.id = pm.message_id
-       LEFT JOIN users u ON u.id = m.sender_id
-       WHERE pm.conversation_id = $1`,
-      [conversationId]
-    );
+    const rows = await this.db.selectFrom('pinned_messages as pm')
+      .innerJoin('messages as m', 'm.id', 'pm.message_id')
+      .leftJoin('users as u', 'u.id', 'm.sender_id')
+      .selectAll('m')
+      .select(['pm.pinned_by', 'pm.pinned_at', 'u.username as sender_username', 'u.display_name as sender_display_name'])
+      .where('pm.conversation_id', '=', conversationId)
+      .execute() as unknown as MessageRow[];
     rows.forEach((r) => decryptRow(r));
     return rows[0];
   }
@@ -667,22 +636,20 @@ class MessageRepository extends BaseRepository<MessageRow> {
     limit: number,
     offset: number,
   ): Promise<ConversationAttachmentRow[]> {
-    const typeFilter = category === 'media'
-      ? `so.object_type IN ('image', 'video')`
-      : `so.object_type NOT IN ('image', 'video')`;
-    const { rows } = await this.query<ConversationAttachmentRow>(
-      `SELECT so.id, so.object_type, so.original_filename, so.mime_type, so.file_size_bytes,
-              so.image_width, so.image_height, so.duration_ms,
-              m.id AS message_id, m.sent_at
-       FROM message_attachments ma
-       JOIN storage_objects so ON so.id = ma.object_id
-       JOIN messages m ON m.id = ma.message_id
-       WHERE m.conversation_id = $1 AND m.is_deleted = FALSE AND ${typeFilter}
-       ORDER BY m.sent_at DESC
-       LIMIT $2 OFFSET $3`,
-      [conversationId, limit, offset]
-    );
-    return rows;
+    return this.db.selectFrom('message_attachments as ma')
+      .innerJoin('storage_objects as so', 'so.id', 'ma.object_id')
+      .innerJoin('messages as m', 'm.id', 'ma.message_id')
+      .select([
+        'so.id', 'so.object_type', 'so.original_filename', 'so.mime_type', 'so.file_size_bytes',
+        'so.image_width', 'so.image_height', 'so.duration_ms',
+        'm.id as message_id', 'm.sent_at',
+      ])
+      .where('m.conversation_id', '=', conversationId)
+      .where('m.is_deleted', '=', false)
+      .where('so.object_type', category === 'media' ? 'in' : 'not in', ['image', 'video'])
+      .orderBy('m.sent_at', 'desc')
+      .limit(limit).offset(offset)
+      .execute() as unknown as Promise<ConversationAttachmentRow[]>;
   }
 
   // Mensajes candidatos a contener un link para la pestaña Links del panel de
@@ -694,19 +661,15 @@ class MessageRepository extends BaseRepository<MessageRow> {
   async getConversationLinkCandidates(conversationId: string, limit: number): Promise<ConversationLinkCandidateRow[]> {
     const tokens = [...new Set([...searchQueryTokens('http'), ...searchQueryTokens('https')])];
     if (tokens.length === 0) return [];
-    const { rows } = await this.query<ConversationLinkCandidateRow>(
-      `SELECT m.id AS message_id, m.sent_at, m.body, u.display_name AS sender_display_name
-       FROM messages m
-       JOIN message_search_tokens t ON t.message_id = m.id
-       LEFT JOIN users u ON u.id = m.sender_id
-       WHERE m.conversation_id = $1
-         AND m.is_deleted = FALSE
-         AND t.token = ANY($2::text[])
-       GROUP BY m.id, m.sent_at, m.body, u.display_name
-       ORDER BY m.sent_at DESC
-       LIMIT $3`,
-      [conversationId, tokens, limit]
-    );
+    const rows = await this.db.selectFrom('messages as m')
+      .leftJoin('users as u', 'u.id', 'm.sender_id')
+      .select(['m.id as message_id', 'm.sent_at', 'm.body', 'u.display_name as sender_display_name'])
+      .where('m.conversation_id', '=', conversationId)
+      .where('m.is_deleted', '=', false)
+      .where('m.id', 'in', (eb) => eb.selectFrom('message_search_tokens as t').select('t.message_id').where('t.token', 'in', tokens))
+      .orderBy('m.sent_at', 'desc')
+      .limit(limit)
+      .execute() as unknown as ConversationLinkCandidateRow[];
     rows.forEach((r) => decryptRow(r));
     return rows;
   }

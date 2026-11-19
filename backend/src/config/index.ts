@@ -30,6 +30,8 @@ interface AppConfig {
   instanceId: string;
   jobs: { enabled: boolean };
   db: {
+    /** Motor de base de datos (`DB_CLIENT`). Ver docs/MULTI_DB.md. */
+    client: DbClient;
     host: string;
     port: number;
     database: string;
@@ -37,6 +39,9 @@ interface AppConfig {
     password: string;
     min: number;
     max: number;
+    /** SQL Server: conexión cifrada (`DB_ENCRYPT`) y aceptar certificados propios (`DB_TRUST_SERVER_CERT`). */
+    encrypt: boolean;
+    trustServerCertificate: boolean;
   };
   redis: { url: string };
   jwt: {
@@ -118,6 +123,18 @@ interface AppConfig {
 /** "a, b,c" → ['a', 'b', 'c']; vacío → []. */
 function list(raw: string | undefined): string[] {
   return String(raw || '').split(',').map((s) => s.trim()).filter(Boolean);
+}
+
+/** Motores soportados. Se van sumando por etapas (docs/MULTI_DB.md). */
+const DB_CLIENTS = ['postgres', 'mssql'] as const;
+export type DbClient = (typeof DB_CLIENTS)[number];
+
+function parseDbClient(raw: string | undefined): DbClient {
+  const value = (raw || 'postgres').trim().toLowerCase();
+  if (!(DB_CLIENTS as readonly string[]).includes(value)) {
+    throw new Error(`DB_CLIENT="${raw}" no está soportado. Opciones: ${DB_CLIENTS.join(', ')}.`);
+  }
+  return value as DbClient;
 }
 
 /** Convierte una variable de entorno numérica, cayendo al default si no es válida. */
@@ -208,13 +225,16 @@ const config: AppConfig = {
   },
 
   db: {
+    client: parseDbClient(process.env.DB_CLIENT),
     host: process.env.DB_HOST || 'localhost',
-    port: num(process.env.DB_PORT, 5432),
+    port: num(process.env.DB_PORT, parseDbClient(process.env.DB_CLIENT) === 'mssql' ? 1433 : 5432),
     database: process.env.DB_NAME || 'echochat',
     user: process.env.DB_USER || 'echochat',
     password: process.env.DB_PASSWORD || '',
     min: num(process.env.DB_POOL_MIN, 2),
     max: num(process.env.DB_POOL_MAX, 20),
+    encrypt: process.env.DB_ENCRYPT === 'true',
+    trustServerCertificate: process.env.DB_TRUST_SERVER_CERT !== 'false',
   },
 
   // Estado compartido entre instancias (adapter de Socket.IO, presencia, rate

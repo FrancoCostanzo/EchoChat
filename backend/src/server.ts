@@ -2,7 +2,7 @@ import http from 'http';
 import app from './app';
 import config from './config';
 import logger from './config/logger';
-import { pool } from './config/database';
+import { closeDb } from './config/db';
 import { setup } from './config/migrate';
 import { ensureBuckets } from './config/storage';
 import { closeRedis } from './config/redis';
@@ -69,7 +69,7 @@ async function shutdown(signal: string): Promise<void> {
     stopJobs();
     await closeSocket();
     await closeRedis();
-    await pool.end();
+    await closeDb();
   } catch (err) {
     logger.warn({ err: (err as Error).message }, 'Error durante el apagado');
   }

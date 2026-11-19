@@ -1,4 +1,3 @@
-import 'express-async-errors';
 import express from 'express';
 import type { Request, Response } from 'express';
 import cors from 'cors';
@@ -8,7 +7,7 @@ import rateLimit from 'express-rate-limit';
 
 import config from './config';
 import logger from './config/logger';
-import { pool } from './config/database';
+import { pingDb } from './config/db';
 import { createRateLimitStore } from './config/rateLimitStore';
 import { getRedisClient } from './config/redis';
 import routes from './routes';
@@ -70,7 +69,7 @@ app.use(pinoHttp({
 app.get('/api/health', async (req: Request, res: Response) => {
   let db = 'ok';
   try {
-    await pool.query('SELECT 1');
+    await pingDb();
   } catch {
     db = 'unavailable';
   }
