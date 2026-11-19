@@ -1,8 +1,8 @@
 # Soporte para varios motores de base de datos
 
 > Estado: **etapas 0, 1 y 2 hechas** (Kysely conectado; esquema, migraciones y seed en TypeScript;
-> los 25 repositorios consultan con Kysely). Etapa 3 en curso: triggers, funciones y columnas
-> array ya resueltos.
+> los 25 repositorios consultan con Kysely). Etapa 3 en curso: triggers, funciones, columnas
+> array y consultas del timeline ya resueltos.
 > Motores: PostgreSQL (actual) → **SQL Server** (primero) → MySQL/MariaDB y SQLite más adelante.
 
 ## Decisiones
@@ -136,6 +136,11 @@ un CTE con `DELETE … USING`, los `ORDER BY (status = 'pending')` pasan a `CASE
   usa el helper `jsonArrayLike()`. Como kysely-codegen tipa esas columnas como `Json`, su tipo
   real (lista) se declara en `types/rows.d.ts`.
 - `FILTER (WHERE)` → `CASE`.
+- ✅ Timeline de mensajes sin `json_agg`/`ARRAY_AGG`: `findByConversation`, `findWithAttachments`,
+  `findThreadReplies` y `getReactions` hacen una consulta de mensajes con el builder y traen
+  adjuntos y reacciones por lote de ids (dos consultas), que se arman en la app. Verificado con
+  datos de prueba (respuestas, hilo, adjuntos en orden, reacciones, acuses, guardados): mismos
+  valores y tipos que antes.
 
 ### Etapa 4 — Tipos portables en el schema builder (≈2 días)
 - Helpers de columna (`uuid()`, `timestamp()`, `json()`, `ip()`) que devuelven el tipo de cada

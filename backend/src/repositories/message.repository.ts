@@ -1,4 +1,4 @@
-import { sql, type ExpressionBuilder, type RawBuilder } from 'kysely';
+import { sql, type ExpressionBuilder } from 'kysely';
 import BaseRepository from './base.repository';
 import { now, json } from '../config/db/sql';
 import type { DB } from '../types/db';
@@ -73,81 +73,32 @@ function decryptRow<T extends Record<string, any> | null | undefined>(row: T): T
   return row;
 }
 
-// ── Fragmentos de las consultas de timeline ───────────────────────────────
-// TODO(etapa 3): json_agg/json_build_object y FILTER son de PostgreSQL. Estas
-// consultas se parten en tres (mensajes, adjuntos y reacciones por id de
-// mensaje) y se arman en la app, que es lo que funciona en cualquier motor.
+// ── Timeline ──────────────────────────────────────────────────────────────
+// Antes cada consulta agregaba adjuntos y reacciones con json_agg (exclusivo de
+// PostgreSQL). Ahora son tres consultas simples —mensajes, adjuntos y
+// reacciones por lote de ids— que se arman acá, y valen en cualquier motor
+// (docs/MULTI_DB.md, etapa 3). La forma de la respuesta es la misma.
 
-/** Adjuntos del mensaje como array JSON, en su orden. Requiere el JOIN a ma/so. */
-const ATTACHMENTS_AGG = sql`COALESCE(
-  json_agg(
-    json_build_object(
-      'id', so.id,
-      'object_type', so.object_type,
-      'original_filename', so.original_filename,
-      'mime_type', so.mime_type,
-      'file_size_bytes', so.file_size_bytes,
-      'image_width', so.image_width,
-      'image_height', so.image_height,
-      'duration_ms', so.duration_ms
-    ) ORDER BY ma.sort_order
-  ) FILTER (WHERE ma.id IS NOT NULL),
-  '[]'
-) AS attachments`;
-
-/** Reacciones agrupadas por emoji: [{ emoji, count, user_ids }]. */
-const REACTIONS_AGG = sql`COALESCE(
-  (SELECT json_agg(json_build_object('emoji', r.emoji, 'count', r.cnt, 'user_ids', r.user_ids))
-   FROM (
-     SELECT emoji,
-            COUNT(*)::text AS cnt,
-            json_agg(user_id) AS user_ids
-     FROM message_reactions
-     WHERE message_id = m.id
-     GROUP BY emoji
-   ) r),
-  '[]'
-) AS reactions`;
-
-/** Acuses y respuestas en hilo de cada mensaje. */
-const COUNTS = sql`(SELECT COUNT(*) FROM message_receipts mr WHERE mr.message_id = m.id AND mr.delivered_at IS NOT NULL) AS delivered_count,
-  (SELECT COUNT(*) FROM message_receipts mr WHERE mr.message_id = m.id AND mr.read_at IS NOT NULL) AS read_count,
-  (SELECT COUNT(*) FROM messages tm WHERE tm.thread_id = m.id AND tm.is_deleted = FALSE)::int AS thread_count`;
-
-/** Si el mensaje está guardado por quien consulta, y su nota personal. */
-function savedSelect(viewerUserId: string | undefined | null) {
-  if (!viewerUserId) return sql`FALSE AS is_saved, NULL::text AS saved_note`;
-  return sql`(EXISTS (
-    SELECT 1 FROM saved_messages sm
-    WHERE sm.message_id = m.id AND sm.user_id = ${viewerUserId}
-  )) AS is_saved,
-  (SELECT sm.note FROM saved_messages sm
-   WHERE sm.message_id = m.id AND sm.user_id = ${viewerUserId}
-   LIMIT 1) AS saved_note`;
+/** Adjunto tal como lo devolvía json_build_object (mismas claves, mismo orden). */
+interface TimelineAttachment {
+  id: string;
+  object_type: string;
+  original_filename: string | null;
+  mime_type: string | null;
+  file_size_bytes: number;
+  image_width: number | null;
+  image_height: number | null;
+  duration_ms: number | null;
 }
 
-/** Mensaje enriquecido completo (timeline principal y un mensaje suelto). */
-function enrichedSelect(where: RawBuilder<unknown>, viewerUserId: string | undefined | null) {
-  return sql`SELECT m.*,
-         u.username AS sender_username,
-         u.display_name AS sender_display_name,
-         u.avatar_object_key AS sender_avatar_key,
-         rm.body AS reply_to_body,
-         rm.type AS reply_to_type,
-         ru.display_name AS reply_to_sender,
-         ${ATTACHMENTS_AGG},
-         ${COUNTS},
-         ${REACTIONS_AGG},
-         ${savedSelect(viewerUserId)}
-  FROM messages m
-  LEFT JOIN users u ON u.id = m.sender_id
-  LEFT JOIN messages rm ON rm.id = m.reply_to_id
-  LEFT JOIN users ru ON ru.id = rm.sender_id
-  LEFT JOIN message_attachments ma ON ma.message_id = m.id
-  LEFT JOIN storage_objects so ON so.id = ma.object_id
-  WHERE ${where}
-  GROUP BY m.id, u.username, u.display_name, u.avatar_object_key, rm.body, rm.type, ru.display_name`;
+/** Reacción agrupada por emoji. `count` va como texto, igual que antes (COUNT::text). */
+interface TimelineReaction {
+  emoji: string;
+  count: string;
+  user_ids: string[];
 }
+
+const toNumber = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
 
 class MessageRepository extends BaseRepository<MessageRow> {
   constructor() {
@@ -170,6 +121,105 @@ class MessageRepository extends BaseRepository<MessageRow> {
       .values(tokens.map((token) => ({ message_id: messageId, token })))
       .onConflict((oc) => oc.columns(['message_id', 'token']).doNothing())
       .execute();
+  }
+
+  /**
+   * Mensajes con remitente y, opcionalmente, el mensaje al que responden y los
+   * contadores (acuses y respuestas en hilo). También si el que consulta lo
+   * guardó y su nota. Sin adjuntos ni reacciones: los agrega `enrich()`.
+   */
+  private timelineQuery(viewerUserId: string | undefined | null, { withReplyAndCounts }: { withReplyAndCounts: boolean }) {
+    const base = this.db.selectFrom('messages as m')
+      .leftJoin('users as u', 'u.id', 'm.sender_id')
+      .leftJoin('messages as rm', 'rm.id', 'm.reply_to_id')
+      .leftJoin('users as ru', 'ru.id', 'rm.sender_id')
+      .selectAll('m')
+      .select(['u.username as sender_username', 'u.display_name as sender_display_name', 'u.avatar_object_key as sender_avatar_key']);
+
+    const withExtras = withReplyAndCounts
+      ? base.select((eb) => [
+        'rm.body as reply_to_body',
+        'rm.type as reply_to_type',
+        'ru.display_name as reply_to_sender',
+        eb.selectFrom('message_receipts as mr').select((s) => s.fn.countAll<string>().as('n'))
+          .whereRef('mr.message_id', '=', 'm.id').where('mr.delivered_at', 'is not', null)
+          .as('delivered_count'),
+        eb.selectFrom('message_receipts as mr').select((s) => s.fn.countAll<string>().as('n'))
+          .whereRef('mr.message_id', '=', 'm.id').where('mr.read_at', 'is not', null)
+          .as('read_count'),
+        eb.selectFrom('messages as tm').select((s) => s.cast<number>(s.fn.countAll(), 'integer').as('n'))
+          .whereRef('tm.thread_id', '=', 'm.id').where('tm.is_deleted', '=', false)
+          .as('thread_count'),
+      ])
+      : base;
+
+    if (!viewerUserId) {
+      return withExtras.select((eb) => [eb.lit(false).as('is_saved'), sql<string | null>`NULL`.as('saved_note')]);
+    }
+    return withExtras.select((eb) => [
+      eb.exists(eb.selectFrom('saved_messages as sm').select('sm.message_id')
+        .whereRef('sm.message_id', '=', 'm.id').where('sm.user_id', '=', viewerUserId)).as('is_saved'),
+      eb.selectFrom('saved_messages as sm').select('sm.note')
+        .whereRef('sm.message_id', '=', 'm.id').where('sm.user_id', '=', viewerUserId)
+        .limit(1)
+        .as('saved_note'),
+    ]);
+  }
+
+  /** Agrega `attachments` y `reactions` a cada mensaje (dos consultas por lote) y descifra. */
+  private async enrich(rows: MessageRow[]): Promise<MessageRow[]> {
+    const ids = rows.map((r) => r.id);
+    const attachments = new Map<string, TimelineAttachment[]>();
+    const reactions = new Map<string, TimelineReaction[]>();
+
+    if (ids.length > 0) {
+      const files = await this.db.selectFrom('message_attachments as ma')
+        .innerJoin('storage_objects as so', 'so.id', 'ma.object_id')
+        .select(['ma.message_id', 'so.id', 'so.object_type', 'so.original_filename', 'so.mime_type',
+          'so.file_size_bytes', 'so.image_width', 'so.image_height', 'so.duration_ms'])
+        .where('ma.message_id', 'in', ids)
+        .orderBy('ma.message_id')
+        .orderBy('ma.sort_order')
+        .execute();
+      for (const f of files) {
+        const list = attachments.get(f.message_id) ?? [];
+        list.push({
+          id: f.id,
+          object_type: f.object_type,
+          original_filename: f.original_filename,
+          mime_type: f.mime_type,
+          file_size_bytes: Number(f.file_size_bytes),
+          image_width: toNumber(f.image_width),
+          image_height: toNumber(f.image_height),
+          duration_ms: toNumber(f.duration_ms),
+        });
+        attachments.set(f.message_id, list);
+      }
+
+      const votes = await this.db.selectFrom('message_reactions')
+        .select(['message_id', 'emoji', 'user_id'])
+        .where('message_id', 'in', ids)
+        .orderBy('created_at')
+        .execute();
+      for (const v of votes) {
+        const list = reactions.get(v.message_id) ?? [];
+        let group = list.find((g) => g.emoji === v.emoji);
+        if (!group) {
+          group = { emoji: v.emoji, count: '0', user_ids: [] };
+          list.push(group);
+        }
+        group.user_ids.push(v.user_id);
+        group.count = String(group.user_ids.length);
+        reactions.set(v.message_id, list);
+      }
+    }
+
+    for (const row of rows) {
+      row.attachments = attachments.get(row.id) ?? [];
+      row.reactions = reactions.get(row.id) ?? [];
+      decryptRow(row);
+    }
+    return rows;
   }
 
   async create(
@@ -227,27 +277,27 @@ class MessageRepository extends BaseRepository<MessageRow> {
   ): Promise<MessageRow[]> {
     // Thread replies live in their own side panel; the main timeline only
     // shows root messages (with a reply counter aggregated below).
-    const conditions = [sql`m.conversation_id = ${conversationId}`, sql`m.thread_id IS NULL`];
+    let q = this.timelineQuery(viewerUserId, { withReplyAndCounts: true })
+      .where('m.conversation_id', '=', conversationId)
+      .where('m.thread_id', 'is', null);
     if (cursor) {
       const cursorMsg = await this.findById(cursor);
-      if (cursorMsg) {
-        conditions.push(direction === 'before'
-          ? sql`m.sent_at < ${cursorMsg.sent_at}`
-          : sql`m.sent_at > ${cursorMsg.sent_at}`);
-      }
+      if (cursorMsg) q = q.where('m.sent_at', direction === 'before' ? '<' : '>', cursorMsg.sent_at as Date);
     }
-    const order = direction === 'before' ? sql`DESC` : sql`ASC`;
-    const { rows } = await sql<MessageRow>`${enrichedSelect(sql.join(conditions, sql` AND `), viewerUserId)}
-      ORDER BY m.sent_at ${order}
-      LIMIT ${limit}`.execute(this.db);
-
-    rows.forEach((r) => decryptRow(r));
+    const rows = await q
+      .orderBy('m.sent_at', direction === 'before' ? 'desc' : 'asc')
+      .limit(limit)
+      .execute() as unknown as MessageRow[];
+    await this.enrich(rows);
     return direction === 'before' ? rows.reverse() : rows;
   }
 
   async findWithAttachments(messageId: string, viewerUserId?: string): Promise<MessageRow | null> {
-    const { rows } = await sql<MessageRow>`${enrichedSelect(sql`m.id = ${messageId}`, viewerUserId)}`.execute(this.db);
-    return decryptRow(rows[0]) || null;
+    const row = await this.timelineQuery(viewerUserId, { withReplyAndCounts: true })
+      .where('m.id', '=', messageId)
+      .executeTakeFirst() as unknown as MessageRow | undefined;
+    if (!row) return null;
+    return (await this.enrich([row]))[0];
   }
 
   // All replies of a thread (oldest first), with the same enrichment as the
@@ -256,23 +306,12 @@ class MessageRepository extends BaseRepository<MessageRow> {
     threadId: string,
     { limit = 200, viewerUserId }: { limit?: number; viewerUserId?: string } = {},
   ): Promise<MessageRow[]> {
-    const { rows } = await sql<MessageRow>`SELECT m.*,
-             u.username AS sender_username,
-             u.display_name AS sender_display_name,
-             u.avatar_object_key AS sender_avatar_key,
-             ${ATTACHMENTS_AGG},
-             ${REACTIONS_AGG},
-             ${savedSelect(viewerUserId)}
-      FROM messages m
-      LEFT JOIN users u ON u.id = m.sender_id
-      LEFT JOIN message_attachments ma ON ma.message_id = m.id
-      LEFT JOIN storage_objects so ON so.id = ma.object_id
-      WHERE m.thread_id = ${threadId}
-      GROUP BY m.id, u.username, u.display_name, u.avatar_object_key
-      ORDER BY m.sent_at ASC
-      LIMIT ${limit}`.execute(this.db);
-    rows.forEach((r) => decryptRow(r));
-    return rows;
+    const rows = await this.timelineQuery(viewerUserId, { withReplyAndCounts: false })
+      .where('m.thread_id', '=', threadId)
+      .orderBy('m.sent_at', 'asc')
+      .limit(limit)
+      .execute() as unknown as MessageRow[];
+    return this.enrich(rows);
   }
 
   /** Autor de la raíz + quienes respondieron en el hilo (sin repetir). */
@@ -421,17 +460,24 @@ class MessageRepository extends BaseRepository<MessageRow> {
     return Number(result.numDeletedRows) > 0;
   }
 
-  async getReactions(messageId: string) {
-    // TODO(etapa 3): ARRAY_AGG es de PostgreSQL.
-    return this.db.selectFrom('message_reactions')
-      .select((eb) => [
-        'emoji',
-        eb.fn.countAll<string>().as('count'),
-        sql<string[]>`ARRAY_AGG(user_id)`.as('user_ids'),
-      ])
+  /** Reacciones agrupadas por emoji: { emoji, count (texto), user_ids }. Se agrupan acá (antes ARRAY_AGG). */
+  async getReactions(messageId: string): Promise<TimelineReaction[]> {
+    const votes = await this.db.selectFrom('message_reactions')
+      .select(['emoji', 'user_id'])
       .where('message_id', '=', messageId)
-      .groupBy('emoji')
+      .orderBy('created_at')
       .execute();
+    const groups: TimelineReaction[] = [];
+    for (const v of votes) {
+      let group = groups.find((g) => g.emoji === v.emoji);
+      if (!group) {
+        group = { emoji: v.emoji, count: '0', user_ids: [] };
+        groups.push(group);
+      }
+      group.user_ids.push(v.user_id);
+      group.count = String(group.user_ids.length);
+    }
+    return groups;
   }
 
   async addReceipt(
