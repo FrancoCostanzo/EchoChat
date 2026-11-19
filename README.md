@@ -20,6 +20,8 @@ difusiones, encuestas y archivos. Todo en tiempo real, todo en tu propia infraes
 ![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat-square&logo=nodedotjs&logoColor=white)
 ![React](https://img.shields.io/badge/React_19-61DAFB?style=flat-square&logo=react&logoColor=black)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+![SQL Server](https://img.shields.io/badge/SQL_Server-CC2927?style=flat-square)
+![S3](https://img.shields.io/badge/S3_compatible-C72E49?style=flat-square&logo=minio&logoColor=white)
 ![Socket.IO](https://img.shields.io/badge/Socket.IO-010101?style=flat-square&logo=socketdotio&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
 
@@ -147,7 +149,7 @@ fallback a long-polling, que necesitaría sticky sessions) en
 </tr>
 <tr>
 <td valign="top"><b>⚙️ Backend</b></td>
-<td>Node.js · Express · Socket.IO · PostgreSQL · MinIO (S3) · JWT + 2FA</td>
+<td>Node.js · Express 5 · Socket.IO · Kysely (PostgreSQL o SQL Server) · S3 (MinIO, AWS, R2…) o disco local · JWT + 2FA</td>
 </tr>
 <tr>
 <td valign="top"><b>📦 Infra</b></td>
