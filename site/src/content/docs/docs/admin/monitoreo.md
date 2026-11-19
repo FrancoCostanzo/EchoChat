@@ -26,9 +26,10 @@ del propio proceso Node.
 
 ## Base de datos
 
-Pestaña **Base de datos**: estado del pool de PostgreSQL (conexiones totales, ocupadas,
-libres, en espera), latencia de una consulta de referencia, tamaño de la base en MB,
-consultas por segundo y una tabla de conexiones activas (`pg_stat_activity`).
+Pestaña **Base de datos**: estado del pool de conexiones (totales, ocupadas, libres, en
+espera), latencia de una consulta de referencia, tamaño de la base en MB, consultas por
+segundo y una tabla de conexiones activas (`pg_stat_activity` en PostgreSQL,
+`sys.dm_exec_sessions` en SQL Server).
 
 ## HTTP y rutas
 

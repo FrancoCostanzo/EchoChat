@@ -103,20 +103,38 @@ Funcionan tanto en `backend/.env` como en el `.env` de Docker. La guía conceptu
 | `SCIM_TOKEN` | — | ⚠️ Bearer token estático que presenta el IdP (largo y secreto) |
 | `SCIM_DEFAULT_ROLE` | `user` | Rol de los usuarios aprovisionados |
 
-## MinIO y almacenamiento
+## Almacenamiento
 
 | Variable | Default | Descripción |
 |----------|---------|--------------|
-| `MINIO_ENDPOINT` | `localhost` | `minio` en Docker todo-en-uno |
-| `MINIO_PORT` | `9000` | |
-| `MINIO_ACCESS_KEY` | `minioadmin` | ⚠️ Cambiar en producción |
-| `MINIO_SECRET_KEY` | `minioadmin` | ⚠️ Cambiar en producción |
-| `MINIO_USE_SSL` | `false` | |
-| `MINIO_PUBLIC_ENDPOINT` | (usa `MINIO_ENDPOINT`) | Cómo los navegadores acceden a MinIO para descargar adjuntos |
-| `MINIO_PUBLIC_PORT` | (usa `MINIO_PORT`) | |
-| `MINIO_PUBLIC_USE_SSL` | (usa `MINIO_USE_SSL`) | |
+| `STORAGE_DRIVER` | `s3` | `s3` (MinIO, AWS S3, R2…) o `local` (carpeta del disco) |
+| `STORAGE_BUCKET_PREFIX` | *(vacío)* | Prefijo del nombre físico de cada bucket; útil en AWS, donde los nombres son globales |
 
-Ver el detalle de buckets y URLs prefirmadas en [Almacenamiento](/docs/despliegue/almacenamiento).
+**Driver `s3`.** Cada variable acepta el prefijo `S3_` o el histórico `MINIO_`
+(`S3_ENDPOINT` o `MINIO_ENDPOINT`); si están las dos, gana `S3_`.
+
+| Variable | Default | Descripción |
+|----------|---------|--------------|
+| `S3_ENDPOINT` | `localhost` | Host del servicio; `minio` en Docker todo-en-uno |
+| `S3_PORT` | `9000` | `443` en AWS/R2 |
+| `S3_ACCESS_KEY` | `minioadmin` | ⚠️ Cambiar en producción |
+| `S3_SECRET_KEY` | `minioadmin` | ⚠️ Cambiar en producción |
+| `S3_USE_SSL` | `false` | |
+| `S3_REGION` | *(vacío)* | Obligatoria en AWS (`us-east-1`…); `auto` en R2 |
+| `S3_PATH_STYLE` | `true` | `false` en AWS (URLs `bucket.host/clave`) |
+| `S3_PUBLIC_ENDPOINT` | (usa `S3_ENDPOINT`) | Cómo los navegadores llegan al almacenamiento para descargar adjuntos |
+| `S3_PUBLIC_PORT` | (usa `S3_PORT`) | |
+| `S3_PUBLIC_USE_SSL` | (usa `S3_USE_SSL`) | |
+
+**Driver `local`.**
+
+| Variable | Default | Descripción |
+|----------|---------|--------------|
+| `STORAGE_LOCAL_DIR` | `backend/storage-data` | Carpeta donde se guardan los archivos. En Docker, montar un volumen |
+| `STORAGE_PUBLIC_URL` | *(vacío: URLs relativas)* | Origen con el que el navegador llega al backend (`https://chat.miempresa.com`). Necesario para la app de escritorio |
+| `STORAGE_LOCAL_SECRET` | (derivada de `JWT_SECRET`) | Clave para firmar las URLs de descarga |
+
+Ver el detalle de buckets, proveedores y URLs firmadas en [Almacenamiento](/docs/despliegue/almacenamiento).
 
 ## CORS y red
 
@@ -190,6 +208,12 @@ COMPOSE_PROFILES=
 DB_HOST=10.0.1.50
 MINIO_ENDPOINT=10.0.1.51
 MINIO_PUBLIC_ENDPOINT=10.0.1.51
+```
+
+**Desarrollo sin Docker (`backend/.env`), archivos en disco:**
+
+```ini
+STORAGE_DRIVER=local
 ```
 
 Ver más combinaciones en [Despliegue con Docker](/docs/despliegue).

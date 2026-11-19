@@ -1,6 +1,6 @@
 ---
 title: Almacenamiento (admin)
-description: Dashboard de storage MinIO, objetos y estadísticas.
+description: Dashboard de almacenamiento, objetos y estadísticas.
 ---
 
 Requiere el permiso `admin.storage`.
@@ -8,7 +8,7 @@ Requiere el permiso `admin.storage`.
 ## Vista general de storage
 
 Desde **Administración → Almacenamiento** (`/admin/storage`) se ve un resumen agregado
-de todo lo subido a MinIO: cantidad total de objetos, tamaño total y objetos con estado
+de todo lo subido al almacenamiento: cantidad total de objetos, tamaño total y objetos con estado
 pendiente o fallido.
 
 ## Estadísticas por bucket
@@ -43,6 +43,7 @@ identificar subidas problemáticas.
 
 ## Acciones de mantenimiento
 
-El panel es de solo lectura sobre MinIO (estadísticas y listado); para borrar objetos
-puntualmente o gestionar buckets a bajo nivel, usá la consola web de MinIO
-(ver [Almacenamiento — despliegue](/docs/despliegue/almacenamiento#consola-de-administración)).
+El panel es de solo lectura (estadísticas y listado); para borrar objetos puntualmente o
+gestionar buckets a bajo nivel, usá la herramienta del proveedor — la consola web de MinIO
+(ver [Almacenamiento — despliegue](/docs/despliegue/almacenamiento#consola-de-administración)),
+la de AWS/R2, o la carpeta `STORAGE_LOCAL_DIR` con el driver local.

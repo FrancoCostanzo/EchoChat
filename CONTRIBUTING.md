@@ -12,7 +12,7 @@ Antes de nada, dale una leída al [Código de Conducta](./CODE_OF_CONDUCT.md) �
 
 ## 🧰 Levantar el entorno de desarrollo
 
-Prerrequisitos: Node.js ≥ 22, PostgreSQL ≥ 15, MinIO (o compatible S3).
+Prerrequisitos: Node.js ≥ 22, PostgreSQL ≥ 15 (o SQL Server ≥ 2019 con `DB_CLIENT=mssql`) y MinIO u otro S3 compatible (opcional: con `STORAGE_DRIVER=local` los archivos van al disco).
 
 ```bash
 git clone https://github.com/FrancoCostanzo/EchoChat.git
@@ -23,7 +23,7 @@ createdb -U tu_usuario echochat
 
 # Backend
 cd backend
-cp .env.example .env    # completar DB_*, JWT_SECRET, MESSAGE_ENC_KEY, ADMIN_*, MinIO, CORS
+cp .env.example .env    # completar DB_*, JWT_SECRET, MESSAGE_ENC_KEY, ADMIN_*, almacenamiento, CORS
 npm install
 npm run dev             # http://localhost:3000 — aplica schema + migraciones + primer admin
 
@@ -33,7 +33,7 @@ npm install
 npm run dev             # http://localhost:5173
 ```
 
-Más detalle sobre variables de entorno, buckets de MinIO y modos de despliegue con Docker está en el [README](./README.md).
+Más detalle sobre variables de entorno, almacenamiento y modos de despliegue con Docker está en el [README](./README.md).
 
 ### App de escritorio (Electron)
 

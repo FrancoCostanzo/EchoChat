@@ -13,9 +13,12 @@ description: Errores comunes y diagnóstico al desplegar o operar EchoChat.
 - Revisá `CORS_ORIGIN`: si no coincide exactamente con el origen desde el que accedés
   (protocolo + host + puerto), el navegador bloquea las peticiones.
 
-## Errores de conexión a PostgreSQL
+## Errores de conexión a la base de datos
 
-- Revisá `DB_HOST`/`DB_PORT`/`DB_NAME`/`DB_USER`/`DB_PASSWORD` en tu `.env`.
+- Revisá `DB_CLIENT` (`postgres` o `mssql`) y
+  `DB_HOST`/`DB_PORT`/`DB_NAME`/`DB_USER`/`DB_PASSWORD` en tu `.env`.
+- Con SQL Server y un certificado autofirmado, la conexión falla hasta poner
+  `DB_TRUST_SERVER_CERT=true` (ver [Base de datos](/docs/despliegue/base-de-datos#sql-server)).
 - En Docker todo-en-uno, `DB_HOST` debe ser `postgres` (el nombre del servicio), no
   `localhost`.
 - `GET /api/health/ready` responde `503` si la base de datos no está accesible, con el
@@ -23,16 +26,21 @@ description: Errores comunes y diagnóstico al desplegar o operar EchoChat.
 - Si el login funciona pero las acciones fallan con `403 Missing required permission`,
   ver [Permisos y RBAC](#permisos-y-rbac) más abajo — no es un problema de conexión.
 
-## Errores de MinIO y archivos
+## Errores de almacenamiento y archivos
 
-- Confirmá que `MINIO_ENDPOINT` (conexión interna del backend) y
-  `MINIO_PUBLIC_ENDPOINT` (lo que usa el navegador para descargar) estén bien
-  configurados — son conceptualmente distintos. Ver [Almacenamiento](/docs/despliegue/almacenamiento#endpoint-público).
+- Con `STORAGE_DRIVER=s3`, confirmá que `S3_ENDPOINT`/`MINIO_ENDPOINT` (conexión
+  interna del backend) y `S3_PUBLIC_ENDPOINT`/`MINIO_PUBLIC_ENDPOINT` (lo que usa el
+  navegador para descargar) estén bien configurados — son conceptualmente distintos. Ver
+  [Almacenamiento](/docs/despliegue/almacenamiento#endpoint-público).
 - Si las imágenes/archivos no cargan pero el resto de la app funciona, es casi siempre
-  un problema de `MINIO_PUBLIC_ENDPOINT` mal configurado (el navegador no puede alcanzar
-  esa dirección).
+  el endpoint público mal configurado (el navegador no puede alcanzar esa dirección).
+- En AWS S3, un error de firma o de bucket inexistente suele ser `S3_REGION` faltante o
+  `S3_PATH_STYLE` sin poner en `false`.
+- Con `STORAGE_DRIVER=local`, si los archivos no cargan desde la app de escritorio o
+  desde otro dominio, falta `STORAGE_PUBLIC_URL`. Si se pierden al recrear el contenedor,
+  falta el volumen en `STORAGE_LOCAL_DIR`.
 - Los buckets se crean automáticamente al iniciar el backend; si faltan, revisá los logs
-  de arranque del backend por errores de conexión a MinIO.
+  de arranque del backend por errores de conexión al almacenamiento.
 
 ## WebSocket / Socket.IO
 
@@ -54,8 +62,8 @@ description: Errores comunes y diagnóstico al desplegar o operar EchoChat.
 
 - `403 Missing required permission: <código>` significa que el rol del usuario no tiene
   ese permiso asignado. Si le pasa a **todos** los usuarios recién después de instalar,
-  probablemente falta el seed de RBAC — correr
-  `backend/docs/migrations/001_seed_role_permissions.sql` (ver [Base de datos](/docs/despliegue/base-de-datos#seed-de-permisos-rbac)).
+  probablemente falta el seed de RBAC — reiniciar el backend lo repone (ver
+  [Base de datos](/docs/despliegue/base-de-datos#seed-datos-de-referencia)).
 - Verificá roles y permisos efectivos desde [RBAC](/docs/admin/rbac) en el panel de
   administración.
 

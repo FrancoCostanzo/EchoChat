@@ -51,5 +51,5 @@ manual desde el panel. No hay, por ahora, una política de purga automática con
 ## Exportación
 
 El panel no incluye hoy una función de exportación (CSV/PDF) integrada; para análisis
-externos, consultá la tabla `audit_log` directamente en PostgreSQL con permisos de solo
+externos, consultá la tabla `audit_log` directamente en la base de datos con permisos de solo
 lectura.

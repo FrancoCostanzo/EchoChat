@@ -90,5 +90,5 @@ indicador "escribiendo…" en tiempo real (vía Socket.IO), sin necesidad de rec
 
 Podés adjuntar imágenes, videos, audio y documentos arrastrándolos al chat, pegándolos
 (`Ctrl+V`) o desde el selector de archivos del composer. Las imágenes y videos tienen
-vista previa antes de enviar; los archivos se almacenan en MinIO y se sirven mediante
+vista previa antes de enviar; los archivos se almacenan en el servidor y se sirven mediante
 URLs prefirmadas (ver [Almacenamiento](/docs/despliegue/almacenamiento)).

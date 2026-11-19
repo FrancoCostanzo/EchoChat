@@ -23,7 +23,7 @@ pensado para **autohospedarse**.
 - **Encuestas**: embebidas en mensajes, anónimas, multi-opción y con conteo en tiempo real.
 - **Seguridad**: JWT (access + refresh), 2FA TOTP, RBAC global y por conversación, Helmet,
   rate limiting y CORS.
-- **Archivos**: almacenamiento en MinIO (S3) con URLs prefirmadas.
+- **Archivos**: cualquier S3 compatible (MinIO, AWS S3, R2…) o disco local, con URLs firmadas.
 - **i18n y temas**: español, inglés y portugués; claro/oscuro/sistema; 6 colores de acento.
 
 ## Plataformas

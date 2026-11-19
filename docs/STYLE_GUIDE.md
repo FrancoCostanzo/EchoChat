@@ -248,7 +248,7 @@ backend/src/
 ├── app.js              # Configuración de Express (middlewares, rutas)
 ├── server.js           # Punto de entrada (start del servidor HTTP)
 ├── socket.js           # Configuración de Socket.IO
-├── config/             # Configuración centralizada (DB, MinIO, Logger)
+├── config/             # Configuración centralizada (db/ Kysely, storage/ S3 o local, Logger)
 ├── controllers/        # Manejo de req/res HTTP
 ├── services/           # Lógica de negocio
 ├── repositories/       # Acceso a datos (SQL queries)
@@ -262,7 +262,7 @@ backend/src/
 ### Flujo de una Request
 
 ```
-Route → validate(dto) → authenticate → Controller → Service → Repository → PostgreSQL
+Route → validate(dto) → authenticate → Controller → Service → Repository → Base de datos
                                            ↓
                                      Model (transform)
                                            ↓

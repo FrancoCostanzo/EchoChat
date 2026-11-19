@@ -8,10 +8,10 @@ description: Capas del backend, convenciones y flujo de una petición HTTP.
 | Tecnología | Uso |
 |------------|-----|
 | **TypeScript** (estricto) | Todo `src/` — `strict: true`, compila a `dist/` con `tsc` |
-| **Express 4** | API REST bajo `/api` |
+| **Express 5** | API REST bajo `/api`; los errores de handlers `async` llegan solos al `errorHandler` |
 | **Socket.IO 4** | Mensajería, presencia, tipeo, llamadas en tiempo real |
-| **PostgreSQL** (`pg`) | Persistencia relacional |
-| **MinIO** | Archivos S3-compatible |
+| **Kysely** | Query builder tipado; PostgreSQL (`pg`) o SQL Server (`tedious`) según `DB_CLIENT` |
+| **Cliente `minio`** | Archivos en cualquier S3 compatible, o disco local (`STORAGE_DRIVER`) |
 | **Joi** | Validación de entrada en DTOs |
 | **JWT + bcrypt** | Autenticación y hashing de contraseñas |
 | **Pino** | Logging estructurado |
@@ -24,7 +24,7 @@ backend/src/
 ├── app.ts               # Middlewares globales y montaje de rutas bajo /api
 ├── server.ts            # Arranque HTTP, jobs cron, shutdown graceful
 ├── socket.ts            # Autenticación JWT en sockets y eventos realtime
-├── config/              # Pool de PostgreSQL, cliente MinIO, logger
+├── config/              # db/ (Kysely, migraciones, seed), storage/ (S3 o local), logger
 ├── routes/              # Definición de endpoints
 ├── controllers/         # req/res HTTP, sin lógica de negocio
 ├── services/            # Reglas de negocio
@@ -37,13 +37,15 @@ backend/src/
 └── jobs/                # Tareas programadas (node-cron)
 ```
 
-Las columnas de PostgreSQL se tipan en `types/db.d.ts`, generado con `npm run db:types`
-(`backend/scripts/generate-db-types.js`) a partir del schema real — no se escribe a mano.
+Las tablas se tipan en `types/db.d.ts` (la interfaz `DB` de Kysely), generado con
+`npm run db:types` (`backend/scripts/generate-db-types.js`) a partir del schema real — no
+se escribe a mano. Cómo escribir queries que anden en los dos motores está en
+`backend/docs/MULTI_DB.md`.
 
 ## Flujo Route → Repository
 
 ```
-Route → validate(dto) → authenticate → authorize → Controller → Service → Repository → PostgreSQL
+Route → validate(dto) → authenticate → authorize → Controller → Service → Repository → Base de datos
                                                           ↓
                                                     Model (transform)
                                                           ↓
@@ -106,8 +108,8 @@ El estado de ejecución de cada job es visible en tiempo real en
 - Código en `camelCase`; columnas de BD en `snake_case`.
 - Módulos ES (`import`/`export`), no CommonJS; servicios y repositorios se exportan como
   singleton.
-- Repositorios extienden `BaseRepository`; queries parametrizadas (`$1, $2, ...`), nunca
-  interpolación de strings.
+- Repositorios extienden `BaseRepository`; queries con Kysely (o el tag `sql`, que
+  también parametriza), nunca interpolación de strings.
 - Soft delete: los registros se marcan como eliminados, nunca se borran físicamente.
 
 Ver el detalle completo (ejemplos de código por capa) en `docs/STYLE_GUIDE.md` del
@@ -117,7 +119,7 @@ repositorio.
 
 ```bash
 cd backend
-cp .env.example .env    # Ajustar DB_*, JWT_SECRET, MinIO, CORS
+cp .env.example .env    # Ajustar DB_*, JWT_SECRET, almacenamiento, CORS
 npm install
 npm run dev              # tsx watch + pino-pretty en :3000
 ```

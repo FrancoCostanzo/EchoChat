@@ -26,7 +26,7 @@ Cada sección del panel exige un permiso específico (ver [RBAC](/docs/admin/rba
 - [Usuarios](/docs/admin/usuarios) — alta, baja, roles, import LDAP.
 - [Configuración del sistema](/docs/admin/sistema) — `system_settings` por categoría.
 - [Auditoría](/docs/admin/auditoria) — log de acciones críticas con filtros.
-- [Almacenamiento](/docs/admin/almacenamiento) — estadísticas de MinIO.
+- [Almacenamiento](/docs/admin/almacenamiento) — estadísticas del almacenamiento.
 - [Monitoreo](/docs/admin/monitoreo) — servidor, base de datos, HTTP y jobs en vivo.
 
 ## Navegación

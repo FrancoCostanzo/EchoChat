@@ -23,8 +23,8 @@ vía **Socket.IO**, sobre un stack full-stack JavaScript.
 └──────────────┬───────────────────────────────┬────────────────────┘
                │                               │
         ┌──────┴──────┐                 ┌──────┴───────┐
-        │ PostgreSQL  │                 │    MinIO     │
-        │  (datos)    │                 │  (archivos)  │
+        │ PostgreSQL  │                 │ S3 (MinIO…)  │
+        │ o SQL Server│                 │  o disco     │
         └─────────────┘                 └──────────────┘
 ```
 
@@ -35,7 +35,7 @@ El backend está organizado en capas con responsabilidades claras:
 - **Routes** — definen los endpoints HTTP y los eventos de socket.
 - **Controllers** — orquestan la petición/respuesta y delegan en servicios.
 - **Services** — contienen la lógica de negocio.
-- **Repositories** — acceso a datos (consultas a PostgreSQL).
+- **Repositories** — acceso a datos (consultas con Kysely, a PostgreSQL o SQL Server).
 - **DTOs (Joi)** — validación de entrada.
 - **Models** — transformación de datos hacia el cliente.
 
@@ -55,9 +55,11 @@ el audio y el video viajan **peer-to-peer** entre navegadores vía WebRTC. Más 
 
 ## Almacenamiento
 
-- **PostgreSQL 15+** para todos los datos relacionales.
-- **MinIO** (compatible con S3) para archivos, avatares y grabaciones, servidos mediante
-  **URLs prefirmadas** con TTL.
+- **PostgreSQL 15+** (o **SQL Server 2019+**, con `DB_CLIENT=mssql`) para todos los
+  datos relacionales. Ver [Base de datos](/docs/despliegue/base-de-datos).
+- **Cualquier S3 compatible** (MinIO, AWS S3, R2…) o una **carpeta del disco** para
+  archivos, avatares y grabaciones, servidos mediante **URLs firmadas** con TTL. Ver
+  [Almacenamiento](/docs/despliegue/almacenamiento).
 
 ## Despliegue
 

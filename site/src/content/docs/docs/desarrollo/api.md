@@ -34,7 +34,7 @@ Cada módulo agrupa un recurso bajo su propio prefijo, con rutas REST estándar
 | Channels | `/api/channels` | Canales públicos, descubrimiento y solicitudes de ingreso | `groups.create` / gestores |
 | Polls | `/api/polls` | Encuestas y votos | Autenticado |
 | Calls | `/api/calls` | Registro e historial de llamadas (la señalización va por [Socket.IO](/docs/desarrollo/tiempo-real)) | Autenticado |
-| Storage | `/api/storage` | Subida y descarga de archivos en MinIO (URLs prefirmadas) | `media.upload` |
+| Storage | `/api/storage` | Subida y descarga de archivos (URLs firmadas; con el driver local, `/api/storage/files/…`) | `media.upload` |
 | Broadcasts | `/api/broadcasts` | Listas de difusión y envíos | `broadcast.create` / `broadcast.send` |
 | Notifications | `/api/notifications` | Notificaciones in-app y preferencias | Autenticado |
 | Relationships | `/api/relationships` | Contactos, bloqueados y favoritos | Autenticado |
@@ -56,7 +56,7 @@ empresarial (ver [Integraciones](/docs/admin/integraciones)):
 ## Health check
 
 `GET /api/health` — chequeo simple sin autenticación: estado del servidor y de la conexión
-a PostgreSQL. Las variantes `/api/health/live` y `/api/health/ready` sirven para probes de
+a la base de datos. Las variantes `/api/health/live` y `/api/health/ready` sirven para probes de
 Kubernetes/Docker.
 
 ## Colección Bruno

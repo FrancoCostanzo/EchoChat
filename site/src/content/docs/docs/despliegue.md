@@ -8,8 +8,8 @@ EchoChat se despliega con **Docker Compose** en 3 modos según la infraestructur
 | Modo | ¿Qué levanta Docker? | ¿Qué ya tiene la empresa? |
 |------|----------------------|--------------------------|
 | **Todo en uno** | Backend + Frontend + PostgreSQL + MinIO | Nada, todo en un servidor |
-| **Mixto** | Backend + Frontend + lo que falte | PostgreSQL y/o MinIO existente |
-| **Solo app** | Backend + Frontend | PostgreSQL + MinIO propios |
+| **Mixto** | Backend + Frontend + lo que falte | Base de datos y/o almacenamiento existente |
+| **Solo app** | Backend + Frontend | Base de datos (PostgreSQL o SQL Server) y almacenamiento (S3) propios |
 
 ## Prerrequisitos
 
@@ -69,7 +69,7 @@ crean automáticamente. No hay que ejecutar ningún `psql`. Ver
 [Base de datos](/docs/despliegue/base-de-datos).
 :::
 
-## Modo 2: PostgreSQL y/o MinIO existentes
+## Modo 2: base de datos y/o almacenamiento existentes
 
 Si ya existen servidores de base de datos o almacenamiento, apuntá a ellos:
 
@@ -84,7 +84,7 @@ DB_NAME=echochat
 DB_USER=echochat
 DB_PASSWORD=password_del_postgres_existente
 
-# MinIO/S3 externo
+# MinIO/S3 externo (también S3_ENDPOINT, S3_PORT…)
 MINIO_ENDPOINT=10.0.1.51
 MINIO_PORT=9000
 MINIO_ACCESS_KEY=access_key_existente
@@ -92,8 +92,12 @@ MINIO_SECRET_KEY=secret_key_existente
 MINIO_PUBLIC_ENDPOINT=10.0.1.51
 ```
 
+Para SQL Server en lugar de PostgreSQL, agregar `DB_CLIENT=mssql` (puerto `1433`; ver
+[Base de datos](/docs/despliegue/base-de-datos#sql-server)). Para AWS S3 o Cloudflare R2,
+ver los ejemplos de [Almacenamiento](/docs/despliegue/almacenamiento#proveedores-s3).
+
 :::note
-Con PostgreSQL externo **no** hace falta ejecutar nada a mano: el backend detecta que la
+Con una base externa **no** hace falta ejecutar nada a mano: el backend detecta que la
 base está vacía y aplica el esquema, las migraciones y el seed al arrancar. (Si preferís
 prepararla antes, corré `npm run migrate` desde `backend/` apuntando al mismo `.env`.)
 :::
