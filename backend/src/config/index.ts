@@ -49,15 +49,28 @@ interface AppConfig {
     expiresIn: string;
     refreshExpiresIn: string;
   };
-  minio: {
-    endPoint: string;
-    port: number;
-    accessKey: string;
-    secretKey: string;
-    useSSL: boolean;
-    publicEndPoint: string;
-    publicPort: number;
-    publicUseSSL: boolean;
+  storage: {
+    driver: 's3' | 'local';
+    /** Se antepone a cada bucket (en AWS los nombres de bucket son globales). */
+    bucketPrefix: string;
+    s3: {
+      endPoint: string;
+      port: number;
+      accessKey: string;
+      secretKey: string;
+      useSSL: boolean;
+      region: string;
+      pathStyle: boolean;
+      publicEndPoint: string;
+      publicPort: number;
+      publicUseSSL: boolean;
+    };
+    local: {
+      dir: string;
+      publicUrl: string;
+      /** Vacío = se deriva de JWT_SECRET. */
+      secret: string;
+    };
   };
   ldap: {
     enabled: boolean;
@@ -127,6 +140,11 @@ function parseDbClient(raw: string | undefined): DbClient {
 /** Convierte una variable de entorno numérica, cayendo al default si no es válida. */
 function num(raw: string | undefined, fallback: number): number {
   return parseInt(raw ?? '', 10) || fallback;
+}
+
+/** `S3_<name>` y, si no está, el nombre histórico `MINIO_<name>`. */
+function s3Env(name: string): string | undefined {
+  return process.env[`S3_${name}`] || process.env[`MINIO_${name}`];
 }
 
 /**
@@ -231,15 +249,30 @@ const config: AppConfig = {
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '30d',
   },
 
-  minio: {
-    endPoint: process.env.MINIO_ENDPOINT || 'localhost',
-    port: num(process.env.MINIO_PORT, 9000),
-    accessKey: process.env.MINIO_ACCESS_KEY || 'minioadmin',
-    secretKey: process.env.MINIO_SECRET_KEY || 'minioadmin',
-    useSSL: process.env.MINIO_USE_SSL === 'true',
-    publicEndPoint: process.env.MINIO_PUBLIC_ENDPOINT || process.env.MINIO_ENDPOINT || 'localhost',
-    publicPort: num(process.env.MINIO_PUBLIC_PORT || process.env.MINIO_PORT, 9000),
-    publicUseSSL: (process.env.MINIO_PUBLIC_USE_SSL || process.env.MINIO_USE_SSL) === 'true',
+  // Almacenamiento de archivos. `s3` sirve para cualquier servicio compatible
+  // (MinIO, AWS S3, R2, Wasabi, B2, Garage…); `local` guarda en disco. Las
+  // variables S3_* tienen prioridad; las MINIO_* siguen funcionando.
+  storage: {
+    driver: process.env.STORAGE_DRIVER === 'local' ? 'local' : 's3',
+    bucketPrefix: process.env.STORAGE_BUCKET_PREFIX || '',
+    s3: {
+      endPoint: s3Env('ENDPOINT') || 'localhost',
+      port: num(s3Env('PORT'), 9000),
+      accessKey: s3Env('ACCESS_KEY') || 'minioadmin',
+      secretKey: s3Env('SECRET_KEY') || 'minioadmin',
+      useSSL: s3Env('USE_SSL') === 'true',
+      region: s3Env('REGION') || '',
+      // MinIO y la mayoría de los self-hosted usan path-style; AWS, virtual-host.
+      pathStyle: s3Env('PATH_STYLE') !== 'false',
+      publicEndPoint: s3Env('PUBLIC_ENDPOINT') || s3Env('ENDPOINT') || 'localhost',
+      publicPort: num(s3Env('PUBLIC_PORT') || s3Env('PORT'), 9000),
+      publicUseSSL: (s3Env('PUBLIC_USE_SSL') || s3Env('USE_SSL')) === 'true',
+    },
+    local: {
+      dir: process.env.STORAGE_LOCAL_DIR || path.resolve(__dirname, '../../storage-data'),
+      publicUrl: (process.env.STORAGE_PUBLIC_URL || '').replace(/\/$/, ''),
+      secret: process.env.STORAGE_LOCAL_SECRET || '',
+    },
   },
 
   ldap: {

@@ -8,6 +8,7 @@ import pollRoutes from './poll.routes';
 import gameRoutes from './game.routes';
 import callRoutes from './call.routes';
 import storageRoutes from './storage.routes';
+import storageFileRoutes from './storageFile.routes';
 import stickerRoutes from './sticker.routes';
 import broadcastRoutes from './broadcast.routes';
 import notificationRoutes from './notification.routes';
@@ -27,6 +28,8 @@ router.use('/messages', messageRoutes);
 router.use('/polls', pollRoutes);
 router.use('/games', gameRoutes);
 router.use('/calls', callRoutes);
+// Antes que /storage: esas rutas exigen JWT y estas se autorizan por firma.
+router.use('/storage/files', storageFileRoutes);
 router.use('/storage', storageRoutes);
 router.use('/stickers', stickerRoutes);
 router.use('/broadcasts', broadcastRoutes);

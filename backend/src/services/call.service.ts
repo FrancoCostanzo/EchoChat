@@ -10,7 +10,7 @@ import {
 } from '../repositories';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../errors';
 import { toCallResponse, toMessageResponse, toCallHistoryItem } from '../models';
-import { publicMinioClient } from '../config/minio';
+import { storage } from '../config/storage';
 import { toCall, toConversation, toUser } from '../config/eventBus';
 import notificationService from './notification.service';
 import type { CallRow } from '../models/call.model';
@@ -24,7 +24,7 @@ const AVATAR_BUCKET = 'messaging-avatars';
 async function signAvatar(key: string | null | undefined): Promise<string | null> {
   if (!key) return null;
   try {
-    return await publicMinioClient.presignedGetObject(AVATAR_BUCKET, key, 60 * 60 * 24);
+    return await storage.getSignedUrl(AVATAR_BUCKET, key, 60 * 60 * 24);
   } catch {
     return null;
   }

@@ -4,9 +4,7 @@ import logger from '../config/logger';
 import { userRepository, credentialRepository, auditRepository } from '../repositories';
 import { clearAutoAway } from '../config/presenceStore';
 import { toAll } from '../config/eventBus';
-// `minioClient` para subir y borrar avatares y `publicMinioClient` para firmar
-// URLs que resuelve el cliente del usuario.
-import { minioClient, publicMinioClient } from '../config/minio';
+import { storage } from '../config/storage';
 import { NotFoundError, BadRequestError } from '../errors';
 import { toUserResponse } from '../models';
 import type { UserResponse } from '../models/user.model';
@@ -32,7 +30,7 @@ export interface AuditOpts {
 async function withAvatarUrl(user: UserResponse | null) {
   if (!user || !user.avatar_object_key) return user;
   try {
-    const url = await publicMinioClient.presignedGetObject(
+    const url = await storage.getSignedUrl(
       user.avatar_bucket || AVATAR_BUCKET,
       user.avatar_object_key,
       60 * 60 * 24, // 24 h
@@ -96,7 +94,7 @@ class UserService {
 
     if (current.avatar_object_key) {
       try {
-        await minioClient.removeObject(
+        await storage.removeObject(
           current.avatar_bucket || AVATAR_BUCKET,
           current.avatar_object_key,
         );
@@ -108,9 +106,7 @@ class UserService {
     const ext = path.extname(originalFilename) || '.jpg';
     const objectKey = `avatars/${uuidv4()}${ext}`;
 
-    await minioClient.putObject(AVATAR_BUCKET, objectKey, fileBuffer, fileSize, {
-      'Content-Type': mimeType,
-    });
+    await storage.putObject(AVATAR_BUCKET, objectKey, fileBuffer, fileSize, mimeType);
 
     const user = await userRepository.updateAvatar(userId, AVATAR_BUCKET, objectKey);
     await auditRepository.log({
@@ -134,7 +130,7 @@ class UserService {
 
     if (current.avatar_object_key) {
       try {
-        await minioClient.removeObject(
+        await storage.removeObject(
           current.avatar_bucket || AVATAR_BUCKET,
           current.avatar_object_key,
         );

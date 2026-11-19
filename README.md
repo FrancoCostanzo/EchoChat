@@ -44,7 +44,7 @@ difusiones, encuestas y archivos. Todo en tiempo real, todo en tu propia infraes
 | 📢 **Canales y difusiones** | Comunicación uno-a-muchos para anuncios y equipos |
 | 📞 **Llamadas WebRTC** | Voz y video peer-to-peer, sin plugins ni terceros |
 | 📊 **Encuestas** | Decisiones rápidas dentro de cualquier conversación |
-| 📎 **Archivos y multimedia** | Almacenamiento S3 propio vía MinIO, con presigned URLs |
+| 📎 **Archivos y multimedia** | Cualquier almacenamiento compatible con S3 (MinIO, AWS S3, R2…) o disco local, con URLs firmadas |
 | 🔐 **Seguridad** | JWT + 2FA, RBAC granular y mensajes cifrados |
 | 🌎 **Multi-idioma** | Interfaz completa en español, inglés y portugués |
 | 🏠 **100% self-hosted** | Tus datos en tu servidor — `docker compose up` y listo |
@@ -87,7 +87,9 @@ cd backend && npm install && npm run dev
 cd frontend && npm install && npm run dev
 ```
 
-Requiere **Node.js ≥ 22**, **PostgreSQL ≥ 15** (o **SQL Server ≥ 2019** con `DB_CLIENT=mssql`) y **MinIO**. Guía completa (variables de
+Requiere **Node.js ≥ 22** y **PostgreSQL ≥ 15** (o **SQL Server ≥ 2019** con `DB_CLIENT=mssql`).
+Los archivos van a MinIO/S3 o, con `STORAGE_DRIVER=local`, a una carpeta del disco (sin Docker).
+Guía completa (variables de
 entorno, convenciones de código, flujo de ramas) en
 **[CONTRIBUTING.md](./CONTRIBUTING.md)** y en
 **[Instalación (desarrollo)](https://echochat.netlify.app/docs/instalacion)**.
