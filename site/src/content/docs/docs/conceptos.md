@@ -64,7 +64,7 @@ otros. Cada mensaje puede tener:
 - **Recibos** de entrega y lectura por destinatario (`message_receipts`), que alimentan
   el doble check visual y, si el DM proviene de una difusión, las métricas de
   `broadcast_deliveries`.
-- **Adjuntos** vinculados a objetos de MinIO (`message_attachments`).
+- **Adjuntos** vinculados a objetos del almacenamiento (`message_attachments`).
 
 ## Hilos (threads)
 
@@ -100,8 +100,9 @@ horario de silencio opcional.
 ## Almacenamiento de archivos
 
 Los archivos (avatares, imágenes, videos, audio, documentos, grabaciones) se suben a
-**MinIO** y se referencian en `storage_objects`. La descarga desde el navegador usa
-**URLs prefirmadas** con expiración (`storage_presigned_urls`), cacheadas y limpiadas
+un **S3 compatible** (MinIO, AWS S3, R2…) o al **disco del servidor**, según
+`STORAGE_DRIVER`, y se referencian en `storage_objects`. La descarga desde el navegador usa
+**URLs firmadas** con expiración (`storage_presigned_urls`), cacheadas y limpiadas
 periódicamente por un job. Ver [Almacenamiento](/docs/despliegue/almacenamiento).
 
 ## Llamadas WebRTC

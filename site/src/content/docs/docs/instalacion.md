@@ -9,8 +9,9 @@ Guía para correr EchoChat en tu máquina para desarrollo. Para producción, mir
 ## Prerrequisitos
 
 - **Node.js** >= 22
-- **PostgreSQL** >= 15
-- **MinIO** (o cualquier almacenamiento compatible con S3)
+- **PostgreSQL** >= 15 (o **SQL Server** >= 2019 con `DB_CLIENT=mssql`)
+- **MinIO** u otro almacenamiento compatible con S3 — opcional: con
+  `STORAGE_DRIVER=local` los archivos van a una carpeta del disco
 
 ## 1. Clonar el repositorio
 
@@ -33,11 +34,16 @@ Si preferís prepararla sin levantar la app, corré `npm run migrate` desde `bac
 (usa el mismo `.env`). Detalle del modelo en [Base de datos](/docs/despliegue/base-de-datos).
 :::
 
-## 3. Configurar MinIO
+## 3. Configurar el almacenamiento
 
-Asegurate de tener MinIO corriendo. Los buckets se crean automáticamente al iniciar el
-backend (`messaging-avatars`, `messaging-images`, `messaging-videos`, `messaging-audio`,
-`messaging-documents`, `messaging-thumbnails`, `messaging-recordings`, `messaging-stickers`).
+Dos opciones:
+
+- **MinIO** (o cualquier S3): tenerlo corriendo y apuntar `MINIO_ENDPOINT` a él. Los
+  buckets se crean automáticamente al iniciar el backend.
+- **Disco local**: poner `STORAGE_DRIVER=local` en `backend/.env`. Los archivos quedan en
+  `backend/storage-data/` y el backend los sirve con URLs firmadas — no hace falta nada más.
+
+Detalle en [Almacenamiento](/docs/despliegue/almacenamiento).
 
 ## 4. Instalar dependencias
 
@@ -59,7 +65,7 @@ Creá un archivo `.env` en la carpeta `backend/` a partir del ejemplo:
 cp backend/.env.example backend/.env
 ```
 
-Editá los valores según tu entorno: conexión a PostgreSQL y MinIO, `JWT_SECRET`,
+Editá los valores según tu entorno: conexión a la base y al almacenamiento, `JWT_SECRET`,
 `MESSAGE_ENC_KEY` (obligatoria) y `ADMIN_USERNAME`/`ADMIN_PASSWORD` para el primer
 administrador. Ver [Variables de entorno](/docs/despliegue/variables-entorno).
 

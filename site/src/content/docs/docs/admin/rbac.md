@@ -57,22 +57,16 @@ El rol `super_admin` **bypasea todas las verificaciones de permisos** — no imp
 
 ## Seed de permisos
 
-El esquema base (`messaging_intranet_schema.sql`) siembra roles, permisos y el mapeo
-`role_permissions` en una instancia nueva. Si una instalación existente quedó con
-`role_permissions` vacía (síntoma: todos los usuarios reciben `403`), hay dos migraciones
-idempotentes para corregirlo:
+Roles, permisos y el mapeo `role_permissions` viven en `backend/src/config/db/seed.ts`,
+que el backend aplica en **cada** arranque y sólo inserta lo que falta. Por eso:
 
-- `backend/docs/migrations/001_seed_role_permissions.sql` — solo el mapeo rol→permisos.
-- `backend/docs/migrations/002_bootstrap_rbac.sql` — bootstrap completo (roles,
-  permisos, mapeo y backfill de rol `user` para usuarios sin ningún rol asignado).
+- Un permiso nuevo llega a las instalaciones existentes con sólo actualizar y reiniciar;
+  se asigna solo a `super_admin` y `admin`.
+- Si una base quedó con `role_permissions` vacía (síntoma: todos los usuarios reciben
+  `403`), basta con **reiniciar el backend** (o correr `npm run migrate` desde
+  `backend/`).
 
-## Aplicar permisos en despliegues existentes
-
-```bash
-psql -U echochat -d echochat -f backend/docs/migrations/001_seed_role_permissions.sql
-```
-
-Es seguro correrla más de una vez (`ON CONFLICT DO NOTHING`).
+Ver [Base de datos](/docs/despliegue/base-de-datos#seed-datos-de-referencia).
 
 ## Buenas prácticas
 

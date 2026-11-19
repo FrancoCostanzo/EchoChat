@@ -42,8 +42,7 @@ los primeros minutos tras enviarlos (soft delete: el mensaje queda como
 | `message_delete_window_minutes` | `15` | Minutos para eliminar un mensaje propio (`0` = sin límite) |
 
 Quien tiene `messages.delete_any` puede eliminar mensajes fuera de esa ventana. Las
-claves se siembran con la migración
-`011_message_edit_delete_window.sql` (o el esquema base en instalaciones nuevas). Si las
+claves las siembra el seed al arrancar el backend. Si las
 claves no existen, el backend usa **15 minutos** por defecto.
 
 ## Retención de mensajes

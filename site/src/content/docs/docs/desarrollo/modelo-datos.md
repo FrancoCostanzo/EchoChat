@@ -1,14 +1,15 @@
 ---
 title: Modelo de datos
-description: Tablas PostgreSQL por módulo, relaciones y extensiones.
+description: Tablas por módulo, relaciones, índices y extensiones.
 ---
 
 ## Vista general
 
-El esquema completo (30+ tablas) vive en un único archivo SQL:
-`backend/docs/messaging_intranet_schema.sql`. Las migraciones incrementales están en
-`backend/docs/migrations/` (ver [Base de datos](/docs/despliegue/base-de-datos)). Todo
-identificador es UUID; las tablas siguen `snake_case` estrictamente.
+El esquema (30+ tablas) se define con migraciones TypeScript en
+`backend/src/config/db/migrations/`, comunes a PostgreSQL y SQL Server:
+`001_initial` es el esquema completo y las siguientes, los cambios posteriores (ver
+[Base de datos](/docs/despliegue/base-de-datos)). Todo identificador es UUID; las tablas
+siguen `snake_case` estrictamente.
 
 ## Autenticación y usuarios
 
@@ -75,12 +76,15 @@ identificador es UUID; las tablas siguen `snake_case` estrictamente.
 
 | Tabla | Descripción |
 |-------|--------------|
-| `storage_objects` | Inventario de archivos en MinIO (bucket, key, hash, `processing_status`) |
+| `storage_objects` | Inventario de archivos en el almacenamiento (bucket, key, hash, `processing_status`) |
 | `storage_presigned_urls` | Caché de URLs prefirmadas con expiración |
 
-El backend nunca guarda rutas de filesystem ni binarios: solo referencias a MinIO.
+La base nunca guarda binarios ni rutas de filesystem: sólo bucket y clave, que resuelve
+el driver de almacenamiento configurado (S3 o local).
 
 ## Extensiones PostgreSQL
+
+Sólo en PostgreSQL: la migración `001_initial` las crea dentro de `onPostgres()`.
 
 - `uuid-ossp` — generación de UUIDs
 - `pg_trgm` — búsqueda full-text por trigramas (`idx_users_display_name_trgm`, etc.)

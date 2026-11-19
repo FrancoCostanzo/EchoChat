@@ -5,7 +5,7 @@ description: Procedimiento para actualizar EchoChat y aplicar migraciones.
 
 ## Flujo de actualización
 
-1. Hacé un [backup](/docs/despliegue/backups) de la base de datos y de MinIO antes de actualizar.
+1. Hacé un [backup](/docs/despliegue/backups) de la base de datos y de los archivos antes de actualizar.
 2. Traé el código nuevo:
 
    ```bash
@@ -90,7 +90,7 @@ Buenas prácticas al mantener versiones:
 No hay un mecanismo de rollback automático de migraciones. Para revertir una
 actualización problemática:
 
-1. Restaurá el backup de la base de datos y de MinIO tomado antes de actualizar (ver [Backups](/docs/despliegue/backups)).
+1. Restaurá el backup de la base de datos y de los archivos tomado antes de actualizar (ver [Backups](/docs/despliegue/backups)).
 2. Volvé al commit/tag anterior del código (`git checkout <tag_anterior>`).
 3. Reconstruí los contenedores o reinstalá dependencias con esa versión del código.
 
@@ -99,5 +99,5 @@ actualización problemática:
 - [ ] `GET /api/health/ready` responde `ready: true`.
 - [ ] El [dashboard de monitoreo](/docs/admin/monitoreo) no muestra estado `unhealthy`.
 - [ ] Podés iniciar sesión y enviar un mensaje de prueba.
-- [ ] La descarga de un adjunto existente funciona (URLs prefirmadas de MinIO).
+- [ ] La descarga de un adjunto existente funciona (URLs firmadas del almacenamiento).
 - [ ] Los jobs cron aparecen como `running` en la pestaña de monitoreo correspondiente.

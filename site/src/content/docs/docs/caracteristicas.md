@@ -48,7 +48,7 @@ Ver [Encuestas](/docs/uso/encuestas).
 
 ## Archivos y almacenamiento
 
-Subida de archivos a MinIO (S3-compatible): imágenes, video, audio, documentos y
+Subida de archivos a cualquier S3 compatible (MinIO, AWS S3, R2…) o al disco del servidor: imágenes, video, audio, documentos y
 grabaciones. Descarga mediante URLs prefirmadas con expiración.
 
 :::note[Planificado]
