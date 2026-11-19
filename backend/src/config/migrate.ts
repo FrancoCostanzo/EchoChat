@@ -146,8 +146,12 @@ export async function bootstrapAdmin(): Promise<void> {
     }
     await trx.insertInto('user_roles')
       .columns(['user_id', 'role_id'])
-      .expression((eb) => eb.selectFrom('roles').select([eb.val(userId).as('user_id'), 'id']).where('name', '=', 'super_admin'))
-      .onConflict((oc) => oc.doNothing())
+      .expression((eb) => eb.selectFrom('roles as r')
+        .select([eb.val(userId).as('user_id'), 'r.id'])
+        .where('r.name', '=', 'super_admin')
+        .where(({ not, exists, selectFrom }) => not(exists(selectFrom('user_roles as ur').select('ur.user_id')
+          .where('ur.user_id', '=', userId).whereRef('ur.role_id', '=', 'r.id')))))
+      .$if(isPostgres(), (q) => q.onConflict((oc) => oc.doNothing()))
       .execute();
   });
 

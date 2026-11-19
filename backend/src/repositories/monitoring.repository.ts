@@ -1,6 +1,7 @@
 import { sql } from 'kysely';
 import { db } from '../config/db';
 import { nowMinus, type IntervalUnit } from '../config/db/sql';
+import { isMssql } from '../config/db/schema';
 import type { Row } from '../types/rows';
 
 const RANGE_INTERVALS: Record<string, [number, IntervalUnit]> = {
@@ -37,12 +38,39 @@ export interface ConnectionDetail {
  * No hereda de BaseRepository: consulta vistas del sistema (`pg_stat_activity`)
  * y la tabla de instantáneas, no una tabla propia con id.
  *
- * Las vistas del sistema son propias de cada motor: estas consultas son de
- * PostgreSQL y en la etapa 5 de docs/MULTI_DB.md se suma la versión de SQL
- * Server (`sys.dm_exec_sessions`).
+ * Las vistas del sistema son propias de cada motor: en PostgreSQL se lee
+ * `pg_stat_activity`; en SQL Server, `sys.dm_exec_sessions`/`sys.dm_exec_requests`
+ * (requiere el permiso VIEW SERVER STATE).
  */
 class MonitoringRepository {
   async getConnectionCount() {
+    if (isMssql()) {
+      const { rows } = await sql<{ active_connections: number; total_connections: number }>`
+        SELECT
+          SUM(CASE WHEN r.session_id IS NOT NULL THEN 1 ELSE 0 END) AS active_connections,
+          COUNT(*) AS total_connections
+        FROM sys.dm_exec_sessions s
+        LEFT JOIN sys.dm_exec_requests r ON r.session_id = s.session_id
+        WHERE s.database_id = DB_ID() AND s.session_id <> @@SPID AND s.is_user_process = 1
+      `.execute(db);
+      const { rows: details } = await sql<ConnectionDetail>`
+        SELECT TOP 100
+          s.session_id,
+          COALESCE(s.program_name, '') AS program_name,
+          COALESCE(s.host_name, '') AS host_name,
+          s.status,
+          DB_NAME(s.database_id) AS database_name
+        FROM sys.dm_exec_sessions s
+        WHERE s.database_id = DB_ID() AND s.session_id <> @@SPID AND s.is_user_process = 1
+        ORDER BY s.session_id
+      `.execute(db);
+      return {
+        active_connections: rows[0]?.active_connections ?? 0,
+        total_connections: rows[0]?.total_connections ?? 0,
+        connection_details: details,
+      };
+    }
+
     const { rows } = await sql<{ active_connections: number; total_connections: number }>`
       SELECT
         COUNT(*) FILTER (WHERE state = 'active')::int AS active_connections,
@@ -74,6 +102,13 @@ class MonitoringRepository {
   }
 
   async getDatabaseSize(): Promise<{ size_mb: number }> {
+    if (isMssql()) {
+      // size viene en páginas de 8 KB.
+      const { rows } = await sql<{ size_mb: string | number }>`
+        SELECT CAST(SUM(CAST(size AS bigint)) * 8.0 / 1024 AS decimal(18, 2)) AS size_mb FROM sys.database_files
+      `.execute(db);
+      return { size_mb: parseFloat(String(rows[0]?.size_mb ?? '0')) };
+    }
     const { rows } = await sql<{ size_mb: string }>`
       SELECT ROUND(pg_database_size(current_database()) / 1024.0 / 1024.0, 2) AS size_mb
     `.execute(db);
@@ -81,6 +116,20 @@ class MonitoringRepository {
   }
 
   async getWaitStats() {
+    if (isMssql()) {
+      const { rows } = await sql<{ wait_type: string; waiting_tasks_count: number; wait_time_ms: string }>`
+        SELECT TOP 10
+          r.wait_type,
+          COUNT(*) AS waiting_tasks_count,
+          CAST(COALESCE(SUM(r.wait_time), 0) AS bigint) AS wait_time_ms
+        FROM sys.dm_exec_requests r
+        JOIN sys.dm_exec_sessions s ON s.session_id = r.session_id
+        WHERE s.database_id = DB_ID() AND r.wait_type IS NOT NULL AND r.session_id <> @@SPID
+        GROUP BY r.wait_type
+        ORDER BY wait_time_ms DESC
+      `.execute(db);
+      return rows;
+    }
     const { rows } = await sql<{
       wait_type: string;
       waiting_tasks_count: number;
@@ -102,6 +151,16 @@ class MonitoringRepository {
   }
 
   async getCurrentWaits() {
+    if (isMssql()) {
+      const { rows } = await sql<{ session_id: number; wait_type: string; wait_time: number }>`
+        SELECT TOP 20 r.session_id, r.wait_type, r.wait_time
+        FROM sys.dm_exec_requests r
+        JOIN sys.dm_exec_sessions s ON s.session_id = r.session_id
+        WHERE s.database_id = DB_ID() AND r.wait_type IS NOT NULL AND r.session_id <> @@SPID
+        ORDER BY r.wait_time DESC
+      `.execute(db);
+      return rows;
+    }
     const { rows } = await sql<{ session_id: number; wait_type: string; wait_time: number }>`
       SELECT
         pid AS session_id,

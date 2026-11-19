@@ -1,4 +1,5 @@
 import BaseRepository from './base.repository';
+import { upsert, insertIgnore } from '../config/db/upsert';
 import type { Row } from '../types/rows';
 import type { PollOptionRow } from '../models/poll.model';
 
@@ -71,10 +72,7 @@ class PollRepository extends BaseRepository<PollRow> {
       await this.db.deleteFrom('poll_votes').where('poll_id', '=', pollId).where('user_id', '=', userId).execute();
     }
     for (const optionId of optionIds) {
-      await this.db.insertInto('poll_votes')
-        .values({ poll_id: pollId, option_id: optionId, user_id: userId })
-        .onConflict((oc) => oc.columns(['poll_id', 'option_id', 'user_id']).doNothing())
-        .execute();
+      await upsert(this.db, { table: 'poll_votes', values: { poll_id: pollId, option_id: optionId, user_id: userId }, conflict: ['poll_id', 'option_id', 'user_id'] });
     }
     await this._recount(pollId);
   }

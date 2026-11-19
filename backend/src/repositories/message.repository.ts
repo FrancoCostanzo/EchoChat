@@ -1,6 +1,7 @@
 import { sql, type ExpressionBuilder } from 'kysely';
 import BaseRepository from './base.repository';
-import { now, json } from '../config/db/sql';
+import { upsert, insertIgnore } from '../config/db/upsert';
+import { now, json, bool } from '../config/db/sql';
 import type { DB } from '../types/db';
 import { encrypt, decrypt, searchTokens, searchQueryTokens } from '../utils/crypto.util';
 import type { Row } from '../types/rows';
@@ -117,10 +118,7 @@ class MessageRepository extends BaseRepository<MessageRow> {
     await this.db.deleteFrom('message_search_tokens').where('message_id', '=', messageId).execute();
     const tokens = searchTokens(plainBody);
     if (tokens.length === 0) return;
-    await this.db.insertInto('message_search_tokens')
-      .values(tokens.map((token) => ({ message_id: messageId, token })))
-      .onConflict((oc) => oc.columns(['message_id', 'token']).doNothing())
-      .execute();
+    await insertIgnore(this.db, 'message_search_tokens', tokens.map((token) => ({ message_id: messageId, token })));
   }
 
   /**
@@ -154,7 +152,7 @@ class MessageRepository extends BaseRepository<MessageRow> {
       : base;
 
     if (!viewerUserId) {
-      return withExtras.select((eb) => [eb.lit(false).as('is_saved'), sql<string | null>`NULL`.as('saved_note')]);
+      return withExtras.select(() => [bool(false).as('is_saved'), sql<string | null>`NULL`.as('saved_note')]);
     }
     return withExtras.select((eb) => [
       eb.exists(eb.selectFrom('saved_messages as sm').select('sm.message_id')
@@ -489,23 +487,15 @@ class MessageRepository extends BaseRepository<MessageRow> {
       // Leer implica haber recibido: fijamos read_at y, si todavía no había
       // marca de entrega, completamos delivered_at en la misma operación para
       // que la "Información del mensaje" muestre ambas horas de forma coherente.
-      const row = await this.db.insertInto('message_receipts')
-        .values({ message_id: messageId, user_id: userId, delivered_at: now(), read_at: now() })
-        .onConflict((oc) => oc.columns(['message_id', 'user_id']).doUpdateSet((eb) => ({
+      const row = await upsert(this.db, { table: 'message_receipts', values: { message_id: messageId, user_id: userId, delivered_at: now(), read_at: now() }, conflict: ['message_id', 'user_id'], update: (eb) => ({
           read_at: now(),
           delivered_at: eb.fn.coalesce('message_receipts.delivered_at', now()),
-        })))
-        .returningAll()
-        .executeTakeFirstOrThrow();
+        }), returning: true });
       return row as Row<'message_receipts'>;
     }
-    const row = await this.db.insertInto('message_receipts')
-      .values({ message_id: messageId, user_id: userId, delivered_at: now() })
-      .onConflict((oc) => oc.columns(['message_id', 'user_id']).doUpdateSet((eb) => ({
+    const row = await upsert(this.db, { table: 'message_receipts', values: { message_id: messageId, user_id: userId, delivered_at: now() }, conflict: ['message_id', 'user_id'], update: (eb) => ({
         delivered_at: eb.fn.coalesce('message_receipts.delivered_at', now()),
-      })))
-      .returningAll()
-      .executeTakeFirstOrThrow();
+      }), returning: true });
     return row as Row<'message_receipts'>;
   }
 
@@ -580,16 +570,20 @@ class MessageRepository extends BaseRepository<MessageRow> {
     // los tokens). Sin ranking ni stemming (trade-off del cifrado en reposo).
     const tokens = searchQueryTokens(term);
     if (tokens.length === 0) return [];
+    // Primero los ids que tienen todos los tokens; después los mensajes. Así no
+    // hace falta agrupar por m.* (SQL Server no lo admite).
     const rows = await this.db.selectFrom('messages as m')
-      .innerJoin('message_search_tokens as t', 't.message_id', 'm.id')
       .leftJoin('users as u', 'u.id', 'm.sender_id')
       .selectAll('m')
       .select(['u.username as sender_username', 'u.display_name as sender_display_name'])
-      .where('m.conversation_id', '=', conversationId)
-      .where('m.is_deleted', '=', false)
-      .where('t.token', 'in', tokens)
-      .groupBy(['m.id', 'u.username', 'u.display_name'])
-      .having((h) => h(h.fn.count('t.token').distinct(), '=', tokens.length))
+      .where('m.id', 'in', (eb) => eb.selectFrom('message_search_tokens as t')
+        .innerJoin('messages as tm', 'tm.id', 't.message_id')
+        .select('t.message_id')
+        .where('tm.conversation_id', '=', conversationId)
+        .where('tm.is_deleted', '=', false)
+        .where('t.token', 'in', tokens)
+        .groupBy('t.message_id')
+        .having((h) => h(h.fn.count('t.token').distinct(), '=', tokens.length)))
       .orderBy('m.sent_at', 'desc')
       .limit(limit)
       .execute() as unknown as MessageRow[];
@@ -607,15 +601,11 @@ class MessageRepository extends BaseRepository<MessageRow> {
     messageId: string,
     pinnedBy: string,
   ): Promise<Row<'pinned_messages'> | undefined> {
-    const row = await this.db.insertInto('pinned_messages')
-      .values({ conversation_id: conversationId, message_id: messageId, pinned_by: pinnedBy })
-      .onConflict((oc) => oc.column('conversation_id').doUpdateSet((eb) => ({
-        message_id: eb.ref('excluded.message_id'),
-        pinned_by: eb.ref('excluded.pinned_by'),
+    const row = await upsert(this.db, { table: 'pinned_messages', values: { conversation_id: conversationId, message_id: messageId, pinned_by: pinnedBy }, conflict: ['conversation_id'], update: {
+        message_id: messageId,
+        pinned_by: pinnedBy,
         pinned_at: now(),
-      })))
-      .returningAll()
-      .executeTakeFirst();
+      }, returning: true });
     return row as Row<'pinned_messages'> | undefined;
   }
 
@@ -672,13 +662,11 @@ class MessageRepository extends BaseRepository<MessageRow> {
     const tokens = [...new Set([...searchQueryTokens('http'), ...searchQueryTokens('https')])];
     if (tokens.length === 0) return [];
     const rows = await this.db.selectFrom('messages as m')
-      .innerJoin('message_search_tokens as t', 't.message_id', 'm.id')
       .leftJoin('users as u', 'u.id', 'm.sender_id')
       .select(['m.id as message_id', 'm.sent_at', 'm.body', 'u.display_name as sender_display_name'])
       .where('m.conversation_id', '=', conversationId)
       .where('m.is_deleted', '=', false)
-      .where('t.token', 'in', tokens)
-      .groupBy(['m.id', 'm.sent_at', 'm.body', 'u.display_name'])
+      .where('m.id', 'in', (eb) => eb.selectFrom('message_search_tokens as t').select('t.message_id').where('t.token', 'in', tokens))
       .orderBy('m.sent_at', 'desc')
       .limit(limit)
       .execute() as unknown as ConversationLinkCandidateRow[];

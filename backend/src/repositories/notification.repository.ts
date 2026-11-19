@@ -1,4 +1,5 @@
 import BaseRepository from './base.repository';
+import { upsert, insertIgnore } from '../config/db/upsert';
 import { now, json } from '../config/db/sql';
 import type { Row } from '../types/rows';
 import type { NotificationPrefsRequest, NotificationSettingsRequest } from '../dtos/notification.dto';
@@ -111,16 +112,18 @@ class NotificationRepository extends BaseRepository<NotificationRow> {
     const inApp = prefs.in_app_enabled ?? null;
     const push = prefs.push_enabled ?? null;
     const email = prefs.email_enabled ?? null;
-    const row = await this.db.insertInto('notification_preferences')
-      .values({ user_id: userId, event_type: prefs.event_type, in_app_enabled: inApp, push_enabled: push, email_enabled: email })
+    const row = await upsert(this.db, {
+      table: 'notification_preferences',
+      values: { user_id: userId, event_type: prefs.event_type, in_app_enabled: inApp, push_enabled: push, email_enabled: email },
+      conflict: ['user_id', 'event_type'],
       // Lo que no vino en el pedido conserva el valor guardado.
-      .onConflict((oc) => oc.columns(['user_id', 'event_type']).doUpdateSet((eb) => ({
+      update: (eb) => ({
         in_app_enabled: eb.fn.coalesce(eb.val(inApp), eb.ref('notification_preferences.in_app_enabled')),
         push_enabled: eb.fn.coalesce(eb.val(push), eb.ref('notification_preferences.push_enabled')),
         email_enabled: eb.fn.coalesce(eb.val(email), eb.ref('notification_preferences.email_enabled')),
-      })))
-      .returningAll()
-      .executeTakeFirst();
+      }),
+      returning: true,
+    });
     return row as PreferenceRow;
   }
 
@@ -140,10 +143,7 @@ class NotificationRepository extends BaseRepository<NotificationRow> {
     }
     // quiet_days es un array JSON (migración 003).
     if (changes.quiet_days !== undefined) changes.quiet_days = json(changes.quiet_days);
-    await this.db.insertInto('user_notification_settings')
-      .values({ user_id: userId })
-      .onConflict((oc) => oc.column('user_id').doNothing())
-      .execute();
+    await upsert(this.db, { table: 'user_notification_settings', values: { user_id: userId }, conflict: ['user_id'] });
     const row = await this.db.updateTable('user_notification_settings')
       .set({ ...changes, updated_at: now() })
       .where('user_id', '=', userId)

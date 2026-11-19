@@ -1,6 +1,6 @@
 import { sql } from 'kysely';
 import BaseRepository from './base.repository';
-import { now, nowPlus, nowMinus, json, jsonText, asText } from '../config/db/sql';
+import { now, nowPlus, nowMinus, nowPlusPowerOfTwoMinutes, json, jsonText, asText } from '../config/db/sql';
 import type { Row } from '../types/rows';
 
 export type EmailOutboxRow = Row<'email_outbox'>;
@@ -102,8 +102,8 @@ class EmailRepository extends BaseRepository<EmailOutboxRow> {
           last_error: error.slice(0, 1000),
           status: eb.case().when(exhausted).then('failed').else('pending').end(),
           data: eb.case().when(exhausted).then(json({})).else(eb.ref('data')).end(),
-          // TODO(etapa 3): intervalo que depende de una columna (2^intentos minutos).
-          send_after: sql<Date>`now() + make_interval(mins => POWER(2, attempts + 1)::int)`,
+          // Espera de 2^intentos minutos.
+          send_after: nowPlusPowerOfTwoMinutes(sql<number>`attempts + 1`),
         };
       })
       .where('id', '=', id)

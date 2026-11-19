@@ -1,5 +1,6 @@
-import { sql } from 'kysely';
 import BaseRepository from './base.repository';
+import { now } from '../config/db/sql';
+import { upsert } from '../config/db/upsert';
 import { encrypt, decrypt } from '../utils/crypto.util';
 import type { DraftRequest } from '../dtos/message.dto';
 // El tipo lo declara el modelo, que ya reemplaza el Json crudo de
@@ -22,15 +23,15 @@ class DraftRepository extends BaseRepository<DraftRow> {
       body: encrypt(body || null),
       reply_to_id: reply_to_id || null,
       pending_attachments: JSON.stringify(pending_attachments || []),
-      // TODO(etapa 3): helper now() por dialecto.
-      updated_at: sql<Date>`now()`,
+      updated_at: now(),
     };
-    const row = await this.db
-      .insertInto('drafts')
-      .values({ user_id: userId, conversation_id: conversationId, ...values })
-      .onConflict((oc) => oc.columns(['user_id', 'conversation_id']).doUpdateSet(values))
-      .returningAll()
-      .executeTakeFirstOrThrow();
+    const row = await upsert(this.db, {
+      table: 'drafts',
+      values: { user_id: userId, conversation_id: conversationId, ...values },
+      conflict: ['user_id', 'conversation_id'],
+      update: values,
+      returning: true,
+    });
     return this._decrypt(row as DraftRow)!;
   }
 

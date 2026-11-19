@@ -1,4 +1,5 @@
 import BaseRepository from './base.repository';
+import { upsert, insertIgnore } from '../config/db/upsert';
 import { encrypt, decrypt } from '../utils/crypto.util';
 import { now } from '../config/db/sql';
 import type { Row } from '../types/rows';
@@ -14,11 +15,7 @@ class SavedMessageRepository extends BaseRepository<SavedRow> {
 
   async save(userId: string, messageId: string, note?: string | null): Promise<SavedRow> {
     const encrypted = encrypt(note || null);
-    const row = await this.db.insertInto('saved_messages')
-      .values({ user_id: userId, message_id: messageId, note: encrypted })
-      .onConflict((oc) => oc.columns(['user_id', 'message_id']).doUpdateSet({ note: encrypted, saved_at: now() }))
-      .returningAll()
-      .executeTakeFirst() as SavedRow | undefined;
+    const row = await upsert(this.db, { table: 'saved_messages', values: { user_id: userId, message_id: messageId, note: encrypted }, conflict: ['user_id', 'message_id'], update: { note: encrypted, saved_at: now() }, returning: true }) as SavedRow | undefined;
     if (row) row.note = decrypt(row.note);
     return row as SavedRow;
   }

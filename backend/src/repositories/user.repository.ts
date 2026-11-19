@@ -1,6 +1,8 @@
 import { sql, type ExpressionBuilder } from 'kysely';
 import BaseRepository from './base.repository';
-import { now, nowMinus, ilike } from '../config/db/sql';
+import { upsert, insertIgnore } from '../config/db/upsert';
+import { now, nowMinus, ilike, json } from '../config/db/sql';
+import { isMssql, isPostgres } from '../config/db/schema';
 import type { DB } from '../types/db';
 import type { Row } from '../types/rows';
 import type { UpdateProfileRequest } from '../dtos/auth.dto';
@@ -217,8 +219,10 @@ class UserRepository extends BaseRepository<UserRow> {
       .where('external_id', 'is not', null)
       // Un solo parámetro array a propósito: el directorio puede tener miles de
       // ids y un `NOT IN (...)` armaría un parámetro por cada uno.
-      // TODO(etapa 3): en SQL Server el límite es 2100 parámetros; ir por tabla temporal.
-      .where(sql<boolean>`NOT (external_id = ANY(${seenExternalIds}::text[]))`)
+      // (SQL Server además tiene un tope de 2100 parámetros por consulta).
+      .where(isMssql()
+        ? sql<boolean>`external_id NOT IN (SELECT [value] FROM OPENJSON(${json(seenExternalIds)}))`
+        : sql<boolean>`NOT (external_id = ANY(${seenExternalIds}::text[]))`)
       .returning('id')
       .execute();
     return rows.map((r) => r.id);
@@ -283,13 +287,7 @@ class UserRepository extends BaseRepository<UserRow> {
    * auto-respuestas.
    */
   async reservarAutoRespuesta(awayUserId: string, peerUserId: string, horas: number): Promise<boolean> {
-    const row = await this.db.insertInto('auto_reply_log')
-      .values({ away_user_id: awayUserId, peer_user_id: peerUserId, last_sent_at: now() })
-      .onConflict((oc) => oc.columns(['away_user_id', 'peer_user_id'])
-        .doUpdateSet({ last_sent_at: now() })
-        .where('auto_reply_log.last_sent_at', '<', nowMinus(horas, 'hours')))
-      .returning('away_user_id')
-      .executeTakeFirst();
+    const row = await upsert(this.db, { table: 'auto_reply_log', values: { away_user_id: awayUserId, peer_user_id: peerUserId, last_sent_at: now() }, conflict: ['away_user_id', 'peer_user_id'], update: { last_sent_at: now() }, updateWhere: (eb) => eb('auto_reply_log.last_sent_at', '<', nowMinus(horas, 'hours')), returning: true });
     return !!row;
   }
 
@@ -463,8 +461,12 @@ class UserRepository extends BaseRepository<UserRow> {
   async assignDefaultRole(userId: string): Promise<void> {
     await this.db.insertInto('user_roles')
       .columns(['user_id', 'role_id'])
-      .expression((eb) => eb.selectFrom('roles').select([eb.val(userId).as('user_id'), 'id']).where('name', '=', 'user'))
-      .onConflict((oc) => oc.doNothing())
+      .expression((eb) => eb.selectFrom('roles as r')
+        .select([eb.val(userId).as('user_id'), 'r.id'])
+        .where('r.name', '=', 'user')
+        .where(({ not, exists, selectFrom }) => not(exists(selectFrom('user_roles as ur').select('ur.user_id')
+          .where('ur.user_id', '=', userId).whereRef('ur.role_id', '=', 'r.id')))))
+      .$if(isPostgres(), (q) => q.onConflict((oc) => oc.doNothing()))
       .execute();
   }
 

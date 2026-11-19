@@ -1,4 +1,5 @@
 import BaseRepository from './base.repository';
+import { upsert, insertIgnore } from '../config/db/upsert';
 import type { Row } from '../types/rows';
 
 type RelationshipRow = Row<'user_relationships'>;
@@ -26,11 +27,7 @@ class RelationshipRepository extends BaseRepository<RelationshipRow> {
       alias?: string | null;
     },
   ): Promise<RelationshipRow> {
-    const row = await this.db.insertInto('user_relationships')
-      .values({ user_id, target_user_id, type, alias: alias || null })
-      .onConflict((oc) => oc.columns(['user_id', 'target_user_id', 'type']).doUpdateSet({ alias: alias || null }))
-      .returningAll()
-      .executeTakeFirst();
+    const row = await upsert(this.db, { table: 'user_relationships', values: { user_id, target_user_id, type, alias: alias || null }, conflict: ['user_id', 'target_user_id', 'type'], update: { alias: alias || null }, returning: true });
     return row as RelationshipRow;
   }
 

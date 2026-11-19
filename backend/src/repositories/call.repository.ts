@@ -1,6 +1,7 @@
 import { sql } from 'kysely';
 import BaseRepository from './base.repository';
-import { now, nowMinus, secondsSince } from '../config/db/sql';
+import { upsert, insertIgnore } from '../config/db/upsert';
+import { now, nowMinus, secondsSince, json } from '../config/db/sql';
 import type { Row } from '../types/rows';
 import type { CallHistoryRow } from '../models/call.model';
 import type { UpdateParticipantRequest } from '../dtos/call.dto';
@@ -60,11 +61,7 @@ class CallRepository extends BaseRepository<CallRow> {
   }
 
   async addParticipant(callId: string, userId: string): Promise<ParticipantRow | undefined> {
-    const row = await this.db.insertInto('call_participants')
-      .values({ call_id: callId, user_id: userId })
-      .onConflict((oc) => oc.columns(['call_id', 'user_id']).doNothing())
-      .returningAll()
-      .executeTakeFirst();
+    const row = await upsert(this.db, { table: 'call_participants', values: { call_id: callId, user_id: userId }, conflict: ['call_id', 'user_id'], returning: true });
     return row as ParticipantRow | undefined;
   }
 
@@ -107,16 +104,26 @@ class CallRepository extends BaseRepository<CallRow> {
       .where('call_id', '=', callId)
       .where('user_id', '=', userId)
       .execute();
-    // TODO(etapa 3): operadores JSONB de PostgreSQL; se reescribe leyendo y
-    // armando el JSON en la app.
+    // Resumen de la llamada: promedio de los participantes que reportaron y el
+    // peor jitter visto. Se arma acá (antes con operadores JSONB de PostgreSQL).
     const jitter = jitterMs === null ? null : Math.round(jitterMs);
-    await sql`
-      UPDATE calls c SET quality_stats = COALESCE(c.quality_stats, '{}'::jsonb) || jsonb_build_object(
-        'avg_rtt_ms', (SELECT ROUND(AVG(avg_latency_ms)) FROM call_participants WHERE call_id = c.id),
-        'avg_packet_loss_pct', (SELECT ROUND(AVG(avg_packet_loss), 2) FROM call_participants WHERE call_id = c.id),
-        'max_jitter_ms', GREATEST(COALESCE((c.quality_stats->>'max_jitter_ms')::numeric, 0), COALESCE(${jitter}::numeric, 0))
-      )
-      WHERE c.id = ${callId}`.execute(this.db);
+    await this.db.transaction().execute(async (trx) => {
+      const stats = await trx.selectFrom('call_participants')
+        .select((eb) => [eb.fn.avg('avg_latency_ms').as('rtt'), eb.fn.avg('avg_packet_loss').as('loss')])
+        .where('call_id', '=', callId)
+        .executeTakeFirst();
+      const call = await trx.selectFrom('calls').select('quality_stats').where('id', '=', callId).executeTakeFirst();
+      if (!call) return;
+      const current = (call.quality_stats ?? {}) as Record<string, unknown>;
+      const round = (v: unknown, digits = 0) => (v === null || v === undefined ? null : Number(Number(v).toFixed(digits)));
+      const next = {
+        ...current,
+        avg_rtt_ms: round(stats?.rtt),
+        avg_packet_loss_pct: round(stats?.loss, 2),
+        max_jitter_ms: Math.max(Number(current.max_jitter_ms ?? 0), jitter ?? 0),
+      };
+      await trx.updateTable('calls').set({ quality_stats: json(next) }).where('id', '=', callId).execute();
+    });
   }
 
   /** Llamadas que todavía le están sonando a `userId` (no atendió ni rechazó). */
@@ -173,9 +180,11 @@ class CallRepository extends BaseRepository<CallRow> {
           .select(['u.display_name', 'u.avatar_object_key'])
           .whereRef('cm2.conversation_id', '=', 'conv.id')
           .where('cm2.user_id', '<>', userId)
+          // Sólo en directos; adentro para que sirva como OUTER APPLY en SQL Server.
+          .where(sql<boolean>`conv.type = 'direct'`)
           .limit(1)
           .as('other'),
-        (j) => j.on('conv.type', '=', 'direct'),
+        (j) => j.onTrue(),
       )
       .selectAll('c')
       .select([

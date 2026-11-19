@@ -1,4 +1,5 @@
 import BaseRepository from './base.repository';
+import { upsert, insertIgnore } from '../config/db/upsert';
 import { now } from '../config/db/sql';
 import type { Row } from '../types/rows';
 import type { UpsertWallpaperRequest } from '../dtos/wallpaper.dto';
@@ -36,11 +37,7 @@ class WallpaperRepository extends BaseRepository<WallpaperRow> {
       storage_object_id: storage_object_id ?? null,
       updated_at: now(),
     };
-    const row = await this.db.insertInto('user_wallpapers')
-      .values({ user_id: userId, scope, scope_key, ...values })
-      .onConflict((oc) => oc.columns(['user_id', 'scope', 'scope_key']).doUpdateSet(values))
-      .returningAll()
-      .executeTakeFirst();
+    const row = await upsert(this.db, { table: 'user_wallpapers', values: { user_id: userId, scope, scope_key, ...values }, conflict: ['user_id', 'scope', 'scope_key'], update: values, returning: true });
     return row as WallpaperRow;
   }
 

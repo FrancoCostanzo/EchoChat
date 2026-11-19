@@ -1,5 +1,7 @@
 import type { Kysely } from 'kysely';
 import type { DB } from '../../types/db';
+import { insertIgnore } from './upsert';
+import { isPostgres } from './schema';
 
 // =============================================================================
 // SEED — Datos de referencia del sistema (idempotente).
@@ -132,34 +134,30 @@ const SETTINGS: { key: string; value: string; description: string; category: str
   },
 ];
 
-/**
- * Aplica los datos de referencia. Cada paso inserta sólo lo que falta.
- * TODO(etapa 3): `onConflict` es la sintaxis de PostgreSQL; el helper `upsert`
- * por dialecto lo resuelve para SQL Server.
- */
+/** Aplica los datos de referencia. Cada paso inserta sólo lo que falta. */
 export async function runSeed(db: Kysely<DB>): Promise<void> {
-  await db.insertInto('roles').values(ROLES)
-    .onConflict((oc) => oc.column('name').doNothing()).execute();
+  await insertIgnore(db, 'roles', ROLES);
+  await insertIgnore(db, 'permissions', PERMISSIONS);
 
-  await db.insertInto('permissions').values(PERMISSIONS)
-    .onConflict((oc) => oc.column('code').doNothing()).execute();
-
+  // Rol → permisos: NOT EXISTS hace que valga en cualquier motor; en PostgreSQL
+  // además queda ON CONFLICT por si dos instancias arrancan a la vez.
   for (const [role, codes] of Object.entries(ROLE_PERMISSIONS)) {
     await db.insertInto('role_permissions')
       .columns(['role_id', 'permission_id'])
       .expression((eb) => {
         let q = eb.selectFrom('roles as r').innerJoin('permissions as p', (j) => j.onTrue())
           .select(['r.id', 'p.id as permission_id'])
-          .where('r.name', '=', role);
+          .where('r.name', '=', role)
+          .where(({ not, exists, selectFrom }) => not(exists(selectFrom('role_permissions as rp').select('rp.role_id')
+            .whereRef('rp.role_id', '=', 'r.id').whereRef('rp.permission_id', '=', 'p.id'))));
         if (codes !== 'all') q = q.where('p.code', 'in', codes);
         return q;
       })
-      .onConflict((oc) => oc.doNothing())
+      .$if(isPostgres(), (q) => q.onConflict((oc) => oc.doNothing()))
       .execute();
   }
 
-  await db.insertInto('system_settings').values(SETTINGS)
-    .onConflict((oc) => oc.column('key').doNothing()).execute();
+  await insertIgnore(db, 'system_settings', SETTINGS);
 
   // Backfill: todo usuario sin ningún rol recibe 'user'. Red de seguridad para
   // usuarios creados antes de tener RBAC o importados sin rol.
@@ -171,6 +169,6 @@ export async function runSeed(db: Kysely<DB>): Promise<void> {
       .where((w) => w.not(w.exists(
         w.selectFrom('user_roles as ur').select('ur.user_id').whereRef('ur.user_id', '=', 'u.id'),
       ))))
-    .onConflict((oc) => oc.doNothing())
+    .$if(isPostgres(), (q) => q.onConflict((oc) => oc.doNothing()))
     .execute();
 }

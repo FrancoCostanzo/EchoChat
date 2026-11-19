@@ -169,8 +169,26 @@ un CTE con `DELETE … USING`, los `ORDER BY (status = 'pending')` pasan a `CASE
 - Para poder instalar el driver hubo que pasar a Express 5 (rama `fix/express-5`): se quitó
   `express-async-errors`, que rompía el arranque.
 
-**Falta:** correr la suite con `DB_CLIENT=mssql` y adaptar las consultas (ver la lista de la
-etapa 3), monitoreo con `sys.dm_exec_sessions`, y el reemplazo de `disableLdapUsersNotIn`.
+**Consultas en SQL Server** (sin una versión de cada consulta por motor):
+- `MssqlPlugin` (`src/config/db/mssqlPlugin.ts`, sólo con `mssql`) reescribe el árbol de cada
+  consulta: `limit` → `TOP`/`OFFSET…FETCH`, `returning` → `OUTPUT inserted.*|deleted.*`,
+  `NULLS LAST` → `CASE` en el ORDER BY, `FOR UPDATE SKIP LOCKED` → `WITH (UPDLOCK, READPAST,
+  ROWLOCK)`, `LEFT JOIN LATERAL … ON TRUE` → `OUTER APPLY`, `ON true` → `ON 1 = 1`,
+  `EXISTS(…) AS x` en el SELECT → `CAST(CASE WHEN EXISTS(…) THEN 1 ELSE 0 END AS bit)` y
+  `UPDATE t AS a` → `UPDATE a … FROM t AS a`. En los resultados pasa los GUID a minúscula y
+  parsea las columnas JSON (que SQL Server guarda como texto).
+- La búsqueda por índice ciego y los candidatos a links ya no agrupan por `m.*` (SQL Server no
+  lo admite): una subconsulta trae los ids y después los mensajes.
+- `src/config/db/upsert.ts`: `upsert()` e `insertIgnore()` reemplazan a los 28 `onConflict`. En
+  PostgreSQL siguen siendo `ON CONFLICT`; en SQL Server se intenta el INSERT y, ante violación de
+  la clave única (2627/2601), se hace el UPDATE o se ignora. Los `INSERT … SELECT` usan `NOT EXISTS`.
+- Helpers de `sql.ts` con las dos ramas: `now`, `nowPlus/nowMinus` (`DATEADD`), `secondsSince`
+  (`DATEDIFF`), `ilike` (`LIKE` con collation CI), `jsonText` (`JSON_VALUE`), `asText`,
+  `jsonArrayLike` (`OPENJSON`), `bool`. `disableLdapUsersNotIn` manda los ids como un único JSON
+  (`OPENJSON`) para no chocar con el tope de 2100 parámetros.
+- `call.recordQuality` arma el resumen de calidad en la app (antes operadores JSONB).
+- Monitoreo con `sys.dm_exec_sessions`/`sys.dm_exec_requests` y `sys.database_files`.
+- `closeDb()` cierra el pool del motor activo al apagar (antes `pool.end()` sólo de `pg`).
 
 **Plan original:**
 - `MssqlDialect` de Kysely (`tedious` + `tarn`), implementación de los helpers para SQL Server

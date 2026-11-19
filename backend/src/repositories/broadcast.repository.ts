@@ -1,5 +1,6 @@
 import type { ExpressionBuilder } from 'kysely';
 import BaseRepository from './base.repository';
+import { upsert, insertIgnore } from '../config/db/upsert';
 import { now, jsonText, asText } from '../config/db/sql';
 import type { DB } from '../types/db';
 import type { Row } from '../types/rows';
@@ -76,10 +77,7 @@ class BroadcastRepository extends BaseRepository<ListRow> {
   ): Promise<void> {
     if (!userIds?.length) return;
     for (const uid of userIds) {
-      await this.db.insertInto('broadcast_recipients')
-        .values({ broadcast_list_id: broadcastListId, user_id: uid, added_by: addedBy })
-        .onConflict((oc) => oc.columns(['broadcast_list_id', 'user_id']).doNothing())
-        .execute();
+      await upsert(this.db, { table: 'broadcast_recipients', values: { broadcast_list_id: broadcastListId, user_id: uid, added_by: addedBy }, conflict: ['broadcast_list_id', 'user_id'] });
     }
   }
 
@@ -285,12 +283,7 @@ class BroadcastRepository extends BaseRepository<ListRow> {
   ): Promise<DeliveryRow> {
     // delivered_at here = "fan-out to DM succeeded" (server side). Client
     // receipt times live on message_receipts and are joined in getDeliveries.
-    const row = await this.db.insertInto('broadcast_deliveries')
-      .values({ broadcast_msg_id, user_id, conversation_id, delivered_at: now() })
-      .onConflict((oc) => oc.columns(['broadcast_msg_id', 'user_id'])
-        .doUpdateSet((eb) => ({ conversation_id: eb.ref('excluded.conversation_id') })))
-      .returningAll()
-      .executeTakeFirstOrThrow();
+    const row = await upsert(this.db, { table: 'broadcast_deliveries', values: { broadcast_msg_id, user_id, conversation_id, delivered_at: now() }, conflict: ['broadcast_msg_id', 'user_id'], update: { conversation_id }, returning: true });
     return row as DeliveryRow;
   }
 

@@ -1,4 +1,6 @@
+import { sql } from 'kysely';
 import BaseRepository from './base.repository';
+import { upsert, insertIgnore } from '../config/db/upsert';
 import { decrypt } from '../utils/crypto.util';
 import { now } from '../config/db/sql';
 import type { DbTransaction } from '../config/db';
@@ -85,9 +87,12 @@ class ConversationRepository extends BaseRepository<ConvRow> {
           .whereRef('cm2.conversation_id', '=', 'c.id')
           .where('cm2.user_id', '<>', userId)
           .where('cm2.left_at', 'is', null)
+          // Sólo en directos. La condición va adentro (no en el ON) para que la
+          // subconsulta sirva como OUTER APPLY en SQL Server.
+          .where(sql<boolean>`c.type = 'direct'`)
           .limit(1)
           .as('other_user'),
-        (j) => j.on('c.type', '=', 'direct'),
+        (j) => j.onTrue(),
       )
       // Último mensaje, para el preview de la barra lateral.
       .leftJoin('messages as last_msg', 'last_msg.id', 'c.last_message_id')
@@ -161,11 +166,7 @@ class ConversationRepository extends BaseRepository<ConvRow> {
     invitedBy: string | null = null,
   ): Promise<Row<'conversation_members'>> {
     return this.db.transaction().execute(async (trx) => {
-      const row = await trx.insertInto('conversation_members')
-        .values({ conversation_id: conversationId, user_id: userId, role, invited_by: invitedBy })
-        .onConflict((oc) => oc.columns(['conversation_id', 'user_id']).doUpdateSet({ left_at: null, role, joined_at: now() }))
-        .returningAll()
-        .executeTakeFirstOrThrow();
+      const row = await upsert(trx, { table: 'conversation_members', values: { conversation_id: conversationId, user_id: userId, role, invited_by: invitedBy }, conflict: ['conversation_id', 'user_id'], update: { left_at: null, role, joined_at: now() }, returning: true });
       await this.refreshChannelMemberCount(trx, conversationId);
       return row as Row<'conversation_members'>;
     });

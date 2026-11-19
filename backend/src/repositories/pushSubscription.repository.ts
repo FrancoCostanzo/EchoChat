@@ -1,4 +1,5 @@
 import BaseRepository from './base.repository';
+import { upsert, insertIgnore } from '../config/db/upsert';
 import { now } from '../config/db/sql';
 import type { Row } from '../types/rows';
 
@@ -19,11 +20,7 @@ class PushSubscriptionRepository extends BaseRepository<PushSubscriptionRow> {
     { endpoint, p256dh, auth, userAgent }: { endpoint: string; p256dh: string; auth: string; userAgent: string | null },
   ): Promise<PushSubscriptionRow> {
     const values = { user_id: userId, p256dh, auth, user_agent: userAgent };
-    const row = await this.db.insertInto('push_subscriptions')
-      .values({ endpoint, ...values })
-      .onConflict((oc) => oc.column('endpoint').doUpdateSet({ ...values, failure_count: 0 }))
-      .returningAll()
-      .executeTakeFirst();
+    const row = await upsert(this.db, { table: 'push_subscriptions', values: { endpoint, ...values }, conflict: ['endpoint'], update: { ...values, failure_count: 0 }, returning: true });
     return row as PushSubscriptionRow;
   }
 

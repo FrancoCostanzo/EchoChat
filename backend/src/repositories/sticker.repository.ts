@@ -1,4 +1,5 @@
 import BaseRepository from './base.repository';
+import { upsert, insertIgnore } from '../config/db/upsert';
 import { now, ilike, json, jsonArrayLike } from '../config/db/sql';
 import type { Row } from '../types/rows';
 import type { UserStickerRow } from '../models/sticker.model';
@@ -89,12 +90,7 @@ class StickerRepository extends BaseRepository<StickerRow> {
       keywords?: string[];
     },
   ): Promise<StickerRow> {
-    const row = await this.db.insertInto('user_stickers')
-      .values({ owner_id: ownerId, storage_object_id: storageObjectId, pack_id: packId, name, keywords: json(keywords) })
-      .onConflict((oc) => oc.columns(['owner_id', 'storage_object_id'])
-        .doUpdateSet((eb) => ({ added_at: eb.ref('user_stickers.added_at') })))
-      .returningAll()
-      .executeTakeFirstOrThrow();
+    const row = await upsert(this.db, { table: 'user_stickers', values: { owner_id: ownerId, storage_object_id: storageObjectId, pack_id: packId, name, keywords: json(keywords) }, conflict: ['owner_id', 'storage_object_id'], update: (eb) => ({ added_at: eb.ref('user_stickers.added_at') }), returning: true });
     return row as StickerRow;
   }
 
@@ -128,13 +124,10 @@ class StickerRepository extends BaseRepository<StickerRow> {
   }
 
   async recordUsage(ownerId: string, storageObjectId: string): Promise<void> {
-    await this.db.insertInto('sticker_usage')
-      .values({ owner_id: ownerId, storage_object_id: storageObjectId, use_count: 1, last_used_at: now() })
-      .onConflict((oc) => oc.columns(['owner_id', 'storage_object_id']).doUpdateSet((eb) => ({
+    await upsert(this.db, { table: 'sticker_usage', values: { owner_id: ownerId, storage_object_id: storageObjectId, use_count: 1, last_used_at: now() }, conflict: ['owner_id', 'storage_object_id'], update: (eb) => ({
         use_count: eb('sticker_usage.use_count', '+', 1),
         last_used_at: now(),
-      })))
-      .execute();
+      }) });
   }
 
   // ── Packs ──────────────────────────────────────────────────────────────

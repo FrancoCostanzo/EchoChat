@@ -1,4 +1,5 @@
 import BaseRepository from './base.repository';
+import { upsert, insertIgnore } from '../config/db/upsert';
 import { now } from '../config/db/sql';
 import type { Row } from '../types/rows';
 import type { StorageObjectAdminRow } from '../models/admin.model';
@@ -125,12 +126,7 @@ class StorageRepository extends BaseRepository<StorageRow> {
     url: string,
     expiresAt: Date,
   ): Promise<PresignedRow> {
-    const row = await this.db.insertInto('storage_presigned_urls')
-      .values({ object_id: objectId, user_id: userId || null, operation, presigned_url: url, expires_at: expiresAt })
-      .onConflict((oc) => oc.columns(['object_id', 'user_id', 'operation'])
-        .doUpdateSet({ presigned_url: url, expires_at: expiresAt, created_at: now() }))
-      .returningAll()
-      .executeTakeFirst();
+    const row = await upsert(this.db, { table: 'storage_presigned_urls', values: { object_id: objectId, user_id: userId || null, operation, presigned_url: url, expires_at: expiresAt }, conflict: ['object_id', 'user_id', 'operation'], update: { presigned_url: url, expires_at: expiresAt, created_at: now() }, returning: true });
     return row as PresignedRow;
   }
 
