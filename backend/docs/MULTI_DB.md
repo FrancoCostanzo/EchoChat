@@ -1,6 +1,7 @@
 # Soporte para varios motores de base de datos
 
-> Estado: **etapas 0 y 1 hechas** (Kysely conectado; esquema, migraciones y seed en TypeScript).
+> Estado: **etapas 0, 1 y 2 hechas** (Kysely conectado; esquema, migraciones y seed en TypeScript;
+> los 25 repositorios consultan con Kysely).
 > Motores: PostgreSQL (actual) → **SQL Server** (primero) → MySQL/MariaDB y SQLite más adelante.
 
 ## Decisiones
@@ -81,17 +82,21 @@ commit. Desde la etapa 5 la suite corre también contra SQL Server.
 - Pendiente para la etapa 6: la guía pública (`site/…/despliegue/base-de-datos.md` y
   `actualizacion.md`) todavía describe los `.sql`.
 
-### Etapa 2 — Repositorios a Kysely, sólo PostgreSQL (≈6–8 días)
+### Etapa 2 — Repositorios a Kysely, sólo PostgreSQL ✅
 - Uno por uno, de los simples a los complejos (`wallpaper`, `draft`, `saved`… → `conversation`,
   `message`, `monitoring`). Mismo SQL resultante, mismos tests.
 - Los casos raros (`json_agg`, `LATERAL`, `FOR UPDATE SKIP LOCKED`) primero con `sql` crudo de
   Kysely, para no frenar.
 - El SQL que vive fuera de los repositorios (`auth.service`, jobs, health) pasa a repositorios.
 
-**Avance (22 de 25):** ✅ `base`, `draft`, `systemSettings`, `game`, `saved`, `wallpaper`,
-`relationship`, `session`, `pushSubscription`, `credential`, `poll`, `scheduled`, `audit`,
-`notification`, `channel`, `sticker`, `storage`, `call`, `conversation`, `broadcast`, `email`,
-`monitoring`. Pendientes: `user`, `message` y el SQL fuera de repositorios.
+**Hecho (25 de 25).** No queda SQL a mano en repositorios ni servicios: `BaseRepository` ya no
+expone `query()`. Lo que sigue usando el `pool` de `pg` directamente es exclusivo de PostgreSQL
+a propósito: las migraciones históricas (`legacyMigrations.ts`), el advisory lock de
+`migrate.ts` y el estado del pool en el monitoreo. Los health checks usan `pingDb()`.
+
+Las tres consultas de timeline de `message` (con `json_agg` de adjuntos y reacciones) quedaron
+como fragmentos `sql` de Kysely con el mismo texto: en la etapa 3 se parten en consultas
+simples que se arman en la app.
 
 Expresiones por motor en `src/config/db/sql.ts`: `now()`, `nowPlus()`, `nowMinus()`, `ilike()`, `jsonText()`, `asText()`, `json()`.
 Quedan como PostgreSQL a propósito, para la etapa 3: `onConflict` (upserts), `returning`,
@@ -105,6 +110,15 @@ Cambios de forma (mismo resultado): `deviceHistory` hace dos consultas chicas en
 `EXISTS` doble con `IS NOT DISTINCT FROM`, `markFailed` actualiza y después borra en vez de
 un CTE con `DELETE … USING`, los `ORDER BY (status = 'pending')` pasan a `CASE`, los `COUNT(*) FILTER (WHERE …)` a
 `SUM(CASE …)` y `storage.countReferences` hace una consulta por tabla en vez de una suma de subconsultas.
+
+**Hallazgos de la etapa 2 (no corregidos, mismo comportamiento que antes):**
+- `message.deleteAttachments` borra los adjuntos y *después* busca en esa misma tabla qué
+  `storage_objects` borrar, así que nunca borra ninguno.
+- `user.disableLdapUsersNotIn` manda todos los ids del directorio en un parámetro array; en SQL
+  Server (límite de 2100 parámetros) hay que resolverlo con una tabla temporal.
+- El test `fijar y dejar de fijar` ya fallaba antes de empezar; contra el backend de desarrollo
+  fijar y leer el fijado funciona. `el TOTP del autenticador sigue funcionando en paralelo`
+  falla a veces por la ventana de 30 s del TOTP.
 
 ### Etapa 3 — Sacar lo exclusivo de PostgreSQL del código (≈3–4 días)
 - Helpers por dialecto (`now`, `addInterval`, `ilike`, `upsert`, `jsonText`, `lockForUpdate`).

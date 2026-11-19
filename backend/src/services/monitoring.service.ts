@@ -5,6 +5,7 @@ import { readFileSync } from 'fs';
 import { performance } from 'perf_hooks';
 import config from '../config';
 import { pool } from '../config/database';
+import { pingDb } from '../config/db';
 import { getSocketMetrics } from '../config/socketStore';
 import monitoringRepository from '../repositories/monitoring.repository';
 import * as metricsRegistry from '../utils/metricsRegistry';
@@ -512,13 +513,13 @@ class MonitoringService {
   async _testDatabaseConnection(): Promise<DbConnectionTest> {
     try {
       const startTime = performance.now();
-      const { rows } = await pool.query('SELECT 1 AS test, NOW() AS timestamp');
+      const row = await pingDb();
       const responseTime = performance.now() - startTime;
 
       return {
         success: true,
         responseTime: Math.round(responseTime * 100) / 100,
-        data: rows[0],
+        data: row,
       };
     } catch (error) {
       return {

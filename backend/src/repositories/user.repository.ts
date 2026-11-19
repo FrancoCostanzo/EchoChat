@@ -1,4 +1,7 @@
+import { sql, type ExpressionBuilder } from 'kysely';
 import BaseRepository from './base.repository';
+import { now, nowMinus, ilike } from '../config/db/sql';
+import type { DB } from '../types/db';
 import type { Row } from '../types/rows';
 import type { UpdateProfileRequest } from '../dtos/auth.dto';
 
@@ -11,34 +14,48 @@ export type RoleSummary = Pick<Row<'roles'>, 'id' | 'name' | 'display_name' | 'd
 export type GrantedRole = Pick<Row<'roles'>, 'id' | 'name' | 'display_name'> &
   Pick<Row<'user_roles'>, 'granted_at' | 'expires_at'>;
 
+/** Concesión vigente: sin vencimiento o con vencimiento futuro. */
+function activeGrant(eb: ExpressionBuilder<DB & { ur: DB['user_roles'] }, 'ur'>) {
+  return eb.or([eb('ur.expires_at', 'is', null), eb('ur.expires_at', '>', now())]);
+}
+
+/** Lista blanca → sólo las presentes en `fields` (para los UPDATE parciales). */
+function pick<K extends string>(fields: Partial<Record<K, unknown>>, allowed: readonly K[]): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const key of allowed) {
+    if (fields[key] !== undefined) out[key] = fields[key];
+  }
+  return out;
+}
+
 class UserRepository extends BaseRepository<UserRow> {
   constructor() {
     super('users');
   }
 
+  private async one(q: Promise<unknown>): Promise<UserRow | null> {
+    return ((await q) as UserRow | undefined) ?? null;
+  }
+
   async findByUsername(username: string): Promise<UserRow | null> {
-    const { rows } = await this.query(
-      'SELECT * FROM users WHERE username = $1 AND status != $2',
-      [username, 'deleted']
-    );
-    return rows[0] || null;
+    return this.one(this.db.selectFrom('users').selectAll()
+      .where('username', '=', username).where('status', '!=', 'deleted')
+      .executeTakeFirst());
   }
 
   /** Sin distinguir mayúsculas: para "olvidé mi contraseña", donde el email lo tipea el usuario. */
   async findByEmailInsensitive(email: string): Promise<UserRow | null> {
-    const { rows } = await this.query(
-      'SELECT * FROM users WHERE LOWER(email) = LOWER($1) AND status != $2 LIMIT 1',
-      [email, 'deleted']
-    );
-    return rows[0] || null;
+    return this.one(this.db.selectFrom('users').selectAll()
+      .where((eb) => eb(eb.fn('lower', ['email']), '=', eb.fn('lower', [eb.val(email)])))
+      .where('status', '!=', 'deleted')
+      .limit(1)
+      .executeTakeFirst());
   }
 
   async findByEmail(email: string): Promise<UserRow | null> {
-    const { rows } = await this.query(
-      'SELECT * FROM users WHERE email = $1 AND status != $2',
-      [email, 'deleted']
-    );
-    return rows[0] || null;
+    return this.one(this.db.selectFrom('users').selectAll()
+      .where('email', '=', email).where('status', '!=', 'deleted')
+      .executeTakeFirst());
   }
 
   async create(
@@ -53,25 +70,24 @@ class UserRepository extends BaseRepository<UserRow> {
       external_id?: string | null;
     },
   ): Promise<UserRow> {
-    const { rows } = await this.query(
-      `INSERT INTO users (username, display_name, email, phone_extension, department, job_title, auth_provider, external_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING *`,
-      [
-        username, display_name, email || null, phone_extension || null,
-        department || null, job_title || null,
-        auth_provider || 'local', external_id || null,
-      ]
-    );
-    return rows[0];
+    const row = await this.db.insertInto('users')
+      .values({
+        username,
+        display_name,
+        email: email || null,
+        phone_extension: phone_extension || null,
+        department: department || null,
+        job_title: job_title || null,
+        auth_provider: auth_provider || 'local',
+        external_id: external_id || null,
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    return row as UserRow;
   }
 
   async findByExternalId(externalId: string): Promise<UserRow | null> {
-    const { rows } = await this.query(
-      'SELECT * FROM users WHERE external_id = $1',
-      [externalId]
-    );
-    return rows[0] || null;
+    return this.one(this.db.selectFrom('users').selectAll().where('external_id', '=', externalId).executeTakeFirst());
   }
 
   // Inserta o actualiza un usuario LDAP identificado por external_id.
@@ -92,20 +108,20 @@ class UserRepository extends BaseRepository<UserRow> {
     const targetStatus = is_disabled ? 'suspended' : 'active';
     const existing = await this.findByExternalId(external_id);
     if (existing) {
-      const { rows } = await this.query(
-        `UPDATE users
-         SET display_name = $2,
-             email = $3,
-             department = $4,
-             job_title = $5,
-             status = CASE WHEN status = 'deleted' THEN status ELSE $6 END,
-             updated_at = NOW()
-         WHERE external_id = $1
-         RETURNING *`,
-        [external_id, display_name, email || null, department || null, job_title || null, targetStatus]
-      );
+      const row = await this.db.updateTable('users')
+        .set((eb) => ({
+          display_name,
+          email: email || null,
+          department: department || null,
+          job_title: job_title || null,
+          status: eb.case().when('status', '=', 'deleted').then(eb.ref('status')).else(targetStatus).end(),
+          updated_at: now(),
+        }))
+        .where('external_id', '=', external_id)
+        .returningAll()
+        .executeTakeFirst();
       const reactivated = existing.status === 'suspended' && targetStatus === 'active';
-      return { user: rows[0], created: false, reactivated };
+      return { user: row as UserRow, created: false, reactivated };
     }
     const user = await this.create({
       username, display_name, email, department, job_title,
@@ -143,16 +159,16 @@ class UserRepository extends BaseRepository<UserRow> {
     if (existing) {
       // No tocamos `status`: si un admin deshabilitó al usuario, debe seguir bloqueado
       // aunque el IdP lo siga autenticando. El guard de estado vive en el login.
-      const { rows } = await this.query(
-        `UPDATE users
-         SET display_name = COALESCE($2, display_name),
-             email = COALESCE($3, email),
-             updated_at = NOW()
-         WHERE external_id = $1
-         RETURNING *`,
-        [external_id, display_name, email || null]
-      );
-      return { user: rows[0], created: false };
+      const row = await this.db.updateTable('users')
+        .set((eb) => ({
+          display_name: eb.fn.coalesce(eb.val(display_name), eb.ref('display_name')),
+          email: eb.fn.coalesce(eb.val(email || null), eb.ref('email')),
+          updated_at: now(),
+        }))
+        .where('external_id', '=', external_id)
+        .returningAll()
+        .executeTakeFirst();
+      return { user: row as UserRow, created: false };
     }
     const finalUsername = await this._uniqueUsername(username);
     const user = await this.create({
@@ -166,11 +182,9 @@ class UserRepository extends BaseRepository<UserRow> {
   // Usuario gestionado por SCIM (excluye borrados). Los suspendidos sí se devuelven:
   // desaprovisionar es active=false, no un delete.
   async findScimById(id: string): Promise<UserRow | null> {
-    const { rows } = await this.query(
-      `SELECT * FROM users WHERE id = $1 AND auth_provider = 'scim' AND status <> 'deleted'`,
-      [id]
-    );
-    return rows[0] || null;
+    return this.one(this.db.selectFrom('users').selectAll()
+      .where('id', '=', id).where('auth_provider', '=', 'scim').where('status', '<>', 'deleted')
+      .executeTakeFirst());
   }
 
   // Lista usuarios SCIM con filtro opcional por userName / externalId y paginación.
@@ -183,20 +197,12 @@ class UserRepository extends BaseRepository<UserRow> {
       offset: number;
     },
   ): Promise<{ rows: UserRow[]; total: number }> {
-    const cond = [`auth_provider = 'scim'`, `status <> 'deleted'`];
-    const params: any[] = [];
-    let i = 1;
-    if (username) { cond.push(`username = $${i++}`); params.push(username); }
-    if (externalId) { cond.push(`external_id = $${i++}`); params.push(`scim:${externalId}`); }
-    const where = cond.join(' AND ');
-    const totalRes = await this.query<{ c: number }>(
-      `SELECT COUNT(*)::int AS c FROM users WHERE ${where}`, params
-    );
-    const rowsRes = await this.query(
-      `SELECT * FROM users WHERE ${where} ORDER BY created_at ASC LIMIT $${i++} OFFSET $${i}`,
-      [...params, limit, offset]
-    );
-    return { rows: rowsRes.rows, total: totalRes.rows[0].c };
+    let q = this.db.selectFrom('users').where('auth_provider', '=', 'scim').where('status', '<>', 'deleted');
+    if (username) q = q.where('username', '=', username);
+    if (externalId) q = q.where('external_id', '=', `scim:${externalId}`);
+    const { c } = await q.select((eb) => eb.cast<number>(eb.fn.countAll(), 'integer').as('c')).executeTakeFirstOrThrow();
+    const rows = await q.selectAll().orderBy('created_at', 'asc').limit(limit).offset(offset).execute();
+    return { rows: rows as UserRow[], total: c };
   }
 
   // Deprovisioning: deshabilita a los usuarios LDAP activos cuyo external_id ya no
@@ -204,41 +210,26 @@ class UserRepository extends BaseRepository<UserRow> {
   async disableLdapUsersNotIn(seenExternalIds: string[]): Promise<string[]> {
     // Sin ids vistos no deshabilitamos nada: evita un apagón masivo ante un fetch vacío.
     if (!Array.isArray(seenExternalIds) || seenExternalIds.length === 0) return [];
-    const { rows } = await this.query<{ id: string }>(
-      `UPDATE users
-       SET status = 'suspended', updated_at = NOW()
-       WHERE auth_provider = 'ldap'
-         AND status = 'active'
-         AND external_id IS NOT NULL
-         AND NOT (external_id = ANY($1::text[]))
-       RETURNING id`,
-      [seenExternalIds]
-    );
+    const rows = await this.db.updateTable('users')
+      .set({ status: 'suspended', updated_at: now() })
+      .where('auth_provider', '=', 'ldap')
+      .where('status', '=', 'active')
+      .where('external_id', 'is not', null)
+      // Un solo parámetro array a propósito: el directorio puede tener miles de
+      // ids y un `NOT IN (...)` armaría un parámetro por cada uno.
+      // TODO(etapa 3): en SQL Server el límite es 2100 parámetros; ir por tabla temporal.
+      .where(sql<boolean>`NOT (external_id = ANY(${seenExternalIds}::text[]))`)
+      .returning('id')
+      .execute();
     return rows.map((r) => r.id);
   }
 
   async updateProfile(id: string, fields: UpdateProfileRequest): Promise<UserRow | null> {
-    const allowed = ['display_name', 'email', 'phone_extension', 'department', 'job_title',
-      'presence', 'presence_message', 'timezone', 'locale'] as const;
-    const sets: string[] = [];
-    const values: any[] = [];
-    let idx = 1;
-
-    for (const key of allowed) {
-      if (fields[key] !== undefined) {
-        sets.push(`${key} = $${idx}`);
-        values.push(fields[key]);
-        idx++;
-      }
-    }
-    if (sets.length === 0) return this.findById(id);
-
-    values.push(id);
-    const { rows } = await this.query(
-      `UPDATE users SET ${sets.join(', ')} WHERE id = $${idx} RETURNING *`,
-      values
-    );
-    return rows[0];
+    const changes = pick(fields, ['display_name', 'email', 'phone_extension', 'department', 'job_title',
+      'presence', 'presence_message', 'timezone', 'locale'] as const);
+    if (Object.keys(changes).length === 0) return this.findById(id);
+    const row = await this.db.updateTable('users').set(changes).where('id', '=', id).returningAll().executeTakeFirst();
+    return row as UserRow;
   }
 
   // ── Estado de ausencia ──────────────────────────────────────────────────
@@ -251,41 +242,36 @@ class UserRepository extends BaseRepository<UserRow> {
     id: string,
     { message, until, autoReply }: { message: string; until?: Date | string | null; autoReply: boolean },
   ): Promise<UserRow | undefined> {
-    const { rows } = await this.query(
-      `UPDATE users
-          SET presence = 'away',
-              presence_message = $2,
-              away_until = $3,
-              auto_reply_enabled = $4
-        WHERE id = $1
-        RETURNING *`,
-      [id, message, until || null, autoReply]
-    );
-    return rows[0];
+    const row = await this.db.updateTable('users')
+      .set({ presence: 'away', presence_message: message, away_until: until || null, auto_reply_enabled: autoReply })
+      .where('id', '=', id)
+      .returningAll()
+      .executeTakeFirst();
+    return row as UserRow | undefined;
   }
 
   /** Vuelve de la ausencia. `presence` sólo se toca si seguía en `away`. */
   async clearAwayState(id: string): Promise<UserRow | undefined> {
-    const { rows } = await this.query(
-      `UPDATE users
-          SET presence = CASE WHEN presence = 'away' THEN 'online' ELSE presence END,
-              presence_message = NULL,
-              away_until = NULL,
-              auto_reply_enabled = FALSE
-        WHERE id = $1
-        RETURNING *`,
-      [id]
-    );
-    return rows[0];
+    const row = await this.db.updateTable('users')
+      .set((eb) => ({
+        presence: eb.case().when('presence', '=', 'away').then('online').else(eb.ref('presence')).end(),
+        presence_message: null,
+        away_until: null,
+        auto_reply_enabled: false,
+      }))
+      .where('id', '=', id)
+      .returningAll()
+      .executeTakeFirst();
+    return row as UserRow | undefined;
   }
 
   /** Ausencias vencidas, para que el job las levante y las limpie. */
   async findExpiredAway(limit = 200): Promise<UserRow[]> {
-    const { rows } = await this.query(
-      `SELECT * FROM users WHERE away_until IS NOT NULL AND away_until <= NOW() LIMIT $1`,
-      [limit]
-    );
-    return rows;
+    return this.db.selectFrom('users').selectAll()
+      .where('away_until', 'is not', null)
+      .where('away_until', '<=', now())
+      .limit(limit)
+      .execute() as Promise<UserRow[]>;
   }
 
   /**
@@ -297,128 +283,118 @@ class UserRepository extends BaseRepository<UserRow> {
    * auto-respuestas.
    */
   async reservarAutoRespuesta(awayUserId: string, peerUserId: string, horas: number): Promise<boolean> {
-    const { rowCount } = await this.query(
-      `INSERT INTO auto_reply_log (away_user_id, peer_user_id, last_sent_at)
-       VALUES ($1, $2, NOW())
-       ON CONFLICT (away_user_id, peer_user_id) DO UPDATE
-         SET last_sent_at = NOW()
-         WHERE auto_reply_log.last_sent_at < NOW() - ($3 || ' hours')::interval
-       RETURNING away_user_id`,
-      [awayUserId, peerUserId, String(horas)]
-    );
-    return (rowCount ?? 0) > 0;
+    const row = await this.db.insertInto('auto_reply_log')
+      .values({ away_user_id: awayUserId, peer_user_id: peerUserId, last_sent_at: now() })
+      .onConflict((oc) => oc.columns(['away_user_id', 'peer_user_id'])
+        .doUpdateSet({ last_sent_at: now() })
+        .where('auto_reply_log.last_sent_at', '<', nowMinus(horas, 'hours')))
+      .returning('away_user_id')
+      .executeTakeFirst();
+    return !!row;
   }
 
   async updateAvatar(id: string, bucket: string, objectKey: string): Promise<UserRow> {
-    const { rows } = await this.query(
-      `UPDATE users SET avatar_bucket = $1, avatar_object_key = $2 WHERE id = $3 RETURNING *`,
-      [bucket, objectKey, id]
-    );
-    return rows[0];
+    const row = await this.db.updateTable('users')
+      .set({ avatar_bucket: bucket, avatar_object_key: objectKey })
+      .where('id', '=', id)
+      .returningAll()
+      .executeTakeFirst();
+    return row as UserRow;
   }
 
   async clearAvatar(id: string): Promise<UserRow> {
-    const { rows } = await this.query(
-      `UPDATE users SET avatar_bucket = NULL, avatar_object_key = NULL WHERE id = $1 RETURNING *`,
-      [id]
-    );
-    return rows[0];
+    const row = await this.db.updateTable('users')
+      .set({ avatar_bucket: null, avatar_object_key: null })
+      .where('id', '=', id)
+      .returningAll()
+      .executeTakeFirst();
+    return row as UserRow;
   }
 
   async updatePresence(id: string, presence: string): Promise<UserRow> {
-    const { rows } = await this.query(
-      `UPDATE users SET presence = $1, last_seen_at = NOW() WHERE id = $2 RETURNING *`,
-      [presence, id]
-    );
-    return rows[0];
+    const row = await this.db.updateTable('users')
+      .set({ presence, last_seen_at: now() })
+      .where('id', '=', id)
+      .returningAll()
+      .executeTakeFirst();
+    return row as UserRow;
   }
 
   // Activity heartbeat: keeps the presence timeout job at bay without
   // touching the presence value itself.
   async touchLastSeen(id: string): Promise<void> {
-    await this.query(
-      `UPDATE users SET last_seen_at = NOW() WHERE id = $1`,
-      [id]
-    );
+    await this.db.updateTable('users').set({ last_seen_at: now() }).where('id', '=', id).execute();
   }
 
   async softDelete(id: string): Promise<UserRow> {
-    const { rows } = await this.query(
-      `UPDATE users SET status = 'deleted', updated_at = NOW() WHERE id = $1 RETURNING *`,
-      [id]
-    );
-    return rows[0];
+    const row = await this.db.updateTable('users')
+      .set({ status: 'deleted', updated_at: now() })
+      .where('id', '=', id)
+      .returningAll()
+      .executeTakeFirst();
+    return row as UserRow;
   }
 
   // ── RBAC ────────────────────────────────────────────────────────────────
   // Distinct permission codes granted to a user through their (non-expired) roles.
   async getPermissionCodes(userId: string): Promise<string[]> {
-    const { rows } = await this.query<{ code: string }>(
-      `SELECT DISTINCT p.code
-       FROM user_roles ur
-       JOIN role_permissions rp ON rp.role_id = ur.role_id
-       JOIN permissions p ON p.id = rp.permission_id
-       WHERE ur.user_id = $1
-         AND (ur.expires_at IS NULL OR ur.expires_at > NOW())`,
-      [userId]
-    );
+    const rows = await this.db.selectFrom('user_roles as ur')
+      .innerJoin('role_permissions as rp', 'rp.role_id', 'ur.role_id')
+      .innerJoin('permissions as p', 'p.id', 'rp.permission_id')
+      .select('p.code')
+      .distinct()
+      .where('ur.user_id', '=', userId)
+      .where(activeGrant)
+      .execute();
     return rows.map((r) => r.code);
   }
 
   // Role names held by a user (highest priority first), excluding expired grants.
   async getRoleNames(userId: string): Promise<string[]> {
-    const { rows } = await this.query<{ name: string }>(
-      `SELECT r.name
-       FROM user_roles ur
-       JOIN roles r ON r.id = ur.role_id
-       WHERE ur.user_id = $1
-         AND (ur.expires_at IS NULL OR ur.expires_at > NOW())
-       ORDER BY r.priority DESC`,
-      [userId]
-    );
+    const rows = await this.db.selectFrom('user_roles as ur')
+      .innerJoin('roles as r', 'r.id', 'ur.role_id')
+      .select('r.name')
+      .where('ur.user_id', '=', userId)
+      .where(activeGrant)
+      .orderBy('r.priority', 'desc')
+      .execute();
     return rows.map((r) => r.name);
   }
 
   // Flip users who have been inactive for `minutes` from 'online' to 'away'.
   // Returns the affected user ids so the caller can broadcast presence changes.
   async markStaleOnlineAsAway(minutes: number): Promise<string[]> {
-    const { rows } = await this.query<{ id: string }>(
-      `UPDATE users
-       SET presence = 'away'
-       WHERE presence = 'online'
-         AND last_seen_at IS NOT NULL
-         AND last_seen_at < NOW() - ($1 * INTERVAL '1 minute')
-       RETURNING id`,
-      [minutes]
-    );
+    const rows = await this.db.updateTable('users')
+      .set({ presence: 'away' })
+      .where('presence', '=', 'online')
+      .where('last_seen_at', 'is not', null)
+      .where('last_seen_at', '<', nowMinus(minutes, 'minutes'))
+      .returning('id')
+      .execute();
     return rows.map((r) => r.id);
   }
 
   async hasPermission(userId: string, code: string): Promise<boolean> {
-    const { rows } = await this.query(
-      `SELECT 1
-       FROM user_roles ur
-       JOIN role_permissions rp ON rp.role_id = ur.role_id
-       JOIN permissions p ON p.id = rp.permission_id
-       WHERE ur.user_id = $1
-         AND p.code = $2
-         AND (ur.expires_at IS NULL OR ur.expires_at > NOW())
-       LIMIT 1`,
-      [userId, code]
-    );
-    return rows.length > 0;
+    const row = await this.db.selectFrom('user_roles as ur')
+      .innerJoin('role_permissions as rp', 'rp.role_id', 'ur.role_id')
+      .innerJoin('permissions as p', 'p.id', 'rp.permission_id')
+      .select('p.id')
+      .where('ur.user_id', '=', userId)
+      .where('p.code', '=', code)
+      .where(activeGrant)
+      .limit(1)
+      .executeTakeFirst();
+    return !!row;
   }
 
   async search(term: string | null | undefined, limit = 20, offset = 0): Promise<UserRow[]> {
-    const { rows } = await this.query(
-      `SELECT * FROM users
-       WHERE status != 'deleted'
-         AND (display_name ILIKE $1 OR username ILIKE $1)
-       ORDER BY display_name
-       LIMIT $2 OFFSET $3`,
-      [`%${term ?? ''}%`, limit, offset]
-    );
-    return rows;
+    const pattern = `%${term ?? ''}%`;
+    return this.db.selectFrom('users').selectAll()
+      .where('status', '!=', 'deleted')
+      .where((eb) => eb.or([ilike('display_name', pattern), ilike('username', pattern)]))
+      .orderBy('display_name')
+      .limit(limit).offset(offset)
+      .execute() as Promise<UserRow[]>;
   }
 
   async listUsers(
@@ -430,62 +406,41 @@ class UserRepository extends BaseRepository<UserRow> {
       offset?: number;
     } = {},
   ): Promise<UserRow[]> {
-    const conditions = [`status != 'deleted'`];
-    const params: any[] = [];
-    let idx = 1;
-
+    let q = this.db.selectFrom('users').selectAll().where('status', '!=', 'deleted');
     if (search) {
-      conditions.push(`(display_name ILIKE $${idx} OR username ILIKE $${idx} OR email ILIKE $${idx})`);
-      params.push(`%${search}%`);
-      idx++;
+      const pattern = `%${search}%`;
+      q = q.where((eb) => eb.or([ilike('display_name', pattern), ilike('username', pattern), ilike('email', pattern)]));
     }
-    if (status) {
-      conditions.push(`status = $${idx}`);
-      params.push(status);
-      idx++;
-    }
-    if (department) {
-      conditions.push(`department ILIKE $${idx}`);
-      params.push(`%${department}%`);
-      idx++;
-    }
-
-    params.push(limit, offset);
-    const { rows } = await this.query(
-      `SELECT * FROM users WHERE ${conditions.join(' AND ')}
-       ORDER BY display_name ASC
-       LIMIT $${idx} OFFSET $${idx + 1}`,
-      params
-    );
-    return rows;
+    if (status) q = q.where('status', '=', status);
+    if (department) q = q.where(ilike('department', `%${department}%`));
+    return q.orderBy('display_name', 'asc').limit(limit).offset(offset).execute() as Promise<UserRow[]>;
   }
 
   async updateStatus(id: string, status: string): Promise<UserRow> {
-    const { rows } = await this.query(
-      `UPDATE users SET status = $1, updated_at = NOW() WHERE id = $2 AND status != 'deleted' RETURNING *`,
-      [status, id]
-    );
-    return rows[0];
+    const row = await this.db.updateTable('users')
+      .set({ status, updated_at: now() })
+      .where('id', '=', id)
+      .where('status', '!=', 'deleted')
+      .returningAll()
+      .executeTakeFirst();
+    return row as UserRow;
   }
 
   async listRoles(): Promise<RoleSummary[]> {
-    const { rows } = await this.query<RoleSummary>(
-      `SELECT id, name, display_name, description, priority FROM roles ORDER BY priority DESC`
-    );
-    return rows;
+    return this.db.selectFrom('roles')
+      .select(['id', 'name', 'display_name', 'description', 'priority'])
+      .orderBy('priority', 'desc')
+      .execute() as Promise<RoleSummary[]>;
   }
 
   async getUserRoles(userId: string): Promise<GrantedRole[]> {
-    const { rows } = await this.query<GrantedRole>(
-      `SELECT r.id, r.name, r.display_name, ur.granted_at, ur.expires_at
-       FROM user_roles ur
-       JOIN roles r ON r.id = ur.role_id
-       WHERE ur.user_id = $1
-         AND (ur.expires_at IS NULL OR ur.expires_at > NOW())
-       ORDER BY r.priority DESC`,
-      [userId]
-    );
-    return rows;
+    return this.db.selectFrom('user_roles as ur')
+      .innerJoin('roles as r', 'r.id', 'ur.role_id')
+      .select(['r.id', 'r.name', 'r.display_name', 'ur.granted_at', 'ur.expires_at'])
+      .where('ur.user_id', '=', userId)
+      .where(activeGrant)
+      .orderBy('r.priority', 'desc')
+      .execute() as Promise<GrantedRole[]>;
   }
 
   async setUserRoles(
@@ -493,27 +448,34 @@ class UserRepository extends BaseRepository<UserRow> {
     roleNames: string[] | undefined,
     grantedBy: string | null,
   ): Promise<{ role_id: string }[]> {
-    await this.query(`DELETE FROM user_roles WHERE user_id = $1`, [userId]);
+    await this.db.deleteFrom('user_roles').where('user_id', '=', userId).execute();
     if (!roleNames?.length) return [];
-    const { rows } = await this.query<{ role_id: string }>(
-      `INSERT INTO user_roles (user_id, role_id, granted_by)
-       SELECT $1, r.id, $2 FROM roles r WHERE r.name = ANY($3::text[])
-       RETURNING role_id`,
-      [userId, grantedBy, roleNames]
-    );
-    return rows;
+    return this.db.insertInto('user_roles')
+      .columns(['user_id', 'role_id', 'granted_by'])
+      .expression((eb) => eb.selectFrom('roles as r')
+        .select([eb.val(userId).as('user_id'), 'r.id', eb.val(grantedBy).as('granted_by')])
+        .where('r.name', 'in', roleNames))
+      .returning('role_id')
+      .execute();
+  }
+
+  /** Le da el rol `user` si todavía no lo tiene (idempotente). */
+  async assignDefaultRole(userId: string): Promise<void> {
+    await this.db.insertInto('user_roles')
+      .columns(['user_id', 'role_id'])
+      .expression((eb) => eb.selectFrom('roles').select([eb.val(userId).as('user_id'), 'id']).where('name', '=', 'user'))
+      .onConflict((oc) => oc.doNothing())
+      .execute();
   }
 
   async countUsersWithRole(roleName: string): Promise<number> {
-    const { rows } = await this.query<{ count: number }>(
-      `SELECT COUNT(*)::int AS count
-       FROM user_roles ur
-       JOIN roles r ON r.id = ur.role_id
-       WHERE r.name = $1
-         AND (ur.expires_at IS NULL OR ur.expires_at > NOW())`,
-      [roleName]
-    );
-    return rows[0]?.count || 0;
+    const row = await this.db.selectFrom('user_roles as ur')
+      .innerJoin('roles as r', 'r.id', 'ur.role_id')
+      .select((eb) => eb.cast<number>(eb.fn.countAll(), 'integer').as('count'))
+      .where('r.name', '=', roleName)
+      .where(activeGrant)
+      .executeTakeFirst();
+    return row?.count || 0;
   }
 }
 

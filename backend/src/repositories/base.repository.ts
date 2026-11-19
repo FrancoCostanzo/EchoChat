@@ -1,6 +1,5 @@
-import type { QueryResult, QueryResultRow } from 'pg';
+import type { QueryResultRow } from 'pg';
 import type { Kysely } from 'kysely';
-import { pool } from '../config/database';
 import { db, type Db } from '../config/db';
 
 /**
@@ -11,28 +10,16 @@ import { db, type Db } from '../config/db';
  * Con eso, `findById()` devuelve la fila tipada sin que cada repositorio tenga
  * que declararlo.
  *
- * `query()` acepta su propio parámetro `R` para las consultas cuyo resultado no
- * es una fila de la tabla: agregados (`COUNT`), proyecciones o JOINs.
- *
- * `db` es el query builder de Kysely, que genera el SQL del motor activo. Los
- * repositorios se pasan de `query()` a `db` de a uno (docs/MULTI_DB.md).
+ * `db` es el query builder de Kysely, que genera el SQL del motor activo
+ * (docs/MULTI_DB.md). Las consultas se escriben con él, no con SQL a mano.
  */
 class BaseRepository<T extends QueryResultRow = any> {
   tableName: string;
-  pool: typeof pool;
   db: Db;
 
   constructor(tableName: string) {
     this.tableName = tableName;
-    this.pool = pool;
     this.db = db;
-  }
-
-  async query<R extends QueryResultRow = T>(
-    text: string,
-    params?: any[],
-  ): Promise<QueryResult<R>> {
-    return this.pool.query<R>(text, params);
   }
 
   async findById(id: string): Promise<T | null> {

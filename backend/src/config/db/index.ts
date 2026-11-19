@@ -1,8 +1,9 @@
-import { Kysely, PostgresDialect, type Dialect, type Transaction } from 'kysely';
+import { Kysely, PostgresDialect, sql, type Dialect, type Transaction } from 'kysely';
 import config from '../index';
 import { pool } from '../database';
 import * as metricsRegistry from '../../utils/metricsRegistry';
 import type { DB } from '../../types/db';
+import { now } from './sql';
 
 /**
  * Acceso a la base con Kysely: el query builder genera el SQL del motor que
@@ -33,4 +34,10 @@ export type DbTransaction = Transaction<DB>;
 /** Corre `callback` en una transacción: commit si termina bien, rollback si lanza. */
 export function transaction<T>(callback: (trx: DbTransaction) => Promise<T>): Promise<T> {
   return db.transaction().execute(callback);
+}
+
+/** Consulta mínima para saber si la base responde (health checks). */
+export async function pingDb(): Promise<{ test: number; timestamp: Date }> {
+  const { rows } = await sql<{ test: number; timestamp: Date }>`SELECT 1 AS test, ${now()} AS timestamp`.execute(db);
+  return rows[0];
 }

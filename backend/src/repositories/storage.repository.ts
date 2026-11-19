@@ -149,6 +149,12 @@ class StorageRepository extends BaseRepository<StorageRow> {
     return (row as PresignedRow | undefined) ?? null;
   }
 
+  /** Borra las URLs prefirmadas vencidas de la caché. Devuelve cuántas. */
+  async deleteExpiredPresignedUrls(): Promise<number> {
+    const result = await this.db.deleteFrom('storage_presigned_urls').where('expires_at', '<', now()).executeTakeFirst();
+    return Number(result.numDeletedRows);
+  }
+
   async getStats() {
     const summary = await this.db.selectFrom('storage_objects')
       .select((eb) => [

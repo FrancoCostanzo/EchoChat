@@ -124,12 +124,7 @@ class AuthService {
     // instancia arranca entre el INSERT del usuario y esta línea (el bcrypt de
     // arriba tarda cientos de ms), el rol ya está puesto y esto reventaba con
     // un 23505 que salía como 409 al que se estaba registrando.
-    await userRepository.query(
-      `INSERT INTO user_roles (user_id, role_id)
-       SELECT $1, id FROM roles WHERE name = 'user'
-       ON CONFLICT DO NOTHING`,
-      [user.id]
-    );
+    await userRepository.assignDefaultRole(user.id);
 
     await auditRepository.log({
       actor_id: user.id,
