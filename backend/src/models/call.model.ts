@@ -24,6 +24,8 @@ export function toCallResponse(row: CallRow | null | undefined) {
     duration_seconds: row.duration_seconds,
     end_reason: row.end_reason,
     is_encrypted: row.is_encrypted,
+    /** Resumen de calidad que reportan los participantes al colgar. */
+    quality_stats: row.quality_stats ?? {},
     participants: row.participants ?? [],
     created_at: row.created_at,
   };

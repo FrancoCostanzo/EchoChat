@@ -1,5 +1,5 @@
 import logger from '../config/logger';
-import { toConversation, toUser } from '../config/eventBus';
+import { toConversation } from '../config/eventBus';
 import broadcastService from './broadcast.service';
 import {
   messageRepository,
@@ -11,7 +11,7 @@ import {
   pollRepository,
   gameRepository,
   systemSettingsRepository,
-  notificationRepository,
+  pushSubscriptionRepository,
 } from '../repositories';
 import notificationService from './notification.service';
 import { NotFoundError, ForbiddenError, BadRequestError } from '../errors';
@@ -19,9 +19,7 @@ import { toMessageResponse, toSavedMessageResponse, toDraftResponse, toPollRespo
 import { resolveBodyFormat } from '../utils/markdown.util';
 import { resolverMenciones, destinatariosDeMenciones, type Mencion } from '../utils/mentions.util';
 import { urlesDeAvatares } from '../utils/avatarUrl.util';
-// `minioClient` para operar sobre el bucket (borrar objetos) y
-// `publicMinioClient` para firmar URLs que resuelve el cliente del usuario.
-import { minioClient, publicMinioClient } from '../config/minio';
+import { storage } from '../config/storage';
 import type { MessageResponse } from '../models/message.model';
 import type { GameRow } from '../models/game.model';
 import type { ReceiptDetail } from '../repositories/message.repository';
@@ -50,6 +48,16 @@ async function getWindowMinutes(key: string, defaultMinutes: number): Promise<nu
   }
 }
 
+/**
+ * Texto que puede ir en la vista previa de un aviso fuera de la app. Sólo los
+ * tipos que son texto; para el resto (adjuntos, encuestas, juegos…) el aviso
+ * dice "Nuevo mensaje".
+ */
+function textoParaAviso(mensaje: MessageResponse): string | null {
+  if (mensaje.type !== 'text' && mensaje.type !== 'code') return null;
+  return typeof mensaje.body === 'string' && mensaje.body.trim() ? mensaje.body : null;
+}
+
 function assertWithinWindow(sentAt: Date | string | null, minutes: number, action: string): void {
   // 0 = unlimited (same convention as message_retention_days).
   if (minutes === 0) return;
@@ -68,7 +76,7 @@ function assertWithinWindow(sentAt: Date | string | null, minutes: number, actio
 async function withAvatarUrl<T extends { avatar_object_key?: string | null; avatar_bucket?: string | null }>(user: T) {
   if (!user?.avatar_object_key) return user;
   try {
-    const url = await publicMinioClient.presignedGetObject(
+    const url = await storage.getSignedUrl(
       user.avatar_bucket || AVATAR_BUCKET,
       user.avatar_object_key,
       60 * 60,
@@ -152,6 +160,11 @@ class MessageService {
     if (menciones.length > 0) {
       void this._notificarMenciones(response, menciones, userId);
     }
+    if (response.thread_id) {
+      void this._notificarHilo(response, menciones, userId);
+    } else if (response.type !== 'system') {
+      void this._pushNuevoMensaje(response, menciones, userId);
+    }
     void this._autoResponderAusencia(response, userId);
     return response;
   }
@@ -223,41 +236,121 @@ class MessageService {
     if (destinatarios.length === 0) return;
 
     const autor = mensaje.sender_display_name || mensaje.sender_username || 'Alguien';
-    let dondeFue = '';
+    let nombreChat: string | null = null;
     try {
       const conversacion = await conversationRepository.findById(mensaje.conversation_id);
-      if (conversacion?.name) dondeFue = ` en ${conversacion.name}`;
+      nombreChat = conversacion?.name ?? null;
     } catch {
       // El nombre es decorativo: si falla, la notificación igual sale.
     }
+    const dondeFue = nombreChat ? ` en ${nombreChat}` : '';
 
     for (const destinatario of destinatarios) {
-      try {
-        if (!(await notificationService.shouldNotifyInApp(destinatario, 'message.mention'))) continue;
-        await notificationRepository.create({
-          recipient_id: destinatario,
-          type: 'mention',
-          title: `${autor} te mencionó${dondeFue}`,
-          reference_type: 'message',
-          reference_id: mensaje.id,
-          reference_data: {
-            conversation_id: mensaje.conversation_id,
-            thread_id: mensaje.thread_id ?? null,
-          },
-        });
-        toUser(destinatario, 'notification:new', {
-          type: 'mention',
+      await notificationService.notify(destinatario, {
+        event: 'message.mention',
+        type: 'mention',
+        title: `${autor} te mencionó${dondeFue}`,
+        reference_type: 'message',
+        reference_id: mensaje.id,
+        reference_data: {
+          conversation_id: mensaje.conversation_id,
+          thread_id: mensaje.thread_id ?? null,
+        },
+        conversationId: mensaje.conversation_id,
+        realtime: {
           message_id: mensaje.id,
           conversation_id: mensaje.conversation_id,
           thread_id: mensaje.thread_id ?? null,
           sender_display_name: autor,
+        },
+        push: {
+          kind: 'mention',
+          params: { name: autor, chat: nombreChat },
+          preview: textoParaAviso(mensaje),
+          url: `/chat/${mensaje.conversation_id}`,
+          tag: `conv-${mensaje.conversation_id}`,
+          markRead: { conversationId: mensaje.conversation_id, messageId: mensaje.id },
+        },
+      });
+    }
+  }
+
+  /**
+   * Push de un mensaje común a los miembros que no están mirando. No deja
+   * notificación en la bandeja: en la app el aviso lo da el propio mensaje.
+   * Sólo se resuelven preferencias de quien tiene algún dispositivo suscripto,
+   * así un canal grande no dispara una consulta por miembro en cada mensaje.
+   */
+  async _pushNuevoMensaje(mensaje: MessageResponse, menciones: Mencion[], autorId: string): Promise<void> {
+    try {
+      const mencionados = new Set(destinatariosDeMenciones(menciones, autorId));
+      const miembros = await conversationRepository.getActiveMemberIds(mensaje.conversation_id);
+      const candidatos = miembros.filter((id) => id !== autorId && !mencionados.has(id));
+      const suscriptos = await pushSubscriptionRepository.filterSubscribedUserIds(candidatos);
+      if (suscriptos.length === 0) return;
+
+      const conversacion = await conversationRepository.findById(mensaje.conversation_id);
+      const esDirecto = conversacion?.type === 'direct';
+      const autor = mensaje.sender_display_name || mensaje.sender_username || 'Alguien';
+      for (const destinatario of suscriptos) {
+        await notificationService.notify(destinatario, {
+          event: esDirecto ? 'message.direct' : 'message.group',
+          type: 'message',
+          title: autor,
+          conversationId: mensaje.conversation_id,
+          persist: false,
+          push: {
+            kind: 'message',
+            params: { name: autor, chat: esDirecto ? null : conversacion?.name ?? null },
+            preview: textoParaAviso(mensaje),
+            url: `/chat/${mensaje.conversation_id}`,
+            tag: `conv-${mensaje.conversation_id}`,
+            markRead: { conversationId: mensaje.conversation_id, messageId: mensaje.id },
+          },
         });
-      } catch (err) {
-        logger.warn(
-          { err: (err as Error).message, messageId: mensaje.id, destinatario },
-          'Failed to notify mention',
-        );
       }
+    } catch (err) {
+      logger.warn({ err: (err as Error).message, messageId: mensaje.id }, 'Failed to push new message');
+    }
+  }
+
+  /**
+   * Respuesta en un hilo: avisa al autor de la raíz y a quienes ya respondieron.
+   * Los mencionados en esta misma respuesta quedan afuera: ya recibieron la mención.
+   */
+  async _notificarHilo(mensaje: MessageResponse, menciones: Mencion[], autorId: string): Promise<void> {
+    if (!mensaje.thread_id) return;
+    try {
+      const mencionados = new Set(destinatariosDeMenciones(menciones, autorId));
+      const participantes = await messageRepository.getThreadParticipantIds(mensaje.thread_id);
+      const autor = mensaje.sender_display_name || mensaje.sender_username || 'Alguien';
+      for (const destinatario of participantes) {
+        if (destinatario === autorId || mencionados.has(destinatario)) continue;
+        await notificationService.notify(destinatario, {
+          event: 'thread.reply',
+          type: 'thread',
+          title: `${autor} respondió en un hilo`,
+          reference_type: 'message',
+          reference_id: mensaje.id,
+          reference_data: { conversation_id: mensaje.conversation_id, thread_id: mensaje.thread_id },
+          conversationId: mensaje.conversation_id,
+          realtime: {
+            message_id: mensaje.id,
+            conversation_id: mensaje.conversation_id,
+            thread_id: mensaje.thread_id,
+            sender_display_name: autor,
+          },
+          push: {
+            kind: 'threadReply',
+            params: { name: autor },
+            preview: textoParaAviso(mensaje),
+            url: `/chat/${mensaje.conversation_id}`,
+            tag: `thread-${mensaje.thread_id}`,
+          },
+        });
+      }
+    } catch (err) {
+      logger.warn({ err: (err as Error).message, messageId: mensaje.id }, 'Failed to notify thread reply');
     }
   }
 
@@ -402,13 +495,13 @@ class MessageService {
     const attachmentObjects = await messageRepository.getAttachmentObjects(messageId);
     for (const obj of attachmentObjects) {
       try {
-        await minioClient.removeObject(obj.bucket_name, obj.object_key);
+        await storage.removeObject(obj.bucket_name, obj.object_key);
       } catch (err) {
         logger.warn({ err: (err as Error).message, objectKey: obj.object_key }, 'Failed to delete object from MinIO');
       }
       if (obj.thumbnail_bucket && obj.thumbnail_key) {
         try {
-          await minioClient.removeObject(obj.thumbnail_bucket, obj.thumbnail_key);
+          await storage.removeObject(obj.thumbnail_bucket, obj.thumbnail_key);
         } catch (err) {
           logger.warn({ err: (err as Error).message }, 'Failed to delete thumbnail from MinIO');
         }
@@ -442,17 +535,48 @@ class MessageService {
   }
 
   async addReaction(messageId: string, userId: string, emoji: string) {
-    await messageRepository.toggleReaction(messageId, userId, emoji);
+    const result = await messageRepository.toggleReaction(messageId, userId, emoji);
     const reactions = await messageRepository.getReactions(messageId);
     try {
       const message = await messageRepository.findById(messageId);
       if (message) {
         toConversation(message.conversation_id, 'message:reaction', { messageId, reactions });
+        // Sólo una reacción nueva avisa: cambiarla o quitarla no.
+        if (result === 'added' && message.sender_id && message.sender_id !== userId) {
+          void this._notificarReaccion(message.sender_id, message.conversation_id, messageId, userId, emoji);
+        }
       }
     } catch (err) {
       logger.warn({ err: (err as Error).message }, 'Failed to emit message:reaction');
     }
     return reactions;
+  }
+
+  async _notificarReaccion(
+    autorId: string,
+    conversationId: string,
+    messageId: string,
+    reactorId: string,
+    emoji: string,
+  ): Promise<void> {
+    const reactor = await userRepository.findById(reactorId).catch(() => null);
+    const nombre = reactor?.display_name || reactor?.username || 'Alguien';
+    await notificationService.notify(autorId, {
+      event: 'message.reaction',
+      type: 'reaction',
+      title: `${nombre} reaccionó ${emoji} a tu mensaje`,
+      reference_type: 'message',
+      reference_id: messageId,
+      reference_data: { conversation_id: conversationId },
+      conversationId,
+      realtime: { message_id: messageId, conversation_id: conversationId, sender_display_name: nombre, emoji },
+      push: {
+        kind: 'reaction',
+        params: { name: nombre, emoji },
+        url: `/chat/${conversationId}`,
+        tag: `reaction-${messageId}`,
+      },
+    });
   }
 
   async removeReaction(messageId: string, userId: string, emoji: string) {

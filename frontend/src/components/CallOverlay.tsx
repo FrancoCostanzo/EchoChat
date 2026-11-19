@@ -1,7 +1,7 @@
 import { useEffect, useRef, useMemo, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Button, Tooltip } from '@heroui/react';
+import { Button, Dropdown, Header, Label, Tooltip } from '@heroui/react';
 import {
   Phone,
   PhoneOff,
@@ -14,8 +14,11 @@ import {
   MonitorOff,
   Maximize2,
   Minimize2,
+  Settings2,
+  Check,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { canChooseSpeaker, type DevicePrefs } from '@/lib/mediaPrefs';
 import { useCallStore } from '@/stores/callStore';
 import { useAuthStore } from '@/stores/authStore';
 import UserAvatar from '@/components/UserAvatar';
@@ -38,8 +41,16 @@ function VideoTile({
 }: VideoTileProps) {
   const mainRef = useRef<HTMLVideoElement | null>(null);
   const bubbleRef = useRef<HTMLVideoElement | null>(null);
+  const speakerId = useCallStore((st) => st.speakerId);
   const sharingHere = !!screenStream;
   const mainStream = sharingHere ? screenStream : camStream;
+
+  // El audio de los demás sale por el parlante elegido (donde el navegador lo permite).
+  useEffect(() => {
+    const el = mainRef.current;
+    if (!el || muted || !speakerId || !('setSinkId' in el)) return;
+    el.setSinkId(speakerId).catch(() => {});
+  }, [speakerId, muted, mainStream]);
 
   useEffect(() => {
     if (mainRef.current) mainRef.current.srcObject = mainStream || null;
@@ -335,6 +346,7 @@ function ActiveCall() {
           label={sharingScreen ? t('call.stopShare') : t('call.share')}
           highlightWhenActive
         />
+        <CallDeviceMenu />
         <Button
           isIconOnly
           onPress={() => hangup('hangup')}
@@ -345,6 +357,71 @@ function ActiveCall() {
         </Button>
       </div>
     </motion.div>
+  );
+}
+
+const DEVICE_KINDS: { kind: keyof DevicePrefs; labelKey: string }[] = [
+  { kind: 'audioinput', labelKey: 'call.devices.microphone' },
+  { kind: 'videoinput', labelKey: 'call.devices.camera' },
+  { kind: 'audiooutput', labelKey: 'call.devices.speaker' },
+];
+
+/** Cambiar micrófono, cámara o parlante sin cortar la llamada. */
+function CallDeviceMenu() {
+  const { t } = useTranslation();
+  const localStream = useCallStore((st) => st.localStream);
+  const speakerId = useCallStore((st) => st.speakerId);
+  const switchDevice = useCallStore((st) => st.switchDevice);
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+
+  const refresh = () => {
+    navigator.mediaDevices?.enumerateDevices().then(setDevices).catch(() => setDevices([]));
+  };
+  useEffect(refresh, []);
+
+  const current: Record<string, string | undefined> = {
+    audioinput: localStream?.getAudioTracks()[0]?.getSettings().deviceId,
+    videoinput: localStream?.getVideoTracks()[0]?.getSettings().deviceId,
+    audiooutput: speakerId ?? 'default',
+  };
+  const kinds = DEVICE_KINDS.filter(({ kind }) =>
+    devices.some((d) => d.kind === kind) && (kind !== 'audiooutput' || canChooseSpeaker())
+    // Sin cámara activa no hay pista que cambiar: se elige al prenderla.
+    && (kind !== 'videoinput' || Boolean(current.videoinput)));
+
+  return (
+    <Dropdown onOpenChange={(open) => { if (open) refresh(); }}>
+      <Button
+        isIconOnly
+        aria-label={t('call.devices.title')}
+        className="h-12 w-12 rounded-full bg-ink-700 text-ink-100 hover:bg-ink-600"
+      >
+        <Settings2 size={20} />
+      </Button>
+      <Dropdown.Popover className="min-w-[260px]">
+        <Dropdown.Menu
+          aria-label={t('call.devices.title')}
+          onAction={(key) => {
+            const [kind, ...rest] = String(key).split('::');
+            void switchDevice(kind as keyof DevicePrefs, rest.join('::'));
+          }}
+        >
+          {kinds.map(({ kind, labelKey }) => (
+            <Dropdown.Section key={kind}>
+              <Header>{t(labelKey)}</Header>
+              {devices.filter((d) => d.kind === kind).map((d, i) => (
+                <Dropdown.Item key={`${kind}::${d.deviceId}`} id={`${kind}::${d.deviceId}`} textValue={d.label || `${t(labelKey)} ${i + 1}`}>
+                  <span className="flex w-4 justify-center">
+                    {current[kind] === d.deviceId && <Check size={14} className="text-accent" />}
+                  </span>
+                  <Label className="truncate">{d.label || `${t(labelKey)} ${i + 1}`}</Label>
+                </Dropdown.Item>
+              ))}
+            </Dropdown.Section>
+          ))}
+        </Dropdown.Menu>
+      </Dropdown.Popover>
+    </Dropdown>
   );
 }
 

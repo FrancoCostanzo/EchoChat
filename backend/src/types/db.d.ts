@@ -114,7 +114,7 @@ export interface CallParticipants {
 
 export interface CallRecordings {
   call_id: string;
-  consented_by: string[] | null;
+  consented_by: Json | null;
   created_at: Generated<Timestamp | null>;
   ended_at: Timestamp | null;
   id: Generated<string>;
@@ -187,7 +187,12 @@ export interface ConversationMembers {
   last_read_msg_id: string | null;
   left_at: Timestamp | null;
   muted_until: Timestamp | null;
+  /**
+   * all = todo; mentions = sólo menciones; none = nada (ni menciones). is_muted silencia todo menos menciones.
+   */
+  notification_level: Generated<string>;
   role: Generated<string | null>;
+  unread_email_at: Timestamp | null;
   user_id: string;
 }
 
@@ -205,6 +210,9 @@ export interface Conversations {
   max_members: number | null;
   metadata: Generated<Json | null>;
   name: string | null;
+  /**
+   * Si es TRUE, sólo owner/admin pueden editar nombre, descripción y foto del grupo.
+   */
   only_admins_edit_info: Generated<boolean>;
   topic: string | null;
   type: string;
@@ -218,6 +226,21 @@ export interface Drafts {
   reply_to_id: string | null;
   updated_at: Generated<Timestamp | null>;
   user_id: string;
+}
+
+export interface EmailOutbox {
+  attempts: Generated<number>;
+  created_at: Generated<Timestamp>;
+  data: Generated<Json>;
+  id: Generated<string>;
+  last_error: string | null;
+  locale: Generated<string>;
+  send_after: Generated<Timestamp>;
+  sent_at: Timestamp | null;
+  status: Generated<string>;
+  template: string;
+  to_address: string;
+  user_id: string | null;
 }
 
 export interface Games {
@@ -326,9 +349,6 @@ export interface NotificationPreferences {
   event_type: string;
   in_app_enabled: Generated<boolean | null>;
   push_enabled: Generated<boolean | null>;
-  quiet_days: number[] | null;
-  quiet_hours_end: string | null;
-  quiet_hours_start: string | null;
   user_id: string;
 }
 
@@ -337,6 +357,8 @@ export interface Notifications {
   channel: Generated<string | null>;
   created_at: Generated<Timestamp | null>;
   delivered_at: Timestamp | null;
+  email_due_at: Timestamp | null;
+  emailed_at: Timestamp | null;
   id: Generated<string>;
   is_read: Generated<boolean | null>;
   read_at: Timestamp | null;
@@ -346,6 +368,16 @@ export interface Notifications {
   reference_type: string | null;
   title: string | null;
   type: string;
+}
+
+export interface PasswordTokens {
+  created_at: Generated<Timestamp>;
+  expires_at: Timestamp;
+  id: Generated<string>;
+  purpose: string;
+  token_hash: string;
+  used_at: Timestamp | null;
+  user_id: string;
 }
 
 export interface Permissions {
@@ -389,6 +421,18 @@ export interface PollVotes {
   voted_at: Generated<Timestamp | null>;
 }
 
+export interface PushSubscriptions {
+  auth: string;
+  created_at: Generated<Timestamp>;
+  endpoint: string;
+  failure_count: Generated<number>;
+  id: Generated<string>;
+  last_used_at: Timestamp | null;
+  p256dh: string;
+  user_agent: string | null;
+  user_id: string;
+}
+
 export interface RolePermissions {
   permission_id: string;
   role_id: string;
@@ -423,11 +467,6 @@ export interface ScheduledMessages {
   sent_message_id: string | null;
   status: Generated<string>;
   updated_at: Generated<Timestamp>;
-}
-
-export interface SchemaMigrations {
-  applied_at: Generated<Timestamp>;
-  name: string;
 }
 
 export interface StickerPacks {
@@ -512,7 +551,7 @@ export interface UserCredentials {
   /**
    * Hashes de los códigos de respaldo sin usar.
    */
-  totp_backup_codes: Generated<string[]>;
+  totp_backup_codes: Generated<Json>;
   /**
    * TRUE sólo después de que el usuario confirmó un código válido.
    */
@@ -522,6 +561,36 @@ export interface UserCredentials {
    */
   totp_secret: string | null;
   updated_at: Generated<Timestamp | null>;
+  user_id: string;
+}
+
+export interface UserNotificationSettings {
+  auto_gain_control: Generated<boolean>;
+  badge_enabled: Generated<boolean>;
+  call_dnd_behavior: Generated<string>;
+  call_privacy: Generated<string>;
+  dnd_enabled: Generated<boolean>;
+  dnd_until: Timestamp | null;
+  echo_cancellation: Generated<boolean>;
+  email_digest: Generated<string>;
+  email_digest_hour: Generated<number>;
+  email_locale: string | null;
+  email_unread_delay_minutes: Generated<number>;
+  join_camera_off: Generated<boolean>;
+  join_muted: Generated<boolean>;
+  last_digest_at: Timestamp | null;
+  noise_suppression: Generated<boolean>;
+  push_preview: Generated<string>;
+  push_when: Generated<string>;
+  quiet_days: Generated<Json>;
+  quiet_hours_end: string | null;
+  quiet_hours_start: string | null;
+  ringtone_name: Generated<string>;
+  ringtone_volume: Generated<number>;
+  sound_enabled: Generated<boolean>;
+  sound_name: Generated<string>;
+  sound_volume: Generated<number>;
+  updated_at: Generated<Timestamp>;
   user_id: string;
 }
 
@@ -591,7 +660,7 @@ export interface UserStickers {
   added_at: Generated<Timestamp>;
   id: Generated<string>;
   is_favorite: Generated<boolean>;
-  keywords: Generated<string[]>;
+  keywords: Generated<Json>;
   name: string | null;
   owner_id: string;
   pack_id: string | null;
@@ -626,6 +695,7 @@ export interface DB {
   conversation_members: ConversationMembers;
   conversations: Conversations;
   drafts: Drafts;
+  email_outbox: EmailOutbox;
   games: Games;
   message_attachments: MessageAttachments;
   message_edits: MessageEdits;
@@ -637,22 +707,24 @@ export interface DB {
   monitoring_snapshots: MonitoringSnapshots;
   notification_preferences: NotificationPreferences;
   notifications: Notifications;
+  password_tokens: PasswordTokens;
   permissions: Permissions;
   pinned_messages: PinnedMessages;
   poll_options: PollOptions;
   poll_votes: PollVotes;
   polls: Polls;
+  push_subscriptions: PushSubscriptions;
   role_permissions: RolePermissions;
   roles: Roles;
   saved_messages: SavedMessages;
   scheduled_messages: ScheduledMessages;
-  schema_migrations: SchemaMigrations;
   sticker_packs: StickerPacks;
   sticker_usage: StickerUsage;
   storage_objects: StorageObjects;
   storage_presigned_urls: StoragePresignedUrls;
   system_settings: SystemSettings;
   user_credentials: UserCredentials;
+  user_notification_settings: UserNotificationSettings;
   user_relationships: UserRelationships;
   user_roles: UserRoles;
   user_sessions: UserSessions;

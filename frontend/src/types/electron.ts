@@ -23,6 +23,8 @@ export interface NotificationOptions {
   body: string;
   /** Si viene, hacer click en la notificación abre esa conversación. */
   conversationId?: string;
+  /** Sin sonido del SO: la app ya reproduce el suyo (o el usuario lo apagó). */
+  silent?: boolean;
 }
 
 /** Etiquetas del menú de bandeja, que el renderer manda ya traducidas. */

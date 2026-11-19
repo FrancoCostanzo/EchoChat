@@ -4,3 +4,6 @@ node_modules/
 dist/
 coverage/
 .DS_Store
+
+# Archivos del driver de almacenamiento local (STORAGE_DRIVER=local)
+storage-data/

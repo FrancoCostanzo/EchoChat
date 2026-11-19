@@ -5,7 +5,7 @@ description: Procedimiento para actualizar EchoChat y aplicar migraciones.
 
 ## Flujo de actualización
 
-1. Hacé un [backup](/docs/despliegue/backups) de PostgreSQL y MinIO antes de actualizar.
+1. Hacé un [backup](/docs/despliegue/backups) de la base de datos y de MinIO antes de actualizar.
 2. Traé el código nuevo:
 
    ```bash
@@ -18,9 +18,13 @@ description: Procedimiento para actualizar EchoChat y aplicar migraciones.
 
 ## Migraciones de base de datos
 
-Desde `v1.0.0-alpha.5` el backend **aplica las migraciones automáticamente** al arrancar:
-compara los archivos de `backend/docs/migrations/` con la tabla `schema_migrations` y
-corre solo los que faltan, en orden. **No hay que ejecutar ningún `psql`.**
+El backend **aplica las migraciones automáticamente** al arrancar: compara las de
+`backend/src/config/db/migrations/` con la tabla `kysely_migration` y corre solo las que
+faltan, en orden. **No hay que ejecutar ningún script a mano**, en PostgreSQL ni en SQL Server.
+
+Si venís de una versión anterior al soporte de varios motores (esquema armado con los `.sql`
+de `backend/docs/`), el primer arranque termina de aplicar los `.sql` que falten y pasa solo al
+sistema nuevo; ver [Base de datos](/docs/despliegue/base-de-datos#instalaciones-anteriores-postgresql).
 
 ```text
 git pull  →  docker compose up -d --build  →  el backend aplica lo pendiente
@@ -28,7 +32,7 @@ git pull  →  docker compose up -d --build  →  el backend aplica lo pendiente
 
 Cada migración corre en su propia transacción. Si una falla, hace *rollback* y el backend
 aborta el arranque (visible en los logs) en vez de quedar a medias — así el error se nota
-y el orquestador reintenta. El seed (`seed.sql`) se aplica en cada arranque de forma
+y el orquestador reintenta. El seed (`seed.ts`) se aplica en cada arranque de forma
 idempotente, con lo que los permisos/settings nuevos llegan solos.
 
 :::note
@@ -60,7 +64,7 @@ cd ../frontend && npm install && npm run build
 
 El proyecto está en fase **alpha** (`v1.0.0-alpha.x`, semver). La versión humana vive en
 `backend/package.json` y en los tags de git; la versión **real de la base** es la tabla
-`schema_migrations`. Cada release que cambia el esquema incluye su(s) migración(es)
+`kysely_migration`. Cada release que cambia el esquema incluye su(s) migración(es)
 nueva(s), que se aplican solas al actualizar.
 
 Buenas prácticas al mantener versiones:
@@ -70,7 +74,7 @@ Buenas prácticas al mantener versiones:
 
   ```text
   ## v1.0.0-alpha.5
-  - DB: 015_pin_conversations (agrega conversation_members.pinned_at)
+  - DB: 004_pin_conversations (agrega conversation_members.pinned_at)
   - Feat: fijar conversaciones
   ```
 
@@ -86,7 +90,7 @@ Buenas prácticas al mantener versiones:
 No hay un mecanismo de rollback automático de migraciones. Para revertir una
 actualización problemática:
 
-1. Restaurá el backup de PostgreSQL y MinIO tomado antes de actualizar (ver [Backups](/docs/despliegue/backups)).
+1. Restaurá el backup de la base de datos y de MinIO tomado antes de actualizar (ver [Backups](/docs/despliegue/backups)).
 2. Volvé al commit/tag anterior del código (`git checkout <tag_anterior>`).
 3. Reconstruí los contenedores o reinstalá dependencias con esa versión del código.
 

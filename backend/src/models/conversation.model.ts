@@ -9,6 +9,8 @@ export type ConversationRow = Row<'conversations'> & {
   /** COUNT(): pg devuelve los bigint como string. */
   unread_count?: string | null;
   is_muted?: boolean | null;
+  muted_until?: Date | null;
+  notification_level?: string | null;
   is_pinned?: boolean | null;
   member_role?: string | null;
   role?: string | null;
@@ -55,6 +57,8 @@ export function toConversationResponse(row: ConversationRow | null | undefined) 
     // Joined from conversation_members if present
     unread_count: row.unread_count != null ? parseInt(row.unread_count, 10) : 0,
     is_muted: row.is_muted ?? false,
+    muted_until: row.muted_until ?? null,
+    notification_level: row.notification_level ?? 'all',
     is_pinned: row.is_pinned ?? false,
     member_role: row.member_role ?? row.role ?? null,
     // Direct conversation: other member info
@@ -79,6 +83,8 @@ export function toMemberResponse(row: MemberRow | null | undefined) {
     user_id: row.user_id,
     role: row.role,
     is_muted: row.is_muted,
+    muted_until: row.muted_until,
+    notification_level: row.notification_level,
     is_pinned: row.is_pinned,
     joined_at: row.joined_at,
     // User data if joined

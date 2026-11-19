@@ -1,6 +1,21 @@
-import { useState, useRef, useEffect, type ReactNode, type ChangeEvent } from 'react';
+import { useState, useRef, useEffect, useCallback, type ReactNode, type ChangeEvent } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Input, Button, Spinner, InputOTP, REGEXP_ONLY_DIGITS, Switch, Tooltip, toast } from '@heroui/react';
+import {
+  Input,
+  Button,
+  Spinner,
+  InputOTP,
+  REGEXP_ONLY_DIGITS,
+  Switch,
+  Tooltip,
+  toast,
+  Slider,
+  Label,
+  ToggleButton,
+  ToggleButtonGroup,
+  Select,
+  ListBox,
+} from '@heroui/react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Monitor,
@@ -29,6 +44,17 @@ import {
   RefreshCw,
   KeyRound,
   Image as ImageIcon,
+  MoonStar,
+  Volume2,
+  Play,
+  Download,
+  Trash2,
+  Mail,
+  Phone,
+  PhoneIncoming,
+  Video,
+  Mic,
+  AudioLines,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -56,6 +82,30 @@ function parseUserAgent(ua: string | null | undefined): { browser: string | null
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
 import { usersApi, authApi, notificationsApi } from '@/lib/endpoints';
+import { isElectron } from '@/lib/runtimeConfig';
+import {
+  canInstall,
+  disablePush,
+  enablePush,
+  getCurrentSubscription,
+  getPushState,
+  isIos,
+  isStandalone,
+  onInstallAvailabilityChange,
+  promptInstall,
+  type PushState,
+} from '@/lib/push';
+import { useNotificationStore, isDndActive } from '@/stores/notificationStore';
+import { MESSAGE_SOUND_NAMES, playMessageSound, RINGTONE_NAMES, previewRingtone } from '@/lib/sounds';
+import {
+  audioConstraints,
+  canChooseSpeaker,
+  getDevicePrefs,
+  setDevicePref,
+  videoConstraints,
+  type DevicePrefs,
+} from '@/lib/mediaPrefs';
+import { NOTIFICATION_EVENT_GROUPS } from '@/lib/notificationEvents';
 import UserAvatar from '@/components/UserAvatar';
 import AvatarCropModal from '@/components/AvatarCropModal';
 import { useThemeStore, ACCENT_COLORS, type ThemeMode } from '@/stores/themeStore';
@@ -63,7 +113,15 @@ import { useWallpaperStore } from '@/stores/wallpaperStore';
 import WallpaperPicker, { WallpaperPreview } from '@/components/WallpaperPicker';
 import { changeLanguage } from '@/lib/i18n';
 import type { SessionResponse, Setup2faResponse } from '@/types/auth';
-import type { NotificationPreferenceResponse, NotificationPrefsRequest } from '@/types/notification';
+import type {
+  NotificationPrefsRequest,
+  NotificationSettings,
+  NotificationSettingsRequest,
+  PushDevice,
+  PushPreview,
+  PushWhen,
+  EmailDigest,
+} from '@/types/notification';
 
 type WallpaperScope = 'global' | 'type' | 'conversation';
 
@@ -1240,22 +1298,8 @@ function LanguageTab() {
   );
 }
 
-const NOTIFICATION_EVENT_TYPES: string[] = [
-  'message.direct',
-  'message.group',
-  'message.mention',
-  'channel.join_request',
-  'broadcast',
-  'call.incoming',
-];
-
-const DEFAULT_PREF = {
-  in_app_enabled: true,
-  push_enabled: true,
-  email_enabled: false,
-  quiet_hours_start: null as string | null,
-  quiet_hours_end: null as string | null,
-};
+/** Lunes primero, que es como se lee una semana laboral. */
+const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 function formatTimeForInput(value: string | null | undefined) {
   if (!value) return '';
@@ -1263,76 +1307,399 @@ function formatTimeForInput(value: string | null | undefined) {
   return str.length >= 5 ? str.slice(0, 5) : str;
 }
 
-function NotificationsTab() {
-  const { t } = useTranslation();
-  const [prefs, setPrefs] = useState<NotificationPreferenceResponse[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState<string | null>(null);
-  const [quietStart, setQuietStart] = useState('');
-  const [quietEnd, setQuietEnd] = useState('');
+/** Fin del "no molestar" según la opción elegida; null = hasta desactivarlo. */
+function dndUntil(option: string): string | null {
+  const now = new Date();
+  if (option === '1h') return new Date(now.getTime() + 60 * 60 * 1000).toISOString();
+  if (option === '8h') return new Date(now.getTime() + 8 * 60 * 60 * 1000).toISOString();
+  if (option === 'tomorrow') {
+    const tomorrow = new Date(now);
+    tomorrow.setDate(now.getDate() + 1);
+    tomorrow.setHours(8, 0, 0, 0);
+    return tomorrow.toISOString();
+  }
+  return null;
+}
 
-  useEffect(() => {
-    let active = true;
-    notificationsApi
-      .getPreferences()
-      .then(({ data }) => {
-        if (!active) return;
-        const rows = Array.isArray(data) ? data : [];
-        setPrefs(rows);
-        const sample = rows.find((p) => p.quiet_hours_start || p.quiet_hours_end) || rows[0];
-        setQuietStart(formatTimeForInput(sample?.quiet_hours_start));
-        setQuietEnd(formatTimeForInput(sample?.quiet_hours_end));
-      })
-      .catch(() => { if (active) setPrefs([]); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
+/** Push del navegador en este dispositivo + los demás dispositivos suscriptos. */
+function PushSettingsCard({
+  settings,
+  save,
+}: {
+  settings: NotificationSettings;
+  save: (patch: NotificationSettingsRequest) => Promise<void>;
+}) {
+  const { t, i18n } = useTranslation();
+  const channels = useNotificationStore((s) => s.channels);
+  const [state, setState] = useState<PushState | null>(null);
+  const [devices, setDevices] = useState<PushDevice[]>([]);
+  const [currentTail, setCurrentTail] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [installable, setInstallable] = useState(canInstall());
+
+  const refresh = useCallback(async () => {
+    const [nextState, subscription, list] = await Promise.all([
+      getPushState(),
+      getCurrentSubscription().catch(() => null),
+      notificationsApi.getPushDevices().then((r) => r.data).catch(() => [] as PushDevice[]),
+    ]);
+    setState(nextState);
+    setCurrentTail(subscription ? subscription.endpoint.slice(-24) : null);
+    setDevices(list);
   }, []);
 
-  const getPref = (eventType: string) => {
-    const row = prefs.find((p) => p.event_type === eventType);
-    return {
-      event_type: eventType,
-      in_app_enabled: row?.in_app_enabled ?? DEFAULT_PREF.in_app_enabled,
-      push_enabled: row?.push_enabled ?? DEFAULT_PREF.push_enabled,
-      email_enabled: row?.email_enabled ?? DEFAULT_PREF.email_enabled,
-      quiet_hours_start: row?.quiet_hours_start ?? DEFAULT_PREF.quiet_hours_start,
-      quiet_hours_end: row?.quiet_hours_end ?? DEFAULT_PREF.quiet_hours_end,
-    };
-  };
+  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => onInstallAvailabilityChange(() => setInstallable(canInstall())), []);
 
-  const persistPref = async (eventType: string, patch: Partial<NotificationPrefsRequest>) => {
-    setSaving(eventType);
+  const run = async (action: () => Promise<unknown>) => {
+    setBusy(true);
     try {
-      const body = { ...getPref(eventType), ...patch, event_type: eventType };
-      const { data } = await notificationsApi.updatePreferences(body);
-      setPrefs((prev) => [...prev.filter((p) => p.event_type !== eventType), data]);
+      await action();
+    } catch {
+      toast.danger(t('settings.notifications.saveError'));
     } finally {
-      setSaving(null);
+      setBusy(false);
+      void refresh();
     }
   };
 
-  const saveQuietHours = async () => {
-    setSaving('quiet');
+  const sendTest = () => run(async () => {
+    const { data } = await notificationsApi.testPush();
+    if (data.delivered > 0) toast.success(t('settings.notifications.pushCard.testSent'));
+    else toast.warning(t('settings.notifications.pushCard.testNone'));
+  });
+
+  if (!channels.push) return null;
+
+  const electron = isElectron();
+  const statusText = electron
+    ? t('settings.notifications.pushCard.desktop')
+    : state === 'unsupported'
+      ? (isIos() && !isStandalone() ? t('settings.notifications.pushCard.iosHint') : t('settings.notifications.pushCard.unsupported'))
+      : state === 'denied'
+        ? t('settings.notifications.pushCard.denied')
+        : state === 'on'
+          ? t('settings.notifications.pushCard.on')
+          : t('settings.notifications.pushCard.off');
+
+  return (
+    <SettingsCard icon={Smartphone} title={t('settings.notifications.pushCard.title')}>
+      <p className="mb-4 text-xs text-ink-200">{t('settings.notifications.pushCard.desc')}</p>
+
+      <div className="flex flex-col gap-3 rounded-xl border border-white/8 bg-ink-800/45 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-sm text-foreground">{state === null && !electron ? <Spinner size="sm" /> : statusText}</div>
+        {!electron && (
+          <div className="flex shrink-0 flex-wrap gap-2">
+            {state === 'off' && (
+              <Button size="sm" isPending={busy} onPress={() => run(async () => {
+                const result = await enablePush();
+                if (result === 'denied') toast.warning(t('settings.notifications.pushCard.denied'));
+              })}>
+                {t('settings.notifications.pushCard.enable')}
+              </Button>
+            )}
+            {state === 'on' && (
+              <>
+                <Button size="sm" variant="secondary" isPending={busy} onPress={sendTest}>
+                  {t('settings.notifications.pushCard.test')}
+                </Button>
+                <Button size="sm" variant="ghost" isDisabled={busy} onPress={() => run(disablePush)}>
+                  {t('settings.notifications.pushCard.disable')}
+                </Button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {installable && !isStandalone() && (
+        <div className="mt-3 flex flex-col gap-2 rounded-xl border border-accent/25 bg-accent/8 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-ink-100">{t('settings.notifications.pushCard.installDesc')}</p>
+          <Button size="sm" variant="secondary" onPress={() => void promptInstall()}>
+            <Download size={14} />
+            {t('settings.notifications.pushCard.install')}
+          </Button>
+        </div>
+      )}
+
+      {devices.length > 0 && (
+        <>
+          <p className="mt-5 mb-2 text-xs font-medium text-ink-200">{t('settings.notifications.pushCard.devices')}</p>
+          <div className="flex flex-col gap-2">
+            {devices.map((device) => {
+              const { browser, os } = parseUserAgent(device.user_agent);
+              const isThis = currentTail !== null && device.endpoint_tail === currentTail;
+              return (
+                <div key={device.id} className="flex items-center justify-between gap-3 rounded-lg bg-ink-800/40 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm text-foreground">
+                      {[browser, os].filter(Boolean).join(' · ') || t('settings.notifications.pushCard.unknownDevice')}
+                      {isThis && <span className="ml-2 text-xs text-accent">{t('settings.notifications.pushCard.thisDevice')}</span>}
+                    </p>
+                    <p className="text-xs text-ink-300">
+                      {device.last_used_at
+                        ? t('settings.notifications.pushCard.lastUsed', {
+                            date: new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium', timeStyle: 'short' })
+                              .format(new Date(device.last_used_at)),
+                          })
+                        : t('settings.notifications.pushCard.neverUsed')}
+                    </p>
+                  </div>
+                  <Button
+                    isIconOnly
+                    size="sm"
+                    variant="ghost"
+                    aria-label={t('settings.notifications.pushCard.remove')}
+                    isDisabled={busy}
+                    onPress={() => run(async () => {
+                      if (isThis) await disablePush();
+                      else await notificationsApi.removePushDevice(device.id);
+                    })}
+                  >
+                    <Trash2 size={14} />
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      <p className="mt-5 mb-2 text-xs font-medium text-ink-200">{t('settings.notifications.pushCard.preview')}</p>
+      <ToggleButtonGroup
+        aria-label={t('settings.notifications.pushCard.preview')}
+        selectionMode="single"
+        disallowEmptySelection
+        size="sm"
+        className="flex-wrap"
+        selectedKeys={new Set([settings.push_preview])}
+        onSelectionChange={(keys) => {
+          const value = [...keys][0] as PushPreview | undefined;
+          if (value && value !== settings.push_preview) void save({ push_preview: value });
+        }}
+      >
+        {(['full', 'sender', 'none'] as const).map((value, i) => (
+          <ToggleButton key={value} id={value}>
+            {i > 0 && <ToggleButtonGroup.Separator />}
+            {t(`settings.notifications.pushCard.previewOptions.${value}`)}
+          </ToggleButton>
+        ))}
+      </ToggleButtonGroup>
+
+      <p className="mt-5 mb-2 text-xs font-medium text-ink-200">{t('settings.notifications.pushCard.when')}</p>
+      <ToggleButtonGroup
+        aria-label={t('settings.notifications.pushCard.when')}
+        selectionMode="single"
+        disallowEmptySelection
+        size="sm"
+        className="flex-wrap"
+        selectedKeys={new Set([settings.push_when])}
+        onSelectionChange={(keys) => {
+          const value = [...keys][0] as PushWhen | undefined;
+          if (value && value !== settings.push_when) void save({ push_when: value });
+        }}
+      >
+        {(['inactive', 'always'] as const).map((value, i) => (
+          <ToggleButton key={value} id={value}>
+            {i > 0 && <ToggleButtonGroup.Separator />}
+            {t(`settings.notifications.pushCard.whenOptions.${value}`)}
+          </ToggleButton>
+        ))}
+      </ToggleButtonGroup>
+
+      <div className="mt-5">
+        <Switch isSelected={settings.badge_enabled} onChange={(v) => save({ badge_enabled: v })}>
+          <Switch.Control><Switch.Thumb /></Switch.Control>
+          <Switch.Content>{t('settings.notifications.pushCard.badge')}</Switch.Content>
+        </Switch>
+      </div>
+    </SettingsCard>
+  );
+}
+
+/** Preferencias de los emails: resumen periódico, espera para avisar pendientes e idioma. */
+function EmailSettingsCard({
+  settings,
+  save,
+}: {
+  settings: NotificationSettings;
+  save: (patch: NotificationSettingsRequest) => Promise<void>;
+}) {
+  const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
+  const channels = useNotificationStore((s) => s.channels);
+  const email = useAuthStore((s) => s.user?.email);
+
+  if (!channels.email) return null;
+
+  const hourLabel = (hour: number) =>
+    new Intl.DateTimeFormat(i18n.language, { hour: '2-digit', minute: '2-digit' }).format(new Date(2024, 0, 1, hour));
+
+  return (
+    <SettingsCard icon={Mail} title={t('settings.notifications.emailCard.title')}>
+      <p className="mb-4 text-xs text-ink-200">
+        {email
+          ? t('settings.notifications.emailCard.desc', { email })
+          : t('settings.notifications.emailCard.noEmail')}
+      </p>
+      {!email && (
+        <Button size="sm" variant="secondary" className="mb-4" onPress={() => navigate('/settings/profile')}>
+          {t('settings.notifications.emailCard.addEmail')}
+        </Button>
+      )}
+
+      <div className={email ? '' : 'pointer-events-none opacity-50'}>
+        <p className="mb-2 text-xs font-medium text-ink-200">{t('settings.notifications.emailCard.delay')}</p>
+        <ToggleButtonGroup
+          aria-label={t('settings.notifications.emailCard.delay')}
+          selectionMode="single"
+          disallowEmptySelection
+          isDetached
+          size="sm"
+          className="flex-wrap"
+          selectedKeys={new Set([String(settings.email_unread_delay_minutes)])}
+          onSelectionChange={(keys) => {
+            const value = Number([...keys][0]) as NotificationSettings['email_unread_delay_minutes'];
+            if (value && value !== settings.email_unread_delay_minutes) void save({ email_unread_delay_minutes: value });
+          }}
+        >
+          {[15, 30, 60, 120].map((minutes) => (
+            <ToggleButton key={minutes} id={String(minutes)}>
+              {minutes < 60
+                ? t('settings.notifications.emailCard.minutes', { count: minutes })
+                : t('settings.notifications.emailCard.hours', { count: minutes / 60 })}
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
+        <p className="mt-2 text-xs text-ink-300">{t('settings.notifications.emailCard.delayHint')}</p>
+
+        <p className="mt-5 mb-2 text-xs font-medium text-ink-200">{t('settings.notifications.emailCard.digest')}</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <ToggleButtonGroup
+            aria-label={t('settings.notifications.emailCard.digest')}
+            selectionMode="single"
+            disallowEmptySelection
+            isDetached
+            size="sm"
+            className="flex-wrap"
+            selectedKeys={new Set([settings.email_digest])}
+            onSelectionChange={(keys) => {
+              const value = [...keys][0] as EmailDigest | undefined;
+              if (value && value !== settings.email_digest) void save({ email_digest: value });
+            }}
+          >
+            {(['off', 'hourly', 'daily', 'weekly'] as const).map((value) => (
+              <ToggleButton key={value} id={value}>
+                {t(`settings.notifications.emailCard.digestOptions.${value}`)}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+          {(settings.email_digest === 'daily' || settings.email_digest === 'weekly') && (
+            <Select
+              aria-label={t('settings.notifications.emailCard.digestHour')}
+              className="w-36"
+              value={String(settings.email_digest_hour)}
+              onChange={(value) => void save({ email_digest_hour: Number(value) })}
+            >
+              <Select.Trigger>
+                <Select.Value />
+                <Select.Indicator />
+              </Select.Trigger>
+              <Select.Popover>
+                <ListBox>
+                  {Array.from({ length: 24 }, (_, hour) => (
+                    <ListBox.Item key={hour} id={String(hour)} textValue={hourLabel(hour)}>
+                      {hourLabel(hour)}
+                      <ListBox.ItemIndicator />
+                    </ListBox.Item>
+                  ))}
+                </ListBox>
+              </Select.Popover>
+            </Select>
+          )}
+        </div>
+        {settings.email_digest === 'weekly' && (
+          <p className="mt-2 text-xs text-ink-300">{t('settings.notifications.emailCard.weeklyHint')}</p>
+        )}
+
+        <p className="mt-5 mb-2 text-xs font-medium text-ink-200">{t('settings.notifications.emailCard.language')}</p>
+        <ToggleButtonGroup
+          aria-label={t('settings.notifications.emailCard.language')}
+          selectionMode="single"
+          disallowEmptySelection
+          isDetached
+          size="sm"
+          className="flex-wrap"
+          selectedKeys={new Set([settings.email_locale ?? 'auto'])}
+          onSelectionChange={(keys) => {
+            const value = String([...keys][0] ?? 'auto');
+            const locale = value === 'auto' ? null : value;
+            if (locale !== settings.email_locale) void save({ email_locale: locale });
+          }}
+        >
+          {['auto', 'es', 'en', 'pt'].map((value) => (
+            <ToggleButton key={value} id={value}>
+              {t(`settings.notifications.emailCard.languages.${value}`)}
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
+      </div>
+    </SettingsCard>
+  );
+}
+
+function NotificationsTab() {
+  const { t, i18n } = useTranslation();
+  const settings = useNotificationStore((s) => s.settings);
+  const events = useNotificationStore((s) => s.events);
+  const channels = useNotificationStore((s) => s.channels);
+  const loaded = useNotificationStore((s) => s.loaded);
+  const load = useNotificationStore((s) => s.load);
+  const updateSettings = useNotificationStore((s) => s.updateSettings);
+  const updatePreference = useNotificationStore((s) => s.updatePreference);
+
+  const [quietStart, setQuietStart] = useState('');
+  const [quietEnd, setQuietEnd] = useState('');
+  const [savingQuiet, setSavingQuiet] = useState(false);
+
+  // Se recarga al entrar: el admin pudo haber cambiado defaults o bloqueos.
+  useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    setQuietStart(formatTimeForInput(settings?.quiet_hours_start));
+    setQuietEnd(formatTimeForInput(settings?.quiet_hours_end));
+  }, [settings?.quiet_hours_start, settings?.quiet_hours_end]);
+
+  const save = async (patch: NotificationSettingsRequest) => {
     try {
-      const start = quietStart || null;
-      const end = quietEnd || null;
-      const results = await Promise.all(
-        NOTIFICATION_EVENT_TYPES.map((eventType) =>
-          notificationsApi.updatePreferences({
-            ...getPref(eventType),
-            event_type: eventType,
-            quiet_hours_start: start,
-            quiet_hours_end: end,
-          }),
-        ),
-      );
-      setPrefs(results.map((r) => r.data));
-    } finally {
-      setSaving(null);
+      await updateSettings(patch);
+    } catch {
+      toast.danger(t('settings.notifications.saveError'));
     }
   };
 
-  if (loading) {
+  const savePref = async (patch: NotificationPrefsRequest) => {
+    try {
+      await updatePreference(patch);
+    } catch {
+      toast.danger(t('settings.notifications.saveError'));
+    }
+  };
+
+  const saveQuietHours = async (start: string | null, end: string | null) => {
+    setSavingQuiet(true);
+    try {
+      await save({ quiet_hours_start: start, quiet_hours_end: end });
+    } finally {
+      setSavingQuiet(false);
+    }
+  };
+
+  const weekdayName = (day: number) =>
+    // 2023-01-01 fue domingo: sumando `day` días se obtiene cada día de la semana.
+    new Intl.DateTimeFormat(i18n.language, { weekday: 'short' }).format(new Date(2023, 0, 1 + day));
+
+  if (!loaded || !settings) {
     return (
       <div className="flex justify-center py-16">
         <Spinner size="lg" />
@@ -1340,54 +1707,44 @@ function NotificationsTab() {
     );
   }
 
+  const dndActive = isDndActive(settings);
+
   return (
     <div className="flex flex-col gap-5">
-      <SettingsCard icon={Bell} title={t('settings.notifications.title')}>
-        <p className="mb-4 text-xs text-ink-200">{t('settings.notifications.subtitle')}</p>
-        <div className="flex flex-col gap-3">
-          {NOTIFICATION_EVENT_TYPES.map((eventType) => {
-            const pref = getPref(eventType);
-            const busy = saving === eventType;
-            return (
-              <div
-                key={eventType}
-                className="rounded-xl border border-white/8 bg-ink-800/45 px-4 py-3"
+      {/* ── No molestar ── */}
+      <SettingsCard icon={MoonStar} title={t('settings.notifications.dnd.title')}>
+        <p className="mb-4 text-xs text-ink-200">{t('settings.notifications.dnd.desc')}</p>
+        {dndActive ? (
+          <div className="flex flex-col gap-3 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-medium text-foreground">
+              {settings.dnd_until
+                ? t('settings.notifications.dnd.activeUntil', {
+                    time: new Intl.DateTimeFormat(i18n.language, {
+                      weekday: 'short', hour: '2-digit', minute: '2-digit',
+                    }).format(new Date(settings.dnd_until)),
+                  })
+                : t('settings.notifications.dnd.activeIndefinite')}
+            </p>
+            <Button size="sm" variant="secondary" onPress={() => save({ dnd_enabled: false })}>
+              {t('settings.notifications.dnd.turnOff')}
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {['1h', '8h', 'tomorrow', 'indefinite'].map((option) => (
+              <Button
+                key={option}
+                variant="secondary"
+                onPress={() => save({ dnd_enabled: true, dnd_until: dndUntil(option) })}
               >
-                <p className="mb-3 text-sm font-semibold text-foreground">
-                  {t(`settings.notifications.events.${eventType}`)}
-                </p>
-                <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:gap-6">
-                  <Switch
-                    isSelected={pref.in_app_enabled}
-                    isDisabled={busy}
-                    onChange={(v) => persistPref(eventType, { in_app_enabled: v })}
-                  >
-                    <Switch.Control><Switch.Thumb /></Switch.Control>
-                    <Switch.Content>{t('settings.notifications.inApp')}</Switch.Content>
-                  </Switch>
-                  <Switch
-                    isSelected={pref.push_enabled}
-                    isDisabled={busy}
-                    onChange={(v) => persistPref(eventType, { push_enabled: v })}
-                  >
-                    <Switch.Control><Switch.Thumb /></Switch.Control>
-                    <Switch.Content>{t('settings.notifications.push')}</Switch.Content>
-                  </Switch>
-                  <Switch
-                    isSelected={pref.email_enabled}
-                    isDisabled={busy}
-                    onChange={(v) => persistPref(eventType, { email_enabled: v })}
-                  >
-                    <Switch.Control><Switch.Thumb /></Switch.Control>
-                    <Switch.Content>{t('settings.notifications.email')}</Switch.Content>
-                  </Switch>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+                {t(`settings.notifications.dnd.options.${option}`)}
+              </Button>
+            ))}
+          </div>
+        )}
       </SettingsCard>
 
+      {/* ── Horario y días de silencio ── */}
       <SettingsCard icon={BellOff} title={t('settings.notifications.quietHours')}>
         <p className="mb-4 text-xs text-ink-200">{t('settings.notifications.quietHoursDesc')}</p>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -1413,14 +1770,461 @@ function NotificationsTab() {
               className="w-full"
             />
           </div>
-          <Button
-            variant="secondary"
-            isPending={saving === 'quiet'}
-            onPress={saveQuietHours}
-            className="shrink-0"
+          <div className="flex shrink-0 gap-2">
+            <Button
+              variant="secondary"
+              isPending={savingQuiet}
+              isDisabled={!quietStart || !quietEnd}
+              onPress={() => saveQuietHours(quietStart, quietEnd)}
+            >
+              {t('settings.notifications.saveQuietHours')}
+            </Button>
+            {(settings.quiet_hours_start || settings.quiet_hours_end) && (
+              <Button variant="ghost" onPress={() => saveQuietHours(null, null)}>
+                {t('common.clear')}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <p className="mt-5 mb-2 text-xs font-medium text-ink-200">{t('settings.notifications.quietDays')}</p>
+        <ToggleButtonGroup
+          aria-label={t('settings.notifications.quietDays')}
+          selectionMode="multiple"
+          isDetached
+          size="sm"
+          className="flex-wrap"
+          selectedKeys={new Set(settings.quiet_days.map(String))}
+          onSelectionChange={(keys) => save({ quiet_days: [...keys].map(Number).sort() })}
+        >
+          {WEEK_ORDER.map((day) => (
+            <ToggleButton key={day} id={String(day)} className="min-w-12 capitalize">
+              {weekdayName(day)}
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
+        <p className="mt-2 text-xs text-ink-300">{t('settings.notifications.quietDaysDesc')}</p>
+      </SettingsCard>
+
+      {/* ── Qué avisar y por dónde ── */}
+      <SettingsCard icon={Bell} title={t('settings.notifications.title')}>
+        <p className="mb-4 text-xs text-ink-200">{t('settings.notifications.subtitle')}</p>
+        {(!channels.push || !channels.email) && (
+          <p className="mb-4 flex items-center gap-2 rounded-lg bg-ink-800/60 px-3 py-2 text-xs text-ink-200">
+            <AlertCircle size={13} className="shrink-0" />
+            {!channels.push && !channels.email
+              ? t('settings.notifications.channelsOff.both')
+              : !channels.push
+                ? t('settings.notifications.channelsOff.push')
+                : t('settings.notifications.channelsOff.email')}
+          </p>
+        )}
+        <div className="flex flex-col gap-5">
+          {NOTIFICATION_EVENT_GROUPS.map((group) => (
+            <div key={group.id}>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-300">
+                {t(`settings.notifications.groups.${group.id}`)}
+              </p>
+              <div className="flex flex-col gap-2">
+                {group.events.map((eventType) => {
+                  const pref = events.find((e) => e.event_type === eventType);
+                  if (!pref) return null;
+                  const toggles: { key: 'in_app_enabled' | 'push_enabled' | 'email_enabled'; label: string; off: boolean }[] = [
+                    { key: 'in_app_enabled', label: t('settings.notifications.inApp'), off: false },
+                    { key: 'push_enabled', label: t('settings.notifications.push'), off: !channels.push },
+                    { key: 'email_enabled', label: t('settings.notifications.email'), off: !channels.email },
+                  ];
+                  return (
+                    <div
+                      key={eventType}
+                      className="flex flex-col gap-3 rounded-xl border border-white/8 bg-ink-800/45 px-4 py-3 md:flex-row md:items-center md:justify-between"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                          {t(`settings.notifications.events.${eventType}`)}
+                          {pref.locked && (
+                            <Tooltip delay={200}>
+                              <Tooltip.Trigger aria-label={t('settings.notifications.locked')}>
+                                <Lock size={12} className="text-ink-300" />
+                              </Tooltip.Trigger>
+                              <Tooltip.Content>{t('settings.notifications.locked')}</Tooltip.Content>
+                            </Tooltip>
+                          )}
+                        </div>
+                        <p className="text-xs text-ink-300">{t(`settings.notifications.eventDesc.${eventType}`)}</p>
+                      </div>
+                      <div className="flex shrink-0 flex-wrap gap-x-5 gap-y-2">
+                        {toggles.map(({ key, label, off }) => (
+                          <Switch
+                            key={key}
+                            size="sm"
+                            isSelected={pref[key] && !off}
+                            isDisabled={pref.locked || off}
+                            onChange={(v) => savePref({ event_type: eventType, [key]: v })}
+                          >
+                            <Switch.Control><Switch.Thumb /></Switch.Control>
+                            <Switch.Content>{label}</Switch.Content>
+                          </Switch>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </SettingsCard>
+
+      <PushSettingsCard settings={settings} save={save} />
+
+      <EmailSettingsCard settings={settings} save={save} />
+
+      {/* ── Sonidos ── */}
+      <SettingsCard icon={Volume2} title={t('settings.notifications.sound.title')}>
+        <Switch
+          isSelected={settings.sound_enabled}
+          onChange={(v) => save({ sound_enabled: v })}
+        >
+          <Switch.Control><Switch.Thumb /></Switch.Control>
+          <Switch.Content>{t('settings.notifications.sound.enabled')}</Switch.Content>
+        </Switch>
+
+        <div className={settings.sound_enabled ? '' : 'pointer-events-none opacity-50'}>
+          <p className="mt-5 mb-2 text-xs font-medium text-ink-200">{t('settings.notifications.sound.choose')}</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+            {MESSAGE_SOUND_NAMES.map((name) => (
+              <SettingsOptionButton
+                key={name}
+                variant="tile"
+                selected={settings.sound_name === name}
+                disabled={!settings.sound_enabled}
+                onPress={() => {
+                  playMessageSound(name, settings.sound_volume);
+                  if (settings.sound_name !== name) void save({ sound_name: name });
+                }}
+              >
+                <Play size={13} className="text-accent" />
+                <span className="text-sm">{t(`settings.notifications.sound.names.${name}`)}</span>
+              </SettingsOptionButton>
+            ))}
+          </div>
+
+          <Slider
+            className="mt-5 w-full max-w-sm"
+            minValue={0}
+            maxValue={100}
+            step={5}
+            isDisabled={!settings.sound_enabled}
+            defaultValue={settings.sound_volume}
+            onChangeEnd={(value) => {
+              const volume = Array.isArray(value) ? value[0] : value;
+              playMessageSound(settings.sound_name, volume);
+              void save({ sound_volume: volume });
+            }}
           >
-            {t('settings.notifications.saveQuietHours')}
-          </Button>
+            <Label className="text-xs font-medium text-ink-200">{t('settings.notifications.sound.volume')}</Label>
+            <Slider.Output className="text-xs tabular-nums text-ink-300" />
+            <Slider.Track>
+              <Slider.Fill />
+              <Slider.Thumb />
+            </Slider.Track>
+          </Slider>
+        </div>
+      </SettingsCard>
+    </div>
+  );
+}
+
+/** Selector de un tipo de dispositivo; el elegido queda guardado en este navegador. */
+function DeviceSelect({
+  devices,
+  kind,
+  label,
+  value,
+  onChange,
+}: {
+  devices: MediaDeviceInfo[];
+  kind: keyof DevicePrefs;
+  label: string;
+  value: string | undefined;
+  onChange: (kind: keyof DevicePrefs, deviceId: string) => void;
+}) {
+  const options = devices.filter((d) => d.kind === kind);
+  if (options.length === 0) return null;
+  return (
+    <Select
+      className="w-full"
+      value={value && options.some((o) => o.deviceId === value) ? value : options[0].deviceId}
+      onChange={(next) => onChange(kind, String(next))}
+    >
+      <Label className="text-xs font-medium text-ink-200">{label}</Label>
+      <Select.Trigger>
+        <Select.Value />
+        <Select.Indicator />
+      </Select.Trigger>
+      <Select.Popover>
+        <ListBox>
+          {options.map((d, i) => (
+            <ListBox.Item key={d.deviceId || i} id={d.deviceId} textValue={d.label || `${label} ${i + 1}`}>
+              {d.label || `${label} ${i + 1}`}
+              <ListBox.ItemIndicator />
+            </ListBox.Item>
+          ))}
+        </ListBox>
+      </Select.Popover>
+    </Select>
+  );
+}
+
+/** Elegir micrófono, cámara y parlante, con prueba de micrófono y vista previa de cámara. */
+function CallDevicesCard() {
+  const { t } = useTranslation();
+  const settings = useNotificationStore((s) => s.settings);
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+  const [prefs, setPrefs] = useState<DevicePrefs>(getDevicePrefs);
+  const [testing, setTesting] = useState(false);
+  const [level, setLevel] = useState(0);
+  const testStream = useRef<MediaStream | null>(null);
+  const previewRef = useRef<HTMLVideoElement | null>(null);
+  const stopTest = useRef<(() => void) | null>(null);
+
+  const refresh = useCallback(() => {
+    navigator.mediaDevices?.enumerateDevices().then(setDevices).catch(() => setDevices([]));
+  }, []);
+  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => () => stopTest.current?.(), []);
+
+  // Sin permiso, el navegador lista los dispositivos sin nombre: hay que pedirlo una vez.
+  const hasLabels = devices.some((d) => d.label);
+
+  const askPermission = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
+        .catch(() => navigator.mediaDevices.getUserMedia({ audio: true }));
+      stream.getTracks().forEach((track) => track.stop());
+      refresh();
+    } catch {
+      toast.danger(t('settings.calls.devices.permissionDenied'));
+    }
+  };
+
+  const choose = (kind: keyof DevicePrefs, deviceId: string) => {
+    setDevicePref(kind, deviceId || null);
+    setPrefs(getDevicePrefs());
+    if (testing) { stopTest.current?.(); setTesting(false); }
+  };
+
+  /** Prende micrófono y cámara elegidos: barra de nivel + vista previa, hasta que se corte. */
+  const startTest = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: audioConstraints(settings, prefs.audioinput),
+        video: devices.some((d) => d.kind === 'videoinput') ? videoConstraints(prefs.videoinput) : false,
+      });
+      testStream.current = stream;
+      if (previewRef.current) previewRef.current.srcObject = stream;
+      const ctx = new AudioContext();
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      ctx.createMediaStreamSource(stream).connect(analyser);
+      const data = new Uint8Array(analyser.fftSize);
+      let frame = 0;
+      const tick = () => {
+        analyser.getByteTimeDomainData(data);
+        let peak = 0;
+        for (const v of data) peak = Math.max(peak, Math.abs(v - 128));
+        setLevel(Math.min(1, peak / 64));
+        frame = requestAnimationFrame(tick);
+      };
+      tick();
+      stopTest.current = () => {
+        cancelAnimationFrame(frame);
+        void ctx.close().catch(() => {});
+        stream.getTracks().forEach((track) => track.stop());
+        testStream.current = null;
+        if (previewRef.current) previewRef.current.srcObject = null;
+        setLevel(0);
+      };
+      setTesting(true);
+      refresh();
+    } catch {
+      toast.danger(t('settings.calls.devices.permissionDenied'));
+    }
+  };
+
+  return (
+    <SettingsCard icon={Mic} title={t('settings.calls.devices.title')}>
+      <p className="mb-4 text-xs text-ink-200">{t('settings.calls.devices.desc')}</p>
+      {!hasLabels ? (
+        <Button size="sm" variant="secondary" onPress={askPermission}>{t('settings.calls.devices.allow')}</Button>
+      ) : (
+        <div className="flex flex-col gap-4">
+          <DeviceSelect devices={devices} kind="audioinput" label={t('call.devices.microphone')} value={prefs.audioinput} onChange={choose} />
+          <DeviceSelect devices={devices} kind="videoinput" label={t('call.devices.camera')} value={prefs.videoinput} onChange={choose} />
+          {canChooseSpeaker() && <DeviceSelect devices={devices} kind="audiooutput" label={t('call.devices.speaker')} value={prefs.audiooutput} onChange={choose} />}
+
+          <div className="flex flex-col gap-3 rounded-xl border border-white/8 bg-ink-800/45 p-3 sm:flex-row sm:items-center">
+            <video
+              ref={previewRef}
+              autoPlay
+              playsInline
+              muted
+              className={`aspect-video w-full rounded-lg bg-black object-cover sm:w-48 -scale-x-100 ${testing ? '' : 'hidden'}`}
+            />
+            <div className="flex flex-1 flex-col gap-2">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-ink-700" aria-hidden>
+                <div className="h-full rounded-full bg-accent transition-[width] duration-75" style={{ width: `${Math.round(level * 100)}%` }} />
+              </div>
+              <p className="text-xs text-ink-300">
+                {testing ? t('settings.calls.devices.testing') : t('settings.calls.devices.testHint')}
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant={testing ? 'ghost' : 'secondary'}
+              onPress={() => { if (testing) { stopTest.current?.(); setTesting(false); } else void startTest(); }}
+            >
+              {testing ? t('settings.calls.devices.stopTest') : t('settings.calls.devices.test')}
+            </Button>
+          </div>
+        </div>
+      )}
+    </SettingsCard>
+  );
+}
+
+function CallsTab() {
+  const { t } = useTranslation();
+  const settings = useNotificationStore((s) => s.settings);
+  const loaded = useNotificationStore((s) => s.loaded);
+  const load = useNotificationStore((s) => s.load);
+  const updateSettings = useNotificationStore((s) => s.updateSettings);
+
+  useEffect(() => { if (!loaded) void load(); }, [loaded, load]);
+
+  const save = async (patch: NotificationSettingsRequest) => {
+    try {
+      await updateSettings(patch);
+    } catch {
+      toast.danger(t('settings.notifications.saveError'));
+    }
+  };
+
+  if (!settings) {
+    return <div className="flex justify-center py-16"><Spinner size="lg" /></div>;
+  }
+
+  const single = <T extends string>(
+    label: string,
+    value: T,
+    options: readonly T[],
+    labelOf: (v: T) => string,
+    onChange: (v: T) => void,
+  ) => (
+    <ToggleButtonGroup
+      aria-label={label}
+      selectionMode="single"
+      disallowEmptySelection
+      isDetached
+      size="sm"
+      className="flex-wrap"
+      selectedKeys={new Set([value])}
+      onSelectionChange={(keys) => {
+        const next = [...keys][0] as T | undefined;
+        if (next && next !== value) onChange(next);
+      }}
+    >
+      {options.map((option) => (
+        <ToggleButton key={option} id={option}>{labelOf(option)}</ToggleButton>
+      ))}
+    </ToggleButtonGroup>
+  );
+
+  return (
+    <div className="flex flex-col gap-5">
+      <SettingsCard icon={PhoneIncoming} title={t('settings.calls.incoming.title')}>
+        <p className="mb-2 text-xs font-medium text-ink-200">{t('settings.calls.incoming.privacy')}</p>
+        {single(
+          t('settings.calls.incoming.privacy'),
+          settings.call_privacy,
+          ['everyone', 'contacts', 'nobody'] as const,
+          (v) => t(`settings.calls.incoming.privacyOptions.${v}`),
+          (v) => void save({ call_privacy: v }),
+        )}
+        <p className="mt-2 text-xs text-ink-300">{t('settings.calls.incoming.privacyHint')}</p>
+
+        <p className="mt-5 mb-2 text-xs font-medium text-ink-200">{t('settings.calls.incoming.dnd')}</p>
+        {single(
+          t('settings.calls.incoming.dnd'),
+          settings.call_dnd_behavior,
+          ['silent', 'reject'] as const,
+          (v) => t(`settings.calls.incoming.dndOptions.${v}`),
+          (v) => void save({ call_dnd_behavior: v }),
+        )}
+
+        <p className="mt-5 mb-2 text-xs font-medium text-ink-200">{t('settings.calls.incoming.ringtone')}</p>
+        <div className="grid grid-cols-3 gap-2">
+          {RINGTONE_NAMES.map((name) => (
+            <SettingsOptionButton
+              key={name}
+              variant="tile"
+              selected={settings.ringtone_name === name}
+              onPress={() => {
+                previewRingtone(name, settings.ringtone_volume);
+                if (settings.ringtone_name !== name) void save({ ringtone_name: name });
+              }}
+            >
+              <Play size={13} className="text-accent" />
+              <span className="text-sm">{t(`settings.calls.incoming.ringtones.${name}`)}</span>
+            </SettingsOptionButton>
+          ))}
+        </div>
+        <Slider
+          className="mt-5 w-full max-w-sm"
+          minValue={0}
+          maxValue={100}
+          step={5}
+          defaultValue={settings.ringtone_volume}
+          onChangeEnd={(value) => {
+            const volume = Array.isArray(value) ? value[0] : value;
+            previewRingtone(settings.ringtone_name, volume);
+            void save({ ringtone_volume: volume });
+          }}
+        >
+          <Label className="text-xs font-medium text-ink-200">{t('settings.calls.incoming.ringtoneVolume')}</Label>
+          <Slider.Output className="text-xs tabular-nums text-ink-300" />
+          <Slider.Track>
+            <Slider.Fill />
+            <Slider.Thumb />
+          </Slider.Track>
+        </Slider>
+      </SettingsCard>
+
+      <SettingsCard icon={Video} title={t('settings.calls.joining.title')}>
+        <div className="flex flex-col gap-3">
+          <Switch isSelected={settings.join_muted} onChange={(v) => save({ join_muted: v })}>
+            <Switch.Control><Switch.Thumb /></Switch.Control>
+            <Switch.Content>{t('settings.calls.joining.muted')}</Switch.Content>
+          </Switch>
+          <Switch isSelected={settings.join_camera_off} onChange={(v) => save({ join_camera_off: v })}>
+            <Switch.Control><Switch.Thumb /></Switch.Control>
+            <Switch.Content>{t('settings.calls.joining.cameraOff')}</Switch.Content>
+          </Switch>
+        </div>
+      </SettingsCard>
+
+      <CallDevicesCard />
+
+      <SettingsCard icon={AudioLines} title={t('settings.calls.audio.title')}>
+        <p className="mb-4 text-xs text-ink-200">{t('settings.calls.audio.desc')}</p>
+        <div className="flex flex-col gap-3">
+          {(['noise_suppression', 'echo_cancellation', 'auto_gain_control'] as const).map((key) => (
+            <Switch key={key} isSelected={settings[key]} onChange={(v) => save({ [key]: v })}>
+              <Switch.Control><Switch.Thumb /></Switch.Control>
+              <Switch.Content>{t(`settings.calls.audio.${key}`)}</Switch.Content>
+            </Switch>
+          ))}
         </div>
       </SettingsCard>
     </div>
@@ -1432,6 +2236,7 @@ const TAB_COMPONENTS: Record<string, () => ReactNode> = {
   appearance: AppearanceTab,
   language:   LanguageTab,
   notifications: NotificationsTab,
+  calls:      CallsTab,
   security:   SecurityTab,
   presence:   PresenceTab,
 };
@@ -1441,6 +2246,7 @@ const MOBILE_SETTINGS_NAV: { id: string; icon: LucideIcon }[] = [
   { id: 'appearance', icon: Palette },
   { id: 'language',   icon: Globe   },
   { id: 'notifications', icon: Bell },
+  { id: 'calls',      icon: Phone   },
   { id: 'security',   icon: Shield  },
   { id: 'presence',   icon: Wifi    },
 ];

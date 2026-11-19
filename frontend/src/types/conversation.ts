@@ -4,6 +4,8 @@
  * toMemberResponse) y backend/src/dtos/conversation.dto.ts (requests). Ver la
  * nota de sincronización en types/user.ts.
  */
+import type { NotificationLevel } from './notification';
+
 export type ConversationType = 'direct' | 'group' | 'channel' | 'broadcast' | 'bot';
 export type MemberRole = 'owner' | 'admin' | 'moderator' | 'member' | 'viewer';
 export interface ConversationResponse {
@@ -29,6 +31,8 @@ export interface ConversationResponse {
   // conversation_members (listado "mis conversaciones").
   unread_count: number;
   is_muted: boolean;
+  muted_until: string | null;
+  notification_level: NotificationLevel;
   is_pinned: boolean;
   member_role: string | null;
   // Conversación directa: datos del otro usuario.
@@ -92,6 +96,7 @@ export interface UpdateMemberRequest {
   role?: MemberRole;
   is_muted?: boolean;
   muted_until?: string | null;
+  notification_level?: NotificationLevel;
   is_pinned?: boolean;
   is_hidden?: boolean;
 }

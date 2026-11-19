@@ -7,19 +7,19 @@
 
 import '../config'; // carga variables de entorno (.env)
 import logger from '../config/logger';
-import { pool } from '../config/database';
+import { closeDb } from '../config/db';
 import { setup } from '../config/migrate';
 
 setup()
   .then(() => {
     logger.info('Instalación/actualización completada');
-    return pool.end();
+    return closeDb();
   })
   .then(() => process.exit(0))
   .catch(async (err) => {
     logger.error({ err }, 'Falló la instalación/actualización');
     try {
-      await pool.end();
+      await closeDb();
     } catch {
       /* noop */
     }

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from '@heroui/react';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
+import { useNotificationStore } from '@/stores/notificationStore';
 import ScreenPicker from '@/components/ScreenPicker';
 import {
   onOpenConversation,
@@ -31,6 +32,7 @@ export default function DesktopIntegration() {
   const totalUnread = useChatStore((s) =>
     s.conversations.reduce((total, c) => total + (c.unread_count || 0), 0),
   );
+  const badgeEnabled = useNotificationStore((s) => s.settings?.badge_enabled ?? true);
 
   // El main no tiene i18n: las etiquetas del tray y del menú se le mandan
   // desde acá, y se vuelven a mandar cuando el usuario cambia de idioma.
@@ -70,8 +72,9 @@ export default function DesktopIntegration() {
   );
 
   useEffect(() => {
-    setDesktopBadge(totalUnread, t('desktop.unreadBadge', { count: totalUnread }));
-  }, [totalUnread, t]);
+    const count = badgeEnabled ? totalUnread : 0;
+    setDesktopBadge(count, t('desktop.unreadBadge', { count }));
+  }, [totalUnread, badgeEnabled, t]);
 
   // La actualización ya se descargó sola; sólo falta reiniciar. El aviso no
   // caduca (`timeout: 0`) pero tampoco fuerza nada: reiniciar en medio de una

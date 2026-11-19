@@ -30,6 +30,8 @@ interface AppConfig {
   instanceId: string;
   jobs: { enabled: boolean };
   db: {
+    /** Motor de base de datos (`DB_CLIENT`). Ver docs/MULTI_DB.md. */
+    client: DbClient;
     host: string;
     port: number;
     database: string;
@@ -37,6 +39,9 @@ interface AppConfig {
     password: string;
     min: number;
     max: number;
+    /** SQL Server: conexión cifrada (`DB_ENCRYPT`) y aceptar certificados propios (`DB_TRUST_SERVER_CERT`). */
+    encrypt: boolean;
+    trustServerCertificate: boolean;
   };
   redis: { url: string };
   jwt: {
@@ -44,15 +49,28 @@ interface AppConfig {
     expiresIn: string;
     refreshExpiresIn: string;
   };
-  minio: {
-    endPoint: string;
-    port: number;
-    accessKey: string;
-    secretKey: string;
-    useSSL: boolean;
-    publicEndPoint: string;
-    publicPort: number;
-    publicUseSSL: boolean;
+  storage: {
+    driver: 's3' | 'local';
+    /** Se antepone a cada bucket (en AWS los nombres de bucket son globales). */
+    bucketPrefix: string;
+    s3: {
+      endPoint: string;
+      port: number;
+      accessKey: string;
+      secretKey: string;
+      useSSL: boolean;
+      region: string;
+      pathStyle: boolean;
+      publicEndPoint: string;
+      publicPort: number;
+      publicUseSSL: boolean;
+    };
+    local: {
+      dir: string;
+      publicUrl: string;
+      /** Vacío = se deriva de JWT_SECRET. */
+      secret: string;
+    };
   };
   ldap: {
     enabled: boolean;
@@ -89,14 +107,44 @@ interface AppConfig {
   };
   scim: { enabled: boolean; token: string; defaultRole: string };
   messageEnc: { key: string | undefined; keyId: string };
+  /** Web Push (VAPID). Sin las dos claves el canal push queda deshabilitado. */
+  push: { publicKey: string; privateKey: string; subject: string };
+  /** SMTP. Sin `host` el canal email queda deshabilitado. */
+  mail: { host: string; port: number; secure: boolean; user: string; pass: string; from: string };
+  /** URL pública del frontend, para los links de los emails. */
+  appUrl: string;
+  /** Servidores ICE para WebRTC. TURN con credenciales temporales (coturn `use-auth-secret`). */
+  ice: { stunUrls: string[]; turnUrls: string[]; turnSecret: string; turnTtlSeconds: number };
   cors: { origins: string[] };
-  rateLimit: { windowMs: number; max: number };
+  rateLimit: { windowMs: number; max: number; passwordResetMax: number };
   log: { level: string };
+}
+
+/** "a, b,c" → ['a', 'b', 'c']; vacío → []. */
+function list(raw: string | undefined): string[] {
+  return String(raw || '').split(',').map((s) => s.trim()).filter(Boolean);
+}
+
+/** Motores soportados. Se van sumando por etapas (docs/MULTI_DB.md). */
+const DB_CLIENTS = ['postgres', 'mssql'] as const;
+export type DbClient = (typeof DB_CLIENTS)[number];
+
+function parseDbClient(raw: string | undefined): DbClient {
+  const value = (raw || 'postgres').trim().toLowerCase();
+  if (!(DB_CLIENTS as readonly string[]).includes(value)) {
+    throw new Error(`DB_CLIENT="${raw}" no está soportado. Opciones: ${DB_CLIENTS.join(', ')}.`);
+  }
+  return value as DbClient;
 }
 
 /** Convierte una variable de entorno numérica, cayendo al default si no es válida. */
 function num(raw: string | undefined, fallback: number): number {
   return parseInt(raw ?? '', 10) || fallback;
+}
+
+/** `S3_<name>` y, si no está, el nombre histórico `MINIO_<name>`. */
+function s3Env(name: string): string | undefined {
+  return process.env[`S3_${name}`] || process.env[`MINIO_${name}`];
 }
 
 /**
@@ -177,13 +225,16 @@ const config: AppConfig = {
   },
 
   db: {
+    client: parseDbClient(process.env.DB_CLIENT),
     host: process.env.DB_HOST || 'localhost',
-    port: num(process.env.DB_PORT, 5432),
+    port: num(process.env.DB_PORT, parseDbClient(process.env.DB_CLIENT) === 'mssql' ? 1433 : 5432),
     database: process.env.DB_NAME || 'echochat',
     user: process.env.DB_USER || 'echochat',
     password: process.env.DB_PASSWORD || '',
     min: num(process.env.DB_POOL_MIN, 2),
     max: num(process.env.DB_POOL_MAX, 20),
+    encrypt: process.env.DB_ENCRYPT === 'true',
+    trustServerCertificate: process.env.DB_TRUST_SERVER_CERT !== 'false',
   },
 
   // Estado compartido entre instancias (adapter de Socket.IO, presencia, rate
@@ -198,15 +249,30 @@ const config: AppConfig = {
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '30d',
   },
 
-  minio: {
-    endPoint: process.env.MINIO_ENDPOINT || 'localhost',
-    port: num(process.env.MINIO_PORT, 9000),
-    accessKey: process.env.MINIO_ACCESS_KEY || 'minioadmin',
-    secretKey: process.env.MINIO_SECRET_KEY || 'minioadmin',
-    useSSL: process.env.MINIO_USE_SSL === 'true',
-    publicEndPoint: process.env.MINIO_PUBLIC_ENDPOINT || process.env.MINIO_ENDPOINT || 'localhost',
-    publicPort: num(process.env.MINIO_PUBLIC_PORT || process.env.MINIO_PORT, 9000),
-    publicUseSSL: (process.env.MINIO_PUBLIC_USE_SSL || process.env.MINIO_USE_SSL) === 'true',
+  // Almacenamiento de archivos. `s3` sirve para cualquier servicio compatible
+  // (MinIO, AWS S3, R2, Wasabi, B2, Garage…); `local` guarda en disco. Las
+  // variables S3_* tienen prioridad; las MINIO_* siguen funcionando.
+  storage: {
+    driver: process.env.STORAGE_DRIVER === 'local' ? 'local' : 's3',
+    bucketPrefix: process.env.STORAGE_BUCKET_PREFIX || '',
+    s3: {
+      endPoint: s3Env('ENDPOINT') || 'localhost',
+      port: num(s3Env('PORT'), 9000),
+      accessKey: s3Env('ACCESS_KEY') || 'minioadmin',
+      secretKey: s3Env('SECRET_KEY') || 'minioadmin',
+      useSSL: s3Env('USE_SSL') === 'true',
+      region: s3Env('REGION') || '',
+      // MinIO y la mayoría de los self-hosted usan path-style; AWS, virtual-host.
+      pathStyle: s3Env('PATH_STYLE') !== 'false',
+      publicEndPoint: s3Env('PUBLIC_ENDPOINT') || s3Env('ENDPOINT') || 'localhost',
+      publicPort: num(s3Env('PUBLIC_PORT') || s3Env('PORT'), 9000),
+      publicUseSSL: (s3Env('PUBLIC_USE_SSL') || s3Env('USE_SSL')) === 'true',
+    },
+    local: {
+      dir: process.env.STORAGE_LOCAL_DIR || path.resolve(__dirname, '../../storage-data'),
+      publicUrl: (process.env.STORAGE_PUBLIC_URL || '').replace(/\/$/, ''),
+      secret: process.env.STORAGE_LOCAL_SECRET || '',
+    },
   },
 
   ldap: {
@@ -275,6 +341,37 @@ const config: AppConfig = {
     keyId: process.env.MESSAGE_ENC_KEY_ID || 'v1',
   },
 
+  push: {
+    publicKey: process.env.VAPID_PUBLIC_KEY || '',
+    privateKey: process.env.VAPID_PRIVATE_KEY || '',
+    // Contacto que los servicios de push (Google, Mozilla, Apple) usan si hay
+    // un problema con los envíos: un mailto: o la URL de la instalación.
+    subject: process.env.VAPID_SUBJECT || 'mailto:admin@localhost',
+  },
+
+  mail: {
+    host: process.env.SMTP_HOST || '',
+    port: num(process.env.SMTP_PORT, 587),
+    // true = TLS directo (puerto 465); false = STARTTLS si el servidor lo ofrece.
+    secure: process.env.SMTP_SECURE === 'true',
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
+    from: process.env.MAIL_FROM || 'EchoChat <no-reply@localhost>',
+  },
+
+  appUrl: (process.env.APP_URL
+    || parseCorsOrigins(process.env.CORS_ORIGIN).find((o) => o.startsWith('http'))
+    || 'http://localhost:5173').replace(/\/$/, ''),
+
+  ice: {
+    // Sin ICE_STUN_URLS se usa el STUN público de Google, como antes. En una
+    // intranet sin salida a internet conviene apuntarlo al propio coturn.
+    stunUrls: list(process.env.ICE_STUN_URLS ?? 'stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302'),
+    turnUrls: list(process.env.TURN_URLS),
+    turnSecret: process.env.TURN_SECRET || '',
+    turnTtlSeconds: num(process.env.TURN_TTL_SECONDS, 12 * 60 * 60),
+  },
+
   cors: {
     origins: parseCorsOrigins(process.env.CORS_ORIGIN),
   },
@@ -282,6 +379,8 @@ const config: AppConfig = {
   rateLimit: {
     windowMs: num(process.env.RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000),
     max: num(process.env.RATE_LIMIT_MAX, 100),
+    // Pedidos de "olvidé mi contraseña" por IP cada 15 minutos: cada uno manda un email.
+    passwordResetMax: num(process.env.PASSWORD_RESET_RATE_MAX, 5),
   },
 
   log: {

@@ -2,20 +2,26 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Search, Users, Hash, X, Pencil, Check, Camera, Trash2,
-  Image as ImageIcon, FileText, Link2, Play, Download, Loader,
+  Image as ImageIcon, FileText, Link2, Play, Download, Loader, BellOff,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Button, Chip, InputGroup, Input, TextArea, ScrollShadow, Tooltip, Tabs, Switch, toast } from '@heroui/react';
+import {
+  Button, Chip, InputGroup, Input, TextArea, ScrollShadow, Tooltip, Tabs, Switch, toast,
+  ToggleButton, ToggleButtonGroup,
+} from '@heroui/react';
 import type { ReactNode } from 'react';
 import UserAvatar from '@/components/UserAvatar';
 import ImageViewer from '@/components/ImageViewer';
 import VideoViewer from '@/components/VideoViewer';
 import { useAuthStore } from '@/stores/authStore';
+import { useChatStore } from '@/stores/chatStore';
+import { isConversationMuted } from '@/stores/notificationStore';
 import { useStorageUrl } from '@/lib/useStorageUrl';
-import { messagesApi } from '@/lib/endpoints';
+import { conversationsApi, messagesApi } from '@/lib/endpoints';
 import { formatMessageTime } from '@/lib/dates';
 import { downloadFile } from '@/lib/download';
-import type { MemberResponse, ConversationResponse } from '@/types/conversation';
+import type { MemberResponse, ConversationResponse, UpdateMemberRequest } from '@/types/conversation';
+import type { NotificationLevel } from '@/types/notification';
 import type { ConversationAttachmentItem, ConversationLinkItem } from '@/types/message';
 
 export type DetailTab = 'info' | 'members' | 'media' | 'files' | 'links';
@@ -462,10 +468,115 @@ function InfoTab({
         </div>
       )}
 
+      <ConversationNotificationsSection conversation={conversation} />
+
       {!isDirect && isGroupAdmin && (
         <GroupPermissionsSection conversation={conversation} onUpdatePermissions={onUpdatePermissions} />
       )}
     </ScrollShadow>
+  );
+}
+
+const MUTE_OPTIONS: { id: string; ms: number | null }[] = [
+  { id: '1h', ms: 60 * 60 * 1000 },
+  { id: '8h', ms: 8 * 60 * 60 * 1000 },
+  { id: '1w', ms: 7 * 24 * 60 * 60 * 1000 },
+  { id: 'always', ms: null },
+];
+
+/**
+ * Preferencias de aviso de este chat para el usuario actual: nivel (todo /
+ * sólo menciones / nada) y silencio temporal. Las respeta tanto el aviso local
+ * como el backend (notificationService.resolve).
+ */
+function ConversationNotificationsSection({ conversation }: { conversation: ConversationResponse }) {
+  const { t, i18n } = useTranslation();
+  const selfId = useAuthStore((s) => s.user?.id);
+  const patchConversation = useChatStore((s) => s.patchConversation);
+  const muted = isConversationMuted(conversation);
+
+  const update = async (patch: UpdateMemberRequest) => {
+    if (!selfId) return;
+    const previous = {
+      is_muted: conversation.is_muted,
+      muted_until: conversation.muted_until,
+      notification_level: conversation.notification_level,
+    };
+    patchConversation(conversation.id, patch);
+    try {
+      await conversationsApi.updateMember(conversation.id, selfId, patch);
+    } catch {
+      patchConversation(conversation.id, previous);
+      toast.danger(t('settings.notifications.saveError'));
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-3 border-t border-white/8 px-4 py-3">
+      <h4 className="text-[12px] font-semibold uppercase tracking-wide text-ink-300">
+        {t('chat.notifications.title')}
+      </h4>
+
+      <ToggleButtonGroup
+        aria-label={t('chat.notifications.level')}
+        selectionMode="single"
+        disallowEmptySelection
+        fullWidth
+        size="sm"
+        selectedKeys={new Set([conversation.notification_level || 'all'])}
+        onSelectionChange={(keys) => {
+          const level = [...keys][0] as NotificationLevel | undefined;
+          if (level && level !== conversation.notification_level) void update({ notification_level: level });
+        }}
+      >
+        {(['all', 'mentions', 'none'] as const).map((level, i) => (
+          <ToggleButton key={level} id={level}>
+            {i > 0 && <ToggleButtonGroup.Separator />}
+            {t(`chat.notifications.levels.${level}`)}
+          </ToggleButton>
+        ))}
+      </ToggleButtonGroup>
+      <p className="pl-0.5 text-[12px] text-ink-300">
+        {t(`chat.notifications.levelHints.${conversation.notification_level || 'all'}`)}
+      </p>
+
+      {muted ? (
+        <div className="flex items-center justify-between gap-3 rounded-lg bg-ink-800/60 px-3 py-2">
+          <p className="flex items-center gap-2 text-[13px] text-ink-100">
+            <BellOff size={13} className="shrink-0 text-ink-300" />
+            {conversation.muted_until
+              ? t('chat.notifications.mutedUntil', {
+                  time: new Intl.DateTimeFormat(i18n.language, {
+                    weekday: 'short', hour: '2-digit', minute: '2-digit',
+                  }).format(new Date(conversation.muted_until)),
+                })
+              : t('chat.notifications.mutedForever')}
+          </p>
+          <Button size="sm" variant="ghost" onPress={() => update({ is_muted: false, muted_until: null })}>
+            {t('chat.notifications.unmute')}
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          <p className="pl-0.5 text-[12px] text-ink-300">{t('chat.notifications.muteFor')}</p>
+          <div className="grid grid-cols-4 gap-1.5">
+            {MUTE_OPTIONS.map(({ id, ms }) => (
+              <Button
+                key={id}
+                size="sm"
+                variant="secondary"
+                onPress={() => update({
+                  is_muted: true,
+                  muted_until: ms === null ? null : new Date(Date.now() + ms).toISOString(),
+                })}
+              >
+                {t(`chat.notifications.muteOptions.${id}`)}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

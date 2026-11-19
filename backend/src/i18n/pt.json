@@ -1,0 +1,76 @@
+{
+  "push": {
+    "newMessage": "Nova mensagem",
+    "attachment": "📎 Arquivo anexado",
+    "mention": "{{name}} mencionou você",
+    "mentionIn": "{{name}} mencionou você em {{chat}}",
+    "threadReply": "{{name}} respondeu em um tópico",
+    "reaction": "{{name}} reagiu {{emoji}} à sua mensagem",
+    "incomingCall": "Chamada de {{name}}",
+    "incomingVideoCall": "Videochamada de {{name}}",
+    "missedCall": "Chamada perdida de {{name}}",
+    "broadcast": "Difusão: {{chat}}",
+    "reminder": "Lembrete",
+    "joinRequest": "Solicitação de canal",
+    "security": "Alerta de segurança",
+    "generic": "Você tem uma nova notificação",
+    "test": {
+      "title": "Notificações ativadas",
+      "body": "É assim que você verá os avisos do EchoChat neste dispositivo."
+    },
+    "actions": {
+      "reply": "Responder",
+      "markRead": "Marcar como lida",
+      "answer": "Atender",
+      "decline": "Recusar"
+    }
+  },
+  "email": {
+    "greeting": "Olá, {{name}}:",
+    "footer": "Você recebe este email porque tem uma conta no EchoChat.",
+    "manage": "Configurar notificações",
+    "unsubscribe": "Deixar de receber estes emails",
+    "ignore": "Se não foi você, ignore este email: nada foi alterado.",
+    "passwordReset": {
+      "subject": "Redefinir sua senha do EchoChat",
+      "intro": "Você pediu para redefinir a senha da sua conta.",
+      "cta": "Escolher uma nova senha",
+      "expires": "O link expira em {{minutes}} minutos e só pode ser usado uma vez."
+    },
+    "invite": {
+      "subject": "{{inviter}} convidou você para o EchoChat",
+      "intro": "{{inviter}} criou uma conta no EchoChat para você. Seu usuário é {{username}}.",
+      "cta": "Ativar minha conta",
+      "expires": "O link expira em {{hours}} horas. Se expirar, peça a um administrador para reenviá-lo."
+    },
+    "security": {
+      "subject": "Alerta de segurança na sua conta do EchoChat",
+      "newLogin": "Houve um login na sua conta a partir de um novo dispositivo: {{device}}.",
+      "passwordChanged": "A senha da sua conta foi alterada.",
+      "passwordReset": "A senha da sua conta foi redefinida com um link de recuperação. Todas as sessões foram encerradas.",
+      "2faDisabled": "A verificação em duas etapas da sua conta foi desativada.",
+      "when": "Data: {{time}}",
+      "notYou": "Se não foi você, troque sua senha agora mesmo e avise um administrador."
+    },
+    "pending": {
+      "subject": "Avisos não vistos no EchoChat ({{count}})",
+      "intro": "Isto aconteceu enquanto você estava fora:",
+      "cta": "Abrir o EchoChat"
+    },
+    "unread": {
+      "subject": "Você tem mensagens não lidas no EchoChat",
+      "intro": "Você tem mensagens não lidas nestas conversas:",
+      "item": "{{name}}: {{count}} não lidas",
+      "cta": "Abrir o EchoChat"
+    },
+    "digest": {
+      "subject": "Seu resumo do EchoChat",
+      "intro": "Isto está esperando por você:",
+      "cta": "Ficar em dia"
+    },
+    "test": {
+      "subject": "Teste de email do EchoChat",
+      "body": "Se você está lendo isto, o EchoChat consegue enviar emails."
+    }
+  }
+}

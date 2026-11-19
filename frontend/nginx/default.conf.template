@@ -55,6 +55,14 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
+    # Service worker de las notificaciones push: nunca cacheado, o el navegador
+    # seguiría usando una versión vieja. Gana sobre la regex de abajo por ser
+    # coincidencia exacta.
+    location = /sw.js {
+        add_header Cache-Control "no-cache";
+        try_files $uri =404;
+    }
+
     # Cacheo de assets estáticos
     location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
         expires 1y;

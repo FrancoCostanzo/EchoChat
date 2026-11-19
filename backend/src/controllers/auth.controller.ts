@@ -33,6 +33,28 @@ class AuthController {
     });
   }
 
+  async passwordResetStatus(req: Request, res: Response) {
+    res.json({ status: 'success', data: { available: authService.isPasswordResetAvailable() } });
+  }
+
+  async requestPasswordReset(req: Request, res: Response) {
+    await authService.requestPasswordReset(req.body.identifier, req.ip, req.get('user-agent'));
+    // Misma respuesta exista o no la cuenta.
+    res.json({ status: 'success', message: 'If the account exists, we sent an email with instructions' });
+  }
+
+  async inspectPasswordToken(req: Request, res: Response) {
+    const info = await authService.inspectPasswordToken(req.body.token);
+    res.json({ status: 'success', data: info });
+  }
+
+  async completePasswordReset(req: Request, res: Response) {
+    const result = await authService.completePasswordToken(
+      req.body.token, req.body.password, req.ip, req.get('user-agent'),
+    );
+    res.json({ status: 'success', data: result });
+  }
+
   async registrationStatus(req: Request, res: Response) {
     const allow = await authService.isRegistrationAllowed();
     res.json({ status: 'success', data: { allow_registration: allow } });

@@ -32,6 +32,18 @@ export const updateCallStatusDto = Joi.object<UpdateCallStatusRequest>({
   }),
 });
 
+export interface CallQualityRequest {
+  rtt_ms?: number | null;
+  jitter_ms?: number | null;
+  packet_loss_pct?: number | null;
+}
+
+export const callQualityDto = Joi.object<CallQualityRequest>({
+  rtt_ms: Joi.number().min(0).max(60000).allow(null),
+  jitter_ms: Joi.number().min(0).max(60000).allow(null),
+  packet_loss_pct: Joi.number().min(0).max(100).allow(null),
+});
+
 export interface UpdateParticipantRequest {
   status?: ParticipantStatus;
   can_speak?: boolean;

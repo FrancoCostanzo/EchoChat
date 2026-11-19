@@ -1,8 +1,7 @@
 import logger from '../config/logger';
-import { pool } from '../config/database';
 import { markAutoAway } from '../config/presenceStore';
 import { toAll } from '../config/eventBus';
-import { userRepository } from '../repositories';
+import { userRepository, systemSettingsRepository } from '../repositories';
 import type { BackgroundJob } from './index';
 
 const DEFAULT_TIMEOUT_MINUTES = 5;
@@ -10,11 +9,8 @@ const DEFAULT_TIMEOUT_MINUTES = 5;
 // Read presence_timeout_minutes from system_settings, falling back to a default.
 async function getTimeoutMinutes(): Promise<number> {
   try {
-    const { rows } = await pool.query(
-      `SELECT value FROM system_settings WHERE key = 'presence_timeout_minutes'`
-    );
-    const raw = rows[0]?.value;
-    const minutes = parseInt(raw, 10);
+    const setting = await systemSettingsRepository.findByKey('presence_timeout_minutes');
+    const minutes = parseInt(String(setting?.value), 10);
     return Number.isFinite(minutes) && minutes > 0 ? minutes : DEFAULT_TIMEOUT_MINUTES;
   } catch {
     return DEFAULT_TIMEOUT_MINUTES;

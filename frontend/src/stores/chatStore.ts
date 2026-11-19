@@ -7,6 +7,7 @@ import { connectSocket, disconnectSocket, getSocket } from '@/lib/socket';
 import { isAppFocused, showDesktopNotification } from '@/lib/desktop';
 import { useAuthStore } from '@/stores/authStore';
 import { useCallStore } from '@/stores/callStore';
+import { useNotificationStore } from '@/stores/notificationStore';
 import type { ConversationResponse, CreateConversationRequest } from '@/types/conversation';
 import type { MessageResponse, MessageReaction, MessageBodyFormat, SendMessageRequest } from '@/types/message';
 import type { PollResponse } from '@/types/poll';
@@ -63,11 +64,26 @@ function startActivityHeartbeat(socket: Socket): void {
 
 /**
  * Arma y dispara la notificación nativa de un mensaje entrante (no-op en la
- * web). En un grupo el título es el grupo y el remitente va en el cuerpo; en un
- * directo el título ya es la persona, así que repetirlo sobraría.
+ * web) y su sonido, respetando las preferencias: nivel y silencio del chat,
+ * evento apagado, no molestar y horario de silencio. En un grupo el título es
+ * el grupo y el remitente va en el cuerpo; en un directo el título ya es la
+ * persona, así que repetirlo sobraría.
  */
-function notifyIncomingMessage(message: ChatMessage, conversations: ConversationResponse[]): void {
+function notifyIncomingMessage(
+  message: ChatMessage,
+  conversations: ConversationResponse[],
+  selfId: string | null,
+): void {
   const conversation = conversations.find((c) => c.id === message.conversation_id);
+  const mentions = (message.metadata as { mentions?: { user_id: string }[] } | null)?.mentions;
+  const event = mentions?.some((m) => m.user_id === selfId)
+    ? 'message.mention'
+    : conversation?.type === 'direct' ? 'message.direct' : 'message.group';
+  const notifications = useNotificationStore.getState();
+  const { alert, quiet } = notifications.shouldAlert(event, conversation);
+  if (!alert || quiet) return;
+
+  notifications.playAlertSound();
   const sender = message.sender_display_name || message.sender_username || i18n.t('desktop.someone');
   const body = message.type === 'media' || !message.body
     ? i18n.t('desktop.attachment')
@@ -79,6 +95,8 @@ function notifyIncomingMessage(message: ChatMessage, conversations: Conversation
     title: isGroup ? (conversation?.name || i18n.t('desktop.newMessage')) : sender,
     body: isGroup ? `${sender}: ${body}` : body,
     conversationId: message.conversation_id,
+    // El sonido lo pone la app según las preferencias; el del SO duplicaría.
+    silent: true,
   });
 }
 
@@ -193,7 +211,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       const isOwn = message.sender_id === state.activeUserId;
       const isWatchingIt = isAppFocused() && message.conversation_id === state.activeConversationId;
       if (!isOwn && !isWatchingIt) {
-        notifyIncomingMessage(message, state.conversations);
+        notifyIncomingMessage(message, state.conversations, state.activeUserId);
       }
 
       const knownConversation = state.conversations.some((c) => c.id === message.conversation_id);
@@ -345,17 +363,35 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       conversation_id?: string;
       sender_display_name?: string;
       note?: string | null;
+      emoji?: string;
+      /** No molestar / horario de silencio: queda en la bandeja, sin avisar. */
+      silent?: boolean;
     }) => {
-      if (notif?.type === 'mention') {
+      if (!notif || notif.silent) return;
+      const name = notif.sender_display_name || '';
+      if (notif.type === 'mention') {
         // Si está mirando esa conversación, el mensaje resaltado ya se lo dice.
+        // El sonido lo pone el `message:new` de la misma mención.
         if (notif.conversation_id && notif.conversation_id === get().activeConversationId) return;
-        toast.info(i18n.t('chat.mentionedYou', { name: notif.sender_display_name || '' }));
+        toast.info(i18n.t('chat.mentionedYou', { name }));
         return;
       }
-      if (notif?.type === 'reminder') {
+      if (notif.type === 'reminder') {
         // Este sí se muestra siempre: el usuario lo pidió explícitamente, y que
         // esté mirando el chat no significa que se acuerde de por qué.
         toast.info(notif.note || i18n.t('remind.fired'));
+        useNotificationStore.getState().playAlertSound();
+        return;
+      }
+      // Las respuestas de hilo no pasan por el timeline (ni por su sonido).
+      const message =
+        notif.type === 'thread' ? i18n.t('chat.notif.threadReply', { name })
+        : notif.type === 'reaction' ? i18n.t('chat.notif.reaction', { name, emoji: notif.emoji || '' })
+        : notif.type === 'call' ? i18n.t('chat.notif.missedCall', { name })
+        : null;
+      if (message) {
+        toast.info(message);
+        useNotificationStore.getState().playAlertSound();
       }
     });
 

@@ -112,6 +112,33 @@ services:
       retries: 5
       start_period: 10s
 
+  # ── coturn: TURN/STUN para llamadas (perfil: turn) ───────────────────────
+  # Relaya audio/vídeo cuando los navegadores no se pueden conectar directo
+  # (NAT, firewall corporativo, VPN). Usa la red del host: TURN necesita un
+  # rango grande de puertos UDP y conocer la IP real. En el backend configure
+  # TURN_URLS=turn:<host-o-ip>:3478 y el mismo TURN_SECRET (ver .env.example).
+  # Abra en el firewall 3478/udp+tcp y el rango TURN_MIN_PORT-TURN_MAX_PORT/udp.
+  coturn:
+    image: coturn/coturn:4.6
+    container_name: echochat-coturn
+    profiles: ["turn"]
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - "-n"
+      - "--listening-port=3478"
+      - "--fingerprint"
+      - "--use-auth-secret"
+      - "--static-auth-secret=${TURN_SECRET:-}"
+      - "--realm=${TURN_REALM:-echochat}"
+      - "--min-port=${TURN_MIN_PORT:-49160}"
+      - "--max-port=${TURN_MAX_PORT:-49200}"
+      - "--no-cli"
+      - "--no-tlsv1"
+      - "--no-tlsv1_1"
+      # No relayar hacia redes privadas de la propia máquina (anti-SSRF).
+      - "--denied-peer-ip=127.0.0.0-127.255.255.255"
+
 networks:
   echochat:
     driver: bridge

@@ -1,4 +1,5 @@
 import BaseRepository from './base.repository';
+import { now, ilike } from '../config/db/sql';
 import type { Row } from '../types/rows';
 import type { ChannelRow, JoinRequestRow } from '../models/channel.model';
 import type { CreateChannelRequest, UpdateChannelSettingsRequest } from '../dtos/channel.dto';
@@ -16,27 +17,24 @@ class ChannelRepository extends BaseRepository<SettingsRow> {
     conversationId: string,
     { category, is_official, post_restriction, join_mode }: Partial<CreateChannelRequest>,
   ): Promise<SettingsRow> {
-    const { rows } = await this.query(
-      `INSERT INTO channel_settings (conversation_id, category, is_official, post_restriction, join_mode)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [
-        conversationId,
-        category || null,
-        is_official ?? false,
-        post_restriction || 'members',
-        join_mode || 'open',
-      ]
-    );
-    return rows[0];
+    const row = await this.db.insertInto('channel_settings')
+      .values({
+        conversation_id: conversationId,
+        category: category || null,
+        is_official: is_official ?? false,
+        post_restriction: post_restriction || 'members',
+        join_mode: join_mode || 'open',
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    return row as SettingsRow;
   }
 
   async getSettings(conversationId: string): Promise<SettingsRow | null> {
-    const { rows } = await this.query(
-      `SELECT * FROM channel_settings WHERE conversation_id = $1`,
-      [conversationId]
-    );
-    return rows[0] || null;
+    const row = await this.db.selectFrom('channel_settings').selectAll()
+      .where('conversation_id', '=', conversationId)
+      .executeTakeFirst();
+    return (row as SettingsRow | undefined) ?? null;
   }
 
   async updateSettings(
@@ -44,24 +42,18 @@ class ChannelRepository extends BaseRepository<SettingsRow> {
     fields: UpdateChannelSettingsRequest,
   ): Promise<SettingsRow | null> {
     const allowed = ['category', 'is_official', 'post_restriction', 'join_mode'] as const;
-    const sets: string[] = [];
-    const values: any[] = [];
-    let idx = 1;
+    const changes: Record<string, unknown> = {};
     for (const key of allowed) {
-      if (fields[key] !== undefined) {
-        sets.push(`${key} = $${idx}`);
-        values.push(fields[key]);
-        idx++;
-      }
+      if (fields[key] !== undefined) changes[key] = fields[key];
     }
-    if (sets.length === 0) return this.getSettings(conversationId);
+    if (Object.keys(changes).length === 0) return this.getSettings(conversationId);
 
-    values.push(conversationId);
-    const { rows } = await this.query(
-      `UPDATE channel_settings SET ${sets.join(', ')} WHERE conversation_id = $${idx} RETURNING *`,
-      values
-    );
-    return rows[0] || null;
+    const row = await this.db.updateTable('channel_settings')
+      .set(changes)
+      .where('conversation_id', '=', conversationId)
+      .returningAll()
+      .executeTakeFirst();
+    return (row as SettingsRow | undefined) ?? null;
   }
 
   // Discoverable channels, with the requesting user's membership/request state.
@@ -74,50 +66,42 @@ class ChannelRepository extends BaseRepository<SettingsRow> {
       offset?: number;
     } = {},
   ): Promise<ChannelRow[]> {
-    const conditions = [
-      `c.type = 'channel'`,
-      `c.is_discoverable = TRUE`,
-      `c.is_archived = FALSE`,
-    ];
-    const values: any[] = [userId];
-    let idx = 2;
+    let q = this.db.selectFrom('conversations as c')
+      .innerJoin('channel_settings as cs', 'cs.conversation_id', 'c.id')
+      .select((eb) => [
+        'c.id', 'c.name', 'c.description', 'c.topic', 'c.avatar_object_id', 'c.max_members', 'c.created_at',
+        'cs.category', 'cs.is_official', 'cs.member_count', 'cs.post_restriction', 'cs.join_mode',
+        eb.exists(eb.selectFrom('conversation_members as cm').select('cm.user_id')
+          .whereRef('cm.conversation_id', '=', 'c.id')
+          .where('cm.user_id', '=', userId)
+          .where('cm.left_at', 'is', null)).as('is_member'),
+        eb.selectFrom('conversation_members as cm').select('cm.role')
+          .whereRef('cm.conversation_id', '=', 'c.id')
+          .where('cm.user_id', '=', userId)
+          .where('cm.left_at', 'is', null)
+          .limit(1)
+          .as('member_role'),
+        eb.exists(eb.selectFrom('channel_join_requests as jr').select('jr.id')
+          .whereRef('jr.conversation_id', '=', 'c.id')
+          .where('jr.user_id', '=', userId)
+          .where('jr.status', '=', 'pending')).as('has_pending_request'),
+      ])
+      .where('c.type', '=', 'channel')
+      .where('c.is_discoverable', '=', true)
+      .where('c.is_archived', '=', false);
 
     if (search) {
-      conditions.push(`(c.name ILIKE $${idx} OR c.description ILIKE $${idx})`);
-      values.push(`%${search}%`);
-      idx++;
+      const pattern = `%${search}%`;
+      q = q.where((eb) => eb.or([ilike('c.name', pattern), ilike('c.description', pattern)]));
     }
-    if (category) {
-      conditions.push(`cs.category = $${idx}`);
-      values.push(category);
-      idx++;
-    }
+    if (category) q = q.where('cs.category', '=', category);
 
-    values.push(limit, offset);
-    const { rows } = await this.query<ChannelRow>(
-      `SELECT c.id, c.name, c.description, c.topic, c.avatar_object_id, c.max_members, c.created_at,
-              cs.category, cs.is_official, cs.member_count, cs.post_restriction, cs.join_mode,
-              EXISTS (
-                SELECT 1 FROM conversation_members cm
-                WHERE cm.conversation_id = c.id AND cm.user_id = $1 AND cm.left_at IS NULL
-              ) AS is_member,
-              (
-                SELECT cm.role FROM conversation_members cm
-                WHERE cm.conversation_id = c.id AND cm.user_id = $1 AND cm.left_at IS NULL
-                LIMIT 1
-              ) AS member_role,
-              EXISTS (
-                SELECT 1 FROM channel_join_requests jr
-                WHERE jr.conversation_id = c.id AND jr.user_id = $1 AND jr.status = 'pending'
-              ) AS has_pending_request
-       FROM conversations c
-       JOIN channel_settings cs ON cs.conversation_id = c.id
-       WHERE ${conditions.join(' AND ')}
-       ORDER BY cs.is_official DESC, cs.member_count DESC, c.created_at DESC
-       LIMIT $${idx} OFFSET $${idx + 1}`,
-      values
-    );
-    return rows;
+    return q
+      .orderBy('cs.is_official', 'desc')
+      .orderBy('cs.member_count', 'desc')
+      .orderBy('c.created_at', 'desc')
+      .limit(limit).offset(offset)
+      .execute() as unknown as Promise<ChannelRow[]>;
   }
 
   // ── Join requests ─────────────────────────────────────────────────────────
@@ -126,34 +110,29 @@ class ChannelRepository extends BaseRepository<SettingsRow> {
     userId: string,
     message?: string | null,
   ): Promise<Row<'channel_join_requests'>> {
-    const { rows } = await this.query<Row<'channel_join_requests'>>(
-      `INSERT INTO channel_join_requests (conversation_id, user_id, message)
-       VALUES ($1, $2, $3)
-       RETURNING *`,
-      [conversationId, userId, message || null]
-    );
-    return rows[0];
+    const row = await this.db.insertInto('channel_join_requests')
+      .values({ conversation_id: conversationId, user_id: userId, message: message || null })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    return row as Row<'channel_join_requests'>;
   }
 
   async findPendingRequest(
     conversationId: string,
     userId: string,
   ): Promise<Row<'channel_join_requests'> | null> {
-    const { rows } = await this.query<Row<'channel_join_requests'>>(
-      `SELECT * FROM channel_join_requests
-       WHERE conversation_id = $1 AND user_id = $2 AND status = 'pending'
-       LIMIT 1`,
-      [conversationId, userId]
-    );
-    return rows[0] || null;
+    const row = await this.db.selectFrom('channel_join_requests').selectAll()
+      .where('conversation_id', '=', conversationId)
+      .where('user_id', '=', userId)
+      .where('status', '=', 'pending')
+      .limit(1)
+      .executeTakeFirst();
+    return (row as Row<'channel_join_requests'> | undefined) ?? null;
   }
 
   async findRequestById(requestId: string): Promise<Row<'channel_join_requests'> | null> {
-    const { rows } = await this.query<Row<'channel_join_requests'>>(
-      `SELECT * FROM channel_join_requests WHERE id = $1`,
-      [requestId]
-    );
-    return rows[0] || null;
+    const row = await this.db.selectFrom('channel_join_requests').selectAll().where('id', '=', requestId).executeTakeFirst();
+    return (row as Row<'channel_join_requests'> | undefined) ?? null;
   }
 
   async listJoinRequests(
@@ -164,16 +143,15 @@ class ChannelRepository extends BaseRepository<SettingsRow> {
       offset?: number;
     } = {},
   ): Promise<JoinRequestRow[]> {
-    const { rows } = await this.query<JoinRequestRow>(
-      `SELECT jr.*, u.username, u.display_name, u.avatar_object_key, u.department
-       FROM channel_join_requests jr
-       JOIN users u ON u.id = jr.user_id
-       WHERE jr.conversation_id = $1 AND jr.status = $2
-       ORDER BY jr.created_at ASC
-       LIMIT $3 OFFSET $4`,
-      [conversationId, status, limit, offset]
-    );
-    return rows;
+    return this.db.selectFrom('channel_join_requests as jr')
+      .innerJoin('users as u', 'u.id', 'jr.user_id')
+      .selectAll('jr')
+      .select(['u.username', 'u.display_name', 'u.avatar_object_key', 'u.department'])
+      .where('jr.conversation_id', '=', conversationId)
+      .where('jr.status', '=', status)
+      .orderBy('jr.created_at', 'asc')
+      .limit(limit).offset(offset)
+      .execute() as unknown as Promise<JoinRequestRow[]>;
   }
 
   async reviewJoinRequest(
@@ -181,14 +159,13 @@ class ChannelRepository extends BaseRepository<SettingsRow> {
     reviewerId: string,
     status: string,
   ): Promise<Row<'channel_join_requests'> | null> {
-    const { rows } = await this.query<Row<'channel_join_requests'>>(
-      `UPDATE channel_join_requests
-       SET status = $2, reviewed_by = $3, reviewed_at = NOW()
-       WHERE id = $1 AND status = 'pending'
-       RETURNING *`,
-      [requestId, status, reviewerId]
-    );
-    return rows[0] || null;
+    const row = await this.db.updateTable('channel_join_requests')
+      .set({ status, reviewed_by: reviewerId, reviewed_at: now() })
+      .where('id', '=', requestId)
+      .where('status', '=', 'pending')
+      .returningAll()
+      .executeTakeFirst();
+    return (row as Row<'channel_join_requests'> | undefined) ?? null;
   }
 }
 

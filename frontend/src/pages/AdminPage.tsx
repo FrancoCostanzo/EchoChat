@@ -53,7 +53,9 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { adminApi } from '@/lib/endpoints';
+import { adminApi, authApi, notificationsApi } from '@/lib/endpoints';
+import { NOTIFICATION_EVENTS } from '@/lib/notificationEvents';
+import type { NotificationEvent } from '@/types/notification';
 import { useAuthStore } from '@/stores/authStore';
 import MonitoreoDashboard from '@/components/monitoring/MonitoreoDashboard';
 import { useConfirm } from '@/components/ConfirmProvider';
@@ -64,7 +66,7 @@ import { getServerUrl } from '@/lib/runtimeConfig';
 import type {
   AdminUserResponse, RoleResponse, SettingResponse, AuditEntryResponse,
   StorageObjectAdminResponse, StorageStatsResponse, IntegrationsResponse, LdapSyncSummary,
-  AdminCreateUserRequest,
+  AdminCreateUserRequest, EmailLogEntry,
 } from '@/types/admin';
 
 type TFunc = ReturnType<typeof useTranslation>['t'];
@@ -205,6 +207,7 @@ function AdminCard({ icon: Icon, title, children }: { icon: LucideIcon; title: s
 interface UserFormState {
   username?: string;
   password?: string;
+  send_invite?: boolean;
   display_name?: string;
   email?: string;
   department?: string;
@@ -356,7 +359,9 @@ function UsersTab({ t }: { t: TFunc }) {
   const handleCreate = async () => {
     setBusy(true);
     try {
-      await adminApi.createUser(form as AdminCreateUserRequest);
+      // Con invitación la contraseña la elige el usuario: no se manda.
+      const { password, ...rest } = form;
+      await adminApi.createUser((form.send_invite ? rest : { ...rest, password }) as AdminCreateUserRequest);
       setCreateOpen(false);
       await load();
     } catch (err) {
@@ -642,6 +647,31 @@ function UserFormModal({
   const [cropOpen, setCropOpen] = useState(false);
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
   const [cropFileName, setCropFileName] = useState('avatar.jpg');
+  // Invitar por email sólo tiene sentido si el servidor tiene SMTP.
+  const [inviteAvailable, setInviteAvailable] = useState(false);
+  const [resendingInvite, setResendingInvite] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    authApi.passwordResetStatus()
+      .then(({ data }) => { if (alive) setInviteAvailable(data.available); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [open]);
+
+  const handleResendInvite = async () => {
+    if (!editUser) return;
+    setResendingInvite(true);
+    try {
+      await adminApi.resendInvite(editUser.id);
+      toast.success(t('admin.users.inviteSent', { email: editUser.email }));
+    } catch (err) {
+      toast.danger(err instanceof Error ? err.message : t('admin.users.inviteError'));
+    } finally {
+      setResendingInvite(false);
+    }
+  };
 
   useEffect(() => {
     if (open && editUser) {
@@ -825,6 +855,15 @@ function UserFormModal({
                 </div>
               )}
 
+              {!isCreate && editUser && inviteAvailable && editUser.email && (
+                <div className="flex items-center justify-between gap-3 rounded-xl bg-ink-800/60 p-3 ring-1 ring-white/5">
+                  <p className="text-xs text-ink-200">{t('admin.users.resendInviteHint')}</p>
+                  <Button size="sm" variant="secondary" className="shrink-0" isPending={resendingInvite} onPress={handleResendInvite}>
+                    {t('admin.users.resendInvite')}
+                  </Button>
+                </div>
+              )}
+
               {!isCreate && editUser && (
                 <div className="flex flex-col gap-2 rounded-xl bg-ink-800/60 p-3 ring-1 ring-white/5">
                   <div className="flex items-center justify-between gap-3">
@@ -867,14 +906,29 @@ function UserFormModal({
                       autoFocus
                     />
                   </AdminTextField>
-                  <AdminTextField label={t('admin.users.password')}>
-                    <InputGroup.Input
-                      type="password"
-                      value={form.password || ''}
-                      onChange={update('password')}
-                      autoComplete="new-password"
-                    />
-                  </AdminTextField>
+                  {!form.send_invite && (
+                    <AdminTextField label={t('admin.users.password')}>
+                      <InputGroup.Input
+                        type="password"
+                        value={form.password || ''}
+                        onChange={update('password')}
+                        autoComplete="new-password"
+                      />
+                    </AdminTextField>
+                  )}
+                </div>
+              )}
+
+              {isCreate && inviteAvailable && (
+                <div className="flex flex-col gap-1">
+                  <Switch
+                    isSelected={!!form.send_invite}
+                    onChange={(v) => setForm({ ...form, send_invite: v })}
+                  >
+                    <Switch.Control><Switch.Thumb /></Switch.Control>
+                    <Switch.Content>{t('admin.users.sendInvite')}</Switch.Content>
+                  </Switch>
+                  <p className="pl-0.5 text-xs text-ink-300">{t('admin.users.sendInviteHint')}</p>
                 </div>
               )}
 
@@ -974,6 +1028,225 @@ function UserFormModal({
 }
 
 /* ── 7.2 Settings ── */
+const EMAIL_STATUS_COLOR: Record<string, ChipColor> = { sent: 'success', pending: 'default', failed: 'danger' };
+
+/** Estado del SMTP, envío de prueba y los últimos emails de la cola. */
+function EmailAdminCard({ t }: { t: TFunc }) {
+  const [log, setLog] = useState<{ configured: boolean; entries: EmailLogEntry[] } | null>(null);
+  const [to, setTo] = useState('');
+  const [sending, setSending] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const { data } = await adminApi.getEmailLog();
+      setLog(data);
+    } catch {
+      setLog({ configured: false, entries: [] });
+    }
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const sendTest = async () => {
+    setSending(true);
+    try {
+      const { data } = await adminApi.sendTestEmail(to.trim() || undefined);
+      toast.success(t('admin.email.testSent', { to: data.to }));
+    } catch (err) {
+      toast.danger(err instanceof Error ? err.message : t('admin.email.testError'));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  if (!log) return <div className="flex justify-center py-6"><Spinner /></div>;
+
+  return (
+    <Card className="flex flex-col gap-4 p-4">
+      <div>
+        <p className="text-sm font-semibold">{t('admin.email.title')}</p>
+        <p className="mt-0.5 text-xs text-ink-200">
+          {log.configured ? t('admin.email.configured') : t('admin.email.notConfigured')}
+        </p>
+      </div>
+
+      {log.configured && (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+          <AdminTextField label={t('admin.email.testTo')}>
+            <InputGroup.Input
+              type="email"
+              value={to}
+              placeholder={t('admin.email.testToPlaceholder')}
+              onChange={(e) => setTo(e.target.value)}
+            />
+          </AdminTextField>
+          <Button variant="secondary" isPending={sending} onPress={sendTest} className="shrink-0">
+            {t('admin.email.sendTest')}
+          </Button>
+        </div>
+      )}
+
+      {log.entries.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[560px] text-sm">
+            <thead>
+              <tr className="text-left text-[11px] uppercase tracking-wider text-ink-300">
+                <th className="py-2 pr-3 font-semibold">{t('admin.email.colDate')}</th>
+                <th className="px-3 py-2 font-semibold">{t('admin.email.colTo')}</th>
+                <th className="px-3 py-2 font-semibold">{t('admin.email.colType')}</th>
+                <th className="px-3 py-2 font-semibold">{t('admin.email.colStatus')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {log.entries.map((entry) => (
+                <tr key={entry.id} className="border-t border-white/6 align-top">
+                  <td className="py-2 pr-3 text-xs text-ink-200">{formatMessageTime(entry.created_at)}</td>
+                  <td className="px-3 py-2">
+                    <p className="truncate">{entry.to_address}</p>
+                    {entry.username && <p className="text-xs text-ink-300">@{entry.username}</p>}
+                  </td>
+                  <td className="px-3 py-2 text-xs">{t(`admin.email.templates.${entry.template}`, entry.template)}</td>
+                  <td className="px-3 py-2">
+                    <Chip size="sm" variant="soft" color={EMAIL_STATUS_COLOR[entry.status] || 'default'}>
+                      {t(`admin.email.status.${entry.status}`)}
+                    </Chip>
+                    {entry.last_error && (
+                      <p className="mt-1 max-w-xs break-words text-xs text-danger">{entry.last_error}</p>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+type ChannelKey = 'in_app' | 'push' | 'email';
+type PolicyDefaults = Record<NotificationEvent, Record<ChannelKey, boolean>>;
+
+/**
+ * Política de notificaciones de la instancia, en vez de editar a mano el JSON
+ * de `notification_defaults` / `notification_locked_events`. Guarda en los
+ * mismos settings, así que el listado de abajo sigue mostrando la verdad.
+ */
+function NotificationPolicyEditor({ t, onSaved }: { t: TFunc; onSaved: () => void }) {
+  const [channels, setChannels] = useState<{ push: boolean; email: boolean } | null>(null);
+  const [defaults, setDefaults] = useState<PolicyDefaults | null>(null);
+  const [locked, setLocked] = useState<Set<NotificationEvent>>(new Set());
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    notificationsApi.getPreferences()
+      .then(({ data }) => {
+        setChannels(data.channels);
+        setDefaults(data.defaults);
+        setLocked(new Set(data.events.filter((e) => e.locked).map((e) => e.event_type)));
+      })
+      .catch(() => toast.danger(t('admin.notifications.loadError')));
+  }, [t]);
+
+  if (!channels || !defaults) return <div className="flex justify-center py-6"><Spinner /></div>;
+
+  const toggleDefault = (event: NotificationEvent, channel: ChannelKey, value: boolean) =>
+    setDefaults({ ...defaults, [event]: { ...defaults[event], [channel]: value } });
+
+  const toggleLocked = (event: NotificationEvent) => {
+    const next = new Set(locked);
+    if (next.has(event)) next.delete(event); else next.add(event);
+    setLocked(next);
+  };
+
+  const save = async () => {
+    setBusy(true);
+    try {
+      await Promise.all([
+        adminApi.updateSetting('notifications_push_enabled', channels.push),
+        adminApi.updateSetting('notifications_email_enabled', channels.email),
+        adminApi.updateSetting('notification_defaults', defaults),
+        adminApi.updateSetting('notification_locked_events', [...locked]),
+      ]);
+      toast.success(t('admin.notifications.saved'));
+      onSaved();
+    } catch {
+      toast.danger(t('admin.notifications.saveError'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card className="flex flex-col gap-4 p-4">
+      <div>
+        <p className="text-sm font-semibold">{t('admin.notifications.title')}</p>
+        <p className="mt-0.5 text-xs text-ink-200">{t('admin.notifications.desc')}</p>
+      </div>
+
+      <div className="flex flex-wrap gap-6">
+        <Switch isSelected={channels.push} onChange={(v) => setChannels({ ...channels, push: v })}>
+          <Switch.Control><Switch.Thumb /></Switch.Control>
+          <Switch.Content>{t('admin.notifications.pushEnabled')}</Switch.Content>
+        </Switch>
+        <Switch isSelected={channels.email} onChange={(v) => setChannels({ ...channels, email: v })}>
+          <Switch.Control><Switch.Thumb /></Switch.Control>
+          <Switch.Content>{t('admin.notifications.emailEnabled')}</Switch.Content>
+        </Switch>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[520px] text-sm">
+          <thead>
+            <tr className="text-left text-[11px] uppercase tracking-wider text-ink-300">
+              <th className="py-2 pr-3 font-semibold">{t('admin.notifications.event')}</th>
+              <th className="px-3 py-2 text-center font-semibold">{t('settings.notifications.inApp')}</th>
+              <th className="px-3 py-2 text-center font-semibold">{t('settings.notifications.push')}</th>
+              <th className="px-3 py-2 text-center font-semibold">{t('settings.notifications.email')}</th>
+              <th className="px-3 py-2 text-center font-semibold">{t('admin.notifications.lock')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {NOTIFICATION_EVENTS.map((event) => (
+              <tr key={event} className="border-t border-white/6">
+                <td className="py-2 pr-3">{t(`settings.notifications.events.${event}`)}</td>
+                {(['in_app', 'push', 'email'] as const).map((channel) => (
+                  <td key={channel} className="px-3 py-2 text-center">
+                    <Switch
+                      size="sm"
+                      aria-label={`${t(`settings.notifications.events.${event}`)} · ${channel}`}
+                      isSelected={defaults[event][channel]}
+                      onChange={(v) => toggleDefault(event, channel, v)}
+                    >
+                      <Switch.Control><Switch.Thumb /></Switch.Control>
+                    </Switch>
+                  </td>
+                ))}
+                <td className="px-3 py-2 text-center">
+                  <Checkbox
+                    aria-label={t('admin.notifications.lock')}
+                    isSelected={locked.has(event)}
+                    onChange={() => toggleLocked(event)}
+                  >
+                    <Checkbox.Content>
+                      <Checkbox.Control><Checkbox.Indicator /></Checkbox.Control>
+                    </Checkbox.Content>
+                  </Checkbox>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-xs text-ink-300">{t('admin.notifications.lockHint')}</p>
+
+      <div className="flex justify-end">
+        <Button isPending={busy} onPress={save}>{t('common.save')}</Button>
+      </div>
+    </Card>
+  );
+}
+
 function SettingsTab({ t }: { t: TFunc }) {
   const [settings, setSettings] = useState<SettingResponse[]>([]);
   const [category, setCategory] = useState('all');
@@ -1040,6 +1313,8 @@ function SettingsTab({ t }: { t: TFunc }) {
           </Tabs.List>
         </Tabs.ListContainer>
       </Tabs>
+      {category === 'notifications' && <NotificationPolicyEditor t={t} onSaved={load} />}
+      {category === 'notifications' && <EmailAdminCard t={t} />}
       <div className="space-y-2">
         {filtered.map((s) => (
           <Card key={s.key} className="flex items-start justify-between gap-4 p-4">

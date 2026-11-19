@@ -9,8 +9,17 @@ class CallController {
     res.status(StatusCodes.CREATED).json({ status: 'success', data: call });
   }
 
+  async getIceServers(req: AuthRequest, res: Response) {
+    res.json({ status: 'success', data: callService.getIceServers(req.user.id) });
+  }
+
+  async recordQuality(req: AuthRequest, res: Response) {
+    await callService.recordQuality(req.params.callId, req.user.id, req.body);
+    res.json({ status: 'success', message: 'Recorded' });
+  }
+
   async getById(req: AuthRequest, res: Response) {
-    const call = await callService.getById(req.params.callId);
+    const call = await callService.getById(req.params.callId, req.user.id);
     res.json({ status: 'success', data: call });
   }
 
@@ -23,7 +32,7 @@ class CallController {
 
   async updateParticipant(req: AuthRequest, res: Response) {
     const participant = await callService.updateParticipant(
-      req.params.callId, req.params.userId, req.body
+      req.params.callId, req.user.id, req.params.userId, req.body
     );
     res.json({ status: 'success', data: participant });
   }
@@ -32,6 +41,7 @@ class CallController {
     const { limit, offset } = req.query;
     const calls = await callService.getByConversation(
       req.params.conversationId,
+      req.user.id,
       { limit: qInt(limit, 20), offset: qInt(offset, 0) }
     );
     res.json({ status: 'success', data: calls });
