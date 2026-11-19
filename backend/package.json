@@ -44,7 +44,7 @@
     "kysely": "^0.29.4",
     "ldapts": "^8.1.8",
     "minio": "^8.0.7",
-    "multer": "^2.4.0",
+    "multer": "^2.5.0",
     "node-cron": "^4.2.1",
     "nodemailer": "^10.0.13",
     "openid-client": "^5.7.1",
