@@ -1,7 +1,7 @@
 # Soporte para varios motores de base de datos
 
 > Estado: **etapas 0, 1 y 2 hechas** (Kysely conectado; esquema, migraciones y seed en TypeScript;
-> los 25 repositorios consultan con Kysely).
+> los 25 repositorios consultan con Kysely). Etapa 3 en curso: triggers y funciones ya en el código.
 > Motores: PostgreSQL (actual) → **SQL Server** (primero) → MySQL/MariaDB y SQLite más adelante.
 
 ## Decisiones
@@ -122,7 +122,12 @@ un CTE con `DELETE … USING`, los `ORDER BY (status = 'pending')` pasan a `CASE
 
 ### Etapa 3 — Sacar lo exclusivo de PostgreSQL del código (≈3–4 días)
 - Helpers por dialecto (`now`, `addInterval`, `ilike`, `upsert`, `jsonText`, `lockForUpdate`).
-- Triggers y funciones → código de la app, más una migración que los borra en PostgreSQL.
+- ✅ Triggers y funciones → código de la app, más una migración que los borra en PostgreSQL
+  (`002_drop_triggers`): `updated_at` lo pone `UpdatedAtPlugin` (plugin de Kysely que agrega
+  `updated_at = now()` a todo UPDATE de `users`, `conversations`, `channel_settings` y
+  `broadcast_lists`), la duración de la llamada se calcula en `call.updateStatus`, el
+  `member_count` de canales se recalcula en `conversation.add/removeMember` y el último mensaje
+  de la conversación se fija en `message.create`, estos dos últimos en la misma transacción.
 - Columnas array → JSON (migración que convierte los datos existentes).
 - `FILTER (WHERE)` → `CASE`.
 

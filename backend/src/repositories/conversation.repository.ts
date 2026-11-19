@@ -1,6 +1,7 @@
 import BaseRepository from './base.repository';
 import { decrypt } from '../utils/crypto.util';
 import { now } from '../config/db/sql';
+import type { DbTransaction } from '../config/db';
 import type { Row } from '../types/rows';
 import type { ConversationRow, MemberRow } from '../models/conversation.model';
 import type {
@@ -137,32 +138,54 @@ class ConversationRepository extends BaseRepository<ConvRow> {
     return row as Row<'conversations'> | undefined;
   }
 
+  /**
+   * Recalcula `channel_settings.member_count` (sólo existe para canales). Antes
+   * lo hacía el trigger fn_update_channel_member_count al cambiar los miembros.
+   */
+  private async refreshChannelMemberCount(trx: DbTransaction, conversationId: string): Promise<void> {
+    await trx.updateTable('channel_settings')
+      .set((eb) => ({
+        member_count: eb.selectFrom('conversation_members as cm')
+          .select((s) => s.cast<number>(s.fn.countAll(), 'integer').as('n'))
+          .where('cm.conversation_id', '=', conversationId)
+          .where('cm.left_at', 'is', null),
+      }))
+      .where('conversation_id', '=', conversationId)
+      .execute();
+  }
+
   async addMember(
     conversationId: string,
     userId: string,
     role = 'member',
     invitedBy: string | null = null,
   ): Promise<Row<'conversation_members'>> {
-    const row = await this.db.insertInto('conversation_members')
-      .values({ conversation_id: conversationId, user_id: userId, role, invited_by: invitedBy })
-      .onConflict((oc) => oc.columns(['conversation_id', 'user_id']).doUpdateSet({ left_at: null, role, joined_at: now() }))
-      .returningAll()
-      .executeTakeFirstOrThrow();
-    return row as Row<'conversation_members'>;
+    return this.db.transaction().execute(async (trx) => {
+      const row = await trx.insertInto('conversation_members')
+        .values({ conversation_id: conversationId, user_id: userId, role, invited_by: invitedBy })
+        .onConflict((oc) => oc.columns(['conversation_id', 'user_id']).doUpdateSet({ left_at: null, role, joined_at: now() }))
+        .returningAll()
+        .executeTakeFirstOrThrow();
+      await this.refreshChannelMemberCount(trx, conversationId);
+      return row as Row<'conversation_members'>;
+    });
   }
 
   async removeMember(
     conversationId: string,
     userId: string,
   ): Promise<Row<'conversation_members'> | undefined> {
-    const row = await this.db.updateTable('conversation_members')
-      .set({ left_at: now() })
-      .where('conversation_id', '=', conversationId)
-      .where('user_id', '=', userId)
-      .where('left_at', 'is', null)
-      .returningAll()
-      .executeTakeFirst();
-    return row as Row<'conversation_members'> | undefined;
+    return this.db.transaction().execute(async (trx) => {
+      const row = await trx.updateTable('conversation_members')
+        .set({ left_at: now() })
+        .where('conversation_id', '=', conversationId)
+        .where('user_id', '=', userId)
+        .where('left_at', 'is', null)
+        .returningAll()
+        .executeTakeFirst();
+      await this.refreshChannelMemberCount(trx, conversationId);
+      return row as Row<'conversation_members'> | undefined;
+    });
   }
 
   private membersWithUser() {

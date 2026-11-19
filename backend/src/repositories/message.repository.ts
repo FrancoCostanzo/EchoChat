@@ -188,7 +188,8 @@ class MessageRepository extends BaseRepository<MessageRow> {
     },
   ): Promise<MessageRow> {
     const plainBody = body || null;
-    const row = await this.db.insertInto('messages')
+    const row = await this.db.transaction().execute(async (trx) => {
+      const inserted = await trx.insertInto('messages')
       .values({
         conversation_id,
         sender_id,
@@ -202,7 +203,15 @@ class MessageRepository extends BaseRepository<MessageRow> {
         metadata: json(metadata || {}),
       })
       .returningAll()
-      .executeTakeFirstOrThrow() as unknown as MessageRow;
+      .executeTakeFirstOrThrow();
+      // La conversación apunta a su último mensaje (antes lo hacía el trigger
+      // fn_update_conversation_last_message). updated_at lo pone UpdatedAtPlugin.
+      await trx.updateTable('conversations')
+        .set({ last_message_at: inserted.sent_at, last_message_id: inserted.id })
+        .where('id', '=', conversation_id)
+        .execute();
+      return inserted;
+    }) as unknown as MessageRow;
     await this._setSearchTokens(row.id, plainBody);
     return decryptRow(row);
   }

@@ -1,6 +1,6 @@
 import { sql } from 'kysely';
 import BaseRepository from './base.repository';
-import { now, nowMinus } from '../config/db/sql';
+import { now, nowMinus, secondsSince } from '../config/db/sql';
 import type { Row } from '../types/rows';
 import type { CallHistoryRow } from '../models/call.model';
 import type { UpdateParticipantRequest } from '../dtos/call.dto';
@@ -35,14 +35,24 @@ class CallRepository extends BaseRepository<CallRow> {
   }
 
   async updateStatus(id: string, status: string, endReason: string | null = null): Promise<CallRow> {
-    const changes: Record<string, unknown> = { status };
-    if (status === 'active') changes.answered_at = now();
-    if (status === 'ended' || status === 'missed' || status === 'rejected' || status === 'failed') {
-      changes.ended_at = now();
-      changes.end_reason = endReason;
-    }
+    const ending = status === 'ended' || status === 'missed' || status === 'rejected' || status === 'failed';
     const row = await this.db.updateTable('calls')
-      .set(changes)
+      .set((eb) => {
+        const changes: Record<string, unknown> = { status };
+        if (status === 'active') changes.answered_at = now();
+        if (ending) {
+          changes.ended_at = now();
+          changes.end_reason = endReason;
+          // La primera vez que se cierra una llamada atendida, su duración (antes
+          // lo hacía el trigger fn_calculate_call_duration).
+          changes.duration_seconds = eb.case()
+            .when(eb.and([eb('ended_at', 'is', null), eb('answered_at', 'is not', null)]))
+            .then(secondsSince('answered_at'))
+            .else(eb.ref('duration_seconds'))
+            .end();
+        }
+        return changes;
+      })
       .where('id', '=', id)
       .returningAll()
       .executeTakeFirst();

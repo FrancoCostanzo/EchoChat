@@ -23,6 +23,11 @@ export function nowMinus(amount: number, unit: IntervalUnit): RawBuilder<Date> {
   return sql<Date>`now() - ${`${amount} ${unit}`}::interval`;
 }
 
+/** Segundos enteros desde `column` hasta ahora. */
+export function secondsSince(column: string): RawBuilder<number> {
+  return sql<number>`EXTRACT(EPOCH FROM (now() - ${sql.ref(column)}))::integer`;
+}
+
 /** Comparación sin distinguir mayúsculas: `col ILIKE pattern` en PostgreSQL. */
 export function ilike(column: string, pattern: string): RawBuilder<boolean> {
   return sql<boolean>`${sql.ref(column)} ILIKE ${pattern}`;

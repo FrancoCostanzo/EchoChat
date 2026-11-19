@@ -4,6 +4,7 @@ import { pool } from '../database';
 import * as metricsRegistry from '../../utils/metricsRegistry';
 import type { DB } from '../../types/db';
 import { now } from './sql';
+import { UpdatedAtPlugin } from './updatedAtPlugin';
 
 /**
  * Acceso a la base con Kysely: el query builder genera el SQL del motor que
@@ -21,6 +22,8 @@ function createDialect(): Dialect {
 
 export const db = new Kysely<DB>({
   dialect: createDialect(),
+  // Reemplaza al trigger fn_set_updated_at (ver updatedAtPlugin.ts).
+  plugins: [new UpdatedAtPlugin()],
   // Kysely saca conexiones con pool.connect(), así que no pasa por el
   // pool.query() instrumentado de database.ts: las contamos acá.
   log(event) {
