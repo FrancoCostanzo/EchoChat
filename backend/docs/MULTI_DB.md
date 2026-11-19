@@ -118,8 +118,8 @@ un CTE con `DELETE … USING`, los `ORDER BY (status = 'pending')` pasan a `CASE
   `storage_objects` borrar, así que nunca borra ninguno.
 - `user.disableLdapUsersNotIn` manda todos los ids del directorio en un parámetro array; en SQL
   Server (límite de 2100 parámetros) hay que resolverlo con una tabla temporal.
-- El test `fijar y dejar de fijar` ya fallaba antes de empezar; contra el backend de desarrollo
-  fijar y leer el fijado funciona. `el TOTP del autenticador sigue funcionando en paralelo`
+- El test `fijar y dejar de fijar` fallaba desde antes de empezar: leía `/pinned` como lista y el
+  endpoint devuelve un solo mensaje (o null). Corregido el test; la suite da 119/119 en los dos motores. `el TOTP del autenticador sigue funcionando en paralelo`
   falla a veces por la ventana de 30 s del TOTP.
 
 ### Etapa 3 — Sacar lo exclusivo de PostgreSQL del código (≈3–4 días)
@@ -197,9 +197,12 @@ un CTE con `DELETE … USING`, los `ORDER BY (status = 'pending')` pasan a `CASE
   `DB_CLIENT=mssql`. Hay que arreglar lo que la suite encuentre.
 - Versión mínima propuesta: **SQL Server 2019** (por `JSON_VALUE`, `STRING_AGG` y `OFFSET/FETCH`).
 
-### Etapa 6 — Documentación y CI (≈1 día)
-- README, `.env.example` y guía de instalación con `DB_CLIENT`.
-- CI que corre la suite contra los dos motores (si se quiere agregar CI del backend).
+### Etapa 6 — Documentación ✅
+- `DB_CLIENT`, `DB_ENCRYPT` y `DB_TRUST_SERVER_CERT` en los dos `.env.example`, el README y la
+  guía pública (`site/…/despliegue/base-de-datos.md`, `variables-entorno.md`, `actualizacion.md`),
+  que ahora describe las migraciones en TypeScript, los dos motores y el paso automático de las
+  instalaciones viejas.
+- CI del backend: fuera de alcance por ahora (no hay workflow de backend).
 
 **Total estimado: 3 a 4 semanas** de trabajo efectivo. MySQL/MariaDB después es mucho más
 barato (≈1 semana), porque el esfuerzo grande —Kysely, helpers y sacar los triggers— ya

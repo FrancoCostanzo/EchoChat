@@ -88,7 +88,7 @@ Variables de entorno: `backend/.env` en desarrollo; `.env` en la raíz para Dock
 | `routes/` | Definición de endpoints HTTP |
 | `controllers/` | Manejo de req/res; sin lógica de negocio |
 | `services/` | Lógica de negocio |
-| `repositories/` | SQL y acceso a datos (PostgreSQL vía `pg`) |
+| `repositories/` | Acceso a datos con Kysely (PostgreSQL o SQL Server según `DB_CLIENT`) |
 | `models/` | Transformadores de respuesta (`toXxxResponse`) |
 | `dtos/` | Validación Joi |
 | `middlewares/` | Auth JWT, RBAC, rate limit, validación, errores |
@@ -100,7 +100,7 @@ Variables de entorno: `backend/.env` en desarrollo; `.env` en la raíz para Dock
 ### Flujo obligatorio
 
 ```
-Route → validate(dto) → authenticate → authorize → Controller → Service → Repository → PostgreSQL
+Route → validate(dto) → authenticate → authorize → Controller → Service → Repository → Base de datos
 ```
 
 ### Convenciones
