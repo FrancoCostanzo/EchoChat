@@ -43,6 +43,11 @@ export function asText(column: string): RawBuilder<string> {
   return sql<string>`${sql.ref(column)}::text`;
 }
 
+/** ¿Algún elemento (texto) del array JSON `column` coincide con `pattern` sin distinguir mayúsculas? */
+export function jsonArrayLike(column: string, pattern: string): RawBuilder<boolean> {
+  return sql<boolean>`EXISTS (SELECT 1 FROM jsonb_array_elements_text(${sql.ref(column)}) k WHERE k ILIKE ${pattern})`;
+}
+
 /** Valor que va a una columna JSON: se serializa explícitamente. */
 export function json(value: unknown): string {
   return JSON.stringify(value);

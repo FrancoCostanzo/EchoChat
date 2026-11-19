@@ -1,6 +1,5 @@
-import { sql } from 'kysely';
 import BaseRepository from './base.repository';
-import { now, nowPlus } from '../config/db/sql';
+import { now, nowPlus, json } from '../config/db/sql';
 import type { Row } from '../types/rows';
 
 type CredentialRow = Row<'user_credentials'>;
@@ -55,7 +54,7 @@ class CredentialRepository extends BaseRepository<CredentialRow> {
   }
 
   // ── 2FA ──────────────────────────────────────────────────────────────────
-  // totp_backup_codes es TEXT[]: pasa a JSON en la etapa 3 (docs/MULTI_DB.md).
+  // totp_backup_codes es un array JSON de hashes (antes TEXT[], ver migración 003).
 
   async setTotpSecret(userId: string, secret: string): Promise<void> {
     await this.db.updateTable('user_credentials')
@@ -66,30 +65,37 @@ class CredentialRepository extends BaseRepository<CredentialRow> {
 
   async enableTotp(userId: string, hashedBackupCodes: string[]): Promise<void> {
     await this.db.updateTable('user_credentials')
-      .set({ totp_enabled: true, totp_backup_codes: hashedBackupCodes })
+      .set({ totp_enabled: true, totp_backup_codes: json(hashedBackupCodes) })
       .where('user_id', '=', userId)
       .execute();
   }
 
   async disableTotp(userId: string): Promise<void> {
     await this.db.updateTable('user_credentials')
-      .set({ totp_enabled: false, totp_secret: null, totp_backup_codes: [] })
+      .set({ totp_enabled: false, totp_secret: null, totp_backup_codes: json([]) })
       .where('user_id', '=', userId)
       .execute();
   }
 
   async updateBackupCodes(userId: string, hashedBackupCodes: string[]): Promise<void> {
     await this.db.updateTable('user_credentials')
-      .set({ totp_backup_codes: hashedBackupCodes })
+      .set({ totp_backup_codes: json(hashedBackupCodes) })
       .where('user_id', '=', userId)
       .execute();
   }
 
   async removeBackupCode(userId: string, codeHash: string): Promise<void> {
-    // TODO(etapa 3): array_remove es de PostgreSQL; con JSON se filtra en la app.
-    await this.db.updateTable('user_credentials')
-      .set({ totp_backup_codes: sql<string[]>`array_remove(totp_backup_codes, ${codeHash})` })
+    // Se filtra en la app (antes array_remove de PostgreSQL). El WHERE con la
+    // lista leída evita pisar un cambio que haya entrado entre medio.
+    const row = await this.db.selectFrom('user_credentials').select('totp_backup_codes')
       .where('user_id', '=', userId)
+      .executeTakeFirst();
+    const current = (row?.totp_backup_codes ?? []) as string[];
+    if (!current.includes(codeHash)) return;
+    await this.db.updateTable('user_credentials')
+      .set({ totp_backup_codes: json(current.filter((c) => c !== codeHash)) })
+      .where('user_id', '=', userId)
+      .where('totp_backup_codes', '=', json(current))
       .execute();
   }
 }

@@ -31,7 +31,11 @@ export const t = {
   json: (): DataType => 'jsonb',
   /** Dirección IP (v4 o v6). */
   ip: (): DataType => sql`inet`,
-  /** Lista de valores. TODO(etapa 3): pasar a JSON, no existe fuera de PostgreSQL. */
+  /**
+   * Lista de valores. Sólo la usa `001_initial` (esquema histórico): en PostgreSQL
+   * crea el array y la migración 003 lo pasa a JSON. Al sumar otro motor, debe
+   * devolver su tipo JSON (etapa 4). Para columnas nuevas usar `t.json()`.
+   */
   array: (of: 'text' | 'uuid' | 'smallint'): DataType => sql.raw(`${of}[]`),
 };
 

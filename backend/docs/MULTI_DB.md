@@ -1,7 +1,8 @@
 # Soporte para varios motores de base de datos
 
 > Estado: **etapas 0, 1 y 2 hechas** (Kysely conectado; esquema, migraciones y seed en TypeScript;
-> los 25 repositorios consultan con Kysely). Etapa 3 en curso: triggers y funciones ya en el código.
+> los 25 repositorios consultan con Kysely). Etapa 3 en curso: triggers, funciones y columnas
+> array ya resueltos.
 > Motores: PostgreSQL (actual) → **SQL Server** (primero) → MySQL/MariaDB y SQLite más adelante.
 
 ## Decisiones
@@ -128,7 +129,12 @@ un CTE con `DELETE … USING`, los `ORDER BY (status = 'pending')` pasan a `CASE
   `broadcast_lists`), la duración de la llamada se calcula en `call.updateStatus`, el
   `member_count` de canales se recalcula en `conversation.add/removeMember` y el último mensaje
   de la conversación se fija en `message.create`, estos dos últimos en la misma transacción.
-- Columnas array → JSON (migración que convierte los datos existentes).
+- ✅ Columnas array → JSON (`003_arrays_to_json`, convierte los datos existentes):
+  `user_credentials.totp_backup_codes`, `user_stickers.keywords`,
+  `user_notification_settings.quiet_days` y `call_recordings.consented_by`. Las escrituras pasan
+  por `json()`; `array_remove` se reemplazó por un filtro en la app y la búsqueda en `keywords`
+  usa el helper `jsonArrayLike()`. Como kysely-codegen tipa esas columnas como `Json`, su tipo
+  real (lista) se declara en `types/rows.d.ts`.
 - `FILTER (WHERE)` → `CASE`.
 
 ### Etapa 4 — Tipos portables en el schema builder (≈2 días)

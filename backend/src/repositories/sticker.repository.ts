@@ -1,6 +1,5 @@
-import { sql } from 'kysely';
 import BaseRepository from './base.repository';
-import { now, ilike } from '../config/db/sql';
+import { now, ilike, json, jsonArrayLike } from '../config/db/sql';
 import type { Row } from '../types/rows';
 import type { UserStickerRow } from '../models/sticker.model';
 import type { UpdateStickerRequest, UpdatePackRequest } from '../dtos/sticker.dto';
@@ -41,8 +40,7 @@ class StickerRepository extends BaseRepository<StickerRow> {
       const pattern = `%${term}%`;
       q = q.where((eb) => eb.or([
         ilike('us.name', pattern),
-        // TODO(etapa 3): keywords es TEXT[]; con JSON se busca de otra forma.
-        sql<boolean>`EXISTS (SELECT 1 FROM unnest(us.keywords) k WHERE k ILIKE ${pattern})`,
+        jsonArrayLike('us.keywords', pattern),
       ]));
     }
     return q
@@ -92,7 +90,7 @@ class StickerRepository extends BaseRepository<StickerRow> {
     },
   ): Promise<StickerRow> {
     const row = await this.db.insertInto('user_stickers')
-      .values({ owner_id: ownerId, storage_object_id: storageObjectId, pack_id: packId, name, keywords })
+      .values({ owner_id: ownerId, storage_object_id: storageObjectId, pack_id: packId, name, keywords: json(keywords) })
       .onConflict((oc) => oc.columns(['owner_id', 'storage_object_id'])
         .doUpdateSet((eb) => ({ added_at: eb.ref('user_stickers.added_at') })))
       .returningAll()
@@ -111,6 +109,7 @@ class StickerRepository extends BaseRepository<StickerRow> {
     for (const key of allowed) {
       if (fields[key] !== undefined) changes[key] = fields[key];
     }
+    if (changes.keywords !== undefined) changes.keywords = json(changes.keywords);
     if (Object.keys(changes).length === 0) return this.findEntry(id, ownerId);
     const row = await this.db.updateTable('user_stickers')
       .set(changes)

@@ -114,7 +114,7 @@ export interface CallParticipants {
 
 export interface CallRecordings {
   call_id: string;
-  consented_by: string[] | null;
+  consented_by: Json | null;
   created_at: Generated<Timestamp | null>;
   ended_at: Timestamp | null;
   id: Generated<string>;
@@ -469,11 +469,6 @@ export interface ScheduledMessages {
   updated_at: Generated<Timestamp>;
 }
 
-export interface SchemaMigrations {
-  applied_at: Generated<Timestamp>;
-  name: string;
-}
-
 export interface StickerPacks {
   created_at: Generated<Timestamp>;
   id: Generated<string>;
@@ -556,7 +551,7 @@ export interface UserCredentials {
   /**
    * Hashes de los códigos de respaldo sin usar.
    */
-  totp_backup_codes: Generated<string[]>;
+  totp_backup_codes: Generated<Json>;
   /**
    * TRUE sólo después de que el usuario confirmó un código válido.
    */
@@ -587,7 +582,7 @@ export interface UserNotificationSettings {
   noise_suppression: Generated<boolean>;
   push_preview: Generated<string>;
   push_when: Generated<string>;
-  quiet_days: Generated<number[]>;
+  quiet_days: Generated<Json>;
   quiet_hours_end: string | null;
   quiet_hours_start: string | null;
   ringtone_name: Generated<string>;
@@ -665,7 +660,7 @@ export interface UserStickers {
   added_at: Generated<Timestamp>;
   id: Generated<string>;
   is_favorite: Generated<boolean>;
-  keywords: Generated<string[]>;
+  keywords: Generated<Json>;
   name: string | null;
   owner_id: string;
   pack_id: string | null;
@@ -723,7 +718,6 @@ export interface DB {
   roles: Roles;
   saved_messages: SavedMessages;
   scheduled_messages: ScheduledMessages;
-  schema_migrations: SchemaMigrations;
   sticker_packs: StickerPacks;
   sticker_usage: StickerUsage;
   storage_objects: StorageObjects;

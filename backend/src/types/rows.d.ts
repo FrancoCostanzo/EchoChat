@@ -16,4 +16,18 @@ import type { DB } from './db';
  * Se escribe una sola vez: al agregar tablas basta con regenerar `db.d.ts`
  * (`npm run db:types`), este alias las toma solas.
  */
-export type Row<T extends keyof DB> = Selectable<DB[T]>;
+export type Row<T extends keyof DB> = T extends keyof JsonArrayColumns
+  ? Omit<Selectable<DB[T]>, keyof JsonArrayColumns[T]> & JsonArrayColumns[T]
+  : Selectable<DB[T]>;
+
+/**
+ * Columnas JSON que siempre guardan una lista (antes eran arrays de
+ * PostgreSQL, ver la migración 003). kysely-codegen las tipa como `Json`
+ * genérico; acá se declara qué contienen para que las filas sigan tipadas.
+ */
+interface JsonArrayColumns {
+  user_credentials: { totp_backup_codes: string[] };
+  user_stickers: { keywords: string[] };
+  user_notification_settings: { quiet_days: number[] };
+  call_recordings: { consented_by: string[] | null };
+}

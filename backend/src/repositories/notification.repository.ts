@@ -138,6 +138,8 @@ class NotificationRepository extends BaseRepository<NotificationRow> {
     for (const column of SETTINGS_COLUMNS) {
       if (patch[column] !== undefined) changes[column] = patch[column];
     }
+    // quiet_days es un array JSON (migración 003).
+    if (changes.quiet_days !== undefined) changes.quiet_days = json(changes.quiet_days);
     await this.db.insertInto('user_notification_settings')
       .values({ user_id: userId })
       .onConflict((oc) => oc.column('user_id').doNothing())
