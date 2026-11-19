@@ -17,8 +17,8 @@ export interface AuthRequest extends Request {
  *
  * Es el único punto donde se afirma que `req.user` existe, y se escribe en el
  * router, que es donde la garantía se ve: sólo se usa detrás de `authenticate`.
- * Devuelve la promesa del handler para que `express-async-errors` siga
- * capturando los rechazos, igual que con los arrows sueltos de antes.
+ * Devuelve la promesa del handler: Express 5 manda sus rechazos al
+ * errorHandler por su cuenta.
  */
 export function withAuth(
   handler: (req: AuthRequest, res: Response) => unknown,
