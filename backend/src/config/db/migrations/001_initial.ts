@@ -2,7 +2,7 @@
 // 003–024. Generado desde el catálogo de PostgreSQL (docs/MULTI_DB.md, etapa 1)
 // y verificado contra pg_dump. Los cambios nuevos van en migraciones 002+.
 import { sql, type Kysely } from 'kysely';
-import { t, d, onPostgres } from '../schema';
+import { t, d, onPostgres, onMssql, isPostgres, onDeleteExceptMssql } from '../schema';
 
 export async function up(db: Kysely<any>): Promise<void> {
   await onPostgres(db, async (db) => {
@@ -34,9 +34,9 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn("created_at", t.timestamptz(), (c) => c.defaultTo(d.now()))
     .addColumn("updated_at", t.timestamptz(), (c) => c.defaultTo(d.now()))
     .addColumn("away_until", t.timestamptz())
-    .addColumn("auto_reply_enabled", t.boolean(), (c) => c.notNull().defaultTo(false))
+    .addColumn("auto_reply_enabled", t.boolean(), (c) => c.notNull().defaultTo(d.bool(false)))
     .addCheckConstraint("users_auth_provider_check", sql.raw("auth_provider IN ('local', 'ldap', 'oidc', 'saml', 'scim')"))
-    .addUniqueConstraint("users_email_key", ["email"])
+    .$call((b) => (isPostgres() ? b.addUniqueConstraint("users_email_key", ["email"]) : b))
     .addPrimaryKeyConstraint("users_pkey", ["id"])
     .addCheckConstraint("users_presence_check", sql.raw("presence IN ('online', 'offline', 'away', 'busy', 'dnd')"))
     .addCheckConstraint("users_status_check", sql.raw("status IN ('active', 'inactive', 'suspended', 'deleted')"))
@@ -46,14 +46,14 @@ export async function up(db: Kysely<any>): Promise<void> {
   await db.schema.createTable("user_credentials")
     .addColumn("user_id", t.uuid(), (c) => c.notNull())
     .addColumn("password_hash", t.text(), (c) => c.notNull())
-    .addColumn("must_change_pw", t.boolean(), (c) => c.defaultTo(false))
+    .addColumn("must_change_pw", t.boolean(), (c) => c.defaultTo(d.bool(false)))
     .addColumn("pw_changed_at", t.timestamptz(), (c) => c.defaultTo(d.now()))
     .addColumn("failed_attempts", t.integer(), (c) => c.defaultTo(0))
     .addColumn("locked_until", t.timestamptz())
     .addColumn("created_at", t.timestamptz(), (c) => c.defaultTo(d.now()))
     .addColumn("updated_at", t.timestamptz(), (c) => c.defaultTo(d.now()))
     .addColumn("totp_secret", t.text())
-    .addColumn("totp_enabled", t.boolean(), (c) => c.notNull().defaultTo(false))
+    .addColumn("totp_enabled", t.boolean(), (c) => c.notNull().defaultTo(d.bool(false)))
     .addColumn("totp_backup_codes", t.array('text'), (c) => c.notNull().defaultTo("{}"))
     .addPrimaryKeyConstraint("user_credentials_pkey", ["user_id"])
     .execute();
@@ -61,12 +61,12 @@ export async function up(db: Kysely<any>): Promise<void> {
   await db.schema.createTable("user_sessions")
     .addColumn("id", t.uuid(), (c) => c.notNull().defaultTo(d.uuid()))
     .addColumn("user_id", t.uuid(), (c) => c.notNull())
-    .addColumn("token_hash", t.text(), (c) => c.notNull())
+    .addColumn("token_hash", t.keyText(128), (c) => c.notNull())
     .addColumn("device_name", t.varchar(100))
     .addColumn("device_type", t.varchar(20))
     .addColumn("ip_address", t.ip())
     .addColumn("user_agent", t.text())
-    .addColumn("is_active", t.boolean(), (c) => c.defaultTo(true))
+    .addColumn("is_active", t.boolean(), (c) => c.defaultTo(d.bool(true)))
     .addColumn("expires_at", t.timestamptz(), (c) => c.notNull())
     .addColumn("last_activity", t.timestamptz(), (c) => c.defaultTo(d.now()))
     .addColumn("created_at", t.timestamptz(), (c) => c.defaultTo(d.now()))
@@ -80,7 +80,7 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn("name", t.varchar(50), (c) => c.notNull())
     .addColumn("display_name", t.varchar(100), (c) => c.notNull())
     .addColumn("description", t.text())
-    .addColumn("is_system", t.boolean(), (c) => c.defaultTo(false))
+    .addColumn("is_system", t.boolean(), (c) => c.defaultTo(d.bool(false)))
     .addColumn("priority", t.integer(), (c) => c.defaultTo(0))
     .addColumn("created_at", t.timestamptz(), (c) => c.defaultTo(d.now()))
     .addUniqueConstraint("roles_name_key", ["name"])
@@ -133,7 +133,7 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn("processed_at", t.timestamptz())
     .addColumn("virus_scan_status", t.varchar(20), (c) => c.defaultTo("pending"))
     .addColumn("virus_scanned_at", t.timestamptz())
-    .addColumn("exif_stripped", t.boolean(), (c) => c.defaultTo(false))
+    .addColumn("exif_stripped", t.boolean(), (c) => c.defaultTo(d.bool(false)))
     .addColumn("access_policy", t.varchar(20), (c) => c.defaultTo("private"))
     .addColumn("expires_at", t.timestamptz())
     .addColumn("etag", t.varchar(100))
@@ -155,7 +155,7 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn("presigned_url", t.text(), (c) => c.notNull())
     .addColumn("expires_at", t.timestamptz(), (c) => c.notNull())
     .addColumn("created_at", t.timestamptz(), (c) => c.defaultTo(d.now()))
-    .addUniqueConstraint("storage_presigned_urls_object_id_user_id_operation_key", ["object_id", "user_id", "operation"])
+    .$call((b) => (isPostgres() ? b.addUniqueConstraint("storage_presigned_urls_object_id_user_id_operation_key", ["object_id", "user_id", "operation"]) : b))
     .addCheckConstraint("storage_presigned_urls_operation_check", sql.raw("operation IN ('get', 'put', 'delete')"))
     .addPrimaryKeyConstraint("storage_presigned_urls_pkey", ["id"])
     .execute();
@@ -167,9 +167,9 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn("description", t.text())
     .addColumn("avatar_object_id", t.uuid())
     .addColumn("topic", t.varchar(300))
-    .addColumn("is_archived", t.boolean(), (c) => c.defaultTo(false))
-    .addColumn("is_read_only", t.boolean(), (c) => c.defaultTo(false))
-    .addColumn("is_discoverable", t.boolean(), (c) => c.defaultTo(true))
+    .addColumn("is_archived", t.boolean(), (c) => c.defaultTo(d.bool(false)))
+    .addColumn("is_read_only", t.boolean(), (c) => c.defaultTo(d.bool(false)))
+    .addColumn("is_discoverable", t.boolean(), (c) => c.defaultTo(d.bool(true)))
     .addColumn("max_members", t.integer())
     .addColumn("created_by", t.uuid())
     .addColumn("last_message_at", t.timestamptz())
@@ -177,7 +177,7 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn("metadata", t.json(), (c) => c.defaultTo("{}"))
     .addColumn("created_at", t.timestamptz(), (c) => c.defaultTo(d.now()))
     .addColumn("updated_at", t.timestamptz(), (c) => c.defaultTo(d.now()))
-    .addColumn("only_admins_edit_info", t.boolean(), (c) => c.notNull().defaultTo(true))
+    .addColumn("only_admins_edit_info", t.boolean(), (c) => c.notNull().defaultTo(d.bool(true)))
     .addPrimaryKeyConstraint("conversations_pkey", ["id"])
     .addCheckConstraint("conversations_type_check", sql.raw("type IN ('direct', 'group', 'channel', 'broadcast', 'bot')"))
     .execute();
@@ -187,10 +187,10 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn("conversation_id", t.uuid(), (c) => c.notNull())
     .addColumn("user_id", t.uuid(), (c) => c.notNull())
     .addColumn("role", t.varchar(30), (c) => c.defaultTo("member"))
-    .addColumn("is_muted", t.boolean(), (c) => c.defaultTo(false))
+    .addColumn("is_muted", t.boolean(), (c) => c.defaultTo(d.bool(false)))
     .addColumn("muted_until", t.timestamptz())
-    .addColumn("is_pinned", t.boolean(), (c) => c.defaultTo(false))
-    .addColumn("is_hidden", t.boolean(), (c) => c.defaultTo(false))
+    .addColumn("is_pinned", t.boolean(), (c) => c.defaultTo(d.bool(false)))
+    .addColumn("is_hidden", t.boolean(), (c) => c.defaultTo(d.bool(false)))
     .addColumn("last_read_at", t.timestamptz())
     .addColumn("last_read_msg_id", t.uuid())
     .addColumn("custom_permissions", t.json(), (c) => c.defaultTo("{}"))
@@ -227,9 +227,9 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn("thread_id", t.uuid())
     .addColumn("forwarded_from_id", t.uuid())
     .addColumn("forwarded_from_conv", t.uuid())
-    .addColumn("is_edited", t.boolean(), (c) => c.defaultTo(false))
+    .addColumn("is_edited", t.boolean(), (c) => c.defaultTo(d.bool(false)))
     .addColumn("edited_at", t.timestamptz())
-    .addColumn("is_deleted", t.boolean(), (c) => c.defaultTo(false))
+    .addColumn("is_deleted", t.boolean(), (c) => c.defaultTo(d.bool(false)))
     .addColumn("deleted_at", t.timestamptz())
     .addColumn("deleted_by", t.uuid())
     .addColumn("system_data", t.json())
@@ -253,7 +253,7 @@ export async function up(db: Kysely<any>): Promise<void> {
 
   await db.schema.createTable("message_search_tokens")
     .addColumn("message_id", t.uuid(), (c) => c.notNull())
-    .addColumn("token", t.text(), (c) => c.notNull())
+    .addColumn("token", t.keyText(128), (c) => c.notNull())
     .addPrimaryKeyConstraint("message_search_tokens_pkey", ["message_id", "token"])
     .execute();
 
@@ -322,7 +322,7 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn("end_reason", t.varchar(30))
     .addColumn("server_host", t.varchar(255))
     .addColumn("room_id", t.varchar(255))
-    .addColumn("is_encrypted", t.boolean(), (c) => c.defaultTo(true))
+    .addColumn("is_encrypted", t.boolean(), (c) => c.defaultTo(d.bool(true)))
     .addColumn("quality_stats", t.json(), (c) => c.defaultTo("{}"))
     .addColumn("metadata", t.json(), (c) => c.defaultTo("{}"))
     .addColumn("created_at", t.timestamptz(), (c) => c.defaultTo(d.now()))
@@ -336,10 +336,10 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn("call_id", t.uuid(), (c) => c.notNull())
     .addColumn("user_id", t.uuid(), (c) => c.notNull())
     .addColumn("status", t.varchar(20), (c) => c.defaultTo("invited"))
-    .addColumn("can_speak", t.boolean(), (c) => c.defaultTo(true))
-    .addColumn("can_video", t.boolean(), (c) => c.defaultTo(true))
-    .addColumn("can_share_screen", t.boolean(), (c) => c.defaultTo(true))
-    .addColumn("is_muted_by_host", t.boolean(), (c) => c.defaultTo(false))
+    .addColumn("can_speak", t.boolean(), (c) => c.defaultTo(d.bool(true)))
+    .addColumn("can_video", t.boolean(), (c) => c.defaultTo(d.bool(true)))
+    .addColumn("can_share_screen", t.boolean(), (c) => c.defaultTo(d.bool(true)))
+    .addColumn("is_muted_by_host", t.boolean(), (c) => c.defaultTo(d.bool(false)))
     .addColumn("invited_at", t.timestamptz(), (c) => c.defaultTo(d.now()))
     .addColumn("joined_at", t.timestamptz())
     .addColumn("left_at", t.timestamptz())
@@ -358,7 +358,7 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn("consented_by", t.array('uuid'))
     .addColumn("started_at", t.timestamptz(), (c) => c.defaultTo(d.now()))
     .addColumn("ended_at", t.timestamptz())
-    .addColumn("is_available", t.boolean(), (c) => c.defaultTo(true))
+    .addColumn("is_available", t.boolean(), (c) => c.defaultTo(d.bool(true)))
     .addColumn("created_at", t.timestamptz(), (c) => c.defaultTo(d.now()))
     .addPrimaryKeyConstraint("call_recordings_pkey", ["id"])
     .execute();
@@ -368,7 +368,7 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn("name", t.varchar(200), (c) => c.notNull())
     .addColumn("description", t.text())
     .addColumn("owner_id", t.uuid(), (c) => c.notNull())
-    .addColumn("is_active", t.boolean(), (c) => c.defaultTo(true))
+    .addColumn("is_active", t.boolean(), (c) => c.defaultTo(d.bool(true)))
     .addColumn("metadata", t.json(), (c) => c.defaultTo("{}"))
     .addColumn("created_at", t.timestamptz(), (c) => c.defaultTo(d.now()))
     .addColumn("updated_at", t.timestamptz(), (c) => c.defaultTo(d.now()))
@@ -415,7 +415,7 @@ export async function up(db: Kysely<any>): Promise<void> {
   await db.schema.createTable("channel_settings")
     .addColumn("conversation_id", t.uuid(), (c) => c.notNull())
     .addColumn("category", t.varchar(50))
-    .addColumn("is_official", t.boolean(), (c) => c.defaultTo(false))
+    .addColumn("is_official", t.boolean(), (c) => c.defaultTo(d.bool(false)))
     .addColumn("member_count", t.integer(), (c) => c.defaultTo(0))
     .addColumn("post_restriction", t.varchar(20), (c) => c.defaultTo("members"))
     .addColumn("join_mode", t.varchar(20), (c) => c.defaultTo("open"))
@@ -442,10 +442,10 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn("id", t.uuid(), (c) => c.notNull().defaultTo(d.uuid()))
     .addColumn("message_id", t.uuid(), (c) => c.notNull())
     .addColumn("question", t.text(), (c) => c.notNull())
-    .addColumn("is_anonymous", t.boolean(), (c) => c.defaultTo(false))
-    .addColumn("is_multiple", t.boolean(), (c) => c.defaultTo(false))
+    .addColumn("is_anonymous", t.boolean(), (c) => c.defaultTo(d.bool(false)))
+    .addColumn("is_multiple", t.boolean(), (c) => c.defaultTo(d.bool(false)))
     .addColumn("closes_at", t.timestamptz())
-    .addColumn("is_closed", t.boolean(), (c) => c.defaultTo(false))
+    .addColumn("is_closed", t.boolean(), (c) => c.defaultTo(d.bool(false)))
     .addColumn("created_at", t.timestamptz(), (c) => c.defaultTo(d.now()))
     .addPrimaryKeyConstraint("polls_pkey", ["id"])
     .execute();
@@ -476,7 +476,7 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn("reference_type", t.varchar(30))
     .addColumn("reference_id", t.uuid())
     .addColumn("reference_data", t.json(), (c) => c.defaultTo("{}"))
-    .addColumn("is_read", t.boolean(), (c) => c.defaultTo(false))
+    .addColumn("is_read", t.boolean(), (c) => c.defaultTo(d.bool(false)))
     .addColumn("read_at", t.timestamptz())
     .addColumn("channel", t.varchar(20), (c) => c.defaultTo("in_app"))
     .addColumn("delivered_at", t.timestamptz())
@@ -490,9 +490,9 @@ export async function up(db: Kysely<any>): Promise<void> {
   await db.schema.createTable("notification_preferences")
     .addColumn("user_id", t.uuid(), (c) => c.notNull())
     .addColumn("event_type", t.varchar(50), (c) => c.notNull())
-    .addColumn("in_app_enabled", t.boolean(), (c) => c.defaultTo(true))
-    .addColumn("push_enabled", t.boolean(), (c) => c.defaultTo(true))
-    .addColumn("email_enabled", t.boolean(), (c) => c.defaultTo(false))
+    .addColumn("in_app_enabled", t.boolean(), (c) => c.defaultTo(d.bool(true)))
+    .addColumn("push_enabled", t.boolean(), (c) => c.defaultTo(d.bool(true)))
+    .addColumn("email_enabled", t.boolean(), (c) => c.defaultTo(d.bool(false)))
     .addPrimaryKeyConstraint("notification_preferences_pkey", ["user_id", "event_type"])
     .execute();
 
@@ -519,7 +519,7 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn("user_agent", t.text())
     .addColumn("data_before", t.json())
     .addColumn("data_after", t.json())
-    .addColumn("success", t.boolean(), (c) => c.defaultTo(true))
+    .addColumn("success", t.boolean(), (c) => c.defaultTo(d.bool(true)))
     .addColumn("error_message", t.text())
     .addColumn("created_at", t.timestamptz(), (c) => c.defaultTo(d.now()))
     .addColumn("severity", t.varchar(10), (c) => c.defaultTo("info"))
@@ -606,7 +606,7 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn("pack_id", t.uuid())
     .addColumn("name", t.varchar(80))
     .addColumn("keywords", t.array('text'), (c) => c.notNull().defaultTo("{}"))
-    .addColumn("is_favorite", t.boolean(), (c) => c.notNull().defaultTo(false))
+    .addColumn("is_favorite", t.boolean(), (c) => c.notNull().defaultTo(d.bool(false)))
     .addColumn("position", t.integer(), (c) => c.notNull().defaultTo(0))
     .addColumn("added_at", t.timestamptz(), (c) => c.notNull().defaultTo(d.now()))
     .addUniqueConstraint("user_stickers_owner_id_storage_object_id_key", ["owner_id", "storage_object_id"])
@@ -660,18 +660,18 @@ export async function up(db: Kysely<any>): Promise<void> {
 
   await db.schema.createTable("user_notification_settings")
     .addColumn("user_id", t.uuid(), (c) => c.notNull())
-    .addColumn("dnd_enabled", t.boolean(), (c) => c.notNull().defaultTo(false))
+    .addColumn("dnd_enabled", t.boolean(), (c) => c.notNull().defaultTo(d.bool(false)))
     .addColumn("dnd_until", t.timestamptz())
     .addColumn("quiet_hours_start", t.time())
     .addColumn("quiet_hours_end", t.time())
     .addColumn("quiet_days", t.array('smallint'), (c) => c.notNull().defaultTo("{}"))
     .addColumn("push_preview", t.varchar(10), (c) => c.notNull().defaultTo("full"))
     .addColumn("push_when", t.varchar(10), (c) => c.notNull().defaultTo("inactive"))
-    .addColumn("sound_enabled", t.boolean(), (c) => c.notNull().defaultTo(true))
+    .addColumn("sound_enabled", t.boolean(), (c) => c.notNull().defaultTo(d.bool(true)))
     .addColumn("sound_name", t.varchar(30), (c) => c.notNull().defaultTo("ping"))
     .addColumn("sound_volume", t.smallint(), (c) => c.notNull().defaultTo(70))
     .addColumn("ringtone_name", t.varchar(30), (c) => c.notNull().defaultTo("classic"))
-    .addColumn("badge_enabled", t.boolean(), (c) => c.notNull().defaultTo(true))
+    .addColumn("badge_enabled", t.boolean(), (c) => c.notNull().defaultTo(d.bool(true)))
     .addColumn("email_digest", t.varchar(10), (c) => c.notNull().defaultTo("off"))
     .addColumn("email_digest_hour", t.smallint(), (c) => c.notNull().defaultTo(9))
     .addColumn("email_unread_delay_minutes", t.smallint(), (c) => c.notNull().defaultTo(30))
@@ -681,16 +681,16 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn("call_privacy", t.varchar(10), (c) => c.notNull().defaultTo("everyone"))
     .addColumn("call_dnd_behavior", t.varchar(10), (c) => c.notNull().defaultTo("silent"))
     .addColumn("ringtone_volume", t.smallint(), (c) => c.notNull().defaultTo(80))
-    .addColumn("join_muted", t.boolean(), (c) => c.notNull().defaultTo(false))
-    .addColumn("join_camera_off", t.boolean(), (c) => c.notNull().defaultTo(false))
-    .addColumn("noise_suppression", t.boolean(), (c) => c.notNull().defaultTo(true))
-    .addColumn("echo_cancellation", t.boolean(), (c) => c.notNull().defaultTo(true))
-    .addColumn("auto_gain_control", t.boolean(), (c) => c.notNull().defaultTo(true))
+    .addColumn("join_muted", t.boolean(), (c) => c.notNull().defaultTo(d.bool(false)))
+    .addColumn("join_camera_off", t.boolean(), (c) => c.notNull().defaultTo(d.bool(false)))
+    .addColumn("noise_suppression", t.boolean(), (c) => c.notNull().defaultTo(d.bool(true)))
+    .addColumn("echo_cancellation", t.boolean(), (c) => c.notNull().defaultTo(d.bool(true)))
+    .addColumn("auto_gain_control", t.boolean(), (c) => c.notNull().defaultTo(d.bool(true)))
     .addCheckConstraint("user_notification_settings_call_dnd_behavior_check", sql.raw("call_dnd_behavior IN ('reject', 'silent')"))
     .addCheckConstraint("user_notification_settings_call_privacy_check", sql.raw("call_privacy IN ('everyone', 'contacts', 'nobody')"))
     .addCheckConstraint("user_notification_settings_email_digest_check", sql.raw("email_digest IN ('off', 'hourly', 'daily', 'weekly')"))
     .addCheckConstraint("user_notification_settings_email_digest_hour_check", sql.raw("((email_digest_hour >= 0) AND (email_digest_hour <= 23))"))
-    .addCheckConstraint("user_notification_settings_email_unread_delay_minutes_check", sql.raw("(email_unread_delay_minutes = ANY (ARRAY[15, 30, 60, 120]))"))
+    .addCheckConstraint("user_notification_settings_email_unread_delay_minutes_check", sql.raw("email_unread_delay_minutes IN (15, 30, 60, 120)"))
     .addPrimaryKeyConstraint("user_notification_settings_pkey", ["user_id"])
     .addCheckConstraint("user_notification_settings_push_preview_check", sql.raw("push_preview IN ('full', 'sender', 'none')"))
     .addCheckConstraint("user_notification_settings_push_when_check", sql.raw("push_when IN ('always', 'inactive')"))
@@ -701,7 +701,7 @@ export async function up(db: Kysely<any>): Promise<void> {
   await db.schema.createTable("push_subscriptions")
     .addColumn("id", t.uuid(), (c) => c.notNull().defaultTo(d.uuid()))
     .addColumn("user_id", t.uuid(), (c) => c.notNull())
-    .addColumn("endpoint", t.text(), (c) => c.notNull())
+    .addColumn("endpoint", t.keyText(800), (c) => c.notNull())
     .addColumn("p256dh", t.text(), (c) => c.notNull())
     .addColumn("auth", t.text(), (c) => c.notNull())
     .addColumn("user_agent", t.text())
@@ -755,7 +755,7 @@ export async function up(db: Kysely<any>): Promise<void> {
   await db.schema.alterTable("storage_presigned_urls").addForeignKeyConstraint("storage_presigned_urls_user_id_fkey", ["user_id"], "users", ["id"], (fk) => fk.onDelete("cascade")).execute();
   await db.schema.alterTable("conversations").addForeignKeyConstraint("conversations_avatar_object_id_fkey", ["avatar_object_id"], "storage_objects", ["id"], (fk) => fk.onDelete("set null")).execute();
   await db.schema.alterTable("conversations").addForeignKeyConstraint("conversations_created_by_fkey", ["created_by"], "users", ["id"]).execute();
-  await db.schema.alterTable("conversations").addForeignKeyConstraint("fk_conversations_last_message", ["last_message_id"], "messages", ["id"], (fk) => fk.deferrable().initiallyDeferred()).execute();
+  await db.schema.alterTable("conversations").addForeignKeyConstraint("fk_conversations_last_message", ["last_message_id"], "messages", ["id"], (fk) => (isPostgres() ? fk.deferrable().initiallyDeferred() : fk)).execute();
   await db.schema.alterTable("conversation_members").addForeignKeyConstraint("conversation_members_conversation_id_fkey", ["conversation_id"], "conversations", ["id"], (fk) => fk.onDelete("cascade")).execute();
   await db.schema.alterTable("conversation_members").addForeignKeyConstraint("conversation_members_invited_by_fkey", ["invited_by"], "users", ["id"]).execute();
   await db.schema.alterTable("conversation_members").addForeignKeyConstraint("conversation_members_user_id_fkey", ["user_id"], "users", ["id"], (fk) => fk.onDelete("cascade")).execute();
@@ -779,7 +779,7 @@ export async function up(db: Kysely<any>): Promise<void> {
   await db.schema.alterTable("saved_messages").addForeignKeyConstraint("saved_messages_message_id_fkey", ["message_id"], "messages", ["id"], (fk) => fk.onDelete("cascade")).execute();
   await db.schema.alterTable("saved_messages").addForeignKeyConstraint("saved_messages_user_id_fkey", ["user_id"], "users", ["id"], (fk) => fk.onDelete("cascade")).execute();
   await db.schema.alterTable("pinned_messages").addForeignKeyConstraint("pinned_messages_conversation_id_fkey", ["conversation_id"], "conversations", ["id"], (fk) => fk.onDelete("cascade")).execute();
-  await db.schema.alterTable("pinned_messages").addForeignKeyConstraint("pinned_messages_message_id_fkey", ["message_id"], "messages", ["id"], (fk) => fk.onDelete("cascade")).execute();
+  await db.schema.alterTable("pinned_messages").addForeignKeyConstraint("pinned_messages_message_id_fkey", ["message_id"], "messages", ["id"], (fk) => onDeleteExceptMssql(fk, "cascade")).execute();
   await db.schema.alterTable("pinned_messages").addForeignKeyConstraint("pinned_messages_pinned_by_fkey", ["pinned_by"], "users", ["id"]).execute();
   await db.schema.alterTable("drafts").addForeignKeyConstraint("drafts_conversation_id_fkey", ["conversation_id"], "conversations", ["id"], (fk) => fk.onDelete("cascade")).execute();
   await db.schema.alterTable("drafts").addForeignKeyConstraint("drafts_reply_to_id_fkey", ["reply_to_id"], "messages", ["id"]).execute();
@@ -810,17 +810,17 @@ export async function up(db: Kysely<any>): Promise<void> {
   await db.schema.alterTable("polls").addForeignKeyConstraint("polls_message_id_fkey", ["message_id"], "messages", ["id"], (fk) => fk.onDelete("cascade")).execute();
   await db.schema.alterTable("poll_options").addForeignKeyConstraint("poll_options_poll_id_fkey", ["poll_id"], "polls", ["id"], (fk) => fk.onDelete("cascade")).execute();
   await db.schema.alterTable("poll_votes").addForeignKeyConstraint("poll_votes_option_id_fkey", ["option_id"], "poll_options", ["id"], (fk) => fk.onDelete("cascade")).execute();
-  await db.schema.alterTable("poll_votes").addForeignKeyConstraint("poll_votes_poll_id_fkey", ["poll_id"], "polls", ["id"], (fk) => fk.onDelete("cascade")).execute();
+  await db.schema.alterTable("poll_votes").addForeignKeyConstraint("poll_votes_poll_id_fkey", ["poll_id"], "polls", ["id"], (fk) => onDeleteExceptMssql(fk, "cascade")).execute();
   await db.schema.alterTable("poll_votes").addForeignKeyConstraint("poll_votes_user_id_fkey", ["user_id"], "users", ["id"]).execute();
   await db.schema.alterTable("notifications").addForeignKeyConstraint("notifications_recipient_id_fkey", ["recipient_id"], "users", ["id"], (fk) => fk.onDelete("cascade")).execute();
   await db.schema.alterTable("notification_preferences").addForeignKeyConstraint("notification_preferences_user_id_fkey", ["user_id"], "users", ["id"], (fk) => fk.onDelete("cascade")).execute();
   await db.schema.alterTable("user_relationships").addForeignKeyConstraint("user_relationships_target_user_id_fkey", ["target_user_id"], "users", ["id"], (fk) => fk.onDelete("cascade")).execute();
-  await db.schema.alterTable("user_relationships").addForeignKeyConstraint("user_relationships_user_id_fkey", ["user_id"], "users", ["id"], (fk) => fk.onDelete("cascade")).execute();
+  await db.schema.alterTable("user_relationships").addForeignKeyConstraint("user_relationships_user_id_fkey", ["user_id"], "users", ["id"], (fk) => onDeleteExceptMssql(fk, "cascade")).execute();
   await db.schema.alterTable("audit_log").addForeignKeyConstraint("audit_log_actor_id_fkey", ["actor_id"], "users", ["id"]).execute();
   await db.schema.alterTable("audit_log").addForeignKeyConstraint("audit_log_session_id_fkey", ["session_id"], "user_sessions", ["id"], (fk) => fk.onDelete("set null")).execute();
   await db.schema.alterTable("system_settings").addForeignKeyConstraint("system_settings_updated_by_fkey", ["updated_by"], "users", ["id"]).execute();
   await db.schema.alterTable("games").addForeignKeyConstraint("games_conversation_id_fkey", ["conversation_id"], "conversations", ["id"], (fk) => fk.onDelete("cascade")).execute();
-  await db.schema.alterTable("games").addForeignKeyConstraint("games_message_id_fkey", ["message_id"], "messages", ["id"], (fk) => fk.onDelete("cascade")).execute();
+  await db.schema.alterTable("games").addForeignKeyConstraint("games_message_id_fkey", ["message_id"], "messages", ["id"], (fk) => onDeleteExceptMssql(fk, "cascade")).execute();
   await db.schema.alterTable("games").addForeignKeyConstraint("games_player1_id_fkey", ["player1_id"], "users", ["id"]).execute();
   await db.schema.alterTable("games").addForeignKeyConstraint("games_player2_id_fkey", ["player2_id"], "users", ["id"]).execute();
   await db.schema.alterTable("games").addForeignKeyConstraint("games_winner_id_fkey", ["winner_id"], "users", ["id"]).execute();
@@ -828,17 +828,17 @@ export async function up(db: Kysely<any>): Promise<void> {
   await db.schema.alterTable("user_wallpapers").addForeignKeyConstraint("user_wallpapers_user_id_fkey", ["user_id"], "users", ["id"], (fk) => fk.onDelete("cascade")).execute();
   await db.schema.alterTable("sticker_packs").addForeignKeyConstraint("sticker_packs_owner_id_fkey", ["owner_id"], "users", ["id"], (fk) => fk.onDelete("cascade")).execute();
   await db.schema.alterTable("user_stickers").addForeignKeyConstraint("user_stickers_owner_id_fkey", ["owner_id"], "users", ["id"], (fk) => fk.onDelete("cascade")).execute();
-  await db.schema.alterTable("user_stickers").addForeignKeyConstraint("user_stickers_pack_id_fkey", ["pack_id"], "sticker_packs", ["id"], (fk) => fk.onDelete("set null")).execute();
+  await db.schema.alterTable("user_stickers").addForeignKeyConstraint("user_stickers_pack_id_fkey", ["pack_id"], "sticker_packs", ["id"], (fk) => onDeleteExceptMssql(fk, "set null")).execute();
   await db.schema.alterTable("user_stickers").addForeignKeyConstraint("user_stickers_storage_object_id_fkey", ["storage_object_id"], "storage_objects", ["id"], (fk) => fk.onDelete("cascade")).execute();
   await db.schema.alterTable("sticker_usage").addForeignKeyConstraint("sticker_usage_owner_id_fkey", ["owner_id"], "users", ["id"], (fk) => fk.onDelete("cascade")).execute();
   await db.schema.alterTable("sticker_usage").addForeignKeyConstraint("sticker_usage_storage_object_id_fkey", ["storage_object_id"], "storage_objects", ["id"], (fk) => fk.onDelete("cascade")).execute();
   await db.schema.alterTable("auto_reply_log").addForeignKeyConstraint("auto_reply_log_away_user_id_fkey", ["away_user_id"], "users", ["id"], (fk) => fk.onDelete("cascade")).execute();
-  await db.schema.alterTable("auto_reply_log").addForeignKeyConstraint("auto_reply_log_peer_user_id_fkey", ["peer_user_id"], "users", ["id"], (fk) => fk.onDelete("cascade")).execute();
+  await db.schema.alterTable("auto_reply_log").addForeignKeyConstraint("auto_reply_log_peer_user_id_fkey", ["peer_user_id"], "users", ["id"], (fk) => onDeleteExceptMssql(fk, "cascade")).execute();
   await db.schema.alterTable("scheduled_messages").addForeignKeyConstraint("scheduled_messages_conversation_id_fkey", ["conversation_id"], "conversations", ["id"], (fk) => fk.onDelete("cascade")).execute();
   await db.schema.alterTable("scheduled_messages").addForeignKeyConstraint("scheduled_messages_sender_id_fkey", ["sender_id"], "users", ["id"], (fk) => fk.onDelete("cascade")).execute();
-  await db.schema.alterTable("scheduled_messages").addForeignKeyConstraint("scheduled_messages_sent_message_id_fkey", ["sent_message_id"], "messages", ["id"], (fk) => fk.onDelete("set null")).execute();
+  await db.schema.alterTable("scheduled_messages").addForeignKeyConstraint("scheduled_messages_sent_message_id_fkey", ["sent_message_id"], "messages", ["id"], (fk) => onDeleteExceptMssql(fk, "set null")).execute();
   await db.schema.alterTable("message_reminders").addForeignKeyConstraint("message_reminders_conversation_id_fkey", ["conversation_id"], "conversations", ["id"], (fk) => fk.onDelete("cascade")).execute();
-  await db.schema.alterTable("message_reminders").addForeignKeyConstraint("message_reminders_message_id_fkey", ["message_id"], "messages", ["id"], (fk) => fk.onDelete("cascade")).execute();
+  await db.schema.alterTable("message_reminders").addForeignKeyConstraint("message_reminders_message_id_fkey", ["message_id"], "messages", ["id"], (fk) => onDeleteExceptMssql(fk, "cascade")).execute();
   await db.schema.alterTable("message_reminders").addForeignKeyConstraint("message_reminders_user_id_fkey", ["user_id"], "users", ["id"], (fk) => fk.onDelete("cascade")).execute();
   await db.schema.alterTable("user_notification_settings").addForeignKeyConstraint("user_notification_settings_user_id_fkey", ["user_id"], "users", ["id"], (fk) => fk.onDelete("cascade")).execute();
   await db.schema.alterTable("push_subscriptions").addForeignKeyConstraint("push_subscriptions_user_id_fkey", ["user_id"], "users", ["id"], (fk) => fk.onDelete("cascade")).execute();
@@ -846,6 +846,15 @@ export async function up(db: Kysely<any>): Promise<void> {
   await db.schema.alterTable("password_tokens").addForeignKeyConstraint("password_tokens_user_id_fkey", ["user_id"], "users", ["id"], (fk) => fk.onDelete("cascade")).execute();
 
   // ── Índices ──
+  // SQL Server admite un solo NULL en un UNIQUE; PostgreSQL, varios. Para tener la
+  // misma semántica, ahí estos dos van como índices únicos filtrados.
+  await onMssql(db, async (db) => {
+    await db.schema.createIndex("users_email_key").on("users").columns(["email"]).unique()
+      .where(sql<boolean>`email IS NOT NULL`).execute();
+    await db.schema.createIndex("storage_presigned_urls_object_id_user_id_operation_key").on("storage_presigned_urls")
+      .columns(["object_id", "user_id", "operation"]).unique()
+      .where(sql<boolean>`user_id IS NOT NULL AND operation IS NOT NULL`).execute();
+  });
   await db.schema.createIndex("idx_attachments_message").on("message_attachments").columns(["message_id"]).execute();
   await db.schema.createIndex("idx_attachments_object").on("message_attachments").columns(["object_id"]).execute();
   await db.schema.createIndex("idx_audit_action").on("audit_log").columns(["action", "created_at desc"]).execute();
@@ -857,30 +866,30 @@ export async function up(db: Kysely<any>): Promise<void> {
   await db.schema.createIndex("idx_calls_conversation").on("calls").columns(["conversation_id", "initiated_at desc"]).execute();
   await db.schema.createIndex("idx_calls_initiator").on("calls").columns(["initiated_by", "initiated_at desc"]).execute();
   await db.schema.createIndex("idx_conv_members_conv").on("conversation_members").columns(["conversation_id"]).where(sql.raw<boolean>("(left_at IS NULL)")).execute();
-  await db.schema.createIndex("idx_conv_members_user").on("conversation_members").columns(["user_id"]).where(sql.raw<boolean>("((left_at IS NULL) AND (is_hidden = false))")).execute();
+  await db.schema.createIndex("idx_conv_members_user").on("conversation_members").columns(["user_id"]).where(sql<boolean>`left_at IS NULL AND is_hidden = ${d.bool(false)}`).execute();
   await db.schema.createIndex("idx_email_outbox_created").on("email_outbox").columns(["created_at desc"]).execute();
-  await db.schema.createIndex("idx_email_outbox_pending").on("email_outbox").columns(["send_after"]).where(sql.raw<boolean>("((status)::text = 'pending'::text)")).execute();
+  await db.schema.createIndex("idx_email_outbox_pending").on("email_outbox").columns(["send_after"]).where(sql.raw<boolean>("status = 'pending'")).execute();
   await db.schema.createIndex("idx_games_message").on("games").columns(["message_id"]).execute();
-  await db.schema.createIndex("idx_message_reminders_due").on("message_reminders").columns(["remind_at"]).where(sql.raw<boolean>("((status)::text = 'pending'::text)")).execute();
+  await db.schema.createIndex("idx_message_reminders_due").on("message_reminders").columns(["remind_at"]).where(sql.raw<boolean>("status = 'pending'")).execute();
   await db.schema.createIndex("idx_message_reminders_user").on("message_reminders").columns(["user_id", "remind_at desc"]).execute();
   await db.schema.createIndex("idx_message_search_tokens_token").on("message_search_tokens").columns(["token"]).execute();
-  await db.schema.createIndex("idx_messages_conversation").on("messages").columns(["conversation_id", "sent_at desc"]).where(sql.raw<boolean>("(is_deleted = false)")).execute();
+  await db.schema.createIndex("idx_messages_conversation").on("messages").columns(["conversation_id", "sent_at desc"]).where(sql<boolean>`is_deleted = ${d.bool(false)}`).execute();
   await db.schema.createIndex("idx_messages_reply").on("messages").columns(["reply_to_id"]).where(sql.raw<boolean>("(reply_to_id IS NOT NULL)")).execute();
   await db.schema.createIndex("idx_messages_sender").on("messages").columns(["sender_id", "sent_at desc"]).execute();
   await db.schema.createIndex("idx_messages_thread").on("messages").columns(["thread_id"]).where(sql.raw<boolean>("(thread_id IS NOT NULL)")).execute();
   await db.schema.createIndex("idx_monitoring_snapshots_fecha").on("monitoring_snapshots").columns(["fecha_registro desc"]).execute();
   await db.schema.createIndex("idx_monitoring_snapshots_host_fecha").on("monitoring_snapshots").columns(["host", "fecha_registro desc"]).execute();
   await db.schema.createIndex("idx_notifications_email_due").on("notifications").columns(["email_due_at"]).where(sql.raw<boolean>("((email_due_at IS NOT NULL) AND (emailed_at IS NULL))")).execute();
-  await db.schema.createIndex("idx_notifications_unread").on("notifications").columns(["recipient_id", "created_at desc"]).where(sql.raw<boolean>("(is_read = false)")).execute();
+  await db.schema.createIndex("idx_notifications_unread").on("notifications").columns(["recipient_id", "created_at desc"]).where(sql<boolean>`is_read = ${d.bool(false)}`).execute();
   await db.schema.createIndex("idx_password_tokens_user").on("password_tokens").columns(["user_id"]).execute();
   await db.schema.createIndex("idx_presigned_active").on("storage_presigned_urls").columns(["object_id", "user_id", "operation", "expires_at"]).execute();
   await db.schema.createIndex("idx_push_subscriptions_user").on("push_subscriptions").columns(["user_id"]).execute();
   await db.schema.createIndex("idx_receipts_message").on("message_receipts").columns(["message_id"]).execute();
   await db.schema.createIndex("idx_receipts_user_unread").on("message_receipts").columns(["user_id", "message_id"]).where(sql.raw<boolean>("(read_at IS NULL)")).execute();
-  await db.schema.createIndex("idx_scheduled_messages_due").on("scheduled_messages").columns(["scheduled_at"]).where(sql.raw<boolean>("((status)::text = 'pending'::text)")).execute();
+  await db.schema.createIndex("idx_scheduled_messages_due").on("scheduled_messages").columns(["scheduled_at"]).where(sql.raw<boolean>("status = 'pending'")).execute();
   await db.schema.createIndex("idx_scheduled_messages_sender").on("scheduled_messages").columns(["sender_id", "scheduled_at desc"]).execute();
-  await db.schema.createIndex("idx_sessions_token").on("user_sessions").columns(["token_hash"]).where(sql.raw<boolean>("(is_active = true)")).execute();
-  await db.schema.createIndex("idx_sessions_user_active").on("user_sessions").columns(["user_id"]).where(sql.raw<boolean>("(is_active = true)")).execute();
+  await db.schema.createIndex("idx_sessions_token").on("user_sessions").columns(["token_hash"]).where(sql<boolean>`is_active = ${d.bool(true)}`).execute();
+  await db.schema.createIndex("idx_sessions_user_active").on("user_sessions").columns(["user_id"]).where(sql<boolean>`is_active = ${d.bool(true)}`).execute();
   await db.schema.createIndex("idx_sticker_usage_recent").on("sticker_usage").columns(["owner_id", "last_used_at desc"]).execute();
   await db.schema.createIndex("idx_storage_hash").on("storage_objects").columns(["file_hash_sha256"]).where(sql.raw<boolean>("(file_hash_sha256 IS NOT NULL)")).execute();
   await db.schema.createIndex("idx_storage_pending").on("storage_objects").columns(["processing_status", "uploaded_at"]).where(sql.raw<boolean>("processing_status IN ('pending', 'processing')")).execute();
@@ -889,7 +898,7 @@ export async function up(db: Kysely<any>): Promise<void> {
   await db.schema.createIndex("idx_users_away_until").on("users").columns(["away_until"]).where(sql.raw<boolean>("(away_until IS NOT NULL)")).execute();
   await db.schema.createIndex("idx_users_external_id").on("users").columns(["external_id"]).unique().where(sql.raw<boolean>("(external_id IS NOT NULL)")).execute();
   await db.schema.createIndex("idx_users_presence").on("users").columns(["presence", "last_seen_at"]).execute();
-  await db.schema.createIndex("idx_users_status").on("users").columns(["status"]).where(sql.raw<boolean>("((status)::text <> 'deleted'::text)")).execute();
+  await db.schema.createIndex("idx_users_status").on("users").columns(["status"]).where(sql.raw<boolean>("status <> 'deleted'")).execute();
   await db.schema.createIndex("pinned_messages_conversation_id_key").on("pinned_messages").columns(["conversation_id"]).unique().execute();
 
   // ── Exclusivo de PostgreSQL: índices GIN/de expresión, funciones, triggers y comentarios ──

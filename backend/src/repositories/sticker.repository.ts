@@ -183,10 +183,17 @@ class StickerRepository extends BaseRepository<StickerRow> {
   }
 
   async deletePack(id: string, ownerId: string): Promise<boolean> {
-    const result = await this.db.deleteFrom('sticker_packs')
-      .where('id', '=', id).where('owner_id', '=', ownerId)
-      .executeTakeFirst();
-    return Number(result.numDeletedRows) > 0;
+    return this.db.transaction().execute(async (trx) => {
+      // Los stickers del pack quedan sueltos (como el ON DELETE SET NULL, que en
+      // SQL Server no se puede declarar en esta FK; ver onDeleteExceptMssql).
+      await trx.updateTable('user_stickers').set({ pack_id: null })
+        .where('pack_id', '=', id).where('owner_id', '=', ownerId)
+        .execute();
+      const result = await trx.deleteFrom('sticker_packs')
+        .where('id', '=', id).where('owner_id', '=', ownerId)
+        .executeTakeFirst();
+      return Number(result.numDeletedRows) > 0;
+    });
   }
 }
 

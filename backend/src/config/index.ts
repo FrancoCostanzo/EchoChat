@@ -39,6 +39,9 @@ interface AppConfig {
     password: string;
     min: number;
     max: number;
+    /** SQL Server: conexión cifrada (`DB_ENCRYPT`) y aceptar certificados propios (`DB_TRUST_SERVER_CERT`). */
+    encrypt: boolean;
+    trustServerCertificate: boolean;
   };
   redis: { url: string };
   jwt: {
@@ -110,7 +113,7 @@ function list(raw: string | undefined): string[] {
 }
 
 /** Motores soportados. Se van sumando por etapas (docs/MULTI_DB.md). */
-const DB_CLIENTS = ['postgres'] as const;
+const DB_CLIENTS = ['postgres', 'mssql'] as const;
 export type DbClient = (typeof DB_CLIENTS)[number];
 
 function parseDbClient(raw: string | undefined): DbClient {
@@ -206,12 +209,14 @@ const config: AppConfig = {
   db: {
     client: parseDbClient(process.env.DB_CLIENT),
     host: process.env.DB_HOST || 'localhost',
-    port: num(process.env.DB_PORT, 5432),
+    port: num(process.env.DB_PORT, parseDbClient(process.env.DB_CLIENT) === 'mssql' ? 1433 : 5432),
     database: process.env.DB_NAME || 'echochat',
     user: process.env.DB_USER || 'echochat',
     password: process.env.DB_PASSWORD || '',
     min: num(process.env.DB_POOL_MIN, 2),
     max: num(process.env.DB_POOL_MAX, 20),
+    encrypt: process.env.DB_ENCRYPT === 'true',
+    trustServerCertificate: process.env.DB_TRUST_SERVER_CERT !== 'false',
   },
 
   // Estado compartido entre instancias (adapter de Socket.IO, presencia, rate

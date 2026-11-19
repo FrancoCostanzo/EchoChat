@@ -1,4 +1,6 @@
-import { Kysely, PostgresDialect, sql, type Dialect, type Transaction } from 'kysely';
+import { Kysely, MssqlDialect, PostgresDialect, sql, type Dialect, type Transaction } from 'kysely';
+import * as Tedious from 'tedious';
+import * as Tarn from 'tarn';
 import config from '../index';
 import { pool } from '../database';
 import * as metricsRegistry from '../../utils/metricsRegistry';
@@ -13,10 +15,23 @@ import { UpdatedAtPlugin } from './updatedAtPlugin';
  */
 
 function createDialect(): Dialect {
-  switch (config.db.client) {
+  const { client, host, port, database, user, password, min, max, encrypt, trustServerCertificate } = config.db;
+  switch (client) {
     case 'postgres':
       // Mismo pool que usa `query()`: una sola configuración y un solo límite de conexiones.
       return new PostgresDialect({ pool });
+    case 'mssql':
+      return new MssqlDialect({
+        tarn: { ...Tarn, options: { min, max } },
+        tedious: {
+          ...Tedious,
+          connectionFactory: () => new Tedious.Connection({
+            server: host,
+            authentication: { type: 'default', options: { userName: user, password } },
+            options: { port, database, encrypt, trustServerCertificate },
+          }),
+        },
+      });
   }
 }
 

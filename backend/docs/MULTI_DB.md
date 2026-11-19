@@ -2,7 +2,8 @@
 
 > Estado: **etapas 0, 1 y 2 hechas** (Kysely conectado; esquema, migraciones y seed en TypeScript;
 > los 25 repositorios consultan con Kysely). Etapa 3 en curso: triggers, funciones, columnas
-> array y consultas del timeline ya resueltos.
+> array y consultas del timeline ya resueltos. **Etapa 5 adelantada:** el esquema completo ya se
+> crea en SQL Server 2022; falta adaptar las consultas (upserts, `RETURNING`, etc.).
 > Motores: PostgreSQL (actual) → **SQL Server** (primero) → MySQL/MariaDB y SQLite más adelante.
 
 ## Decisiones
@@ -146,7 +147,32 @@ un CTE con `DELETE … USING`, los `ORDER BY (status = 'pending')` pasan a `CASE
 - Helpers de columna (`uuid()`, `timestamp()`, `json()`, `ip()`) que devuelven el tipo de cada
   motor. Índices GIN sólo en PostgreSQL.
 
-### Etapa 5 — Dialecto SQL Server (≈5–7 días)
+### Etapa 5 — Dialecto SQL Server (en curso, adelantada)
+
+**Hecho:**
+- `DB_CLIENT=mssql` con `MssqlDialect` de Kysely (`tedious` 19 + `tarn` 3). Opciones nuevas:
+  `DB_ENCRYPT` (por defecto `false`) y `DB_TRUST_SERVER_CERT` (por defecto `true`); el puerto por
+  defecto pasa a 1433 con `mssql`.
+- `schema.ts` con la rama de SQL Server: `uniqueidentifier`, `nvarchar`, `bit`, `datetimeoffset`,
+  `bigint IDENTITY`, `NEWID()`, `SYSDATETIMEOFFSET()`, booleanos `1/0` (`d.bool`) y `t.keyText(n)`
+  para las columnas de texto que son clave o índice (SQL Server no indexa `nvarchar(max)`).
+- `001_initial` corre completa en SQL Server (las 3 migraciones, 51 tablas, 101 FKs, 44 CHECK) y en
+  PostgreSQL sigue dando un `pg_dump` idéntico al histórico. Ajustes: CHECK y WHERE de índices
+  parciales sin casts `::`, la FK diferible `conversations.last_message_id` sólo en PostgreSQL, y
+  dos UNIQUE sobre columnas con NULL (`users.email`, `storage_presigned_urls`) como índices únicos
+  filtrados en SQL Server, que si no admitiría un solo NULL.
+- 8 FKs quedan sin `ON DELETE` en SQL Server por *multiple cascade paths* (`onDeleteExceptMssql`):
+  `pinned_messages.message_id`, `poll_votes.poll_id`, `user_relationships.user_id`,
+  `games.message_id`, `user_stickers.pack_id`, `auto_reply_log.peer_user_id`,
+  `scheduled_messages.sent_message_id`, `message_reminders.message_id`. Sus tablas padre sólo se
+  borran lógicamente, salvo `sticker_packs`: `deletePack` desvincula los stickers antes de borrar.
+- Para poder instalar el driver hubo que pasar a Express 5 (rama `fix/express-5`): se quitó
+  `express-async-errors`, que rompía el arranque.
+
+**Falta:** correr la suite con `DB_CLIENT=mssql` y adaptar las consultas (ver la lista de la
+etapa 3), monitoreo con `sys.dm_exec_sessions`, y el reemplazo de `disableLdapUsersNotIn`.
+
+**Plan original:**
 - `MssqlDialect` de Kysely (`tedious` + `tarn`), implementación de los helpers para SQL Server
   y monitoreo con `sys.dm_exec_sessions`.
 - Contenedor de tests `mcr.microsoft.com/mssql/server:2022-latest` y `npm test` con
