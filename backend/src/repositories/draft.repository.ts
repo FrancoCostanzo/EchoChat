@@ -1,4 +1,6 @@
 import BaseRepository from './base.repository';
+import { now } from '../config/db/sql';
+import { upsert } from '../config/db/upsert';
 import { encrypt, decrypt } from '../utils/crypto.util';
 import type { DraftRequest } from '../dtos/message.dto';
 // El tipo lo declara el modelo, que ya reemplaza el Json crudo de
@@ -6,6 +8,7 @@ import type { DraftRequest } from '../dtos/message.dto';
 import type { DraftRow } from '../models/message.model';
 
 // Per-user, per-conversation message drafts (table: drafts).
+// Primer repositorio pasado a Kysely (docs/MULTI_DB.md, etapa 0).
 class DraftRepository extends BaseRepository<DraftRow> {
   constructor() {
     super('drafts');
@@ -16,16 +19,20 @@ class DraftRepository extends BaseRepository<DraftRow> {
     conversationId: string,
     { body, reply_to_id, pending_attachments }: DraftRequest,
   ): Promise<DraftRow> {
-    const { rows } = await this.query(
-      `INSERT INTO drafts (user_id, conversation_id, body, reply_to_id, pending_attachments, updated_at)
-       VALUES ($1, $2, $3, $4, $5, NOW())
-       ON CONFLICT (user_id, conversation_id) DO UPDATE
-       SET body = $3, reply_to_id = $4, pending_attachments = $5, updated_at = NOW()
-       RETURNING *`,
-      [userId, conversationId, encrypt(body || null), reply_to_id || null,
-       JSON.stringify(pending_attachments || [])]
-    );
-    return this._decrypt(rows[0])!;
+    const values = {
+      body: encrypt(body || null),
+      reply_to_id: reply_to_id || null,
+      pending_attachments: JSON.stringify(pending_attachments || []),
+      updated_at: now(),
+    };
+    const row = await upsert(this.db, {
+      table: 'drafts',
+      values: { user_id: userId, conversation_id: conversationId, ...values },
+      conflict: ['user_id', 'conversation_id'],
+      update: values,
+      returning: true,
+    });
+    return this._decrypt(row as DraftRow)!;
   }
 
   /** El cuerpo se guarda cifrado; se descifra al leer (ver utils/crypto.util). */
@@ -35,28 +42,32 @@ class DraftRepository extends BaseRepository<DraftRow> {
   }
 
   async get(userId: string, conversationId: string): Promise<DraftRow | null> {
-    const { rows } = await this.query(
-      `SELECT * FROM drafts WHERE user_id = $1 AND conversation_id = $2`,
-      [userId, conversationId]
-    );
-    return this._decrypt(rows[0]) || null;
+    const row = await this.db
+      .selectFrom('drafts')
+      .selectAll()
+      .where('user_id', '=', userId)
+      .where('conversation_id', '=', conversationId)
+      .executeTakeFirst();
+    return this._decrypt(row as DraftRow | undefined) || null;
   }
 
   async remove(userId: string, conversationId: string): Promise<boolean> {
-    const { rowCount } = await this.query(
-      `DELETE FROM drafts WHERE user_id = $1 AND conversation_id = $2`,
-      [userId, conversationId]
-    );
-    return (rowCount ?? 0) > 0;
+    const result = await this.db
+      .deleteFrom('drafts')
+      .where('user_id', '=', userId)
+      .where('conversation_id', '=', conversationId)
+      .executeTakeFirst();
+    return Number(result.numDeletedRows) > 0;
   }
 
   async listByUser(userId: string): Promise<DraftRow[]> {
-    const { rows } = await this.query(
-      `SELECT * FROM drafts WHERE user_id = $1 ORDER BY updated_at DESC`,
-      [userId]
-    );
-    rows.forEach((r) => this._decrypt(r));
-    return rows;
+    const rows = await this.db
+      .selectFrom('drafts')
+      .selectAll()
+      .where('user_id', '=', userId)
+      .orderBy('updated_at', 'desc')
+      .execute();
+    return (rows as DraftRow[]).map((r) => this._decrypt(r)!);
   }
 }
 

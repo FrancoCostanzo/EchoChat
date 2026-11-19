@@ -1,4 +1,7 @@
+import { sql } from 'kysely';
 import BaseRepository from './base.repository';
+import { upsert, insertIgnore } from '../config/db/upsert';
+import { now, nowMinus, secondsSince, json } from '../config/db/sql';
 import type { Row } from '../types/rows';
 import type { CallHistoryRow } from '../models/call.model';
 import type { UpdateParticipantRequest } from '../dtos/call.dto';
@@ -25,44 +28,41 @@ class CallRepository extends BaseRepository<CallRow> {
       initiated_by: string;
     },
   ): Promise<CallRow> {
-    const { rows } = await this.query(
-      `INSERT INTO calls (conversation_id, type, initiated_by)
-       VALUES ($1, $2, $3) RETURNING *`,
-      [conversation_id || null, type, initiated_by]
-    );
-    return rows[0];
+    const row = await this.db.insertInto('calls')
+      .values({ conversation_id: conversation_id || null, type, initiated_by })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    return row as CallRow;
   }
 
   async updateStatus(id: string, status: string, endReason: string | null = null): Promise<CallRow> {
-    const extras: string[] = [];
-    const params: any[] = [status, id];
-
-    if (status === 'active') {
-      extras.push('answered_at = NOW()');
-    }
-    if (status === 'ended' || status === 'missed' || status === 'rejected' || status === 'failed') {
-      extras.push(`ended_at = NOW()`);
-      extras.push(`end_reason = $${params.length + 1}`);
-      params.push(endReason);
-    }
-
-    const setClauses = [`status = $1`, ...extras].join(', ');
-    const { rows } = await this.query(
-      `UPDATE calls SET ${setClauses} WHERE id = $2 RETURNING *`,
-      params
-    );
-    return rows[0];
+    const ending = status === 'ended' || status === 'missed' || status === 'rejected' || status === 'failed';
+    const row = await this.db.updateTable('calls')
+      .set((eb) => {
+        const changes: Record<string, unknown> = { status };
+        if (status === 'active') changes.answered_at = now();
+        if (ending) {
+          changes.ended_at = now();
+          changes.end_reason = endReason;
+          // La primera vez que se cierra una llamada atendida, su duración (antes
+          // lo hacía el trigger fn_calculate_call_duration).
+          changes.duration_seconds = eb.case()
+            .when(eb.and([eb('ended_at', 'is', null), eb('answered_at', 'is not', null)]))
+            .then(secondsSince('answered_at'))
+            .else(eb.ref('duration_seconds'))
+            .end();
+        }
+        return changes;
+      })
+      .where('id', '=', id)
+      .returningAll()
+      .executeTakeFirst();
+    return row as CallRow;
   }
 
   async addParticipant(callId: string, userId: string): Promise<ParticipantRow | undefined> {
-    const { rows } = await this.query<ParticipantRow>(
-      `INSERT INTO call_participants (call_id, user_id)
-       VALUES ($1, $2)
-       ON CONFLICT (call_id, user_id) DO NOTHING
-       RETURNING *`,
-      [callId, userId]
-    );
-    return rows[0];
+    const row = await upsert(this.db, { table: 'call_participants', values: { call_id: callId, user_id: userId }, conflict: ['call_id', 'user_id'], returning: true });
+    return row as ParticipantRow | undefined;
   }
 
   async updateParticipant(
@@ -71,32 +71,23 @@ class CallRepository extends BaseRepository<CallRow> {
     fields: UpdateParticipantRequest,
   ): Promise<ParticipantRow | null | undefined> {
     const allowed = ['status', 'can_speak', 'can_video', 'can_share_screen', 'is_muted_by_host'] as const;
-    const sets: string[] = [];
-    const values: any[] = [];
-    let idx = 1;
-
+    const changes: Record<string, unknown> = {};
     for (const key of allowed) {
-      if (fields[key] !== undefined) {
-        sets.push(`${key} = $${idx}`);
-        values.push(fields[key]);
-        idx++;
-      }
+      if (fields[key] !== undefined) changes[key] = fields[key];
     }
-
     // Update timestamp columns based on status
-    if (fields.status === 'joined') sets.push('joined_at = NOW()');
-    if (['left', 'rejected', 'no_answer', 'busy'].includes(fields.status as string)) sets.push('left_at = NOW()');
+    if (fields.status === 'joined') changes.joined_at = now();
+    if (['left', 'rejected', 'no_answer', 'busy'].includes(fields.status as string)) changes.left_at = now();
 
-    if (sets.length === 0) return null;
+    if (Object.keys(changes).length === 0) return null;
 
-    values.push(callId, userId);
-    const { rows } = await this.query<ParticipantRow>(
-      `UPDATE call_participants SET ${sets.join(', ')}
-       WHERE call_id = $${idx} AND user_id = $${idx + 1}
-       RETURNING *`,
-      values
-    );
-    return rows[0];
+    const row = await this.db.updateTable('call_participants')
+      .set(changes)
+      .where('call_id', '=', callId)
+      .where('user_id', '=', userId)
+      .returningAll()
+      .executeTakeFirst();
+    return row as ParticipantRow | undefined;
   }
 
   /**
@@ -108,69 +99,70 @@ class CallRepository extends BaseRepository<CallRow> {
     userId: string,
     { rttMs, jitterMs, packetLossPct }: { rttMs: number | null; jitterMs: number | null; packetLossPct: number | null },
   ): Promise<void> {
-    await this.query(
-      `UPDATE call_participants SET avg_latency_ms = $3, avg_packet_loss = $4
-       WHERE call_id = $1 AND user_id = $2`,
-      [callId, userId, rttMs === null ? null : Math.round(rttMs), packetLossPct]
-    );
-    await this.query(
-      `UPDATE calls c SET quality_stats = COALESCE(c.quality_stats, '{}'::jsonb) || jsonb_build_object(
-         'avg_rtt_ms', (SELECT ROUND(AVG(avg_latency_ms)) FROM call_participants WHERE call_id = c.id),
-         'avg_packet_loss_pct', (SELECT ROUND(AVG(avg_packet_loss), 2) FROM call_participants WHERE call_id = c.id),
-         'max_jitter_ms', GREATEST(COALESCE((c.quality_stats->>'max_jitter_ms')::numeric, 0), COALESCE($2::numeric, 0))
-       )
-       WHERE c.id = $1`,
-      [callId, jitterMs === null ? null : Math.round(jitterMs)]
-    );
+    await this.db.updateTable('call_participants')
+      .set({ avg_latency_ms: rttMs === null ? null : Math.round(rttMs), avg_packet_loss: packetLossPct })
+      .where('call_id', '=', callId)
+      .where('user_id', '=', userId)
+      .execute();
+    // Resumen de la llamada: promedio de los participantes que reportaron y el
+    // peor jitter visto. Se arma acá (antes con operadores JSONB de PostgreSQL).
+    const jitter = jitterMs === null ? null : Math.round(jitterMs);
+    await this.db.transaction().execute(async (trx) => {
+      const stats = await trx.selectFrom('call_participants')
+        .select((eb) => [eb.fn.avg('avg_latency_ms').as('rtt'), eb.fn.avg('avg_packet_loss').as('loss')])
+        .where('call_id', '=', callId)
+        .executeTakeFirst();
+      const call = await trx.selectFrom('calls').select('quality_stats').where('id', '=', callId).executeTakeFirst();
+      if (!call) return;
+      const current = (call.quality_stats ?? {}) as Record<string, unknown>;
+      const round = (v: unknown, digits = 0) => (v === null || v === undefined ? null : Number(Number(v).toFixed(digits)));
+      const next = {
+        ...current,
+        avg_rtt_ms: round(stats?.rtt),
+        avg_packet_loss_pct: round(stats?.loss, 2),
+        max_jitter_ms: Math.max(Number(current.max_jitter_ms ?? 0), jitter ?? 0),
+      };
+      await trx.updateTable('calls').set({ quality_stats: json(next) }).where('id', '=', callId).execute();
+    });
   }
 
   /** Llamadas que todavía le están sonando a `userId` (no atendió ni rechazó). */
   async findRingingForUser(userId: string, maxAgeSeconds: number): Promise<CallRow[]> {
-    const { rows } = await this.query<CallRow>(
-      `SELECT c.* FROM calls c
-       JOIN call_participants cp ON cp.call_id = c.id
-       WHERE cp.user_id = $1
-         AND cp.status = 'invited'
-         AND c.initiated_by <> $1
-         AND c.status IN ('pending', 'ringing')
-         AND c.initiated_at > NOW() - make_interval(secs => $2)`,
-      [userId, maxAgeSeconds]
-    );
-    return rows;
+    return this.db.selectFrom('calls as c')
+      .innerJoin('call_participants as cp', 'cp.call_id', 'c.id')
+      .selectAll('c')
+      .where('cp.user_id', '=', userId)
+      .where('cp.status', '=', 'invited')
+      .where('c.initiated_by', '<>', userId)
+      .where('c.status', 'in', ['pending', 'ringing'])
+      .where('c.initiated_at', '>', nowMinus(maxAgeSeconds, 'seconds'))
+      .execute() as Promise<CallRow[]>;
   }
 
   async getParticipantIds(callId: string): Promise<string[]> {
-    const { rows } = await this.query<{ user_id: string }>(
-      'SELECT user_id FROM call_participants WHERE call_id = $1',
-      [callId]
-    );
+    const rows = await this.db.selectFrom('call_participants').select('user_id').where('call_id', '=', callId).execute();
     return rows.map((r) => r.user_id);
   }
 
   async getParticipants(callId: string): Promise<ParticipantWithUser[]> {
-    const { rows } = await this.query<ParticipantWithUser>(
-      `SELECT cp.*, u.username, u.display_name, u.avatar_object_key
-       FROM call_participants cp
-       JOIN users u ON u.id = cp.user_id
-       WHERE cp.call_id = $1
-       ORDER BY cp.invited_at`,
-      [callId]
-    );
-    return rows;
+    return this.db.selectFrom('call_participants as cp')
+      .innerJoin('users as u', 'u.id', 'cp.user_id')
+      .selectAll('cp')
+      .select(['u.username', 'u.display_name', 'u.avatar_object_key'])
+      .where('cp.call_id', '=', callId)
+      .orderBy('cp.invited_at')
+      .execute() as unknown as Promise<ParticipantWithUser[]>;
   }
 
   async findByConversation(
     conversationId: string,
     { limit = 20, offset = 0 }: { limit?: number; offset?: number } = {},
   ): Promise<CallRow[]> {
-    const { rows } = await this.query(
-      `SELECT * FROM calls
-       WHERE conversation_id = $1
-       ORDER BY initiated_at DESC
-       LIMIT $2 OFFSET $3`,
-      [conversationId, limit, offset]
-    );
-    return rows;
+    return this.db.selectFrom('calls').selectAll()
+      .where('conversation_id', '=', conversationId)
+      .orderBy('initiated_at', 'desc')
+      .limit(limit).offset(offset)
+      .execute() as Promise<CallRow[]>;
   }
 
   // Historial global de un usuario: todas las llamadas en las que participó,
@@ -179,42 +171,43 @@ class CallRepository extends BaseRepository<CallRow> {
     userId: string,
     { limit = 50, offset = 0, filter }: { limit?: number; offset?: number; filter?: string } = {},
   ): Promise<CallHistoryRow[]> {
-    const statusFilter = filter === 'missed'
-      ? `AND c.status IN ('missed','rejected','failed')`
-      : '';
-    const { rows } = await this.query<CallHistoryRow>(
-      `SELECT c.*,
-              conv.type AS conversation_type,
-              conv.name AS conversation_name,
-              other.display_name AS other_display_name,
-              other.avatar_object_key AS other_avatar_key
-       FROM calls c
-       JOIN call_participants cp ON cp.call_id = c.id AND cp.user_id = $1
-       LEFT JOIN conversations conv ON conv.id = c.conversation_id
-       LEFT JOIN LATERAL (
-         SELECT u.display_name, u.avatar_object_key
-         FROM conversation_members cm2
-         JOIN users u ON u.id = cm2.user_id
-         WHERE cm2.conversation_id = conv.id AND cm2.user_id <> $1
-         LIMIT 1
-       ) other ON conv.type = 'direct'
-       WHERE cp.user_id = $1 ${statusFilter}
-       ORDER BY c.initiated_at DESC
-       LIMIT $2 OFFSET $3`,
-      [userId, limit, offset]
-    );
-    return rows;
+    let q = this.db.selectFrom('calls as c')
+      .innerJoin('call_participants as cp', (j) => j.onRef('cp.call_id', '=', 'c.id').on('cp.user_id', '=', userId))
+      .leftJoin('conversations as conv', 'conv.id', 'c.conversation_id')
+      .leftJoinLateral(
+        (eb) => eb.selectFrom('conversation_members as cm2')
+          .innerJoin('users as u', 'u.id', 'cm2.user_id')
+          .select(['u.display_name', 'u.avatar_object_key'])
+          .whereRef('cm2.conversation_id', '=', 'conv.id')
+          .where('cm2.user_id', '<>', userId)
+          // Sólo en directos; adentro para que sirva como OUTER APPLY en SQL Server.
+          .where(sql<boolean>`conv.type = 'direct'`)
+          .limit(1)
+          .as('other'),
+        (j) => j.onTrue(),
+      )
+      .selectAll('c')
+      .select([
+        'conv.type as conversation_type',
+        'conv.name as conversation_name',
+        'other.display_name as other_display_name',
+        'other.avatar_object_key as other_avatar_key',
+      ])
+      .where('cp.user_id', '=', userId);
+    if (filter === 'missed') q = q.where('c.status', 'in', ['missed', 'rejected', 'failed']);
+    return q.orderBy('c.initiated_at', 'desc')
+      .limit(limit).offset(offset)
+      .execute() as unknown as Promise<CallHistoryRow[]>;
   }
 
   async findActiveByUser(userId: string): Promise<CallRow[]> {
-    const { rows } = await this.query(
-      `SELECT c.* FROM calls c
-       JOIN call_participants cp ON cp.call_id = c.id
-       WHERE cp.user_id = $1 AND c.status IN ('pending','ringing','active')
-       ORDER BY c.initiated_at DESC`,
-      [userId]
-    );
-    return rows;
+    return this.db.selectFrom('calls as c')
+      .innerJoin('call_participants as cp', 'cp.call_id', 'c.id')
+      .selectAll('c')
+      .where('cp.user_id', '=', userId)
+      .where('c.status', 'in', ['pending', 'ringing', 'active'])
+      .orderBy('c.initiated_at', 'desc')
+      .execute() as Promise<CallRow[]>;
   }
 }
 

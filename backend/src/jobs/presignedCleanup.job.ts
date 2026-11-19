@@ -1,15 +1,13 @@
 import logger from '../config/logger';
-import { pool } from '../config/database';
+import { storageRepository } from '../repositories';
 import type { BackgroundJob } from './index';
 
 // Removes expired cached presigned URLs so the table doesn't grow unbounded.
 // The backend regenerates URLs on demand, so deleting expired rows is safe.
 async function run(): Promise<void> {
-  const { rowCount } = await pool.query(
-    `DELETE FROM storage_presigned_urls WHERE expires_at < NOW()`
-  );
-  if (rowCount && rowCount > 0) {
-    logger.debug({ deleted: rowCount }, 'Cleaned up expired presigned URLs');
+  const deleted = await storageRepository.deleteExpiredPresignedUrls();
+  if (deleted > 0) {
+    logger.debug({ deleted }, 'Cleaned up expired presigned URLs');
   }
 }
 

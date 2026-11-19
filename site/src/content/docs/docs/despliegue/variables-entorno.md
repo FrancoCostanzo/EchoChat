@@ -20,12 +20,15 @@ commitees el archivo `.env` real.
 | `NODE_ENV` | `development` | `development` \| `production` \| `test`. Afecta logs y mensajes de error |
 | `PORT` | `3000` | Puerto de Express + Socket.IO |
 
-## PostgreSQL
+## Base de datos
 
 | Variable | Default | Descripción |
 |----------|---------|--------------|
+| `DB_CLIENT` | `postgres` | Motor: `postgres` (PostgreSQL ≥ 15) o `mssql` (SQL Server ≥ 2019, probado con 2022). Ver [Base de datos](/docs/despliegue/base-de-datos) |
 | `DB_HOST` | `localhost` | `postgres` en Docker todo-en-uno |
-| `DB_PORT` | `5432` | |
+| `DB_PORT` | `5432` / `1433` | `1433` si `DB_CLIENT=mssql` |
+| `DB_ENCRYPT` | `false` | Sólo SQL Server: conexión cifrada (TLS) |
+| `DB_TRUST_SERVER_CERT` | `true` | Sólo SQL Server: aceptar certificados propios del servidor. Ponerlo en `false` con un certificado válido |
 | `DB_NAME` | `echochat` | |
 | `DB_USER` | `echochat` | |
 | `DB_PASSWORD` | — | ⚠️ Cambiar en producción |

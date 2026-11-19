@@ -25,6 +25,25 @@ cd backend && DB_HOST=localhost DB_PORT=5438 DB_USER=echochat DB_PASSWORD=test n
 `DB_NAME` no se pasa: lo fija el preload en `echochat_test` (o en `TEST_DB_NAME`
 si se define). Es a propósito — ver la guarda de más abajo.
 
+### Contra SQL Server
+
+El soporte de SQL Server está en curso (ver `docs/MULTI_DB.md`). El contenedor de
+tests usa la edición Developer, gratuita sólo para desarrollo y pruebas; levantarlo
+implica aceptar el EULA de Microsoft (`ACCEPT_EULA=Y`). La clave es sólo de test.
+
+```bash
+docker run -d --name echochat-mssql-test -p 1433:1433 \
+  -e ACCEPT_EULA=Y -e MSSQL_PID=Developer -e 'MSSQL_SA_PASSWORD=EchoChat_Test1!' \
+  mcr.microsoft.com/mssql/server:2022-latest
+docker exec echochat-mssql-test /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa \
+  -P 'EchoChat_Test1!' -Q "CREATE DATABASE echochat_test"
+```
+
+```bash
+cd backend && DB_CLIENT=mssql DB_HOST=localhost DB_PORT=1433 DB_USER=sa \
+  DB_PASSWORD='EchoChat_Test1!' npm test
+```
+
 Para chequear los tipos de la suite, que `npm test` no valida porque `tsx` borra
 los tipos sin comprobarlos:
 
