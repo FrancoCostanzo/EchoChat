@@ -1,0 +1,141 @@
+# Chequeo de tipos + suite de integración del backend en cada push/PR que lo toque.
+#
+# La suite necesita una base vacía (ver backend/tests/README.md): corre una vez
+# contra PostgreSQL y otra contra SQL Server, cada una con su base levantada como
+# service container, y la suite la migra sola. El almacenamiento
+# usa el driver local, Redis queda apagado y SMTP/push están simulados, así que
+# no hace falta ningún otro servicio.
+name: Backend CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Typecheck (src)
+        run: npm run typecheck
+
+      - name: Typecheck (tests)
+        # tsx borra los tipos sin comprobarlos, así que `npm test` no los valida.
+        run: npm run typecheck:tests
+
+  test-postgres:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: echochat
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: echochat_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U echochat -d echochat_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Tests de integración (PostgreSQL)
+        # DB_NAME lo fija tests/entorno.ts en echochat_test.
+        env:
+          DB_CLIENT: postgres
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: echochat
+          DB_PASSWORD: test
+        run: npm test
+
+  test-mssql:
+    # Edición Developer: gratuita sólo para desarrollo y pruebas (ACCEPT_EULA=Y).
+    # La clave es sólo de test, la misma que en backend/tests/README.md.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: 'Y'
+          MSSQL_PID: Developer
+          MSSQL_SA_PASSWORD: 'EchoChat_Test1!'
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'EchoChat_Test1!' -Q 'SELECT 1'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+          --health-start-period 20s
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Crear la base de tests
+        # A diferencia de la imagen de PostgreSQL, SQL Server no crea la base por env.
+        run: >-
+          docker exec ${{ job.services.mssql.id }}
+          /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'EchoChat_Test1!'
+          -Q "CREATE DATABASE echochat_test"
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Tests de integración (SQL Server)
+        env:
+          DB_CLIENT: mssql
+          DB_HOST: localhost
+          DB_PORT: 1433
+          DB_USER: sa
+          DB_PASSWORD: 'EchoChat_Test1!'
+        run: npm test
