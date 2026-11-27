@@ -12,11 +12,11 @@
 | 1 | Canales | ✅ Hecho |
 | 2 | Notificaciones push + email | 🟡 En progreso (UI 2.3 ✅) |
 | 3 | Broadcasts completos | 🟡 En progreso (3.1–3.4 base ✅) |
-| 4 | Pipeline de media seguro | 🟡 En progreso (4.2–4.3 ✅) |
+| 4 | Pipeline de media seguro | ✅ Hecho (miniaturas de video pendientes) |
 | 5 | Llamadas WebRTC reales | 🟡 En progreso (malla P2P ✅) |
 | 6 | Mensajería ya modelada (quick wins) | ✅ Hecho |
 | 7 | Panel de administración | ✅ Hecho (base) |
-| 8 | Formato enriquecido y contenido | 🟡 En progreso (8.1–8.3 ✅) |
+| 8 | Formato enriquecido y contenido | ✅ Hecho |
 
 Orden recomendado:
 ```
@@ -216,10 +216,10 @@ Resolución de preferencias de lo más específico a lo más general:
 
 | # | Funcionalidad | Esfuerzo | Depende de | Estado |
 |---|---|---|---|---|
-| 4.1 | Thumbnails con `sharp`/`ffmpeg`, poblando `thumbnail_key`/`processing_status`. | M (3d) | 0.3 | ⬜ |
+| 4.1 | Thumbnails con `sharp`/`ffmpeg`, poblando `thumbnail_key`/`processing_status`. | M (3d) | 0.3 | ✅ imágenes |
 | 4.2 | Strip EXIF al subir imágenes. | S (1d) | — | ✅ |
 | 4.3 | Escaneo antivirus (ClamAV) con `virus_scan_status`. | M (2-3d) | — | ✅ |
-| 4.4 | Deduplicación por SHA256 (campo+índice ya existen). | S (1d) | — | ⬜ |
+| 4.4 | Deduplicación por SHA256 (campo+índice ya existen). | S (1d) | — | ✅ |
 
 ### Detalle de lo implementado en Fase 4
 
@@ -231,8 +231,19 @@ Resolución de preferencias de lo más específico a lo más general:
   (`media.malware_blocked`). `CLAMAV_HOST` vacío → `skipped`; clamd caído → `error` (o 503 con
   `CLAMAV_REQUIRED=true`); más de `CLAMAV_MAX_MB` → `skipped`. Servicio `clamav` en
   docker-compose (perfil `antivirus`). Aviso en el chat (es/en/pt). Tests en
-  `backend/tests/mediaSegura.test.ts`. Pendiente: la subida directa con URL firmada
-  (`/storage/upload-url`, sin uso en el frontend) no pasa por el escaneo.
+  `backend/tests/mediaSegura.test.ts`. Se quitó la subida directa con URL firmada
+  (`/storage/upload-url`, sin uso en el frontend), que no pasaba por el escaneo.
+- **4.1 Miniaturas** ✅ (imágenes) — al subir, una WebP de 640 px como máximo en
+  `messaging-thumbnails` (`thumbnail_key`, `processing_status` = `ready`/`failed`). Las
+  imágenes chicas, GIF y animaciones no llevan. `GET /storage/:id/url?variant=thumbnail`
+  (cae al original si no hay); el chat y la grilla de Multimedia muestran la miniatura y
+  piden el original al abrir o descargar. Borrar el objeto borra la miniatura.
+  Pendiente: miniaturas de video (necesita ffmpeg).
+- **4.4 Deduplicación** ✅ — SHA-256 del archivo tal como llegó; se reusa el objeto si el
+  mismo usuario sube el mismo archivo con el mismo nombre y tipo (el nombre se muestra en
+  el chat: reusar el de otro usuario lo dejaría ver). Si antes no había antivirus y ahora
+  sí, se vuelve a subir y escanear. Avatares y fondos quedan afuera. Borrar un mensaje
+  borra el objeto sólo si nadie más lo usa (`deleteIfUnreferenced`).
 
 ## FASE 5 — Llamadas WebRTC reales
 
@@ -369,9 +380,9 @@ Resolución de preferencias de lo más específico a lo más general:
 
 | Bloque | Tema | Estado |
 |--------|------|--------|
-| 8.A | Motor de renderizado + composer rico | 🟡 En progreso (8.1–8.3 ✅) |
-| 8.B | Menciones y enlaces enriquecidos | ⬜ |
-| 8.C | Tipos de mensaje especiales | ⬜ |
+| 8.A | Motor de renderizado + composer rico | ✅ |
+| 8.B | Menciones y enlaces enriquecidos | ✅ |
+| 8.C | Tipos de mensaje especiales | ✅ |
 | 8.D | Jobs y métricas pendientes | ✅ |
 
 Orden recomendado dentro de la fase:
@@ -387,9 +398,9 @@ Orden recomendado dentro de la fase:
 | 8.2 | **Barra de formato inline** en el composer: negrita, cursiva, tachado, código inline. | S (2d) | 8.1 | ✅ |
 | 8.3 | **Bloques de código**: mensaje tipo código + syntax highlight + copiar. | M (2-3d) | 8.1 | ✅ |
 | 8.4 | **@Menciones**: autocompletado, resaltado, notificación `message.mention`. | S (2d) | 8.1 | ✅ |
-| 8.5 | **Preview de links** (job async → `link_preview` JSONB). | S–M (2d) | 0.3, 8.1 | ⬜ |
-| 8.6 | **Mensajes de ubicación** (tipo `location` + mapa estático). | S (1-2d) | — | ⬜ |
-| 8.7 | **Mensajes de contacto** (tipo `contact` + tarjeta vCard). | S (1-2d) | — | ⬜ |
+| 8.5 | **Preview de links** (job async → `link_preview` JSONB). | S–M (2d) | 0.3, 8.1 | ✅ |
+| 8.6 | **Mensajes de ubicación** (tipo `location` + mapa estático). | S (1-2d) | — | ✅ |
+| 8.7 | **Mensajes de contacto** (tipo `contact` + tarjeta vCard). | S (1-2d) | — | ✅ |
 | 8.8 | **Retención de mensajes** (`message_retention_days` + job). | S (1-2d) | 0.3 | ✅ |
 | 8.9 | **Sincronizar `total_read`** en broadcasts desde read receipts. | S (1d) | 3.3 | ✅ |
 
@@ -527,7 +538,18 @@ ALTER TABLE messages ADD CONSTRAINT messages_type_check
 
 #### 8.5 Preview de links
 
-**Estado actual:** columna `link_preview JSONB` en `messages`; sin población.
+**✅ Hecho** — `linkPreview.service`: tras enviar o editar (si cambió el link) un mensaje
+`text`, pide en segundo plano la primera URL (timeout 5 s, 512 KB, hasta 3 redirecciones,
+sólo `text/html`) y lee Open Graph / Twitter / `<title>` / `description`. Anti-SSRF: la IP
+se valida en el `lookup` del propio socket (cubre DNS rebinding y redirecciones), se
+bloquean rangos privados/loopback/link-local/CGNAT y sólo puertos 80/443/8080/8443
+(`LINK_PREVIEW_ALLOW_PRIVATE=true` para la intranet). Caché en memoria de 24 h por URL.
+`link_preview` se guarda **cifrado** como el cuerpo. Socket `message:link_preview`;
+`LinkPreviewCard` bajo el texto (imagen sólo https, sin Referer). Sin skeleton: la vista
+previa puede no llegar nunca (sitio bloqueado o sin metadatos). Tests en
+`backend/tests/linkPreview.test.ts`.
+
+**Plan original:**
 
 **Entregables backend:**
 - Tras `sendMessage`, si el body contiene URL HTTP(S), encolar job `link-preview-fetch`.
@@ -549,7 +571,14 @@ ALTER TABLE messages ADD CONSTRAINT messages_type_check
 
 #### 8.6 Mensajes de ubicación
 
-**Estado actual:** tipo `location` en DTO; sin UI.
+**✅ Hecho** — menú del composer → `ShareLocationModal` (`navigator.geolocation`, etiqueta
+opcional, errores i18n). El DTO valida `metadata: { lat, lng, label? }`; el cuerpo es la
+etiqueta o las coordenadas (lo usan la lista de chats y la búsqueda). Burbuja
+`LocationMessage`: mapa estático de tiles de OpenStreetMap sin librería (3×3 tiles, pin al
+centro; sin internet queda el fondo con el pin) + link a OSM. Sin selector de punto en el
+mapa: sólo la ubicación actual.
+
+**Plan original:**
 
 **Entregables:**
 - Composer: botón “Ubicación” → modal con mapa (Leaflet o Mapbox) o “Usar mi ubicación”
@@ -564,7 +593,13 @@ ALTER TABLE messages ADD CONSTRAINT messages_type_check
 
 #### 8.7 Mensajes de contacto
 
-**Estado actual:** tipo `contact` en DTO; módulo `relationships` y `ContactsPage` existen.
+**✅ Hecho** — menú del composer → `ShareContactModal` (búsqueda de usuarios de la org). El
+DTO valida `metadata: { user_id }` y descarta el resto; el servicio exige que el usuario
+exista y pone su nombre como cuerpo. Burbuja `ContactCard`: avatar, nombre, puesto ·
+departamento (de `GET /users/:id`, que ahora trae `avatar_url`) y "Enviar mensaje".
+Tests en `backend/tests/tiposEspeciales.test.ts`.
+
+**Plan original:**
 
 **Entregables:**
 - Composer: “Compartir contacto” → picker de contactos EchoChat o usuario de la org.
