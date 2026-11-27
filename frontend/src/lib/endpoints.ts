@@ -30,7 +30,7 @@ import type {
   CallResponse, CallParticipantResponse, CallHistoryItem,
   InitiateCallRequest, UpdateCallStatusRequest, UpdateParticipantRequest,
 } from '@/types/call';
-import type { StorageObjectResponse, UploadMetadataRequest } from '@/types/storage';
+import type { StorageObjectResponse } from '@/types/storage';
 import type {
   UserStickerResponse, StickerPackResponse, StickerCollection, UpdateStickerRequest,
 } from '@/types/sticker';
@@ -184,7 +184,6 @@ export const callsApi = {
 export const storageApi = {
   upload: (file: File, objectType: string, extra: Record<string, string | number | boolean | undefined> = {}) =>
     api.upload<ApiEnvelope<StorageObjectResponse>>('/storage/upload', file, { object_type: objectType, ...extra }),
-  getUploadUrl: (data: UploadMetadataRequest) => api.post<ApiEnvelope<unknown>>('/storage/upload-url', data),
   getById: (id: string) => api.get<ApiEnvelope<StorageObjectResponse>>(`/storage/${id}`),
   getUrl: (id: string, variant?: 'thumbnail') =>
     api.get<ApiEnvelope<{ url: string }>>(`/storage/${id}/url${variant ? `?variant=${variant}` : ''}`),

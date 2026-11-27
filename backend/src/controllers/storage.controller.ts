@@ -29,11 +29,6 @@ class StorageController {
     res.json({ status: 'success', data: { url } });
   }
 
-  async getUploadUrl(req: AuthRequest, res: Response) {
-    const result = await storageService.getUploadPresignedUrl(req.user.id, req.body);
-    res.json({ status: 'success', data: result });
-  }
-
   async getById(req: AuthRequest, res: Response) {
     const obj = await storageService.getById(req.params.objectId);
     res.json({ status: 'success', data: obj });

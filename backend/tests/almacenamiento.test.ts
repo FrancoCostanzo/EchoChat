@@ -91,14 +91,19 @@ describe('almacenamiento local', () => {
     assert.equal(put.status, 403);
   });
 
-  test('subida directa con URL firmada de PUT', async () => {
+  test('no hay subida directa por API: todo pasa por /upload (antivirus + EXIF)', async () => {
     const r = await pedir('/api/storage/upload-url', {
       method: 'POST',
       token: ana.token,
       body: { original_filename: 'directo.txt', mime_type: 'text/plain', file_size_bytes: 7, object_type: 'document' },
     });
-    assert.equal(r.status, 200, r.texto);
-    const { url, bucket, objectKey } = r.datos;
+    assert.equal(r.status, 404, r.texto);
+  });
+
+  test('el driver local acepta un PUT con firma de subida', async () => {
+    const bucket = 'messaging-documents';
+    const objectKey = `documents/test/${Date.now()}.txt`;
+    const url = await storage.getSignedUploadUrl(bucket, objectKey, 60);
 
     const put = await fetch(servidor.base + url, { method: 'PUT', headers: { 'Content-Type': 'text/plain' }, body: 'directo' });
     assert.equal(put.status, 200);

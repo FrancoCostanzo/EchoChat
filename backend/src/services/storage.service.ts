@@ -180,14 +180,6 @@ class StorageService {
     return url;
   }
 
-  async getUploadPresignedUrl(userId: string, metadata: UploadMetadata) {
-    const bucket = this.getBucket(metadata.object_type);
-    const objectKey = this.generateObjectKey(metadata.object_type, metadata.original_filename);
-    const ttl = 3600;
-    const url = await storage.getSignedUploadUrl(bucket, objectKey, ttl);
-    return { url, bucket, objectKey };
-  }
-
   async getById(objectId: string) {
     const obj = await storageRepository.findById(objectId);
     if (!obj) throw new NotFoundError('Storage object');
