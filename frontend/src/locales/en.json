@@ -220,6 +220,8 @@
     "retrySend": "Retry",
     "sendError": "Failed to send",
     "uploadingFile": "Uploading file...",
+    "uploadBlockedMalware": "File blocked: the antivirus detected malicious content",
+    "uploadFailed": "Could not send the file",
     "attachImage": "Image",
     "attachVideo": "Video",
     "attachDocument": "Document",

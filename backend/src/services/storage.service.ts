@@ -6,6 +6,7 @@ import { storage, LocalStorageProvider } from '../config/storage';
 import { storageRepository } from '../repositories';
 import { NotFoundError, ForbiddenError, BadRequestError } from '../errors';
 import { toStorageObjectResponse } from '../models';
+import mediaSafetyService from './mediaSafety.service';
 import type { UploadMetadataRequest, StorageObjectType } from '../dtos/storage.dto';
 
 // Map object_type to bucket
@@ -54,8 +55,14 @@ class StorageService {
     const bucket = this.getBucket(metadata.object_type);
     const objectKey = this.generateObjectKey(metadata.object_type, metadata.original_filename);
 
+    // Antivirus + EXIF antes de guardar: un archivo infectado no llega al bucket.
+    const clean = await mediaSafetyService.sanitize(fileBuffer, metadata.mime_type, {
+      userId,
+      filename: metadata.original_filename,
+    });
+
     // Upload to storage
-    await storage.putObject(bucket, objectKey, fileBuffer, metadata.file_size_bytes, metadata.mime_type);
+    await storage.putObject(bucket, objectKey, clean.buffer, clean.sizeBytes, metadata.mime_type);
 
     // Register in DB
     const storageObj = await storageRepository.create({
@@ -64,12 +71,14 @@ class StorageService {
       object_key: objectKey,
       original_filename: metadata.original_filename,
       mime_type: metadata.mime_type,
-      file_size_bytes: metadata.file_size_bytes,
+      file_size_bytes: clean.sizeBytes,
       file_hash_sha256: metadata.file_hash_sha256 || null,
       object_type: metadata.object_type,
-      image_width: metadata.image_width,
-      image_height: metadata.image_height,
+      image_width: clean.width ?? metadata.image_width,
+      image_height: clean.height ?? metadata.image_height,
       duration_ms: metadata.duration_ms,
+      virus_scan_status: clean.virusScanStatus,
+      exif_stripped: clean.exifStripped,
     });
 
     logger.info({ objectId: storageObj.id, bucket, objectKey }, 'File uploaded to storage');

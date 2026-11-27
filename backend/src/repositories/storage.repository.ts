@@ -27,7 +27,8 @@ class StorageRepository extends BaseRepository<StorageRow> {
 
   async create(
     { uploader_id, bucket_name, object_key, original_filename, mime_type, file_size_bytes,
-      file_hash_sha256, object_type, image_width, image_height, duration_ms }: {
+      file_hash_sha256, object_type, image_width, image_height, duration_ms,
+      virus_scan_status, exif_stripped }: {
       uploader_id: string | null;
       bucket_name: string;
       object_key: string;
@@ -39,6 +40,8 @@ class StorageRepository extends BaseRepository<StorageRow> {
       image_width?: number | null;
       image_height?: number | null;
       duration_ms?: number | null;
+      virus_scan_status?: string;
+      exif_stripped?: boolean;
     },
   ): Promise<StorageRow> {
     const row = await this.db.insertInto('storage_objects')
@@ -54,6 +57,12 @@ class StorageRepository extends BaseRepository<StorageRow> {
         image_width: image_width || null,
         image_height: image_height || null,
         duration_ms: duration_ms || null,
+        ...(virus_scan_status && {
+          virus_scan_status,
+          // 'skipped' no es un escaneo: no tiene fecha.
+          virus_scanned_at: virus_scan_status === 'skipped' ? null : now(),
+        }),
+        ...(exif_stripped !== undefined && { exif_stripped }),
       })
       .returningAll()
       .executeTakeFirstOrThrow();

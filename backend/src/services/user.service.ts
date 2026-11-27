@@ -5,6 +5,7 @@ import { userRepository, credentialRepository, auditRepository } from '../reposi
 import { clearAutoAway } from '../config/presenceStore';
 import { toAll } from '../config/eventBus';
 import { storage } from '../config/storage';
+import mediaSafetyService from './mediaSafety.service';
 import { NotFoundError, BadRequestError } from '../errors';
 import { toUserResponse } from '../models';
 import type { UserResponse } from '../models/user.model';
@@ -87,6 +88,11 @@ class UserService {
     if (fileSize > AVATAR_MAX_SIZE) {
       throw new BadRequestError('File too large. Maximum size is 5 MB');
     }
+
+    // Antes de tocar el avatar actual: si el archivo se rechaza, queda el de antes.
+    const clean = await mediaSafetyService.sanitize(fileBuffer, mimeType, { userId, filename: originalFilename });
+    fileBuffer = clean.buffer;
+    fileSize = clean.sizeBytes;
 
     // Delete previous avatar from MinIO if it exists
     const current = await userRepository.findById(userId);

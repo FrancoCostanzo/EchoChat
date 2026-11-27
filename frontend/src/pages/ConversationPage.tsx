@@ -64,6 +64,7 @@ import {
 } from '@/lib/messageWindow';
 import ConversationDetailPanel, { type DetailTab } from '@/components/ConversationDetailPanel';
 import { storageApi, stickerApi, messagesApi } from '@/lib/endpoints';
+import { ApiError } from '@/lib/api';
 import { EASE_OUT } from '@/lib/motion';
 import type { ChatMessage } from '@/stores/chatStore';
 import type { SendMessageRequest } from '@/types/message';
@@ -342,10 +343,13 @@ export default function ConversationPage() {
       await sendMessage(msgData, user ?? undefined);
     } catch (err) {
       console.error('Upload failed:', err);
+      const malware = err instanceof ApiError
+        && (err.details as { code?: string } | undefined)?.code === 'MALWARE_DETECTED';
+      toast.danger(t(malware ? 'chat.uploadBlockedMalware' : 'chat.uploadFailed'));
     } finally {
       setSendingFile(false);
     }
-  }, [conversationId, sendMessage, user]);
+  }, [conversationId, sendMessage, user, t]);
 
   // Drag & drop / paste-to-attach. Reuses the single-file preview flow: the
   // first dropped or pasted file opens the FilePreviewBar with a caption.

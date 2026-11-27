@@ -12,7 +12,7 @@
 | 1 | Canales | ✅ Hecho |
 | 2 | Notificaciones push + email | 🟡 En progreso (UI 2.3 ✅) |
 | 3 | Broadcasts completos | 🟡 En progreso (3.1–3.4 base ✅) |
-| 4 | Pipeline de media seguro | ⬜ Pendiente |
+| 4 | Pipeline de media seguro | 🟡 En progreso (4.2–4.3 ✅) |
 | 5 | Llamadas WebRTC reales | 🟡 En progreso (malla P2P ✅) |
 | 6 | Mensajería ya modelada (quick wins) | ✅ Hecho |
 | 7 | Panel de administración | ✅ Hecho (base) |
@@ -213,12 +213,25 @@ Resolución de preferencias de lo más específico a lo más general:
 
 ## FASE 4 — Pipeline de media seguro
 
-| # | Funcionalidad | Esfuerzo | Depende de |
-|---|---|---|---|
-| 4.1 | Thumbnails con `sharp`/`ffmpeg`, poblando `thumbnail_key`/`processing_status`. | M (3d) | 0.3 |
-| 4.2 | Strip EXIF al subir imágenes. | S (1d) | 4.1 |
-| 4.3 | Escaneo antivirus (ClamAV) con `virus_scan_status`. | M (2-3d) | 0.3 |
-| 4.4 | Deduplicación por SHA256 (campo+índice ya existen). | S (1d) | — |
+| # | Funcionalidad | Esfuerzo | Depende de | Estado |
+|---|---|---|---|---|
+| 4.1 | Thumbnails con `sharp`/`ffmpeg`, poblando `thumbnail_key`/`processing_status`. | M (3d) | 0.3 | ⬜ |
+| 4.2 | Strip EXIF al subir imágenes. | S (1d) | — | ✅ |
+| 4.3 | Escaneo antivirus (ClamAV) con `virus_scan_status`. | M (2-3d) | — | ✅ |
+| 4.4 | Deduplicación por SHA256 (campo+índice ya existen). | S (1d) | — | ⬜ |
+
+### Detalle de lo implementado en Fase 4
+
+- **4.2 EXIF** ✅ — `mediaSafety.service` (con `sharp`) quita EXIF/XMP/IPTC y comentarios de
+  JPEG, PNG, WebP, AVIF y TIFF al subir (archivos y avatares), aplicando antes la orientación.
+  Una imagen sin metadatos no se re-codifica. Guarda `exif_stripped` y las dimensiones reales.
+- **4.3 Antivirus** ✅ — escaneo síncrono con clamd (INSTREAM por TCP, sin dependencias) antes
+  de guardar: infectado → 422 `MALWARE_DETECTED`, no se guarda y queda en auditoría
+  (`media.malware_blocked`). `CLAMAV_HOST` vacío → `skipped`; clamd caído → `error` (o 503 con
+  `CLAMAV_REQUIRED=true`); más de `CLAMAV_MAX_MB` → `skipped`. Servicio `clamav` en
+  docker-compose (perfil `antivirus`). Aviso en el chat (es/en/pt). Tests en
+  `backend/tests/mediaSegura.test.ts`. Pendiente: la subida directa con URL firmada
+  (`/storage/upload-url`, sin uso en el frontend) no pasa por el escaneo.
 
 ## FASE 5 — Llamadas WebRTC reales
 
