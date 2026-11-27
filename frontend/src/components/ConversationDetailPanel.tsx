@@ -712,9 +712,11 @@ function LoadMoreButton({ loading, onLoadMore }: { loading: boolean; onLoadMore:
 }
 
 function MediaGridItem({ item }: { item: ConversationAttachmentItem }) {
-  const url = useStorageUrl(item.id);
   const isVideo = item.object_type === 'video';
+  // La grilla usa la miniatura; el visor, el original.
+  const url = useStorageUrl(item.id, isVideo ? undefined : 'thumbnail');
   const [open, setOpen] = useState(false);
+  const fullUrl = useStorageUrl(open && !isVideo ? item.id : null);
 
   return (
     <>
@@ -739,7 +741,7 @@ function MediaGridItem({ item }: { item: ConversationAttachmentItem }) {
       {open && url && (isVideo ? (
         <VideoViewer src={url} filename={item.original_filename ?? undefined} onClose={() => setOpen(false)} />
       ) : (
-        <ImageViewer src={url} filename={item.original_filename ?? undefined} onClose={() => setOpen(false)} />
+        <ImageViewer src={fullUrl ?? url} filename={item.original_filename ?? undefined} onClose={() => setOpen(false)} />
       ))}
     </>
   );

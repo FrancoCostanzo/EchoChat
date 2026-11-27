@@ -209,3 +209,98 @@ describe('antivirus', () => {
     assert.equal(estricto.status, 503);
   });
 });
+
+describe('miniaturas', () => {
+  async function urlMiniatura(objectId: string): Promise<string> {
+    const r = await pedir(`/api/storage/${objectId}/url?variant=thumbnail`, { token: ana.token });
+    assert.equal(r.status, 200, r.texto);
+    return r.datos.url;
+  }
+
+  test('una foto grande lleva una miniatura WebP de 640 px como máximo', async () => {
+    const foto = await sharp({ create: { width: 2000, height: 1000, channels: 3, background: '#36c' } }).jpeg().toBuffer();
+    const { status, cuerpo } = await subir(foto, 'grande.jpg', 'image/jpeg', 'image');
+    assert.equal(status, 201, JSON.stringify(cuerpo));
+
+    const fila = await storageRepository.findById(cuerpo.data.id);
+    assert.ok(fila?.thumbnail_key, 'falta la miniatura');
+    assert.equal(fila?.processing_status, 'ready');
+
+    const res = await fetch(servidor.base + await urlMiniatura(cuerpo.data.id));
+    assert.equal(res.status, 200);
+    const meta = await sharp(Buffer.from(await res.arrayBuffer())).metadata();
+    assert.equal(meta.format, 'webp');
+    assert.equal(meta.width, 640);
+    assert.equal(meta.height, 320);
+  });
+
+  test('una imagen chica no lleva miniatura y la variante devuelve el original', async () => {
+    const png = await sharp({ create: { width: 32, height: 32, channels: 3, background: '#fc0' } }).png().toBuffer();
+    const { cuerpo } = await subir(png, 'icono.png', 'image/png', 'image');
+    const fila = await storageRepository.findById(cuerpo.data.id);
+    assert.equal(fila?.thumbnail_key, null);
+    assert.equal(fila?.processing_status, 'ready');
+
+    const res = await fetch(servidor.base + await urlMiniatura(cuerpo.data.id));
+    assert.ok(Buffer.from(await res.arrayBuffer()).equals(png));
+  });
+
+  test('borrar el objeto borra también la miniatura', async () => {
+    const foto = await sharp({ create: { width: 1500, height: 1500, channels: 3, background: '#393' } }).jpeg().toBuffer();
+    const { cuerpo } = await subir(foto, 'borrar.jpg', 'image/jpeg', 'image');
+    const url = await urlMiniatura(cuerpo.data.id);
+    assert.equal((await fetch(servidor.base + url)).status, 200);
+
+    const r = await pedir(`/api/storage/${cuerpo.data.id}`, { method: 'DELETE', token: ana.token });
+    assert.equal(r.status, 200, r.texto);
+    assert.equal((await fetch(servidor.base + url)).status, 404);
+  });
+});
+
+describe('deduplicación', () => {
+  test('el mismo archivo con el mismo nombre se reusa', async () => {
+    const contenido = `informe ${Date.now()}`;
+    const a = await subir(contenido, 'informe.txt', 'text/plain');
+    const b = await subir(contenido, 'informe.txt', 'text/plain');
+    assert.equal(a.status, 201);
+    assert.equal(b.status, 201);
+    assert.equal(b.cuerpo.data.id, a.cuerpo.data.id);
+  });
+
+  test('con otro nombre, o de otro usuario, es otro objeto', async () => {
+    const contenido = `presupuesto ${Date.now()}`;
+    const a = await subir(contenido, 'presupuesto.txt', 'text/plain');
+    const otroNombre = await subir(contenido, 'presupuesto-final.txt', 'text/plain');
+    assert.notEqual(otroNombre.cuerpo.data.id, a.cuerpo.data.id);
+
+    const beto = await crearUsuario(pedir, 'media');
+    const form = new FormData();
+    form.append('file', new Blob([contenido], { type: 'text/plain' }), 'presupuesto.txt');
+    form.append('object_type', 'document');
+    const res = await fetch(`${servidor.base}/api/storage/upload`, {
+      method: 'POST', headers: { Authorization: `Bearer ${beto.token}` }, body: form,
+    });
+    const deBeto = ((await res.json()) as { data: { id: string } }).data;
+    assert.notEqual(deBeto.id, a.cuerpo.data.id);
+  });
+
+  test('si antes no había antivirus y ahora sí, se vuelve a escanear', async () => {
+    const contenido = `planilla ${Date.now()}`;
+    config.antivirus.host = '';
+    const sinEscanear = await subir(contenido, 'planilla.txt', 'text/plain');
+
+    const clamd = await clamdFalso();
+    try {
+      Object.assign(config.antivirus, { host: '127.0.0.1', port: clamd.puerto });
+      const escaneado = await subir(contenido, 'planilla.txt', 'text/plain');
+      assert.notEqual(escaneado.cuerpo.data.id, sinEscanear.cuerpo.data.id);
+      assert.equal((await storageRepository.findById(escaneado.cuerpo.data.id))?.virus_scan_status, 'clean');
+
+      // Y el escaneado ya se reusa.
+      const otraVez = await subir(contenido, 'planilla.txt', 'text/plain');
+      assert.equal(otraVez.cuerpo.data.id, escaneado.cuerpo.data.id);
+    } finally {
+      await clamd.cerrar();
+    }
+  });
+});

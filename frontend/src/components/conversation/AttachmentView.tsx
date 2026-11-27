@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Button, Tooltip } from '@heroui/react';
@@ -8,8 +8,7 @@ import ImageViewer from '@/components/ImageViewer';
 import VideoViewer from '@/components/VideoViewer';
 import PdfPreview from '@/components/PdfPreview';
 import { downloadFile } from '@/lib/download';
-import { storageApi } from '@/lib/endpoints';
-import { useStorageUrl, attachmentUrlCache } from '@/lib/useStorageUrl';
+import { useStorageUrl, resolveStorageUrl } from '@/lib/useStorageUrl';
 import { EASE_OUT } from '@/lib/motion';
 import type { MessageAttachment } from '@/types/message';
 import type { MessageSticker } from '@/components/conversation/shared';
@@ -64,10 +63,6 @@ export function StickerImage({
 export default function AttachmentView({ attachment }: { attachment: MessageAttachment }) {
   const { t } = useTranslation();
   const reducedMotion = useReducedMotion();
-  const [url, setUrl] = useState<string | null>(() => {
-    const c = attachmentUrlCache.get(attachment.id);
-    return typeof c === 'string' ? c : null;
-  });
   const [imgLoaded, setImgLoaded] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -80,28 +75,17 @@ export default function AttachmentView({ attachment }: { attachment: MessageAtta
     attachment.object_type === 'video' || attachment.mime_type?.startsWith('video/');
   const isPdf = attachment.mime_type === 'application/pdf';
 
-  useEffect(() => {
-    const cached = attachmentUrlCache.get(attachment.id);
-    if (typeof cached === 'string') {
-      setUrl(cached);
-      return;
-    }
-    // Reuse in-flight promise or start a new one
-    const promise = cached instanceof Promise
-      ? cached
-      : (() => {
-          const p = storageApi.getUrl(attachment.id).then((res) => {
-            attachmentUrlCache.set(attachment.id, res.data.url);
-            return res.data.url;
-          }).catch(() => {
-            attachmentUrlCache.delete(attachment.id);
-            return undefined;
-          });
-          attachmentUrlCache.set(attachment.id, p);
-          return p;
-        })();
-    promise.then((resolvedUrl) => { if (resolvedUrl) setUrl(resolvedUrl); }).catch(() => {});
-  }, [attachment.id]);
+  // En el chat las imágenes muestran la miniatura; el original se pide al
+  // abrirla o descargarla.
+  const url = useStorageUrl(attachment.id, isImage ? 'thumbnail' : undefined);
+  const [fullUrl, setFullUrl] = useState<string | null>(null);
+  const loadFull = () => resolveStorageUrl(attachment.id).then((u) => {
+    if (u) setFullUrl(u);
+    return u;
+  });
+  const download = () => {
+    void loadFull().then((u) => { if (u) void downloadFile(u, attachment.original_filename); });
+  };
 
   if (!url) {
     return (
@@ -118,7 +102,7 @@ export default function AttachmentView({ attachment }: { attachment: MessageAtta
       <>
         <motion.div
           className="group relative inline-block min-h-48 cursor-zoom-in overflow-hidden rounded-lg"
-          onClick={() => setViewerOpen(true)}
+          onClick={() => { setViewerOpen(true); void loadFull(); }}
           whileHover={reducedMotion ? undefined : { scale: 1.015 }}
           whileTap={reducedMotion ? undefined : { scale: 0.985 }}
           transition={{ duration: 0.18, ease: EASE_OUT }}
@@ -142,7 +126,7 @@ export default function AttachmentView({ attachment }: { attachment: MessageAtta
               <Button
                 isIconOnly
                 variant="ghost"
-                onPress={() => void downloadFile(url, attachment.original_filename)}
+                onPress={download}
                 className="h-auto w-auto min-w-0 rounded-md bg-black/70 p-1.5 text-white backdrop-blur-sm transition-colors hover:bg-black/90"
               >
                 <Download size={13} />
@@ -156,7 +140,7 @@ export default function AttachmentView({ attachment }: { attachment: MessageAtta
             {viewerOpen && (
               <ImageViewer
                 key={attachment.id}
-                src={url}
+                src={fullUrl ?? url}
                 filename={attachment.original_filename ?? undefined}
                 layoutId={imageLayoutId}
                 onClose={() => setViewerOpen(false)}

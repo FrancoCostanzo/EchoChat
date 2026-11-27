@@ -186,7 +186,8 @@ export const storageApi = {
     api.upload<ApiEnvelope<StorageObjectResponse>>('/storage/upload', file, { object_type: objectType, ...extra }),
   getUploadUrl: (data: UploadMetadataRequest) => api.post<ApiEnvelope<unknown>>('/storage/upload-url', data),
   getById: (id: string) => api.get<ApiEnvelope<StorageObjectResponse>>(`/storage/${id}`),
-  getUrl: (id: string) => api.get<ApiEnvelope<{ url: string }>>(`/storage/${id}/url`),
+  getUrl: (id: string, variant?: 'thumbnail') =>
+    api.get<ApiEnvelope<{ url: string }>>(`/storage/${id}/url${variant ? `?variant=${variant}` : ''}`),
   delete: (id: string) => api.delete<ApiMessageEnvelope>(`/storage/${id}`),
 };
 
