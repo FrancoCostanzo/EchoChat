@@ -61,6 +61,14 @@ function decryptRow<T extends Record<string, any> | null | undefined>(row: T): T
   if ('body' in r) r.body = decrypt(r.body);
   if ('reply_to_body' in r) r.reply_to_body = decrypt(r.reply_to_body);
   if ('saved_note' in r) r.saved_note = decrypt(r.saved_note);
+  // La vista previa trae la URL y el título de la página: se cifra como el cuerpo.
+  if (r.link_preview && typeof r.link_preview.enc === 'string') {
+    try {
+      r.link_preview = JSON.parse(decrypt(r.link_preview.enc) ?? 'null');
+    } catch {
+      r.link_preview = null;
+    }
+  }
   return row;
 }
 
@@ -427,6 +435,14 @@ class MessageRepository extends BaseRepository<MessageRow> {
       await trx.deleteFrom('messages').where('id', 'in', ids).execute();
       return objects.map((o) => o.object_id);
     });
+  }
+
+  /** Guarda (o borra, con null) la vista previa del link, cifrada como el cuerpo. */
+  async setLinkPreview(id: string, preview: unknown | null): Promise<void> {
+    await this.db.updateTable('messages')
+      .set({ link_preview: preview == null ? null : json({ enc: encrypt(JSON.stringify(preview)) }) })
+      .where('id', '=', id)
+      .execute();
   }
 
   async deleteAttachments(messageId: string): Promise<void> {

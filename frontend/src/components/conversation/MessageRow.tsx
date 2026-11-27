@@ -35,6 +35,7 @@ import type { ChatMessage } from '@/stores/chatStore';
 import type { AuthenticatedUser } from '@/types/user';
 import type { MessageMetadata } from '@/components/conversation/shared';
 import AttachmentView, { StickerImage } from '@/components/conversation/AttachmentView';
+import LinkPreviewCard from '@/components/conversation/LinkPreviewCard';
 import CallEventRow from '@/components/conversation/CallEventRow';
 
 function ReactionPill({
@@ -363,6 +364,10 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
                     message._status === 'error' ? (isOwn ? 'text-red-100' : 'text-echo-dnd') : '',
                   ].filter(Boolean).join(' ')}
                 />
+              )}
+
+              {message.type === 'text' && message.link_preview && !message.is_deleted && (
+                <LinkPreviewCard preview={message.link_preview} variant={isOwn ? 'own' : 'other'} />
               )}
 
               {/* Attachments */}

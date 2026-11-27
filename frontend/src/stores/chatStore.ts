@@ -9,7 +9,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useCallStore } from '@/stores/callStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import type { ConversationResponse, CreateConversationRequest } from '@/types/conversation';
-import type { MessageResponse, MessageReaction, MessageBodyFormat, SendMessageRequest } from '@/types/message';
+import type { MessageResponse, MessageReaction, MessageBodyFormat, SendMessageRequest, LinkPreview } from '@/types/message';
 import type { PollResponse } from '@/types/poll';
 import type { GameResponse } from '@/types/game';
 
@@ -290,6 +290,14 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       set((state) => ({
         messages: state.messages.map((m) =>
           m.id === messageId ? { ...m, thread_count } : m,
+        ),
+      }));
+    });
+
+    socket.on('message:link_preview', ({ messageId, link_preview }: { messageId: string; link_preview: LinkPreview }) => {
+      set((state) => ({
+        messages: state.messages.map((m) =>
+          m.id === messageId ? { ...m, link_preview } : m,
         ),
       }));
     });

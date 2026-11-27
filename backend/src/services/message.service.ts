@@ -15,6 +15,7 @@ import {
 } from '../repositories';
 import notificationService from './notification.service';
 import storageService from './storage.service';
+import linkPreviewService, { firstUrl } from './linkPreview.service';
 import { NotFoundError, ForbiddenError, BadRequestError } from '../errors';
 import { toMessageResponse, toSavedMessageResponse, toDraftResponse, toPollResponse, toGameResponse } from '../models';
 import { resolveBodyFormat } from '../utils/markdown.util';
@@ -167,6 +168,7 @@ class MessageService {
       void this._pushNuevoMensaje(response, menciones, userId);
     }
     void this._autoResponderAusencia(response, userId);
+    void linkPreviewService.attach(response);
     return response;
   }
 
@@ -452,10 +454,15 @@ class MessageService {
       (message.metadata ?? {}) as Record<string, unknown>;
     const metadata = menciones.length ? { ...metadataLimpia, mentions: menciones } : metadataLimpia;
 
+    // Si cambió el link, la vista previa vieja ya no corresponde: se recalcula.
+    const linkChanged = firstUrl(message.body) !== firstUrl(body);
+    if (linkChanged) await messageRepository.setLinkPreview(messageId, null);
+
     const updated = await messageRepository.updateBody(messageId, body, userId, format, metadata);
     logger.info({ messageId }, 'Message edited');
 
     const response = toMessageResponse(updated);
+    if (linkChanged && response) void linkPreviewService.attach(response);
     try {
       toConversation(message.conversation_id, 'message:edited', response);
     } catch (err) {

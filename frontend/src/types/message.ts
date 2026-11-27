@@ -8,6 +8,15 @@ import type { GameResponse } from './game';
  * nota de sincronización en types/user.ts.
  */
 /** Los valores que un cliente puede mandar al crear un mensaje (sendMessageDto). */
+/** Vista previa del primer link de un mensaje de texto (la arma el backend). */
+export interface LinkPreview {
+  url: string;
+  title: string | null;
+  description: string | null;
+  image_url: string | null;
+  site_name: string | null;
+}
+
 export type MessageType =
   | 'text' | 'media' | 'location' | 'contact' | 'poll'
   | 'forwarded' | 'code' | 'sticker' | 'game';
@@ -89,7 +98,7 @@ export interface MessageResponse {
   is_edited: boolean;
   edited_at: string | null;
   is_deleted: boolean;
-  link_preview: Record<string, unknown> | null;
+  link_preview: LinkPreview | null;
   metadata: Record<string, unknown> | null;
   sent_at: string | null;
   // Datos del emisor, presentes cuando la fila viene de un JOIN con users.

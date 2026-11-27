@@ -117,6 +117,8 @@ interface AppConfig {
   ice: { stunUrls: string[]; turnUrls: string[]; turnSecret: string; turnTtlSeconds: number };
   /** Antivirus (clamd por TCP). Sin `host` el escaneo queda en 'skipped'. */
   antivirus: { host: string; port: number; timeoutMs: number; required: boolean; maxBytes: number };
+  /** Vista previa de links: el backend pide la página para leer título, descripción e imagen. */
+  linkPreview: { enabled: boolean; allowPrivate: boolean; timeoutMs: number };
   cors: { origins: string[] };
   rateLimit: { windowMs: number; max: number; passwordResetMax: number };
   log: { level: string };
@@ -364,6 +366,15 @@ const config: AppConfig = {
   appUrl: (process.env.APP_URL
     || parseCorsOrigins(process.env.CORS_ORIGIN).find((o) => o.startsWith('http'))
     || 'http://localhost:5173').replace(/\/$/, ''),
+
+  linkPreview: {
+    enabled: process.env.LINK_PREVIEW_ENABLED !== 'false',
+    // true = también links a IPs privadas (wikis o sistemas de la intranet). Deja
+    // que cualquier usuario haga que el backend pida URLs internas: sólo si la red
+    // interna no tiene servicios sin autenticar.
+    allowPrivate: process.env.LINK_PREVIEW_ALLOW_PRIVATE === 'true',
+    timeoutMs: num(process.env.LINK_PREVIEW_TIMEOUT_MS, 5000),
+  },
 
   ice: {
     // Sin ICE_STUN_URLS se usa el STUN público de Google, como antes. En una
