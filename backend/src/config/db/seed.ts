@@ -110,7 +110,7 @@ const SETTINGS: { key: string; value: string; description: string; category: str
   { key: 'max_group_members', value: '500', description: 'Máximo de miembros por grupo', category: 'groups' },
   { key: 'call_recording_enabled', value: 'false', description: 'Habilitar grabación de llamadas', category: 'calls' },
   { key: 'require_call_consent', value: 'true', description: 'Requerir consentimiento explícito para grabar', category: 'calls' },
-  { key: 'message_retention_days', value: '0', description: 'Días de retención de mensajes (0 = sin límite)', category: 'general' },
+  { key: 'message_retention_days', value: '0', description: 'Días de retención de mensajes; los más viejos se borran definitivamente cada noche, con sus adjuntos (0 = sin límite)', category: 'general' },
   { key: 'presence_timeout_minutes', value: '5', description: 'Minutos de inactividad para pasar a "away"', category: 'general' },
   { key: 'message_edit_window_minutes', value: '15', description: 'Minutos para editar un mensaje propio (0 = sin límite)', category: 'messages' },
   { key: 'message_delete_window_minutes', value: '15', description: 'Minutos para eliminar un mensaje propio (0 = sin límite)', category: 'messages' },

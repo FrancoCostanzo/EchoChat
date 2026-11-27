@@ -389,7 +389,7 @@ Orden recomendado dentro de la fase:
 | 8.5 | **Preview de links** (job async → `link_preview` JSONB). | S–M (2d) | 0.3, 8.1 | ⬜ |
 | 8.6 | **Mensajes de ubicación** (tipo `location` + mapa estático). | S (1-2d) | — | ⬜ |
 | 8.7 | **Mensajes de contacto** (tipo `contact` + tarjeta vCard). | S (1-2d) | — | ⬜ |
-| 8.8 | **Retención de mensajes** (`message_retention_days` + job). | S (1-2d) | 0.3 | ⬜ |
+| 8.8 | **Retención de mensajes** (`message_retention_days` + job). | S (1-2d) | 0.3 | ✅ |
 | 8.9 | **Sincronizar `total_read`** en broadcasts desde read receipts. | S (1d) | 3.3 | ⬜ |
 
 ### Detalle de lo implementado en Fase 8 (parcial)
@@ -579,8 +579,15 @@ ALTER TABLE messages ADD CONSTRAINT messages_type_check
 
 #### 8.8 Retención de mensajes
 
-**Estado actual:** `system_settings.message_retention_days` (0 = sin límite); comentario
-pendiente en `backend/src/jobs/index.js`.
+**✅ Hecho** — job `message-retention` (03:30) → `messageService.purgeExpired`: borra
+**físicamente** (no soft-delete: miles de "mensaje eliminado" llenarían los chats viejos) por
+tandas de 500 los mensajes con `sent_at` anterior al umbral, suelta las referencias sin cascada
+(respuestas, reenvíos, hilos, borradores, último mensaje de la conversación, y las FKs que en
+SQL Server no tienen cascada), borra los adjuntos que quedan sin uso y audita
+`message.retention_purge`. Una raíz de hilo con respuestas más nuevas espera a que venza el
+hilo entero. Tests en `backend/tests/retencion.test.ts`.
+
+**Plan original:**
 
 **Entregables:**
 - Job `message-retention` (diario): leer setting; soft-delete (`is_deleted`) mensajes

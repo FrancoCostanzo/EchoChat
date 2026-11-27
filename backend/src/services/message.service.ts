@@ -14,6 +14,7 @@ import {
   pushSubscriptionRepository,
 } from '../repositories';
 import notificationService from './notification.service';
+import storageService from './storage.service';
 import { NotFoundError, ForbiddenError, BadRequestError } from '../errors';
 import { toMessageResponse, toSavedMessageResponse, toDraftResponse, toPollResponse, toGameResponse } from '../models';
 import { resolveBodyFormat } from '../utils/markdown.util';
@@ -466,6 +467,46 @@ class MessageService {
       void this._notificarMenciones(response, nuevas, userId);
     }
     return response;
+  }
+
+  /**
+   * Retención (`message_retention_days`): borra físicamente los mensajes más
+   * viejos que el límite y los adjuntos que quedan sin uso. 0 = sin límite.
+   * Va por tandas para no tomar locks largos; lo que no entra en esta corrida
+   * sale en la siguiente.
+   */
+  async purgeExpired({ batchSize = 500, maxBatches = 20 } = {}): Promise<{ messages: number; objects: number }> {
+    const days = await getWindowMinutes('message_retention_days', 0);
+    if (days === 0) return { messages: 0, objects: 0 };
+
+    let messages = 0;
+    let objects = 0;
+    for (let i = 0; i < maxBatches; i++) {
+      const ids = await messageRepository.findExpiredIds(days, batchSize);
+      if (ids.length === 0) break;
+      const objectIds = await messageRepository.purge(ids);
+      messages += ids.length;
+      for (const objectId of objectIds) {
+        try {
+          if (await storageService.deleteIfUnreferenced(objectId)) objects++;
+        } catch (err) {
+          logger.warn({ err: (err as Error).message, objectId }, 'Failed to delete expired attachment');
+        }
+      }
+      if (ids.length < batchSize) break;
+    }
+
+    if (messages > 0) {
+      logger.info({ days, messages, objects }, 'Expired messages purged');
+      auditRepository.log({
+        action: 'message.retention_purge',
+        resource_type: 'message',
+        severity: 'info',
+        category: 'messages',
+        metadata: { retention_days: days, messages, objects },
+      }).catch((err: Error) => logger.warn({ err: err.message }, 'Failed to write audit log'));
+    }
+    return { messages, objects };
   }
 
   async delete(messageId: string, userId: string) {

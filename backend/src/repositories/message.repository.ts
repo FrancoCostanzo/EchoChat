@@ -1,7 +1,7 @@
 import { sql, type ExpressionBuilder } from 'kysely';
 import BaseRepository from './base.repository';
 import { upsert, insertIgnore } from '../config/db/upsert';
-import { now, json, bool } from '../config/db/sql';
+import { now, nowMinus, json, bool } from '../config/db/sql';
 import type { DB } from '../types/db';
 import { encrypt, decrypt, searchTokens, searchQueryTokens } from '../utils/crypto.util';
 import type { Row } from '../types/rows';
@@ -398,6 +398,58 @@ class MessageRepository extends BaseRepository<MessageRow> {
       .orderBy('sort_order')
       .execute();
     return rows.map((r) => r.object_id);
+  }
+
+  /**
+   * Mensajes enviados hace más de `days` días, para la retención. Deja afuera
+   * las raíces de hilo con respuestas más nuevas: el hilo entero se purga cuando
+   * vence su última respuesta.
+   */
+  async findExpiredIds(days: number, limit: number): Promise<string[]> {
+    const rows = await this.db.selectFrom('messages as m')
+      .select('m.id')
+      .where('m.sent_at', '<', nowMinus(days, 'days'))
+      .where((eb) => eb.not(eb.exists(
+        eb.selectFrom('messages as r').select('r.id')
+          .whereRef('r.thread_id', '=', 'm.id')
+          .where('r.sent_at', '>=', nowMinus(days, 'days')),
+      )))
+      .orderBy('m.sent_at')
+      .limit(limit)
+      .execute();
+    return rows.map((r) => r.id);
+  }
+
+  /**
+   * Borra físicamente los mensajes y todo lo que cuelga de ellos. Devuelve los
+   * storage objects que tenían adjuntos, para que el servicio borre los que
+   * quedaron sin referencias.
+   */
+  async purge(ids: string[]): Promise<string[]> {
+    if (ids.length === 0) return [];
+    return this.db.transaction().execute(async (trx) => {
+      const objects = await trx.selectFrom('message_attachments').select('object_id')
+        .where('message_id', 'in', ids).distinct().execute();
+
+      // Referencias sin ON DELETE: se sueltan antes de borrar.
+      for (const col of ['reply_to_id', 'forwarded_from_id', 'thread_id'] as const) {
+        await trx.updateTable('messages').set({ [col]: null }).where(col, 'in', ids).execute();
+      }
+      await trx.updateTable('drafts').set({ reply_to_id: null }).where('reply_to_id', 'in', ids).execute();
+      await trx.updateTable('conversations').set({ last_message_id: null }).where('last_message_id', 'in', ids).execute();
+      // En SQL Server estas FKs no tienen cascada (multiple cascade paths): a mano.
+      await trx.updateTable('scheduled_messages').set({ sent_message_id: null }).where('sent_message_id', 'in', ids).execute();
+      await trx.deleteFrom('pinned_messages').where('message_id', 'in', ids).execute();
+      await trx.deleteFrom('games').where('message_id', 'in', ids).execute();
+      await trx.deleteFrom('message_reminders').where('message_id', 'in', ids).execute();
+      await trx.deleteFrom('poll_votes')
+        .where('poll_id', 'in', (eb) => eb.selectFrom('polls').select('id').where('message_id', 'in', ids))
+        .execute();
+
+      // El resto (adjuntos, acuses, reacciones, ediciones, búsqueda, guardados, encuestas) cae en cascada.
+      await trx.deleteFrom('messages').where('id', 'in', ids).execute();
+      return objects.map((o) => o.object_id);
+    });
   }
 
   async deleteAttachments(messageId: string): Promise<void> {

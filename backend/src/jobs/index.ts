@@ -13,6 +13,7 @@ import awayExpiryJob from './awayExpiry.job';
 import scheduledMessagesJob from './scheduledMessages.job';
 import emailOutboxJob from './emailOutbox.job';
 import emailNoticesJob from './emailNotices.job';
+import messageRetentionJob from './messageRetention.job';
 
 /** Lo que cada archivo de job exporta. */
 export interface BackgroundJob {
@@ -33,6 +34,7 @@ const jobs: BackgroundJob[] = [
   scheduledMessagesJob,
   emailOutboxJob,
   emailNoticesJob,
+  messageRetentionJob,
 ];
 
 const tasks: ScheduledTask[] = [];
