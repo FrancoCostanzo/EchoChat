@@ -532,24 +532,19 @@ class MessageService {
       assertWithinWindow(message.sent_at, deleteWindow, 'delete');
     }
 
-    // Delete attachments from MinIO before soft-deleting the message
-    const attachmentObjects = await messageRepository.getAttachmentObjects(messageId);
-    for (const obj of attachmentObjects) {
-      try {
-        await storage.removeObject(obj.bucket_name, obj.object_key);
-      } catch (err) {
-        logger.warn({ err: (err as Error).message, objectKey: obj.object_key }, 'Failed to delete object from MinIO');
-      }
-      if (obj.thumbnail_bucket && obj.thumbnail_key) {
+    // Se sueltan los adjuntos y después se borra (bucket + fila) cada archivo que
+    // quedó sin uso. Un reenvío comparte el objeto y un sticker puede seguir en la
+    // colección de alguien: esos se conservan.
+    const objectIds = await messageRepository.getAttachmentObjectIds(messageId);
+    if (objectIds.length > 0) {
+      await messageRepository.deleteAttachments(messageId);
+      for (const objectId of objectIds) {
         try {
-          await storage.removeObject(obj.thumbnail_bucket, obj.thumbnail_key);
+          await storageService.deleteIfUnreferenced(objectId);
         } catch (err) {
-          logger.warn({ err: (err as Error).message }, 'Failed to delete thumbnail from MinIO');
+          logger.warn({ err: (err as Error).message, objectId }, 'Failed to delete attachment from storage');
         }
       }
-    }
-    if (attachmentObjects.length > 0) {
-      await messageRepository.deleteAttachments(messageId);
     }
 
     const deleted = await messageRepository.softDelete(messageId, userId);

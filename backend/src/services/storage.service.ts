@@ -121,6 +121,13 @@ class StorageService {
     if (!obj) throw new NotFoundError('Storage object');
 
     await storage.removeObject(obj.bucket_name, obj.object_key);
+    if (obj.thumbnail_bucket && obj.thumbnail_key) {
+      try {
+        await storage.removeObject(obj.thumbnail_bucket, obj.thumbnail_key);
+      } catch (err) {
+        logger.warn({ err: (err as Error).message, objectId }, 'Failed to delete thumbnail');
+      }
+    }
     await storageRepository.deleteById(objectId);
     logger.info({ objectId }, 'Storage object deleted');
   }

@@ -24,16 +24,6 @@ export interface ReceiptDetail {
   avatar_bucket: string | null;
 }
 
-/** Objeto adjunto que no está compartido con otro mensaje. */
-export interface ExclusiveAttachment {
-  bucket_name: string;
-  object_key: string;
-  thumbnail_bucket: string | null;
-  thumbnail_key: string | null;
-  attachment_id: string;
-  object_id: string;
-}
-
 /** Fila de adjunto para las pestañas Multimedia/Archivos del panel de detalle. */
 export interface ConversationAttachmentRow {
   id: string;
@@ -378,19 +368,6 @@ class MessageRepository extends BaseRepository<MessageRow> {
   // Returns only attachment objects that are NOT shared with another message
   // (e.g. forwarded copies reference the same object_id). Callers use this to
   // physically remove MinIO files without breaking the original message.
-  async getAttachmentObjects(messageId: string): Promise<ExclusiveAttachment[]> {
-    return this.db.selectFrom('message_attachments as ma')
-      .innerJoin('storage_objects as so', 'so.id', 'ma.object_id')
-      .select(['so.bucket_name', 'so.object_key', 'so.thumbnail_bucket', 'so.thumbnail_key', 'ma.id as attachment_id', 'so.id as object_id'])
-      .where('ma.message_id', '=', messageId)
-      .where((eb) => eb(
-        eb.selectFrom('message_attachments as ma2').select((s) => s.fn.countAll().as('n')).whereRef('ma2.object_id', '=', 'ma.object_id'),
-        '=',
-        1,
-      ))
-      .execute() as Promise<ExclusiveAttachment[]>;
-  }
-
   // Object ids attached to a message (used to clone attachments when forwarding)
   async getAttachmentObjectIds(messageId: string): Promise<string[]> {
     const rows = await this.db.selectFrom('message_attachments').select('object_id')
@@ -453,12 +430,9 @@ class MessageRepository extends BaseRepository<MessageRow> {
   }
 
   async deleteAttachments(messageId: string): Promise<void> {
+    // Sólo las filas de adjunto: qué storage objects quedan sin uso lo decide
+    // storageService.deleteIfUnreferenced, que mira todas las referencias.
     await this.db.deleteFrom('message_attachments').where('message_id', '=', messageId).execute();
-    // Mismo orden que antes: al correr, los adjuntos ya no están y la
-    // subconsulta no encuentra objetos (ver docs/MULTI_DB.md, hallazgos).
-    await this.db.deleteFrom('storage_objects')
-      .where('id', 'in', (eb) => eb.selectFrom('message_attachments').select('object_id').where('message_id', '=', messageId))
-      .execute();
   }
 
   async addAttachment(
