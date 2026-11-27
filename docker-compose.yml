@@ -139,6 +139,28 @@ services:
       # No relayar hacia redes privadas de la propia máquina (anti-SSRF).
       - "--denied-peer-ip=127.0.0.0-127.255.255.255"
 
+  # ── ClamAV: antivirus de las subidas (perfil: antivirus) ─────────────────
+  # El backend le manda cada archivo antes de guardarlo. En el .env:
+  # CLAMAV_HOST=clamav. La primera vez descarga las firmas (~1-2 min) y usa
+  # ~1-1,5 GB de RAM.
+  clamav:
+    image: clamav/clamav:1.4
+    container_name: echochat-clamav
+    profiles: ["antivirus"]
+    restart: unless-stopped
+    volumes:
+      - clamav_data:/var/lib/clamav
+    expose:
+      - "3310"
+    networks:
+      - echochat
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
 networks:
   echochat:
     driver: bridge
@@ -147,3 +169,4 @@ volumes:
   postgres_data:
   minio_data:
   redis_data:
+  clamav_data:

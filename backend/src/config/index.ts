@@ -115,6 +115,10 @@ interface AppConfig {
   appUrl: string;
   /** Servidores ICE para WebRTC. TURN con credenciales temporales (coturn `use-auth-secret`). */
   ice: { stunUrls: string[]; turnUrls: string[]; turnSecret: string; turnTtlSeconds: number };
+  /** Antivirus (clamd por TCP). Sin `host` el escaneo queda en 'skipped'. */
+  antivirus: { host: string; port: number; timeoutMs: number; required: boolean; maxBytes: number };
+  /** Vista previa de links: el backend pide la página para leer título, descripción e imagen. */
+  linkPreview: { enabled: boolean; allowPrivate: boolean; timeoutMs: number };
   cors: { origins: string[] };
   rateLimit: { windowMs: number; max: number; passwordResetMax: number };
   log: { level: string };
@@ -363,6 +367,15 @@ const config: AppConfig = {
     || parseCorsOrigins(process.env.CORS_ORIGIN).find((o) => o.startsWith('http'))
     || 'http://localhost:5173').replace(/\/$/, ''),
 
+  linkPreview: {
+    enabled: process.env.LINK_PREVIEW_ENABLED !== 'false',
+    // true = también links a IPs privadas (wikis o sistemas de la intranet). Deja
+    // que cualquier usuario haga que el backend pida URLs internas: sólo si la red
+    // interna no tiene servicios sin autenticar.
+    allowPrivate: process.env.LINK_PREVIEW_ALLOW_PRIVATE === 'true',
+    timeoutMs: num(process.env.LINK_PREVIEW_TIMEOUT_MS, 5000),
+  },
+
   ice: {
     // Sin ICE_STUN_URLS se usa el STUN público de Google, como antes. En una
     // intranet sin salida a internet conviene apuntarlo al propio coturn.
@@ -370,6 +383,17 @@ const config: AppConfig = {
     turnUrls: list(process.env.TURN_URLS),
     turnSecret: process.env.TURN_SECRET || '',
     turnTtlSeconds: num(process.env.TURN_TTL_SECONDS, 12 * 60 * 60),
+  },
+
+  antivirus: {
+    host: process.env.CLAMAV_HOST || '',
+    port: num(process.env.CLAMAV_PORT, 3310),
+    timeoutMs: num(process.env.CLAMAV_TIMEOUT_MS, 30000),
+    // true = si clamd no responde, la subida se rechaza en vez de guardarse sin escanear.
+    required: process.env.CLAMAV_REQUIRED === 'true',
+    // Igual al StreamMaxLength por defecto de clamd (25 MB): más grande, clamd corta
+    // el stream con error. Los archivos que lo superan quedan en 'skipped'.
+    maxBytes: num(process.env.CLAMAV_MAX_MB, 25) * 1024 * 1024,
   },
 
   cors: {

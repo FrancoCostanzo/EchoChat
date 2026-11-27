@@ -44,6 +44,8 @@ import ThreadPanel from '@/components/ThreadPanel';
 import GamePickerMenu from '@/components/GamePickerMenu';
 import MessageInfoModal from '@/components/MessageInfoModal';
 import CreatePollModal from '@/components/CreatePollModal';
+import ShareLocationModal, { type SharedLocation } from '@/components/ShareLocationModal';
+import ShareContactModal from '@/components/ShareContactModal';
 import CreateCodeModal from '@/components/CreateCodeModal';
 import WallpaperPicker from '@/components/WallpaperPicker';
 import FloatingComposer from '@/components/FloatingComposer';
@@ -64,6 +66,7 @@ import {
 } from '@/lib/messageWindow';
 import ConversationDetailPanel, { type DetailTab } from '@/components/ConversationDetailPanel';
 import { storageApi, stickerApi, messagesApi } from '@/lib/endpoints';
+import { ApiError } from '@/lib/api';
 import { EASE_OUT } from '@/lib/motion';
 import type { ChatMessage } from '@/stores/chatStore';
 import type { SendMessageRequest } from '@/types/message';
@@ -140,6 +143,8 @@ export default function ConversationPage() {
   const [sendingHi, setSendingHi] = useState(false);
   const sendPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showPollModal, setShowPollModal] = useState(false);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [showContactModal, setShowContactModal] = useState(false);
   // Which composer flyout is open — at most one at a time (attach menu, sticker/GIF, emoji).
   const [activePicker, setActivePicker] = useState<'file' | 'game' | 'sticker' | 'emoji' | null>(null);
   const [showCodeModal, setShowCodeModal] = useState(false);
@@ -342,10 +347,13 @@ export default function ConversationPage() {
       await sendMessage(msgData, user ?? undefined);
     } catch (err) {
       console.error('Upload failed:', err);
+      const malware = err instanceof ApiError
+        && (err.details as { code?: string } | undefined)?.code === 'MALWARE_DETECTED';
+      toast.danger(t(malware ? 'chat.uploadBlockedMalware' : 'chat.uploadFailed'));
     } finally {
       setSendingFile(false);
     }
-  }, [conversationId, sendMessage, user]);
+  }, [conversationId, sendMessage, user, t]);
 
   // Drag & drop / paste-to-attach. Reuses the single-file preview flow: the
   // first dropped or pasted file opens the FilePreviewBar with a caption.
@@ -717,6 +725,34 @@ export default function ConversationPage() {
         isOpen={!!infoTarget}
         message={infoTarget}
         onClose={() => setInfoTarget(null)}
+      />
+
+      <ShareLocationModal
+        isOpen={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+        onSend={(loc: SharedLocation) => {
+          if (!conversationId) return;
+          void sendMessage({
+            conversation_id: conversationId,
+            type: 'location',
+            body: loc.label || `${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)}`,
+            metadata: { lat: loc.lat, lng: loc.lng, label: loc.label },
+          }, user ?? undefined);
+        }}
+      />
+
+      <ShareContactModal
+        isOpen={showContactModal}
+        onClose={() => setShowContactModal(false)}
+        onSend={(contact) => {
+          if (!conversationId) return;
+          void sendMessage({
+            conversation_id: conversationId,
+            type: 'contact',
+            body: contact.display_name || contact.username,
+            metadata: { user_id: contact.id },
+          }, user ?? undefined);
+        }}
       />
 
       {/* Create poll modal */}
@@ -1206,6 +1242,8 @@ export default function ConversationPage() {
               onPick={handleFilePick}
               onSchedule={() => setShowScheduleModal(true)}
               onPoll={() => setShowPollModal(true)}
+              onLocation={() => setShowLocationModal(true)}
+              onContact={() => setShowContactModal(true)}
               onCode={() => {
                 setCodeModalInitial({ body: '', language: 'plaintext' });
                 setShowCodeModal(true);

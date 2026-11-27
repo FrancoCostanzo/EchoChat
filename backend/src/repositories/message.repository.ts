@@ -1,7 +1,7 @@
 import { sql, type ExpressionBuilder } from 'kysely';
 import BaseRepository from './base.repository';
 import { upsert, insertIgnore } from '../config/db/upsert';
-import { now, json, bool } from '../config/db/sql';
+import { now, nowMinus, json, bool } from '../config/db/sql';
 import type { DB } from '../types/db';
 import { encrypt, decrypt, searchTokens, searchQueryTokens } from '../utils/crypto.util';
 import type { Row } from '../types/rows';
@@ -22,16 +22,6 @@ export interface ReceiptDetail {
   username: string;
   avatar_object_key: string | null;
   avatar_bucket: string | null;
-}
-
-/** Objeto adjunto que no está compartido con otro mensaje. */
-export interface ExclusiveAttachment {
-  bucket_name: string;
-  object_key: string;
-  thumbnail_bucket: string | null;
-  thumbnail_key: string | null;
-  attachment_id: string;
-  object_id: string;
 }
 
 /** Fila de adjunto para las pestañas Multimedia/Archivos del panel de detalle. */
@@ -71,6 +61,14 @@ function decryptRow<T extends Record<string, any> | null | undefined>(row: T): T
   if ('body' in r) r.body = decrypt(r.body);
   if ('reply_to_body' in r) r.reply_to_body = decrypt(r.reply_to_body);
   if ('saved_note' in r) r.saved_note = decrypt(r.saved_note);
+  // La vista previa trae la URL y el título de la página: se cifra como el cuerpo.
+  if (r.link_preview && typeof r.link_preview.enc === 'string') {
+    try {
+      r.link_preview = JSON.parse(decrypt(r.link_preview.enc) ?? 'null');
+    } catch {
+      r.link_preview = null;
+    }
+  }
   return row;
 }
 
@@ -378,19 +376,6 @@ class MessageRepository extends BaseRepository<MessageRow> {
   // Returns only attachment objects that are NOT shared with another message
   // (e.g. forwarded copies reference the same object_id). Callers use this to
   // physically remove MinIO files without breaking the original message.
-  async getAttachmentObjects(messageId: string): Promise<ExclusiveAttachment[]> {
-    return this.db.selectFrom('message_attachments as ma')
-      .innerJoin('storage_objects as so', 'so.id', 'ma.object_id')
-      .select(['so.bucket_name', 'so.object_key', 'so.thumbnail_bucket', 'so.thumbnail_key', 'ma.id as attachment_id', 'so.id as object_id'])
-      .where('ma.message_id', '=', messageId)
-      .where((eb) => eb(
-        eb.selectFrom('message_attachments as ma2').select((s) => s.fn.countAll().as('n')).whereRef('ma2.object_id', '=', 'ma.object_id'),
-        '=',
-        1,
-      ))
-      .execute() as Promise<ExclusiveAttachment[]>;
-  }
-
   // Object ids attached to a message (used to clone attachments when forwarding)
   async getAttachmentObjectIds(messageId: string): Promise<string[]> {
     const rows = await this.db.selectFrom('message_attachments').select('object_id')
@@ -400,13 +385,70 @@ class MessageRepository extends BaseRepository<MessageRow> {
     return rows.map((r) => r.object_id);
   }
 
-  async deleteAttachments(messageId: string): Promise<void> {
-    await this.db.deleteFrom('message_attachments').where('message_id', '=', messageId).execute();
-    // Mismo orden que antes: al correr, los adjuntos ya no están y la
-    // subconsulta no encuentra objetos (ver docs/MULTI_DB.md, hallazgos).
-    await this.db.deleteFrom('storage_objects')
-      .where('id', 'in', (eb) => eb.selectFrom('message_attachments').select('object_id').where('message_id', '=', messageId))
+  /**
+   * Mensajes enviados hace más de `days` días, para la retención. Deja afuera
+   * las raíces de hilo con respuestas más nuevas: el hilo entero se purga cuando
+   * vence su última respuesta.
+   */
+  async findExpiredIds(days: number, limit: number): Promise<string[]> {
+    const rows = await this.db.selectFrom('messages as m')
+      .select('m.id')
+      .where('m.sent_at', '<', nowMinus(days, 'days'))
+      .where((eb) => eb.not(eb.exists(
+        eb.selectFrom('messages as r').select('r.id')
+          .whereRef('r.thread_id', '=', 'm.id')
+          .where('r.sent_at', '>=', nowMinus(days, 'days')),
+      )))
+      .orderBy('m.sent_at')
+      .limit(limit)
       .execute();
+    return rows.map((r) => r.id);
+  }
+
+  /**
+   * Borra físicamente los mensajes y todo lo que cuelga de ellos. Devuelve los
+   * storage objects que tenían adjuntos, para que el servicio borre los que
+   * quedaron sin referencias.
+   */
+  async purge(ids: string[]): Promise<string[]> {
+    if (ids.length === 0) return [];
+    return this.db.transaction().execute(async (trx) => {
+      const objects = await trx.selectFrom('message_attachments').select('object_id')
+        .where('message_id', 'in', ids).distinct().execute();
+
+      // Referencias sin ON DELETE: se sueltan antes de borrar.
+      for (const col of ['reply_to_id', 'forwarded_from_id', 'thread_id'] as const) {
+        await trx.updateTable('messages').set({ [col]: null }).where(col, 'in', ids).execute();
+      }
+      await trx.updateTable('drafts').set({ reply_to_id: null }).where('reply_to_id', 'in', ids).execute();
+      await trx.updateTable('conversations').set({ last_message_id: null }).where('last_message_id', 'in', ids).execute();
+      // En SQL Server estas FKs no tienen cascada (multiple cascade paths): a mano.
+      await trx.updateTable('scheduled_messages').set({ sent_message_id: null }).where('sent_message_id', 'in', ids).execute();
+      await trx.deleteFrom('pinned_messages').where('message_id', 'in', ids).execute();
+      await trx.deleteFrom('games').where('message_id', 'in', ids).execute();
+      await trx.deleteFrom('message_reminders').where('message_id', 'in', ids).execute();
+      await trx.deleteFrom('poll_votes')
+        .where('poll_id', 'in', (eb) => eb.selectFrom('polls').select('id').where('message_id', 'in', ids))
+        .execute();
+
+      // El resto (adjuntos, acuses, reacciones, ediciones, búsqueda, guardados, encuestas) cae en cascada.
+      await trx.deleteFrom('messages').where('id', 'in', ids).execute();
+      return objects.map((o) => o.object_id);
+    });
+  }
+
+  /** Guarda (o borra, con null) la vista previa del link, cifrada como el cuerpo. */
+  async setLinkPreview(id: string, preview: unknown | null): Promise<void> {
+    await this.db.updateTable('messages')
+      .set({ link_preview: preview == null ? null : json({ enc: encrypt(JSON.stringify(preview)) }) })
+      .where('id', '=', id)
+      .execute();
+  }
+
+  async deleteAttachments(messageId: string): Promise<void> {
+    // Sólo las filas de adjunto: qué storage objects quedan sin uso lo decide
+    // storageService.deleteIfUnreferenced, que mira todas las referencias.
+    await this.db.deleteFrom('message_attachments').where('message_id', '=', messageId).execute();
   }
 
   async addAttachment(

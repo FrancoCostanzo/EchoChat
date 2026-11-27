@@ -14,6 +14,8 @@ import {
   pushSubscriptionRepository,
 } from '../repositories';
 import notificationService from './notification.service';
+import storageService from './storage.service';
+import linkPreviewService, { firstUrl } from './linkPreview.service';
 import { NotFoundError, ForbiddenError, BadRequestError } from '../errors';
 import { toMessageResponse, toSavedMessageResponse, toDraftResponse, toPollResponse, toGameResponse } from '../models';
 import { resolveBodyFormat } from '../utils/markdown.util';
@@ -109,6 +111,20 @@ class MessageService {
       if (root.thread_id) data.thread_id = root.thread_id;
     }
 
+    if (data.type === 'contact') {
+      const contactId = (data.metadata as { user_id?: string } | undefined)?.user_id;
+      const contact = contactId ? await userRepository.findById(contactId) : null;
+      if (!contact || contact.status === 'deleted') throw new BadRequestError('Contact not found');
+      // El cuerpo es el nombre: lo muestran la lista de chats y la búsqueda.
+      data.body = contact.display_name || contact.username;
+      data.body_format = 'plain';
+    }
+    if (data.type === 'location') {
+      const { lat, lng, label } = data.metadata as { lat: number; lng: number; label?: string | null };
+      data.body = label || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      data.body_format = 'plain';
+    }
+
     if (data.type === 'code') {
       data.body_format = 'plain';
       const lang = (data.metadata as any)?.language || 'plaintext';
@@ -166,6 +182,7 @@ class MessageService {
       void this._pushNuevoMensaje(response, menciones, userId);
     }
     void this._autoResponderAusencia(response, userId);
+    void linkPreviewService.attach(response);
     return response;
   }
 
@@ -451,10 +468,15 @@ class MessageService {
       (message.metadata ?? {}) as Record<string, unknown>;
     const metadata = menciones.length ? { ...metadataLimpia, mentions: menciones } : metadataLimpia;
 
+    // Si cambió el link, la vista previa vieja ya no corresponde: se recalcula.
+    const linkChanged = firstUrl(message.body) !== firstUrl(body);
+    if (linkChanged) await messageRepository.setLinkPreview(messageId, null);
+
     const updated = await messageRepository.updateBody(messageId, body, userId, format, metadata);
     logger.info({ messageId }, 'Message edited');
 
     const response = toMessageResponse(updated);
+    if (linkChanged && response) void linkPreviewService.attach(response);
     try {
       toConversation(message.conversation_id, 'message:edited', response);
     } catch (err) {
@@ -466,6 +488,46 @@ class MessageService {
       void this._notificarMenciones(response, nuevas, userId);
     }
     return response;
+  }
+
+  /**
+   * Retención (`message_retention_days`): borra físicamente los mensajes más
+   * viejos que el límite y los adjuntos que quedan sin uso. 0 = sin límite.
+   * Va por tandas para no tomar locks largos; lo que no entra en esta corrida
+   * sale en la siguiente.
+   */
+  async purgeExpired({ batchSize = 500, maxBatches = 20 } = {}): Promise<{ messages: number; objects: number }> {
+    const days = await getWindowMinutes('message_retention_days', 0);
+    if (days === 0) return { messages: 0, objects: 0 };
+
+    let messages = 0;
+    let objects = 0;
+    for (let i = 0; i < maxBatches; i++) {
+      const ids = await messageRepository.findExpiredIds(days, batchSize);
+      if (ids.length === 0) break;
+      const objectIds = await messageRepository.purge(ids);
+      messages += ids.length;
+      for (const objectId of objectIds) {
+        try {
+          if (await storageService.deleteIfUnreferenced(objectId)) objects++;
+        } catch (err) {
+          logger.warn({ err: (err as Error).message, objectId }, 'Failed to delete expired attachment');
+        }
+      }
+      if (ids.length < batchSize) break;
+    }
+
+    if (messages > 0) {
+      logger.info({ days, messages, objects }, 'Expired messages purged');
+      auditRepository.log({
+        action: 'message.retention_purge',
+        resource_type: 'message',
+        severity: 'info',
+        category: 'messages',
+        metadata: { retention_days: days, messages, objects },
+      }).catch((err: Error) => logger.warn({ err: err.message }, 'Failed to write audit log'));
+    }
+    return { messages, objects };
   }
 
   async delete(messageId: string, userId: string) {
@@ -491,24 +553,19 @@ class MessageService {
       assertWithinWindow(message.sent_at, deleteWindow, 'delete');
     }
 
-    // Delete attachments from MinIO before soft-deleting the message
-    const attachmentObjects = await messageRepository.getAttachmentObjects(messageId);
-    for (const obj of attachmentObjects) {
-      try {
-        await storage.removeObject(obj.bucket_name, obj.object_key);
-      } catch (err) {
-        logger.warn({ err: (err as Error).message, objectKey: obj.object_key }, 'Failed to delete object from MinIO');
-      }
-      if (obj.thumbnail_bucket && obj.thumbnail_key) {
+    // Se sueltan los adjuntos y después se borra (bucket + fila) cada archivo que
+    // quedó sin uso. Un reenvío comparte el objeto y un sticker puede seguir en la
+    // colección de alguien: esos se conservan.
+    const objectIds = await messageRepository.getAttachmentObjectIds(messageId);
+    if (objectIds.length > 0) {
+      await messageRepository.deleteAttachments(messageId);
+      for (const objectId of objectIds) {
         try {
-          await storage.removeObject(obj.thumbnail_bucket, obj.thumbnail_key);
+          await storageService.deleteIfUnreferenced(objectId);
         } catch (err) {
-          logger.warn({ err: (err as Error).message }, 'Failed to delete thumbnail from MinIO');
+          logger.warn({ err: (err as Error).message, objectId }, 'Failed to delete attachment from storage');
         }
       }
-    }
-    if (attachmentObjects.length > 0) {
-      await messageRepository.deleteAttachments(messageId);
     }
 
     const deleted = await messageRepository.softDelete(messageId, userId);

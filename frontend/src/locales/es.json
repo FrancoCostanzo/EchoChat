@@ -220,6 +220,8 @@
     "retrySend": "Reintentar",
     "sendError": "Error al enviar",
     "uploadingFile": "Subiendo archivo...",
+    "uploadBlockedMalware": "Se bloqueó el archivo: el antivirus detectó contenido malicioso",
+    "uploadFailed": "No se pudo enviar el archivo",
     "attachImage": "Imagen",
     "attachVideo": "Video",
     "attachDocument": "Documento",
@@ -1387,5 +1389,29 @@
     "done": "Listo: dejamos de mandarte emails de avisos y resúmenes. Las alertas de seguridad siguen llegando.",
     "error": "El link no es válido o ya venció. Podés cambiar tus preferencias desde la configuración.",
     "manage": "Configurar notificaciones"
+  },
+  "location": {
+    "share": "Compartir ubicación",
+    "title": "Compartir ubicación",
+    "hint": "Se va a usar la ubicación de este dispositivo. El navegador te va a pedir permiso.",
+    "useMine": "Usar mi ubicación",
+    "retry": "Volver a ubicar",
+    "label": "Nombre del lugar (opcional)",
+    "labelPlaceholder": "Ej.: Oficina central, sala 3",
+    "send": "Enviar ubicación",
+    "openInMap": "Abrir en el mapa",
+    "error": {
+      "denied": "No diste permiso para usar tu ubicación. Habilitalo en la configuración del navegador.",
+      "unavailable": "No se pudo obtener la ubicación. Probá de nuevo.",
+      "unsupported": "Este navegador no permite obtener la ubicación."
+    }
+  },
+  "contactShare": {
+    "share": "Compartir contacto",
+    "title": "Compartir contacto",
+    "searchPlaceholder": "Buscar por nombre o usuario",
+    "noResults": "No se encontró a nadie",
+    "message": "Enviar mensaje",
+    "unknown": "Contacto"
   }
 }

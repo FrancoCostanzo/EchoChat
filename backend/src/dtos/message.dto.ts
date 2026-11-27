@@ -40,7 +40,24 @@ export const sendMessageDto = Joi.object<SendMessageRequest>({
   thread_id: Joi.string().uuid().allow(null),
   forwarded_from_id: Joi.string().uuid().allow(null),
   attachment_ids: Joi.array().items(Joi.string().uuid()).default([]),
-  metadata: Joi.object().default({}),
+  metadata: Joi.when('type', {
+    switch: [
+      {
+        is: 'location',
+        then: Joi.object({
+          lat: Joi.number().min(-90).max(90).required(),
+          lng: Joi.number().min(-180).max(180).required(),
+          label: Joi.string().trim().max(200).allow('', null),
+        }).required(),
+      },
+      {
+        // Sólo la referencia: los datos del contacto se leen del usuario al mostrarlo.
+        is: 'contact',
+        then: Joi.object({ user_id: Joi.string().uuid().required() }).required(),
+      },
+    ],
+    otherwise: Joi.object().default({}),
+  }),
 });
 
 export interface UpdateMessageRequest {

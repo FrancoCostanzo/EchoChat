@@ -115,7 +115,8 @@ un CTE con `DELETE … USING`, los `ORDER BY (status = 'pending')` pasan a `CASE
 
 **Hallazgos de la etapa 2 (no corregidos, mismo comportamiento que antes):**
 - `message.deleteAttachments` borra los adjuntos y *después* busca en esa misma tabla qué
-  `storage_objects` borrar, así que nunca borra ninguno.
+  `storage_objects` borrar, así que nunca borra ninguno. **Corregido:** el servicio borra cada objeto que
+  queda sin referencias con `storageService.deleteIfUnreferenced`.
 - `user.disableLdapUsersNotIn` manda todos los ids del directorio en un parámetro array; en SQL
   Server (límite de 2100 parámetros) hay que resolverlo con una tabla temporal.
 - El test `fijar y dejar de fijar` fallaba desde antes de empezar: leía `/pinned` como lista y el

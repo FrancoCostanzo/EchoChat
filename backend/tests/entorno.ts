@@ -26,6 +26,10 @@ process.env.REDIS_URL = '';
 // Los jobs cron no aportan nada acá y ensucian la salida.
 process.env.RUN_JOBS = 'false';
 
+// Sin vista previa de links: muchos tests mandan URLs y no queremos salir a la
+// red. linkPreview.test.ts la prende contra un servidor local.
+process.env.LINK_PREVIEW_ENABLED = 'false';
+
 process.env.ADMIN_USERNAME = 'admin';
 process.env.ADMIN_PASSWORD = 'Admin1234!';
 process.env.LOG_LEVEL = process.env.TEST_LOG_LEVEL || 'silent';

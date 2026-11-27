@@ -49,4 +49,10 @@ export interface MessageMetadata extends CallEventMetadata {
   broadcast_msg_id?: string;
   broadcast_list_id?: string;
   broadcast_list_name?: string;
+  /** Mensaje de ubicación. */
+  lat?: number;
+  lng?: number;
+  label?: string | null;
+  /** Mensaje de contacto: sólo la referencia al usuario. */
+  user_id?: string;
 }

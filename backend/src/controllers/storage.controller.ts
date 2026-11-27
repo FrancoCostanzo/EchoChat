@@ -22,13 +22,11 @@ class StorageController {
   }
 
   async getPresignedUrl(req: AuthRequest, res: Response) {
-    const url = await storageService.getPresignedUrl(req.params.objectId, req.user.id);
+    // ?variant=thumbnail → miniatura (o el original si no tiene), para el chat.
+    const url = req.query.variant === 'thumbnail'
+      ? await storageService.getThumbnailUrl(req.params.objectId, req.user.id)
+      : await storageService.getPresignedUrl(req.params.objectId, req.user.id);
     res.json({ status: 'success', data: { url } });
-  }
-
-  async getUploadUrl(req: AuthRequest, res: Response) {
-    const result = await storageService.getUploadPresignedUrl(req.user.id, req.body);
-    res.json({ status: 'success', data: result });
   }
 
   async getById(req: AuthRequest, res: Response) {

@@ -27,7 +27,8 @@ class StorageRepository extends BaseRepository<StorageRow> {
 
   async create(
     { uploader_id, bucket_name, object_key, original_filename, mime_type, file_size_bytes,
-      file_hash_sha256, object_type, image_width, image_height, duration_ms }: {
+      file_hash_sha256, object_type, image_width, image_height, duration_ms,
+      virus_scan_status, exif_stripped, thumbnail_key, processing_status, processing_error }: {
       uploader_id: string | null;
       bucket_name: string;
       object_key: string;
@@ -39,6 +40,11 @@ class StorageRepository extends BaseRepository<StorageRow> {
       image_width?: number | null;
       image_height?: number | null;
       duration_ms?: number | null;
+      virus_scan_status?: string;
+      exif_stripped?: boolean;
+      thumbnail_key?: string | null;
+      processing_status?: 'ready' | 'failed';
+      processing_error?: string | null;
     },
   ): Promise<StorageRow> {
     const row = await this.db.insertInto('storage_objects')
@@ -54,6 +60,18 @@ class StorageRepository extends BaseRepository<StorageRow> {
         image_width: image_width || null,
         image_height: image_height || null,
         duration_ms: duration_ms || null,
+        ...(virus_scan_status && {
+          virus_scan_status,
+          // 'skipped' no es un escaneo: no tiene fecha.
+          virus_scanned_at: virus_scan_status === 'skipped' ? null : now(),
+        }),
+        ...(exif_stripped !== undefined && { exif_stripped }),
+        ...(thumbnail_key && { thumbnail_key }),
+        ...(processing_status && {
+          processing_status,
+          processing_error: processing_error ?? null,
+          processed_at: now(),
+        }),
       })
       .returningAll()
       .executeTakeFirstOrThrow();
@@ -63,6 +81,29 @@ class StorageRepository extends BaseRepository<StorageRow> {
   async findByHash(hash: string): Promise<StorageRow | null> {
     const row = await this.db.selectFrom('storage_objects').selectAll()
       .where('file_hash_sha256', '=', hash)
+      .limit(1)
+      .executeTakeFirst();
+    return (row as StorageRow | undefined) ?? null;
+  }
+
+  /**
+   * Subida anterior idéntica del mismo usuario (mismo contenido, nombre y tipo),
+   * para reusar el objeto en vez de guardar otra copia. Se limita al mismo
+   * uploader y nombre: el nombre del archivo se muestra en el chat, y reusar el
+   * objeto de otro usuario dejaría ver el nombre que eligió.
+   */
+  async findReusable(
+    { hash, uploaderId, filename, mimeType, objectType }: {
+      hash: string; uploaderId: string; filename: string; mimeType: string; objectType: string;
+    },
+  ): Promise<StorageRow | null> {
+    const row = await this.db.selectFrom('storage_objects').selectAll()
+      .where('file_hash_sha256', '=', hash)
+      .where('uploader_id', '=', uploaderId)
+      .where('original_filename', '=', filename)
+      .where('mime_type', '=', mimeType)
+      .where('object_type', '=', objectType)
+      .orderBy('uploaded_at', 'desc')
       .limit(1)
       .executeTakeFirst();
     return (row as StorageRow | undefined) ?? null;
