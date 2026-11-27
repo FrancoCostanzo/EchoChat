@@ -1389,5 +1389,29 @@
     "done": "Done: we stopped sending you notification and summary emails. Security alerts still arrive.",
     "error": "The link is invalid or has expired. You can change your preferences in settings.",
     "manage": "Notification settings"
+  },
+  "location": {
+    "share": "Share location",
+    "title": "Share location",
+    "hint": "This device's location will be used. Your browser will ask for permission.",
+    "useMine": "Use my location",
+    "retry": "Locate again",
+    "label": "Place name (optional)",
+    "labelPlaceholder": "E.g. Head office, room 3",
+    "send": "Send location",
+    "openInMap": "Open in map",
+    "error": {
+      "denied": "You did not allow access to your location. Enable it in your browser settings.",
+      "unavailable": "Could not get your location. Try again.",
+      "unsupported": "This browser cannot get your location."
+    }
+  },
+  "contactShare": {
+    "share": "Share contact",
+    "title": "Share contact",
+    "searchPlaceholder": "Search by name or username",
+    "noResults": "No one found",
+    "message": "Send message",
+    "unknown": "Contact"
   }
 }

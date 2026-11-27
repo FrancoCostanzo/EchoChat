@@ -36,6 +36,8 @@ import type { AuthenticatedUser } from '@/types/user';
 import type { MessageMetadata } from '@/components/conversation/shared';
 import AttachmentView, { StickerImage } from '@/components/conversation/AttachmentView';
 import LinkPreviewCard from '@/components/conversation/LinkPreviewCard';
+import LocationMessage from '@/components/conversation/LocationMessage';
+import ContactCard from '@/components/conversation/ContactCard';
 import CallEventRow from '@/components/conversation/CallEventRow';
 
 function ReactionPill({
@@ -351,8 +353,21 @@ const MessageRow = memo(function MessageRow({ message, isOwn, isDirect, isFirstI
                 </span>
               )}
 
+              {/* Ubicación / contacto compartido */}
+              {message.type === 'location' && typeof meta?.lat === 'number' && typeof meta?.lng === 'number' && (
+                <LocationMessage lat={meta.lat} lng={meta.lng} label={meta.label} variant={isOwn ? 'own' : 'other'} />
+              )}
+              {message.type === 'contact' && typeof meta?.user_id === 'string' && (
+                <ContactCard
+                  userId={meta.user_id}
+                  fallbackName={message.body}
+                  currentUserId={currentUserId}
+                  variant={isOwn ? 'own' : 'other'}
+                />
+              )}
+
               {/* Body */}
-              {message.type !== 'media' && message.type !== 'poll' && message.type !== 'code' && message.type !== 'sticker' && message.type !== 'game' && message.body && (
+              {message.type !== 'media' && message.type !== 'poll' && message.type !== 'code' && message.type !== 'sticker' && message.type !== 'game' && message.type !== 'location' && message.type !== 'contact' && message.body && (
                 <MessageBody
                   body={message.body}
                   bodyFormat={message.body_format ?? undefined}

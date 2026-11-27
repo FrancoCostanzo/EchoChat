@@ -211,7 +211,7 @@ class UserService {
   async getUserById(id: string) {
     const user = await userRepository.findById(id);
     if (!user) throw new NotFoundError('User');
-    return toUserResponse(user);
+    return withAvatarUrl(toUserResponse(user));
   }
 }
 

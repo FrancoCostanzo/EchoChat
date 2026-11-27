@@ -1389,5 +1389,29 @@
     "done": "Pronto: paramos de enviar emails de avisos e resumos. Os alertas de segurança continuam chegando.",
     "error": "O link é inválido ou expirou. Você pode alterar suas preferências nas configurações.",
     "manage": "Configurar notificações"
+  },
+  "location": {
+    "share": "Compartilhar localização",
+    "title": "Compartilhar localização",
+    "hint": "Será usada a localização deste dispositivo. O navegador vai pedir permissão.",
+    "useMine": "Usar minha localização",
+    "retry": "Localizar de novo",
+    "label": "Nome do lugar (opcional)",
+    "labelPlaceholder": "Ex.: Escritório central, sala 3",
+    "send": "Enviar localização",
+    "openInMap": "Abrir no mapa",
+    "error": {
+      "denied": "Você não permitiu o acesso à sua localização. Ative nas configurações do navegador.",
+      "unavailable": "Não foi possível obter a localização. Tente de novo.",
+      "unsupported": "Este navegador não consegue obter a localização."
+    }
+  },
+  "contactShare": {
+    "share": "Compartilhar contato",
+    "title": "Compartilhar contato",
+    "searchPlaceholder": "Buscar por nome ou usuário",
+    "noResults": "Ninguém encontrado",
+    "message": "Enviar mensagem",
+    "unknown": "Contato"
   }
 }

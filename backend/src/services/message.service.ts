@@ -111,6 +111,20 @@ class MessageService {
       if (root.thread_id) data.thread_id = root.thread_id;
     }
 
+    if (data.type === 'contact') {
+      const contactId = (data.metadata as { user_id?: string } | undefined)?.user_id;
+      const contact = contactId ? await userRepository.findById(contactId) : null;
+      if (!contact || contact.status === 'deleted') throw new BadRequestError('Contact not found');
+      // El cuerpo es el nombre: lo muestran la lista de chats y la búsqueda.
+      data.body = contact.display_name || contact.username;
+      data.body_format = 'plain';
+    }
+    if (data.type === 'location') {
+      const { lat, lng, label } = data.metadata as { lat: number; lng: number; label?: string | null };
+      data.body = label || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      data.body_format = 'plain';
+    }
+
     if (data.type === 'code') {
       data.body_format = 'plain';
       const lang = (data.metadata as any)?.language || 'plaintext';

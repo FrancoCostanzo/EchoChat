@@ -11,6 +11,8 @@ import {
   FileText,
   BarChart3,
   Code2,
+  MapPin,
+  Contact,
   type LucideIcon,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -29,6 +31,8 @@ export default function FilePickerMenu({
   onPoll,
   onCode,
   onSchedule,
+  onLocation,
+  onContact,
   disabled,
   uploading,
   open,
@@ -38,6 +42,8 @@ export default function FilePickerMenu({
   onPoll?: () => void;
   onCode?: () => void;
   onSchedule?: () => void;
+  onLocation?: () => void;
+  onContact?: () => void;
   disabled?: boolean;
   uploading?: boolean;
   open: boolean;
@@ -67,6 +73,8 @@ export default function FilePickerMenu({
     ...FILE_ITEMS,
     ...(onCode ? [{ icon: Code2, label: t('code.sendTitle'), action: onCode }] : []),
     ...(onPoll ? [{ icon: BarChart3, label: t('poll.create'), action: onPoll }] : []),
+    ...(onLocation ? [{ icon: MapPin, label: t('location.share'), action: onLocation }] : []),
+    ...(onContact ? [{ icon: Contact, label: t('contactShare.share'), action: onContact }] : []),
     ...(onSchedule ? [{ icon: CalendarClock, label: t('schedule.action'), action: onSchedule }] : []),
   ];
 
