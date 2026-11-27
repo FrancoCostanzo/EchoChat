@@ -206,7 +206,8 @@ Resolución de preferencias de lo más específico a lo más general:
   hay fecha futura.
 - **3.3 Tracking** ✅ base — `dispatchMessage` entrega por DM 1:1, registra
   `broadcast_deliveries`, actualiza `total_recipients`/`total_delivered` y notifica
-  in-app. Pendiente: sincronizar `total_read` desde read receipts.
+  in-app. Los acuses de lectura/entrega de los DMs actualizan `broadcast_deliveries` y
+  `total_read`/`total_delivered` (`broadcastService.syncFromMessageReceipt`, por socket y REST).
 - **3.4 UI** ✅ base — `BroadcastsPage` (`/broadcasts`): crear listas, gestionar
   destinatarios, redactar, programar o enviar ya, historial con estado y métricas;
   acceso en GuildRail y Command Palette; i18n es/en/pt.
@@ -371,7 +372,7 @@ Resolución de preferencias de lo más específico a lo más general:
 | 8.A | Motor de renderizado + composer rico | 🟡 En progreso (8.1–8.3 ✅) |
 | 8.B | Menciones y enlaces enriquecidos | ⬜ |
 | 8.C | Tipos de mensaje especiales | ⬜ |
-| 8.D | Jobs y métricas pendientes | ⬜ |
+| 8.D | Jobs y métricas pendientes | ✅ |
 
 Orden recomendado dentro de la fase:
 ```
@@ -390,7 +391,7 @@ Orden recomendado dentro de la fase:
 | 8.6 | **Mensajes de ubicación** (tipo `location` + mapa estático). | S (1-2d) | — | ⬜ |
 | 8.7 | **Mensajes de contacto** (tipo `contact` + tarjeta vCard). | S (1-2d) | — | ⬜ |
 | 8.8 | **Retención de mensajes** (`message_retention_days` + job). | S (1-2d) | 0.3 | ✅ |
-| 8.9 | **Sincronizar `total_read`** en broadcasts desde read receipts. | S (1d) | 3.3 | ⬜ |
+| 8.9 | **Sincronizar `total_read`** en broadcasts desde read receipts. | S (1d) | 3.3 | ✅ |
 
 ### Detalle de lo implementado en Fase 8 (parcial)
 
